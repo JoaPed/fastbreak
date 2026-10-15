@@ -263,8 +263,13 @@ create policy summaries_write on public.summaries for insert to authenticated wi
 drop policy if exists summaries_update on public.summaries;
 create policy summaries_update on public.summaries for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid() and public.is_member());
 
--- Permissões base: só utilizadores com sessão; visitantes anónimos não leem nada
+-- Permissões base: só utilizadores com sessão; visitantes anónimos não leem nada.
+-- As tarefas automáticas (chave secreta = papel service_role) precisam de acesso total às tabelas.
+grant usage on schema public to authenticated, service_role;
 revoke all on all tables in schema public from anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+grant execute on all functions in schema public to service_role;
 revoke all on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status() from anon, public;
 grant execute on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.is_member(), public.is_admin() to authenticated;

@@ -9,7 +9,7 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
 
 | Tarefa | Quando (UTC) | O quê |
 |---|---|---|
-| Calendário e médias NBA | 09:17 todos os dias | Jogos de cada dia das runs e médias dos jogadores, a partir dos box scores oficiais (cdn.nba.com) |
+| Calendário e médias NBA | 09:17 todos os dias | Jogos de cada dia das runs (cdn.nba.com); plantéis atuais e médias da época passada (ESPN); médias desta época a partir dos box scores oficiais (cdn.nba.com) |
 | Odds dos jogadores | 15:07 e 21:37 | Linhas de mais/menos da estatística do objetivo de cada dia (The Odds API) |
 | Fast Break na blockchain | de 30 em 30 min | Runs, dias, objetivos e resultados de cada membro (contrato FastBreakV1 na Flow) |
 | Carregar dados manuais | quando muda `data/seed/` | Dados escritos à mão (por exemplo, odds coladas) |
@@ -29,7 +29,7 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
    - `SUPABASE_SERVICE_KEY`: a chave **service_role** (ou **secret**) do Supabase. Nunca a ponhas no código.
    - `ODDS_API_KEY`: a chave grátis de the-odds-api.com.
 3. **Actions**: corre à mão, por esta ordem:
-   - **Médias da época passada (correr uma vez)**, com `2025-26`;
+   - **Médias da época passada (correr uma vez)**, com `2025-26` (vem da ESPN; a tarefa diária também o faz sozinha no início de cada época);
    - **Calendário e médias NBA**;
    - **Fast Break na blockchain**, com `backfill` = `300000` na primeira vez (lê cerca de 3,5 dias para trás).
 

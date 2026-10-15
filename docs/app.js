@@ -793,6 +793,7 @@ async function liveFetch() {
   sub.forEach(id => { const team = (S.result.model.players[S.result.model.pIndex.get(id)] || {}).team; const g = FB.gameOf(nd, team); if (g && g[3]) gameIds.add(g[3]); });
   if (!gameIds.size) { toast('Sem identificador de jogo no calendário. Mete os valores à mão.'); return; }
   const players = {}; let ok = 0;
+  const byName = new Map(sub.map(id => [norm(nameOf(id)), id]));
   await Promise.all([...gameIds].map(async gid => {
     try {
       const res = await fetch('https://cdn.nba.com/static/json/liveData/boxscore/boxscore_' + gid + '.json', { cache: 'no-store' });
@@ -800,7 +801,8 @@ async function liveFetch() {
       const js = await res.json(), g = js.game; if (!g || g.gameStatus < 2) return;
       ok++;
       [g.homeTeam, g.awayTeam].forEach(t => (t.players || []).forEach(pl => {
-        const id = String(pl.personId); if (!sub.includes(id)) return;
+        const nm = norm(pl.name || [pl.firstName, pl.familyName].filter(Boolean).join(' '));
+        const id = byName.get(nm) || (sub.includes(String(pl.personId)) ? String(pl.personId) : null); if (!id) return;
         const val = +((pl.statistics || {})[key]) || 0;
         players[id] = g.gameStatus === 3 ? { state: 'fim', vals: { [stat]: val } } : { state: 'jogo', q: Math.min(4, Math.max(1, +g.period || 1)), vals: { [stat]: val } };
       }));

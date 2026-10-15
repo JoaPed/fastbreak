@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnRoster, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -18,21 +18,39 @@ ok('jogos terminados por prefixo', finalGameIds(schedule, ['00126']).length === 
 ok('data NBA de um jogo à 01:30 UTC é a véspera', etDate('2026-10-21T01:30:00Z') === '2026-10-20');
 ok('minutos do box score', Math.abs(minutes('PT34M12.00S') - 34.2) < 1e-9 && minutes('') === 0);
 
-// box scores e médias
+// médias: ESPN (época passada e plantéis) + box scores da NBA (esta época)
+const espnSeason = {
+  categories: [
+    { name: 'general', names: ['gamesPlayed', 'avgMinutes', 'avgFouls', 'avgRebounds'] },
+    { name: 'offensive', names: ['avgPoints', 'avgFieldGoalsMade', 'avgThreePointFieldGoalsMade', 'avgAssists'] },
+    { name: 'defensive', names: ['avgSteals', 'avgBlocks'] },
+  ],
+  athletes: [
+    { athlete: { id: '1966', displayName: 'LeBron James', teamShortName: 'LAL' }, categories: [
+      { name: 'general', totals: ['70', '34.9', '1.2', '7.8'] }, { name: 'offensive', totals: ['24.4', '9.1', '2.1', '8.2'] }, { name: 'defensive', totals: ['1.0', '0.6'] } ] },
+    { athlete: { id: '3', displayName: 'Stephen Curry', teamShortName: 'GS' }, categories: [
+      { name: 'general', totals: ['66', '32.0', '1.5', '4.4'] }, { name: 'offensive', totals: ['26.0', '8.5', '4.4', '6.0'] }, { name: 'defensive', totals: ['1.1', '0.4'] } ] },
+  ],
+};
+const state = { players: {} };
+ok('ESPN: médias da época passada', addEspnSeason(state, espnSeason) === 2 && state.players['lebron-james'].prevAvg.pts === 24.4 && state.players['lebron-james'].prevAvg.reb === 7.8 && state.players['stephen-curry'].prevAvg.fg3 === 4.4, state.players);
+ok('ESPN: abreviaturas de equipa convertidas', state.players['stephen-curry'].prevTeam === 'GSW' && espnTeam('UTAH') === 'UTA' && espnTeam('WSH') === 'WAS');
+addEspnRoster(state, 'PHI', { athletes: [{ displayName: 'LeBron James' }, { displayName: 'VJ Edgecombe' }] }, '2026-10-15');
+ok('ESPN: plantel atual dá a equipa nova antes do 1.º jogo', teamOf(state.players['lebron-james']) === 'PHI', state.players['lebron-james']);
+ok('ESPN: rookie entra no catálogo', !!state.players['vj-edgecombe'] && teamOf(state.players['vj-edgecombe']) === 'PHI');
 const box = (team, opp, pid, name, pts, reb, min) => ({ game: {
   homeTeam: { teamTricode: team, players: [{ personId: pid, name, played: '1', statistics: { minutes: min, points: pts, reboundsTotal: reb, assists: 5, threePointersMade: 2, steals: 1, blocks: 0 } }] },
-  awayTeam: { teamTricode: opp, players: [{ personId: 1, name: 'Banco', played: '0', statistics: { minutes: '' } }] },
+  awayTeam: { teamTricode: opp, players: [{ personId: 1, name: 'Banco Teste', played: '0', statistics: { minutes: '' } }] },
 } });
-const state = { players: {} };
-for (let i = 0; i < 20; i++) addBoxscore(state, box('LAL', 'BOS', 2544, 'LeBron James', 25, 7, 'PT35M00.00S'), 'prev', null);
-addBoxscore(state, box('PHI', 'NYK', 2544, 'LeBron James', 0, 0, 'PT20M00.00S'), 'team', '2026-10-16');
+addBoxscore(state, box('PHI', 'NYK', 2544, 'LeBron James', 0, 0, 'PT20M00.00S'), 'team', '2026-10-10');
 addBoxscore(state, box('PHI', 'NYK', 2544, 'LeBron James', 35, 9, 'PT36M00.00S'), 'cur', '2026-10-20');
-const lj = state.players['2544'];
-ok('equipa vem do jogo mais recente desta época', lj.team === 'PHI', lj);
+const lj = state.players['lebron-james'];
+ok('mesmo jogador junta NBA e ESPN pelo nome', lj.nbaId === '2544' && lj.prevAvg && lj.cur, lj);
 ok('jogo de pré-época não conta para a média', lj.cur.gp === 1, lj.cur);
-ok('quem não jogou não conta', !state.players['1'].cur && !state.players['1'].prev, state.players['1']);
+ok('quem não jogou não conta', !state.players['banco-teste'].cur, state.players['banco-teste']);
 const b = blendedAverages(lj);
-ok('média puxada para a época passada no início', b.avg.pts > 25 && b.avg.pts < 27, b);
+ok('média puxada para a época passada no início', b.avg.pts > 24.4 && b.avg.pts < 26, b);
+ok('chave pelo nome com acentos', playerKey('Nikola Jokić') === 'nikola-jokic' && playerKey("De'Aaron Fox Jr.") === 'deaaron-fox');
 
 // odds
 const ev = { bookmakers: [
@@ -47,8 +65,8 @@ const ev = { bookmakers: [
 const c = consensusFromEvent(ev);
 ok('linha de consenso = a mais comum', c['nikola jokic'].pts.line === 28.5 && c['nikola jokic'].pts.books === 2, c['nikola jokic']);
 ok('preço de consenso favorece o mais', c['nikola jokic'].pts.over < c['nikola jokic'].pts.under, c['nikola jokic']);
-const m = matchPlayers(c, [{ id: 203999, name: 'Nikola Jokić' }, { id: 1628983, name: 'Shai Gilgeous-Alexander' }]);
-ok('nomes com e sem acentos ligam aos ids NBA', m.players['203999'] && m.players['1628983'] && !m.unmatched.length, m);
+const m = matchPlayers(c, [{ id: 'nikola-jokic', name: 'Nikola Jokić' }, { id: 'shai-gilgeous-alexander', name: 'Shai Gilgeous-Alexander' }]);
+ok('nomes com e sem acentos ligam ao catálogo', m.players['nikola-jokic'] && m.players['shai-gilgeous-alexander'] && !m.unmatched.length, m);
 ok('normalização de nomes', norm("De'Aaron Fox Jr.") === 'deaaron fox' && norm('Luka Dončić') === 'luka doncic');
 
 // blockchain (JSON-Cadence)

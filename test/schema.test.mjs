@@ -13,11 +13,10 @@ await db.exec(`
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to anon, authenticated, service_role;
   grant execute on function auth.uid() to anon, authenticated, service_role;
-  grant usage on schema public to anon, authenticated, service_role;
+  revoke all on schema public from public;
 `);
 await db.exec(sql);
 await db.exec(sql); // idempotente
-await db.exec('grant all on all tables in schema public to service_role');
 
 const U = { a: '00000000-0000-0000-0000-00000000000a', b: '00000000-0000-0000-0000-00000000000b', c: '00000000-0000-0000-0000-00000000000c' };
 await db.exec(`insert into auth.users values ('${U.a}'), ('${U.b}'), ('${U.c}')`);
@@ -51,6 +50,10 @@ r = await as('b', `select id from public.runs`); expect('membro lê runs', r.row
 r = await as('c', `select id from public.runs`); expect('não-membro não lê runs', r.rows?.length === 0, r);
 r = await as(null, `select id from public.runs`); expect('anónimo não lê runs', !!r.error || r.rows?.length === 0, r);
 r = await as('service', `insert into public.odds_days (date, players) values ('2026-10-20', '{"1":{"pts":{"line":20.5}}}')`); expect('tarefa automática escreve odds', !r.error, r);
+r = await as('service', `insert into public.job_state (key, value) values ('stats', '{}') on conflict (key) do update set value = excluded.value`); expect('tarefa automática escreve o seu estado (job_state)', !r.error, r);
+r = await as('service', `select value from public.job_state`); expect('tarefa automática lê o seu estado', r.rows?.length === 1, r);
+r = await as('service', `insert into public.nba_players (id, name) values ('1', 'Teste') on conflict (id) do update set name = excluded.name`); expect('tarefa automática escreve jogadores', !r.error, r);
+r = await as('b', `select * from public.job_state`); expect('membro não lê job_state', !!r.error || r.rows?.length === 0, r);
 r = await as('b', `select date from public.odds_days`); expect('membro lê odds', r.rows?.length === 1, r);
 r = await as('b', `update public.odds_days set source = 'x'`); expect('membro não altera odds (0 linhas)', !r.error, r);
 r = await as('service', `select source from public.odds_days`); expect('… e as odds ficaram iguais', r.rows?.[0].source === null, r);

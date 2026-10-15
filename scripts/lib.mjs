@@ -53,23 +53,32 @@ export function finalGameIds(json, prefixes) {
 
 // ---------- médias dos jogadores (box scores oficiais) ----------
 const BOX_KEYS = { pts: 'points', reb: 'reboundsTotal', ast: 'assists', fg3: 'threePointersMade', stl: 'steals', blk: 'blocks' };
-// Junta um box score ao acumulado: bucket = 'cur' (época atual), 'prev' (época passada) ou 'team' (só para saber a equipa)
+// Identificador de cada jogador no catálogo: o nome normalizado ("nikola-jokic"). Junta as fontes (NBA, ESPN, casas de apostas) pelo nome.
+export const playerKey = name => norm(name).replace(/ /g, '-');
+const ESPN_TEAM = { GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX', BRK: 'BKN', CHO: 'CHA' };
+export const espnTeam = abbr => { const a = String(abbr || '').toUpperCase(); return ESPN_TEAM[a] || a || null; };
+function entry(state, name) {
+  const key = playerKey(name); if (!key) return null;
+  const p = (state.players[key] = state.players[key] || { name });
+  if (name && (!p.name || /[^\x00-\x7F]/.test(name))) p.name = name; // prefere a grafia com acentos
+  return p;
+}
+// Junta um box score oficial: bucket = 'cur' (época atual, conta para a média) ou 'team' (pré-época: só a equipa)
 export function addBoxscore(state, json, bucket, date) {
   const g = (json || {}).game; if (!g) return 0;
   let n = 0;
   for (const side of [g.homeTeam, g.awayTeam]) {
     if (!side) continue;
     for (const pl of side.players || []) {
-      const id = String(pl.personId || ''); if (!id) continue;
+      const name = pl.name || [pl.firstName, pl.familyName].filter(Boolean).join(' ');
+      const p = entry(state, name); if (!p) continue;
+      if (pl.personId) p.nbaId = String(pl.personId);
       const st = pl.statistics || {};
       const min = minutes(st.minutes || st.minutesCalculated);
-      const p = (state.players[id] = state.players[id] || { name: '', team: null, teamDate: '', cur: null, prev: null });
-      p.name = pl.name || [pl.firstName, pl.familyName].filter(Boolean).join(' ') || p.name;
-      // equipa: a do jogo mais recente desta época; a da época passada só serve se ainda não houver nenhuma
-      if (bucket === 'prev') { if (!p.team) p.team = side.teamTricode || null; }
-      else if (!p.teamDate || (date && date >= p.teamDate)) { p.team = side.teamTricode || p.team; p.teamDate = date || p.teamDate; }
-      if (bucket === 'team' || min <= 0 || pl.played === '0') continue;
-      const t = (p[bucket] = p[bucket] || { gp: 0, min: 0, pts: 0, reb: 0, ast: 0, fg3: 0, stl: 0, blk: 0 });
+      if (bucket === 'team') { if (!p.preDate || (date && date >= p.preDate)) { p.preTeam = side.teamTricode || p.preTeam; p.preDate = date || p.preDate; } continue; }
+      if (!p.boxDate || (date && date >= p.boxDate)) { p.boxTeam = side.teamTricode || p.boxTeam; p.boxDate = date || p.boxDate; }
+      if (min <= 0 || pl.played === '0') continue;
+      const t = (p.cur = p.cur || { gp: 0, min: 0, pts: 0, reb: 0, ast: 0, fg3: 0, stl: 0, blk: 0 });
       t.gp++; t.min += min;
       for (const [k, key] of Object.entries(BOX_KEYS)) t[k] += +st[key] || 0;
       n++;
@@ -77,14 +86,46 @@ export function addBoxscore(state, json, bucket, date) {
   }
   return n;
 }
+// ESPN — médias da época passada (statistics/byathlete). Devolve quantos jogadores leu nesta página.
+export function addEspnSeason(state, json) {
+  const names = {};
+  for (const c of (json && json.categories) || []) names[c.name] = c.names || [];
+  let n = 0;
+  for (const a of (json && json.athletes) || []) {
+    const ath = a.athlete || {}, vals = {};
+    for (const c of a.categories || []) {
+      const keys = names[c.name] || [], arr = c.totals || c.values || [];
+      keys.forEach((k, i) => { if (arr[i] != null && vals[k] == null) vals[k] = parseFloat(String(arr[i]).replace(',', '.')); });
+    }
+    const p = entry(state, ath.displayName || [ath.firstName, ath.lastName].filter(Boolean).join(' ')); if (!p) continue;
+    p.prevTeam = espnTeam(ath.teamShortName || ((ath.teams || [])[0] || {}).abbreviation) || p.prevTeam;
+    p.prevAvg = { gp: vals.gamesPlayed || 0, min: vals.avgMinutes || 0, pts: vals.avgPoints || 0, reb: vals.avgRebounds || 0, ast: vals.avgAssists || 0, fg3: vals.avgThreePointFieldGoalsMade || 0, stl: vals.avgSteals || 0, blk: vals.avgBlocks || 0 };
+    n++;
+  }
+  return n;
+}
+// ESPN — plantel atual de uma equipa (apanha trocas antes do primeiro jogo e os rookies)
+export function addEspnRoster(state, team, json, date) {
+  let list = (json && json.athletes) || [];
+  if (list.length && list[0] && Array.isArray(list[0].items)) list = list.flatMap(g => g.items || []);
+  let n = 0;
+  for (const a of list) {
+    const p = entry(state, a.displayName || a.fullName || [a.firstName, a.lastName].filter(Boolean).join(' ')); if (!p) continue;
+    p.rosterTeam = team; p.rosterDate = date; n++;
+  }
+  return n;
+}
+// Equipa atual: último jogo da época > plantel ESPN > pré-época > época passada
+export function teamOf(p) { return p.boxTeam || p.rosterTeam || p.preTeam || p.prevTeam || null; }
 // Média da época atual puxada para a da época passada enquanto há poucos jogos
 export function blendedAverages(p, prior = 10) {
-  const cur = p.cur, prev = p.prev && p.prev.gp >= 5 ? p.prev : null;
+  const cur = p.cur;
+  const prev = p.prevAvg && p.prevAvg.gp >= 5 ? p.prevAvg : null;
   if (!cur && !prev) return null;
   const gp = cur ? cur.gp : 0, k = prev ? Math.max(0, prior - gp) : 0;
   const avg = {};
   for (const s of ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'min']) {
-    const c = cur ? cur[s] : 0, pa = prev ? prev[s] / prev.gp : 0;
+    const c = cur ? cur[s] : 0, pa = prev ? prev[s] : 0;
     avg[s] = gp + k > 0 ? Math.round(((c + k * pa) / (gp + k)) * 10) / 10 : 0;
   }
   return { avg, gp };
@@ -231,9 +272,23 @@ export async function supa() {
   const { createClient } = await import('@supabase/supabase-js');
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_KEY;
   if (!url || !key) throw new Error('Faltam os segredos SUPABASE_URL e SUPABASE_SERVICE_KEY no GitHub.');
+  if (/\/rest\/v1\/?$/.test(url)) throw new Error('O segredo SUPABASE_URL deve ser só https://<projeto>.supabase.co, sem /rest/v1 no fim.');
+  if (key.startsWith('sb_publishable_')) throw new Error('O segredo SUPABASE_SERVICE_KEY tem a chave publishable. Tem de ser a chave secreta (começa por sb_secret_).');
+  if (key.startsWith('eyJ')) {
+    try { const role = JSON.parse(Buffer.from(key.split('.')[1], 'base64').toString()).role; if (role !== 'service_role') throw new Error('O segredo SUPABASE_SERVICE_KEY é a chave "' + role + '". Tem de ser a service_role (ou a secret sb_secret_).'); }
+    catch (e) { if (/SUPABASE_SERVICE_KEY/.test(e.message)) throw e; }
+  }
+  console.log('Supabase:', url.replace(/^https:\/\//, ''), '· chave', key.slice(0, 10) + '…');
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
-export async function must(p) { const { data, error } = await p; if (error) throw new Error(error.message); return data; }
+export async function must(p) {
+  const { data, error } = await p;
+  if (error) {
+    const hint = /permission denied/i.test(error.message) ? ' → a chave em SUPABASE_SERVICE_KEY não é a secreta, ou faltam as permissões do service_role (ver supabase/schema.sql).' : '';
+    throw new Error(error.message + hint);
+  }
+  return data;
+}
 export async function getState(sb, key, def) { const row = await must(sb.from('job_state').select('value').eq('key', key).maybeSingle()); return row ? row.value : def; }
 export async function setState(sb, key, value) { await must(sb.from('job_state').upsert({ key, value, updated_at: new Date().toISOString() })); }
 export async function fetchJson(url, opts = {}, tries = 3) {
