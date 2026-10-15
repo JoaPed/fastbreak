@@ -142,7 +142,8 @@ function renderProfileSetup(err) {
     (err ? '<div class="err" role="alert">' + esc(err) + '</div>' : '') + '<button class="btn primary" type="submit">Continuar</button></form>');
 }
 async function submitProfile(nameEl, tsEl, flowEl) {
-  const row = { user_id: S.session.user.id, display_name: nameEl.value.trim().slice(0, 40), topshot_username: (tsEl.value.trim() || null) };
+  const ts = tsEl.value.trim().replace(/^@+/, '').replace(/^https?:\/\/[^/]*\/user\/@?/i, '');
+  const row = { user_id: S.session.user.id, display_name: nameEl.value.trim().slice(0, 40), topshot_username: ts || null };
   if (flowEl) { const fa = flowEl.value.trim(); if (fa && !/^0x[0-9a-fA-F]{16}$/.test(fa)) throw new Error('O endereço Flow tem o formato 0x seguido de 16 caracteres.'); row.flow_address = fa || null; }
   if (!row.display_name) throw new Error('Escreve o teu nome.');
   await q(sb.from('profiles').upsert(row, { onConflict: 'user_id' }));
@@ -333,7 +334,7 @@ function lineupP(md, ids) {
 
 // ---------- render ----------
 // não redesenhar uma secção enquanto alguém está a escrever num campo dela
-function typingIn(id) { const ae = document.activeElement; return !!(ae && $(id).contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)); }
+function typingIn(id) { const ae = document.activeElement; return !!(ae && $(id).contains(ae) && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(ae.tagName)); }
 function render() {
   if ($('app').hidden) return;
   renderHeader();
@@ -562,7 +563,7 @@ function renderAjustes() {
   html.push('<div class="card panel"><h2>Perfil</h2><form id="pfForm" class="stack">' +
     '<label class="small muted">Nome que o grupo vê<input class="field" id="pfName2" maxlength="40" value="' + esc(me.display_name || '') + '"></label>' +
     '<label class="small muted">Utilizador do Top Shot<input class="field" id="pfTs2" maxlength="40" autocapitalize="none" value="' + esc(me.topshot_username || '') + '"></label>' +
-    '<label class="small muted">Endereço Flow (opcional; preenchido sozinho a partir do utilizador)<input class="field" id="pfFlow2" maxlength="18" autocapitalize="none" placeholder="0x…" value="' + esc(me.flow_address || '') + '"></label>' +
+    '<label class="small muted">Endereço Flow da tua carteira Dapper (0x seguido de 16 letras/números; é o que liga os teus resultados da blockchain)<input class="field" id="pfFlow2" maxlength="18" autocapitalize="none" placeholder="0x…" value="' + esc(me.flow_address || '') + '"></label>' +
     '<div class="btns"><button class="btn quiet" type="button" data-action="logout">Terminar sessão</button><button class="btn primary" type="submit">Guardar perfil</button></div></form></div>');
   if (S.runs.length) {
     html.push('<div class="card panel"><h2>Run</h2><select class="field" id="runPick" aria-label="Escolher run">' + S.runs.map(x => '<option value="' + esc(x.id) + '"' + (x.id === S.runId ? ' selected' : '') + '>' + esc(x.name) + ' · ' + dShort(x.start_date) + (x.active ? ' (ativa)' : '') + '</option>').join('') + '</select></div>');
@@ -876,6 +877,8 @@ async function createRun(form) {
   if (!ok) return;
   await adminWrite(sb.from('run_days').insert(dates.map(date => ({ run_id: slug, date }))), 'Run criada. Define os objetivos; os jogos chegam do calendário NBA.');
   await loadShared(); await loadRun(slug);
+  if (document.activeElement) document.activeElement.blur();
+  renderAjustes();
 }
 
 // ---------- eventos ----------
@@ -885,7 +888,7 @@ document.addEventListener('submit', async e => {
   if (f.id === 'authForm') submitAuth(f);
   if (f.id === 'joinForm') submitJoin(f);
   if (f.id === 'profForm') { try { await submitProfile($('pfName'), $('pfTs'), null); await enterApp(); } catch (err) { renderProfileSetup(errText(err)); } }
-  if (f.id === 'pfForm') { try { await submitProfile($('pfName2'), $('pfTs2'), $('pfFlow2')); toast('Perfil guardado.'); render(); } catch (err) { toast(errText(err)); } }
+  if (f.id === 'pfForm') { try { await submitProfile($('pfName2'), $('pfTs2'), $('pfFlow2')); toast('Perfil guardado.'); if (document.activeElement) document.activeElement.blur(); render(); renderAjustes(); } catch (err) { toast(errText(err)); } }
   if (f.id === 'inviteForm') { const c = $('invCode').value.trim(); if (await adminWrite(sb.rpc('set_invite_code', { code: c }), 'Código mudado.')) { S.invite = c; renderAjustes(); } }
   if (f.id === 'newRunForm') createRun(f);
 });
@@ -981,7 +984,7 @@ document.addEventListener('click', async e => {
 });
 document.addEventListener('change', async e => {
   const t = e.target, a = t.dataset.action;
-  if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; schedule(); return; }
+  if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run ligada à blockchain.' : 'Ligação removida.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
   if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null);
   if (a === 'obj-target') { const n = parseInt(t.value, 10); if (n > 0) setObjective(+t.dataset.i, null, n); }
@@ -997,7 +1000,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'rosterFilter') { S.filter = e.target.value; renderPlantel(); }
   if (e.target.id === 'apSearch') renderSearch(e.target.value);
 });
-document.addEventListener('focusout', e => { if ($('tab-ajustes').contains(e.target)) setTimeout(() => { if (S.tab === 'ajustes' && !typingIn('tab-ajustes')) renderAjustes(); }, 0); });
+// (sem redesenhar Ajustes ao sair de um campo: isso apagava o formulário a meio de um clique em Guardar)
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
 // Ao voltar à app, relê o plano (pode ter sido mudado noutro dispositivo) e o grupo
 document.addEventListener('visibilitychange', async () => {

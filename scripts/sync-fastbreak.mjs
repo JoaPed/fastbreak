@@ -179,14 +179,22 @@ for (const run of siteRuns) {
   console.log('Run', run.name, '· dias atualizados a partir da blockchain:', n);
 }
 
-async function topShotAddress(username) {
+async function topShotAddress(raw) {
+  const username = String(raw || '').trim().replace(/^@+/, '');
   const query = 'query ($input: getUserProfileByUsernameInput!) { getUserProfileByUsername(input: $input) { publicInfo { flowAddress username } } }';
-  try {
-    const res = await fetch('https://public-api.nbatopshot.com/graphql', { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 fastbreak-planner' }, body: JSON.stringify({ query, variables: { input: { username } } }) });
-    const js = await res.json();
-    const a = (((js.data || {}).getUserProfileByUsername || {}).publicInfo || {}).flowAddress;
-    if (!a) { console.log('Top Shot não devolveu endereço para', username, JSON.stringify(js.errors || '').slice(0, 200)); return null; }
-    const hex = String(a).replace(/^0x/, '');
-    return /^[0-9a-fA-F]{16}$/.test(hex) ? '0x' + hex.toLowerCase() : null;
-  } catch (e) { console.log('Erro na API do Top Shot:', e.message); return null; }
+  const headers = { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', origin: 'https://nbatopshot.com', referer: 'https://nbatopshot.com/' };
+  for (const url of ['https://public-api.nbatopshot.com/graphql', 'https://nbatopshot.com/marketplace/graphql']) {
+    try {
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ query, variables: { input: { username } } }) });
+      const text = await res.text();
+      if (!text.trim().startsWith('{')) { console.log('  Top Shot (' + url.split('/')[2] + ') recusou o pedido (HTTP ' + res.status + ').'); continue; }
+      const js = JSON.parse(text);
+      const a = (((js.data || {}).getUserProfileByUsername || {}).publicInfo || {}).flowAddress;
+      if (!a) { console.log('  Top Shot não devolveu endereço para', username, JSON.stringify(js.errors || '').slice(0, 200)); continue; }
+      const hex = String(a).replace(/^0x/, '');
+      if (/^[0-9a-fA-F]{16}$/.test(hex)) return '0x' + hex.toLowerCase();
+    } catch (e) { console.log('  Erro na API do Top Shot:', e.message); }
+  }
+  console.log('  → põe o endereço Flow da carteira Dapper à mão no perfil do site (Ajustes → Perfil).');
+  return null;
 }

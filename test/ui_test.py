@@ -143,6 +143,11 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="close-sheet"]')
 
     pg.click('#t-ajustes'); pg.wait_for_timeout(400)
+    # clique à velocidade humana: carregar, esperar, largar
+    pg.fill('#pfTs2', '@outro_nome'); pg.fill('#pfFlow2', '0xe7fb03955ade55fa')
+    box = pg.locator('#pfForm button[type="submit"]').bounding_box()
+    pg.mouse.move(box['x'] + 10, box['y'] + 10); pg.mouse.down(); pg.wait_for_timeout(150); pg.mouse.up(); pg.wait_for_timeout(500)
+    print('B perfil guardado (clique humano):', store(pg, '__FAKE_DB.tables.profiles.find(p=>p.user_id==="u-eu")'))
     print('B ajustes sem admin:', pg.locator('#inviteForm').count() == 0, '· secções:', pg.locator('#tab-ajustes h2').all_inner_texts())
     print('B resumo publicado:', store(pg, '__FAKE_DB.tables.summaries.find(s=>s.user_id==="u-eu")'))
     print('B plantel gravado:', store(pg, 'Object.keys(__FAKE_DB.tables.user_runs[0].roster).length'), 'jogadores')
