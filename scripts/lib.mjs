@@ -202,6 +202,7 @@ export function parseEspnScoreboard(json) {
 export function parseEspnBox(json) {
   const out = {};
   for (const team of (((json || {}).boxscore || {}).players) || []) {
+    const abbr = espnTeam((team.team || {}).abbreviation);
     for (const st of team.statistics || []) {
       const keys = st.keys || [], labels = (st.labels || []).map(l => String(l).toUpperCase());
       const idx = (k, l) => { let i = keys.findIndex(x => x === k || String(x).startsWith(k)); if (i < 0) i = labels.indexOf(l); return i; };
@@ -213,6 +214,7 @@ export function parseEspnBox(json) {
         if (a.didNotPlay || !(a.stats || []).length) continue;
         const v = {};
         for (const [k, [i, part]] of Object.entries(I)) if (i >= 0) v[k] = parseFloat(String(a.stats[i] || '0').split('-')[part]) || 0;
+        if (abbr) v.team = abbr;
         out[norm((a.athlete || {}).displayName)] = v;
       }
     }
@@ -224,24 +226,65 @@ export function parseEspnBox(json) {
 // Junta as estatísticas de um jogo (parseEspnBox) ao registo de cada jogador; guarda só os últimos 10 jogos
 export function addBoxForm(state, box, date) {
   let n = 0;
+  const teams = [...new Set(Object.values(box || {}).map(v => v.team).filter(Boolean))];
+  const oppOf = t => (teams.length === 2 ? teams.find(x => x !== t) : null);
+  addTeamGame(state, box, date, teams);
   for (const [nm, v] of Object.entries(box || {})) {
     if (!(v.min > 0)) continue;
     const key = nm.replace(/ /g, '-'), p = state.players[key];
     if (!p) continue;
     const g = { date };
+    if (v.team) { g.team = v.team; g.opp = oppOf(v.team); }
     for (const k of AVG_KEYS) if (isNum(v[k])) g[k] = +v[k];
     p.log = (p.log || []).filter(x => x.date !== date).concat([g]).sort((x, y) => x.date.localeCompare(y.date)).slice(-10);
     n++;
   }
   return n;
 }
-// Médias dos últimos 5 e 10 jogos (o motor mistura-as com as da época)
+// Médias dos últimos 5 e 10 jogos (o motor mistura-as com as da época) e os últimos 5 jogos, para mostrar
+export const GAME_KEYS = ['min', 'pts', 'reb', 'ast', 'fg3', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'tov', 'stl', 'blk', 'oreb'];
+const meanOf = list => { const o = {}; for (const k of AVG_KEYS) { const xs = list.map(g => g[k]).filter(isNum); if (xs.length) o[k] = Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100; } return o; };
 export function formOf(p) {
   const log = (p && p.log) || [];
   if (!log.length) return null;
-  const mean = list => { const o = {}; for (const k of AVG_KEYS) { const xs = list.map(g => g[k]).filter(isNum); if (xs.length) o[k] = Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100; } return o; };
   const l10 = log.slice(-10), l5 = log.slice(-5);
-  return { n10: l10.length, n5: l5.length, l10: mean(l10), l5: mean(l5), last: log[log.length - 1].date };
+  // jogos: [data, adversário, ...GAME_KEYS] (compacto, do mais recente para o mais antigo)
+  const games = l5.slice().reverse().map(g => [g.date, g.opp || null].concat(GAME_KEYS.map(k => (isNum(g[k]) ? Math.round(g[k]) : null))));
+  return { n10: l10.length, n5: l5.length, l10: meanOf(l10), l5: meanOf(l5), last: log[log.length - 1].date, games };
+}
+// Equipas: totais de cada jogo (soma dos jogadores) a favor e contra, últimos 15 jogos
+function addTeamGame(state, box, date, teams) {
+  if (teams.length !== 2) return;
+  const tot = {};
+  for (const v of Object.values(box || {})) {
+    if (!v.team || !(v.min > 0)) continue;
+    const t = (tot[v.team] = tot[v.team] || {});
+    for (const k of AVG_KEYS) if (k !== 'min' && isNum(v[k])) t[k] = (t[k] || 0) + +v[k];
+  }
+  state.teams = state.teams || {};
+  for (const t of teams) {
+    const o = teams.find(x => x !== t);
+    if (!tot[t] || !tot[o]) continue;
+    const e = (state.teams[t] = state.teams[t] || { log: [] });
+    e.log = e.log.filter(x => x.date !== date).concat([{ date, opp: o, for: tot[t], against: tot[o] }]).sort((a, b) => a.date.localeCompare(b.date)).slice(-15);
+  }
+}
+// O que cada equipa concede por jogo (últimos 10) e a média da liga, para comparar adversários
+export function teamRows(state) {
+  const rows = [], all = [];
+  for (const [id, e] of Object.entries((state && state.teams) || {})) {
+    const l10 = (e.log || []).slice(-10);
+    if (!l10.length) continue;
+    const allowed = meanOf(l10.map(g => g.against)), scored = meanOf(l10.map(g => g.for));
+    rows.push({ id, stats: { n: l10.length, allowed, scored, last: l10[l10.length - 1].date } });
+    all.push(allowed);
+  }
+  if (all.length) {
+    const league = {};
+    for (const k of AVG_KEYS) { const xs = all.map(a => a[k]).filter(isNum); if (xs.length) league[k] = Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100; }
+    rows.push({ id: 'NBA', stats: { n: all.length, allowed: league } });
+  }
+  return rows;
 }
 
 // ---------- odds (The Odds API) ----------
@@ -445,4 +488,90 @@ export async function pool(items, n, fn) {
 }
 export async function upsertChunks(sb, table, rows, onConflict, size = 500) {
   for (let i = 0; i < rows.length; i += size) await must(sb.from(table).upsert(rows.slice(i, i + size), onConflict ? { onConflict } : undefined));
+}
+
+// ---------- lesões (relatório da ESPN) e avisos ----------
+// Estados: out (fora), ofs (fora da época), doubtful (pouco provável), questionable (dúvida), dtd (dia a dia), probable (provável)
+export const INJ_LABEL = { out: 'Fora', ofs: 'Fora da época', doubtful: 'Pouco provável', questionable: 'Dúvida', dtd: 'Dia a dia', probable: 'Provável' };
+const SEASON_OUT = /(?:miss|out for|sidelined for)\s+(?:the\s+)?(?:(?:rest|remainder)\s+of\s+the\s+)?(?:entire\s+)?(?:\d{4}(?:-\d{2,4})?\s+)?(?:regular\s+)?season\b(?!\s*(?:opener|debut|start))|season-ending/i;
+export function injuryStatus(e) {
+  e = e || {};
+  const st = String(e.status || ''), tn = String((e.type || {}).name || ''), fs = String(((((e.details || {}).fantasyStatus) || {}).description) || '');
+  const text = [e.shortComment, e.longComment].filter(Boolean).join(' ');
+  const all = st + ' ' + tn + ' ' + fs;
+  if (/\bOFS\b/.test(fs) || (/out/i.test(all) && SEASON_OUT.test(text))) return 'ofs';
+  if (/doubt/i.test(all)) return 'doubtful';
+  if (/question/i.test(all)) return 'questionable';
+  if (/probable/i.test(all)) return 'probable';
+  if (/susp|\bout\b|_OUT\b/i.test(all)) return 'out';
+  return 'dtd'; // Day-To-Day, GTD ou desconhecido
+}
+const TEAM_NAMES = { 'Atlanta Hawks': 'ATL', 'Boston Celtics': 'BOS', 'Brooklyn Nets': 'BKN', 'Charlotte Hornets': 'CHA', 'Chicago Bulls': 'CHI', 'Cleveland Cavaliers': 'CLE', 'Dallas Mavericks': 'DAL', 'Denver Nuggets': 'DEN', 'Detroit Pistons': 'DET', 'Golden State Warriors': 'GSW', 'Houston Rockets': 'HOU', 'Indiana Pacers': 'IND', 'LA Clippers': 'LAC', 'Los Angeles Clippers': 'LAC', 'Los Angeles Lakers': 'LAL', 'Memphis Grizzlies': 'MEM', 'Miami Heat': 'MIA', 'Milwaukee Bucks': 'MIL', 'Minnesota Timberwolves': 'MIN', 'New Orleans Pelicans': 'NOP', 'New York Knicks': 'NYK', 'Oklahoma City Thunder': 'OKC', 'Orlando Magic': 'ORL', 'Philadelphia 76ers': 'PHI', 'Phoenix Suns': 'PHX', 'Portland Trail Blazers': 'POR', 'Sacramento Kings': 'SAC', 'San Antonio Spurs': 'SAS', 'Toronto Raptors': 'TOR', 'Utah Jazz': 'UTA', 'Washington Wizards': 'WAS' };
+const INJ_RANK = { ofs: 6, out: 5, doubtful: 4, questionable: 3, dtd: 2, probable: 1 };
+// https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries → linhas da tabela injuries (uma por jogador)
+export function parseEspnInjuries(json) {
+  const by = new Map();
+  for (const team of (json && json.injuries) || []) {
+    for (const e of team.injuries || []) {
+      const a = e.athlete || {}, name = a.displayName || [a.firstName, a.lastName].filter(Boolean).join(' ');
+      const id = playerKey(name); if (!id) continue;
+      const t = a.team || {};
+      const tm = espnTeam(t.abbreviation) || TEAM_NAMES[t.displayName] || TEAM_NAMES[team.displayName] || null;
+      const d = e.details || {};
+      const what = [d.type, d.detail].filter(x => x && !/^(other|not specified)$/i.test(x));
+      const detail = (what.length ? what.join(' · ') : '') + (d.side && !/not specified/i.test(d.side) && what.length ? ' (' + String(d.side).toLowerCase() + ')' : '');
+      const rd = /^\d{4}-\d{2}-\d{2}/.test(String(d.returnDate || '')) ? String(d.returnDate).slice(0, 10) : null;
+      const row = { id, name, team: tm, status: injuryStatus(e), label: e.status || null, detail: detail || null, comment: e.shortComment || null, return_date: rd, reported_at: e.date || null };
+      const prev = by.get(id);
+      if (!prev || INJ_RANK[row.status] > INJ_RANK[prev.status] || (INJ_RANK[row.status] === INJ_RANK[prev.status] && String(row.reported_at) > String(prev.reported_at))) by.set(id, row);
+    }
+  }
+  return [...by.values()];
+}
+const ALERT_BAD = new Set(['out', 'ofs', 'doubtful', 'questionable', 'dtd']);
+// Decide que avisos mandar. lineups: [{uid, acc, accLabel, date, source, players: [{id, name, team, tip}]}]
+// injuries: Map(id → linha), state: {chave: {s, at, last}} do que já foi avisado.
+// Avisa quando um jogador do lineup entra no relatório ou muda de estado, quando sai dele (liberado),
+// e uma última vez perto do jogo (lastCallMin) se continuar em dúvida/fora. Só jogos que ainda não começaram.
+export function buildAlerts({ now, lineups, injuries, state, lastCallMin = 75, horizonH = 20 }) {
+  const next = {}, items = [];
+  for (const [k, v] of Object.entries(state || {})) if (v && now - v.at < 3 * 86400e3) next[k] = v;
+  for (const L of lineups || []) for (const p of L.players || []) {
+    if (!p.id || !p.tip || p.tip <= now || p.tip - now > horizonH * 3600e3) continue;
+    const key = L.date + '|' + L.uid + '|' + L.acc + '|' + p.id;
+    const inj = injuries.get(p.id) || null, s = inj ? inj.status : 'ok', prev = next[key] || null;
+    const close = p.tip - now <= lastCallMin * 60e3;
+    let kind = null;
+    if (ALERT_BAD.has(s)) {
+      if (!prev || prev.s !== s) kind = prev && ALERT_BAD.has(prev.s) ? 'change' : 'new';
+      else if (close && !prev.last) kind = 'last';
+    } else if (prev && ALERT_BAD.has(prev.s)) kind = 'clear';
+    if (!kind) continue;
+    next[key] = { s, at: now, last: !!(close || (prev && prev.last)) };
+    items.push({ uid: L.uid, acc: L.acc, accLabel: L.accLabel, source: L.source, date: L.date, kind, id: p.id, name: p.name || (inj && inj.name) || p.id, team: p.team || (inj && inj.team) || '', tip: p.tip, status: s, prev: prev ? prev.s : null, inj });
+  }
+  return { items, state: next };
+}
+const SRC_TXT = { chain: 'lineup submetido no Top Shot', live: 'lineup marcado no site (jogo a jogo)', plan: 'lineup do plano do site' };
+// Texto de um aviso (para o telemóvel e para o email). tz: fuso para as horas (por defeito Lisboa)
+export function alertText(items, opts = {}) {
+  const tz = opts.tz || 'Europe/Lisbon';
+  const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
+  const lines = [], accs = [...new Set(items.map(i => i.acc))];
+  const groups = accs.map(a => items.filter(i => i.acc === a));
+  groups.forEach(g => {
+    if (accs.length > 1 || g[0].acc !== 'main') lines.push((g[0].accLabel || g[0].acc) + ':');
+    g.forEach(i => {
+      const who = i.name + (i.team ? ' (' + i.team + ')' : '');
+      const lab = INJ_LABEL[i.status] || i.status, det = i.inj && i.inj.detail ? ' · ' + i.inj.detail : '';
+      if (i.kind === 'clear') lines.push('✅ ' + who + ' saiu do relatório de lesões: deve jogar. Jogo às ' + hm(i.tip) + '.');
+      else if (i.kind === 'last') lines.push('⏰ Última chamada: ' + who + ' continua ' + lab.toLowerCase() + det + '. Jogo às ' + hm(i.tip) + ': troca antes de fechar se não quiseres arriscar.');
+      else lines.push((i.status === 'out' || i.status === 'ofs' ? '🚫 ' : '⚠️ ') + who + ': ' + lab + det + (i.kind === 'change' && i.prev ? ' (antes: ' + (INJ_LABEL[i.prev] || i.prev).toLowerCase() + ')' : '') + '. Jogo às ' + hm(i.tip) + '.' + (i.inj && i.inj.comment ? ' ' + i.inj.comment : ''));
+    });
+    lines.push('(' + (SRC_TXT[g[0].source] || 'lineup') + ')');
+  });
+  const bad = items.filter(i => i.kind !== 'clear');
+  const title = bad.length === 1 ? (bad[0].kind === 'last' ? 'Última chamada: ' : 'Lesão no teu lineup: ') + bad[0].name + ' ' + (INJ_LABEL[bad[0].status] || '').toLowerCase()
+    : bad.length ? bad.length + ' avisos de lesão no teu lineup' : items.length === 1 ? items[0].name + ' deve jogar' : 'Lineup sem lesões';
+  return { title: 'Fast Break · ' + title, body: lines.join('\n'), urgent: items.some(i => (i.status === 'out' || i.status === 'ofs') && i.kind !== 'clear') || items.some(i => i.kind === 'last') };
 }

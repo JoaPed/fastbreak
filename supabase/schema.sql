@@ -135,6 +135,28 @@ do $$ declare pk text; begin
   end if;
 end $$;
 
+-- Relatório de lesões da NBA (ESPN), substituído pela tarefa "Lesões" a cada meia hora (partilhado)
+create table if not exists public.injuries (
+  id text primary key,                             -- jogador (nome normalizado, como no catálogo)
+  name text not null,
+  team text,
+  status text not null,                            -- out | ofs | doubtful | questionable | dtd | probable
+  label text,                                      -- estado como vem da ESPN ("Out", "Day-To-Day")
+  detail text,                                     -- lesão ("Knee · Tendinitis (left)")
+  comment text,                                    -- notícia curta
+  return_date date,                                -- regresso previsto
+  reported_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+-- Avisos de cada pessoa (privado): email e/ou notificações no telemóvel pela app ntfy (desligados no site por agora)
+create table if not exists public.alerts (
+  user_id uuid primary key references auth.users(id) on delete cascade default auth.uid(),
+  email boolean not null default false,
+  ntfy text check (ntfy is null or ntfy ~ '^[A-Za-z0-9_-]{8,64}$'),   -- tópico do ntfy.sh
+  updated_at timestamptz not null default now()
+);
+
 -- =========================================================
 -- Funções
 -- =========================================================
@@ -224,6 +246,8 @@ drop trigger if exists touch_user_runs on public.user_runs;
 create trigger touch_user_runs before insert or update on public.user_runs for each row execute function public.touch_updated_at();
 drop trigger if exists touch_summaries on public.summaries;
 create trigger touch_summaries before insert or update on public.summaries for each row execute function public.touch_updated_at();
+drop trigger if exists touch_alerts on public.alerts;
+create trigger touch_alerts before insert or update on public.alerts for each row execute function public.touch_updated_at();
 
 -- =========================================================
 -- Regras de acesso (Row Level Security)
@@ -243,6 +267,8 @@ alter table public.chain_games enable row level security;
 alter table public.chain_results enable row level security;
 alter table public.user_runs enable row level security;
 alter table public.summaries enable row level security;
+alter table public.injuries enable row level security;
+alter table public.alerts enable row level security;
 
 -- membros: o grupo vê-se a si próprio; o admin pode remover outros
 drop policy if exists members_read on public.members;
@@ -262,7 +288,7 @@ create policy profiles_update on public.profiles for update to authenticated usi
 do $$
 declare t text;
 begin
-  foreach t in array array['runs', 'run_days', 'nba_players', 'nba_teams', 'odds_days'] loop
+  foreach t in array array['runs', 'run_days', 'nba_players', 'nba_teams', 'odds_days', 'injuries'] loop
     execute format('drop policy if exists %I on public.%I', t || '_read', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member())', t || '_read', t);
     execute format('drop policy if exists %I on public.%I', t || '_admin', t);
@@ -277,6 +303,12 @@ end $$;
 -- plantel e plano: só o próprio
 drop policy if exists user_runs_own on public.user_runs;
 create policy user_runs_own on public.user_runs for all to authenticated
+  using (user_id = auth.uid() and public.is_member())
+  with check (user_id = auth.uid() and public.is_member());
+
+-- avisos: só o próprio (o tópico do ntfy é como uma palavra-passe: quem o souber recebe as notificações)
+drop policy if exists alerts_own on public.alerts;
+create policy alerts_own on public.alerts for all to authenticated
   using (user_id = auth.uid() and public.is_member())
   with check (user_id = auth.uid() and public.is_member());
 

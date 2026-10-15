@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf, teamRows, GAME_KEYS, parseEspnInjuries, injuryStatus, buildAlerts, alertText } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -109,6 +109,18 @@ addBoxForm(fst, parseEspnBox(summary), '2026-11-12'); // o mesmo jogo lido duas 
 const fm = formOf(fst.players['domantas-sabonis']);
 ok('forma: últimos 10 e últimos 5 jogos', fm.n10 === 10 && fm.n5 === 5 && fm.l5.pts === (18 + 19 + 20 + 21 + 12) / 5 && fm.l10.reb === 7 && fm.last === '2026-11-12', fm);
 ok('forma: quem não jogou não entra e jogador desconhecido é ignorado', addBoxForm(fst, { 'ninguem conhecido': { min: 30, pts: 10 }, 'domantas sabonis': { min: 0, pts: 0 } }, '2026-11-13') === 0 && formOf({}) === null);
+// jogos e equipas: com as duas equipas no box score
+const two = JSON.parse(JSON.stringify(summary));
+two.boxscore.players.push({ team: { abbreviation: 'GS' }, statistics: [{ keys: summary.boxscore.players[0].statistics[0].keys, labels: summary.boxscore.players[0].statistics[0].labels, athletes: [{ athlete: { displayName: 'Stephen Curry' }, stats: ['33', '30', '10-20', '6-12', '4-4', '5', '6', '3', '1', '0', '0', '5', '2', '+9'] }] }] });
+const tb = parseEspnBox(two);
+ok('jogo: equipa de cada jogador', tb['domantas sabonis'].team === 'SAC' && tb['stephen curry'].team === 'GSW', tb);
+const gst = { players: { 'domantas-sabonis': { name: 'Domantas Sabonis' }, 'stephen-curry': { name: 'Stephen Curry' } } };
+addBoxForm(gst, tb, '2026-11-02');
+const sf = formOf(gst.players['domantas-sabonis']);
+ok('últimos jogos: data, adversário e estatísticas', sf.games.length === 1 && sf.games[0][0] === '2026-11-02' && sf.games[0][1] === 'GSW' && sf.games[0][2 + GAME_KEYS.indexOf('pts')] === 12 && sf.games[0][2 + GAME_KEYS.indexOf('fga')] === 7, sf.games);
+const trs = teamRows(gst);
+const sac = trs.find(x => x.id === 'SAC'), nba = trs.find(x => x.id === 'NBA');
+ok('equipas: o que concedem (o adversário marcou) e média da liga', sac.stats.allowed.pts === 30 && sac.stats.scored.pts === 12 && nba.stats.allowed.pts === 21, trs);
 ok('chave pelo nome com acentos', playerKey('Nikola Jokić') === 'nikola-jokic' && playerKey("De'Aaron Fox Jr.") === 'deaaron-fox');
 
 // odds
@@ -157,5 +169,44 @@ ok('objetivo combinado e objetivo por jogador', ind.objs[0].stat === 'ast-tov' &
 const ob = objectivesFromStats(dec[0].stats);
 ok('objetivo do dia a partir da blockchain', ob.objs[0].stat === 'pts' && ob.objs[0].target === 140 && !ob.objs[0].each, ob);
 
+
+// lesões (formato real do relatório da ESPN) e avisos
+const espnInj = { timestamp: '2026-10-15T15:00:00Z', status: 'success', injuries: [
+  { id: '1', displayName: 'Atlanta Hawks', injuries: [
+    { id: '534140', status: 'Day-To-Day', date: '2026-10-15T14:00Z', shortComment: 'Gilbert is questionable for Thursday.', athlete: { displayName: 'Keshon Gilbert', team: { id: '1', abbreviation: 'ATL', displayName: 'Atlanta Hawks' } }, type: { name: 'INJURY_STATUS_DAYTODAY', abbreviation: 'DD' }, details: { fantasyStatus: { description: 'GTD' }, type: 'Knee', location: 'Leg', detail: 'Tendinitis', side: 'Left', returnDate: '2026-10-16' } },
+    { id: '534150', status: 'Out', date: '2026-10-14T20:00Z', shortComment: 'Veesaar is expected to miss the 2026-27 season.', athlete: { displayName: 'Henri Veesaar', team: { abbreviation: 'ATL' } }, type: { name: 'INJURY_STATUS_OUT' }, details: { fantasyStatus: { description: 'OUT' }, type: 'Knee', detail: 'ACL', returnDate: '2027-10-01' } },
+  ] },
+  { id: '9', displayName: 'Golden State Warriors', injuries: [
+    { id: '1', status: 'Out', date: '2026-10-15T12:00Z', shortComment: 'Curry will miss the season opener.', athlete: { displayName: 'Stephen Curry', team: { abbreviation: 'GS' } }, type: { name: 'INJURY_STATUS_OUT' }, details: { type: 'Ankle', side: 'Not Specified', returnDate: '2026-10-24' } },
+    { id: '2', status: 'Questionable', athlete: { displayName: 'Jonathan Kuminga' }, details: {} },
+  ] },
+] };
+const inj = parseEspnInjuries(espnInj);
+const by = Object.fromEntries(inj.map(x => [x.id, x]));
+ok('lesões: um por jogador, com a chave do catálogo', inj.length === 4 && by['keshon-gilbert'] && by['stephen-curry'], inj.map(x => x.id));
+ok('lesões: dia a dia, regresso e detalhe', by['keshon-gilbert'].status === 'dtd' && by['keshon-gilbert'].return_date === '2026-10-16' && by['keshon-gilbert'].detail === 'Knee · Tendinitis (left)' && by['keshon-gilbert'].team === 'ATL', by['keshon-gilbert']);
+ok('lesões: fora da época pelo comentário', by['henri-veesaar'].status === 'ofs', by['henri-veesaar']);
+ok('lesões: "falha o jogo de abertura" não é fora da época', by['stephen-curry'].status === 'out' && by['stephen-curry'].team === 'GSW' && by['stephen-curry'].detail === 'Ankle', by['stephen-curry']);
+ok('lesões: equipa pelo nome quando falta a abreviatura', by['jonathan-kuminga'].team === 'GSW' && by['jonathan-kuminga'].status === 'questionable', by['jonathan-kuminga']);
+ok('lesões: outros estados', injuryStatus({ status: 'Doubtful' }) === 'doubtful' && injuryStatus({ status: 'Probable' }) === 'probable' && injuryStatus({ status: 'Suspension' }) === 'out' && injuryStatus({}) === 'dtd');
+const T0 = Date.parse('2026-10-15T20:00:00Z'), tip = Date.parse('2026-10-15T23:30:00Z');
+const lu = [{ uid: 'u1', acc: 'main', accLabel: 'Principal', date: '2026-10-15', source: 'chain', players: [{ id: 'stephen-curry', name: 'Stephen Curry', team: 'GSW', tip }, { id: 'keshon-gilbert', name: 'Keshon Gilbert', team: 'ATL', tip }, { id: 'nikola-jokic', name: 'Nikola Jokic', team: 'DEN', tip }] }];
+const im = new Map(inj.map(x => [x.id, x]));
+let a1 = buildAlerts({ now: T0, lineups: lu, injuries: im, state: {} });
+ok('avisos: avisa os dois do lineup que estão no relatório', a1.items.length === 2 && a1.items.every(i => i.kind === 'new'), a1.items.map(i => [i.name, i.kind]));
+let a2 = buildAlerts({ now: T0 + 1800e3, lineups: lu, injuries: im, state: a1.state });
+ok('avisos: não repete o mesmo aviso', a2.items.length === 0, a2.items);
+const im2 = new Map(im); im2.set('keshon-gilbert', Object.assign({}, by['keshon-gilbert'], { status: 'out' })); im2.delete('stephen-curry');
+let a3 = buildAlerts({ now: T0 + 3600e3, lineups: lu, injuries: im2, state: a2.state });
+ok('avisos: mudança de estado e jogador liberado', a3.items.length === 2 && a3.items.find(i => i.id === 'keshon-gilbert').kind === 'change' && a3.items.find(i => i.id === 'stephen-curry').kind === 'clear', a3.items.map(i => [i.name, i.kind]));
+const im3 = new Map(im2); im3.set('keshon-gilbert', Object.assign({}, by['keshon-gilbert']));
+let a4 = buildAlerts({ now: T0 + 1.5 * 3600e3, lineups: lu, injuries: im3, state: a3.state });
+let a5 = buildAlerts({ now: tip - 50 * 60e3, lineups: lu, injuries: im3, state: a4.state });
+let a6 = buildAlerts({ now: tip - 20 * 60e3, lineups: lu, injuries: im3, state: a5.state });
+ok('avisos: última chamada perto do jogo, só uma vez', a5.items.length === 1 && a5.items[0].kind === 'last' && a6.items.length === 0, [a4.items.map(i => i.kind), a5.items.map(i => i.kind), a6.items.length]);
+ok('avisos: jogo já começado não avisa', buildAlerts({ now: tip + 60e3, lineups: lu, injuries: im, state: {} }).items.length === 0);
+const tx = alertText(a1.items, { tz: 'Europe/Lisbon' });
+ok('avisos: texto com estado, lesão, hora de Lisboa e de onde vem o lineup', /Stephen Curry \(GSW\): Fora · Ankle/.test(tx.body) && /00:30/.test(tx.body) && /submetido no Top Shot/.test(tx.body) && tx.urgent && /2 avisos/.test(tx.title), tx);
+ok('avisos: estado antigo é esquecido ao fim de 3 dias', Object.keys(buildAlerts({ now: T0 + 4 * 86400e3, lineups: [], injuries: im, state: a1.state }).state).length === 0);
 console.log(fails ? fails + ' falha(s)' : 'tarefas: tudo certo');
 process.exit(fails ? 1 : 0);

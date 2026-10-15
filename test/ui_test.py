@@ -226,6 +226,12 @@ with sync_playwright() as pw:
     print('C run contas:', pg.locator('#tab-run .card').first.inner_text().replace('\n', ' | ')[:300])
     print('C run transferências:', pg.locator('#tab-run .card').last.inner_text().replace('\n', ' | ')[:300])
     pg.screenshot(path=str(shots / 'smurf-run.png'), full_page=True)
+    t0 = __import__('time').time()
+    pg.click('#tab-run button[data-action="buy-sheet"]'); pg.wait_for_timeout(300)
+    pg.click('#sheetPanel button[data-action="buy-mode"][data-mode="more"]'); pg.wait_for_timeout(200)
+    pg.click('#sheetPanel button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
+    print('C compras com smurf (%.1f s):' % (__import__('time').time() - t0), ' // '.join(x.replace('\n', ' | ')[:260] for x in pg.locator('#buyOut .card').all_inner_texts()[:2]))
+    pg.click('#sheetPanel button[data-action="close-sheet"]')
     pg.click('#t-plantel'); pg.wait_for_timeout(500)
     pg.locator('.mx-row:not(.head)').filter(has_text='Jokić').first.click(); pg.wait_for_timeout(300)
     print('C folha Jokić:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:300])
@@ -256,6 +262,68 @@ with sync_playwright() as pw:
     pg.click('#t-ajustes'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="del-run"]'); pg.wait_for_timeout(1500)
     print('D depois de apagar:', store(pg, '__FAKE_DB.tables.runs.map(r => r.id)'))
+    pg.close()
+
+    # ---------- E: lesões, em que se baseia, avisos e dicas de compra (run a sério) ----------
+    import datetime
+    db = seeded(); T = db['tables']
+    T['runs'][0]['fictitious'] = False
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})
+    mine = list(roster['players'])[:16]
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in mine}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T['chain_results'] = []
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    T['injuries'] = [
+        {'id': 'maxey', 'name': 'Tyrese Maxey', 'team': 'PHI', 'status': 'out', 'label': 'Out', 'detail': 'Ankle', 'comment': 'Maxey will miss Tuesday.', 'return_date': None, 'updated_at': now_iso},
+        {'id': 'sga', 'name': 'Shai Gilgeous-Alexander', 'team': 'OKC', 'status': 'dtd', 'label': 'Day-To-Day', 'detail': 'Knee · Tendinitis (left)', 'comment': 'SGA is questionable.', 'return_date': None, 'updated_at': now_iso},
+    ]
+    pg = new_page(b, db)
+    sent = []
+    def ntfy(r):
+        sent.append(r.request.post_data)
+        r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{}')
+    pg.route('https://ntfy.sh/**', ntfy)
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    print('E lineup dia 1:', ' / '.join(pg.locator('#tab-hoje .list .row .nm').all_inner_texts()[:5]))
+    print('E linhas com lesão:', ' / '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .row').filter(has_text='lesão').all_inner_texts())[:300])
+    print('E em que se baseia:', pg.locator('#tab-hoje .basis-day').inner_text().replace('\n', ' | ')[:900])
+    pg.screenshot(path=str(shots / 'hoje-baseia.png'), full_page=True)
+    print('E próximos lineups publicados:', store(pg, 'Object.keys((__FAKE_DB.tables.user_runs[0].plan.next || {}).main || {})'))
+    pg.locator('#tab-hoje .basis-day button[data-action="player"]').first.click(); pg.wait_for_timeout(300)
+    print('E ficha (em que se baseia):', pg.locator('#sheetPanel .basis').inner_text().replace('\n', ' | ')[:700])
+    pg.screenshot(path=str(shots / 'ficha-baseia.png'), full_page=True)
+    pg.click('#sheetPanel button[data-action="close-sheet"]')
+    pg.locator('#tab-hoje .list').first.locator('button[data-action="player"]').filter(has_text='Gilgeous').click(); pg.wait_for_timeout(300)
+    print('E ficha SGA (lesão):', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ')[:300], '//', pg.locator('#sheetPanel .basis').inner_text().replace('\n', ' | ')[:400])
+    pg.screenshot(path=str(shots / 'ficha-lesao.png'), full_page=True)
+    pg.click('#sheetPanel button[data-action="close-sheet"]')
+    pg.click('#t-plantel'); pg.wait_for_timeout(500)
+    print('E plantel lesões:', pg.locator('#plBody .card').filter(has_text='No relatório de lesões').inner_text().replace('\n', ' | ')[:300])
+    pg.locator('#plBody .card').filter(has_text='No relatório de lesões').locator('button[data-action="pl-sheet"]').filter(has_text='Maxey').click(); pg.wait_for_timeout(300)
+    print('E ficha Maxey:', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ')[:300])
+    pg.click('#sheetPanel button[data-action="inj-ignore"]'); pg.wait_for_timeout(1200)
+    print('E ignorar relatório:', store(pg, '__FAKE_DB.tables.user_runs[0].roster.maxey'), '·', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ')[:160])
+    pg.click('#sheetPanel button[data-action="inj-ignore"]'); pg.wait_for_timeout(1200)
+    pg.click('#sheetPanel button[data-action="close-sheet"]')
+    pg.screenshot(path=str(shots / 'plantel-lesoes.png'), full_page=True)
+    pg.click('#t-ajustes'); pg.wait_for_timeout(400)
+    print('E ajustes sem avisos (desligados por agora):', pg.locator('#tab-ajustes h2').all_inner_texts() if pg.click('#t-ajustes') is None and pg.wait_for_timeout(400) is None else '')
+    pg.click('#t-run'); pg.wait_for_timeout(500)
+    pg.click('#tab-run button[data-action="buy-sheet"]'); pg.wait_for_timeout(300)
+    t0 = __import__('time').time()
+    pg.click('#sheetPanel button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
+    print('E compras (%.1f s):' % (__import__('time').time() - t0), ' // '.join(x.replace('\n', ' | ')[:330] for x in pg.locator('#buyOut .card').all_inner_texts()[:3]))
+    pg.screenshot(path=str(shots / 'compras.png'), full_page=True)
+    pg.fill('#buySearch', 'Curry'); pg.wait_for_timeout(200)
+    pg.click('#buyFound button[data-action="buy-pick"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
+    print('E avaliar Curry:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:400])
+    pg.click('#sheetPanel button[data-action="buy-mode"][data-mode="more"]'); pg.wait_for_timeout(200)
+    pg.click('#sheetPanel button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
+    print('E mais usos:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#buyOut .card').all_inner_texts()[:2]))
+    pg.click('#sheetPanel button[data-action="close-sheet"]')
+    print('E largura:', width(pg))
     pg.close()
     b.close()
 

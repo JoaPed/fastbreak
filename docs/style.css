@@ -285,3 +285,17 @@ table.cmp { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 }
 .card > .status-line { padding-inline: 16px; }
 .card > .status-line:last-child { padding-bottom: 12px; }
+/* lesões, em que se baseia, dicas de compra */
+.warn-t { color: var(--warn); font-weight: 600; }
+.pill.dout { background: var(--bad-bg); color: var(--warn); }
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 13.5px; line-height: 1.45; }
+.steps li::marker { color: var(--muted); font-weight: 600; }
+.basis .steps b.num { font-size: 14.5px; }
+.basis-line { justify-content: flex-start; gap: 12px; }
+.basis-line .bl { flex: 0 0 74px; color: var(--muted); font-weight: 600; }
+.basis-line > span:last-child { flex: 1; min-width: 0; }
+.sub-head { padding-top: 6px; }
+.sub-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.basis-day .pv .u { white-space: nowrap; }
+.note .btn.small { justify-self: start; }
+.basis-day .ps, .inj-list .ps { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.4; }

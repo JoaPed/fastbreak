@@ -81,6 +81,17 @@ r = await as('c', `select id from public.nba_teams`); expect('não-membro não l
 r = await db.query(`insert into public.chain_results (user_id, game_id, account, win) values ('${U.b}', 'g1', 'main', true), ('${U.b}', 'g1', 's1', false)`); expect('resultados da principal e da smurf no mesmo dia', true, r);
 r = await as('a', `select account from public.chain_results where user_id = '${U.b}' order by account`); expect('o grupo vê os resultados por conta', r.rows?.length === 2 && r.rows[1].account === 's1', r);
 
+r = await as('service', `insert into public.injuries (id, name, team, status, return_date) values ('stephen-curry', 'Stephen Curry', 'GSW', 'dtd', '2026-10-21')`); expect('tarefa automática escreve o relatório de lesões', !r.error, r);
+r = await as('b', `select status from public.injuries`); expect('membro lê as lesões', r.rows?.[0]?.status === 'dtd', r);
+r = await as('b', `delete from public.injuries`); r = await as('service', `select count(*)::int n from public.injuries`); expect('membro não apaga as lesões', r.rows?.[0].n === 1, r);
+r = await as('c', `select id from public.injuries`); expect('não-membro não lê as lesões', !r.rows?.length, r);
+r = await as('b', `insert into public.alerts (email, ntfy) values (true, 'fastbreak-abc123xyz')`); expect('B liga os seus avisos', !r.error, r);
+r = await as('b', `update public.alerts set ntfy = 'mau tópico!'`); expect('tópico do ntfy inválido recusado', !!r.error, r);
+r = await as('a', `select * from public.alerts`); expect('A não vê os avisos de B (tópico privado)', r.rows?.length === 0, r);
+r = await as('a', `insert into public.alerts (user_id, email) values ('${U.b}', false) on conflict (user_id) do update set email = false`); r = await as('service', `select email from public.alerts where user_id = '${U.b}'`); expect('A não muda os avisos de B', r.rows?.[0]?.email === true, r);
+r = await as('service', `select ntfy from public.alerts`); expect('tarefa automática lê os avisos', r.rows?.[0]?.ntfy === 'fastbreak-abc123xyz', r);
+r = await as('c', `insert into public.alerts (email) values (true)`); expect('não-membro não liga avisos', !!r.error, r);
+
 // membros
 r = await as('b', `delete from public.members where user_id = '${U.a}'`); r = await as('a', `select count(*)::int n from public.members`); expect('membro não expulsa admin', r.rows?.[0].n === 2, r);
 r = await as('b', `update public.members set role = 'admin' where user_id = '${U.b}'`); r = await as('a', `select role from public.members where user_id = '${U.b}'`); expect('membro não se promove', r.rows?.[0].role === 'member', r);

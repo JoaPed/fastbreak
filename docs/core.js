@@ -103,8 +103,31 @@
     ok: { label: 'Disponível', play: 1 },
     prov: { label: 'Provável', play: 0.9 },
     duv: { label: 'Dúvida', play: 0.5 },
+    dout: { label: 'Pouco provável', play: 0.25 },
     fora: { label: 'Fora', play: 0 },
   };
+  // ---------- lesões (relatório da ESPN, tabela injuries) ----------
+  // estados do relatório: out, ofs (fora da época), doubtful, questionable, dtd (dia a dia), probable
+  const INJ_LABEL = { out: 'Fora', ofs: 'Fora da época', doubtful: 'Pouco provável', questionable: 'Dúvida', dtd: 'Dia a dia', probable: 'Provável' };
+  const dayDiff = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400e3);
+  // Estado no plano para o k-ésimo jogo que falta ao jogador (k = 0: o próximo jogo dele). O relatório fala do
+  // próximo jogo; nos seguintes conta a data prevista de regresso (Fora) ou volta ao normal aos poucos.
+  function injuryOn(rec, date, k, now) {
+    if (!rec || k == null || k < 0) return null;
+    if (rec.updated_at && now != null && now - Date.parse(rec.updated_at) > 3 * 86400e3) return null; // relatório parado há dias: não conta
+    const R = rec.return_date || null, s = rec.status;
+    if (s === 'ofs') return 'fora';
+    if (s === 'out') {
+      if (k === 0) return 'fora';
+      if (R) { const g = dayDiff(R, date); return g < 0 ? 'fora' : g < 3 ? 'duv' : 'prov'; }
+      return k <= 2 ? 'dout' : k <= 4 ? 'duv' : 'prov';
+    }
+    if (s === 'doubtful') return k === 0 ? 'dout' : k === 1 ? 'duv' : k === 2 ? 'prov' : null;
+    if (s === 'questionable' || s === 'dtd') return k === 0 ? 'duv' : k === 1 ? 'prov' : null;
+    if (s === 'probable') return k === 0 ? 'prov' : null;
+    return null;
+  }
+  const worse = (a, b) => ((STATUS[b] || STATUS.ok).play < (STATUS[a] || STATUS.ok).play ? b : a);
   // fração do jogo que ainda falta quando o jogador está a meio de cada período
   const QREM = { 1: 0.82, 2: 0.57, 3: 0.32, 4: 0.08 };
   const COMBO_RHO = 0.3;   // correlação entre stats do mesmo jogador (minutos)
@@ -186,8 +209,18 @@
     const line = +o.line, pOver = devig(o.over, o.under);
     return { mu: st.kind === 'normal' ? solveNormal(line, pOver, st.k) : solvePoisson(line, pOver), line, pOver };
   }
+  // Adversário: o que concede por jogo (últimos 10) a dividir pela média da liga. teams = {BOS: {n, allowed}, NBA: {allowed}}
+  function matchup(teams, opp, statKey) {
+    const t = teams && opp && teams[opp], lg = teams && teams.NBA;
+    if (!t || !lg || !t.allowed || !lg.allowed || (t.n || 0) < 5) return null;
+    let a = 0, b = 0;
+    for (const { s, sign } of statTerms(statKey)) { const x = num(t.allowed[s]), y = num(lg.allowed[s]); if (x == null || y == null) return null; a += sign * x; b += sign * y; }
+    if (!(b > 0)) return null;
+    const f = a / b;
+    return { f, used: Math.max(0.9, Math.min(1.1, 1 + 0.5 * (f - 1))) }; // nas médias conta metade, no máximo ±10%
+  }
   // src: 'odds' (linha desta estatística), 'proxy' (linha de outra × proporção nas médias), 'media', 'estimativa', 'sem'
-  function rawStat(player, s, oddsP) {
+  function rawStat(player, s, oddsP, mf) {
     const st = STATS[s];
     if (!st) return { mu: 0, v: 0, src: 'sem' };
     const o = oddsP && oddsP[s];
@@ -202,16 +235,16 @@
         mu = m.mu * a.v / aq.v; line = m.line; pOver = m.pOver; via = q; src = 'proxy';
         break;
       }
-      if (src === 'sem' && a) { mu = a.v; src = a.est ? 'estimativa' : 'media'; }
+      if (src === 'sem' && a) { mu = a.v * (mf ? mf(s) : 1); src = a.est ? 'estimativa' : 'media'; } // sem odds: ajusta ao adversário
     }
     const k = st.k * (src === 'proxy' || src === 'estimativa' ? 1.15 : 1); // menos certeza
     return { mu, v: Math.max(k * mu, mu > 0 ? 0.05 : 0), src, line, pOver, via };
   }
   function statusFor(player, oddsP) { return (oddsP && oddsP.status) || player.status || 'ok'; }
 
-  function playerDist(player, statKey, oddsP) {
+  function playerDist(player, statKey, oddsP, mf, stOverride) {
     const terms = statTerms(statKey);
-    const raws = terms.map(t => rawStat(player, t.s, oddsP));
+    const raws = terms.map(t => rawStat(player, t.s, oddsP, mf));
     let mu = 0, v = 0;
     raws.forEach((r, i) => { mu += terms[i].sign * r.mu; v += r.v; });
     for (let i = 0; i < raws.length; i++) for (let j = i + 1; j < raws.length; j++) v += 2 * COMBO_RHO * terms[i].sign * terms[j].sign * Math.sqrt(raws[i].v * raws[j].v);
@@ -219,12 +252,12 @@
     const srcs = raws.map(r => r.src);
     const src = srcs.length === 1 ? srcs[0] : srcs.every(x => x === 'odds') ? 'odds' : srcs.some(x => x === 'odds' || x === 'proxy') ? 'misto'
       : srcs.every(x => x === 'sem') ? 'sem' : srcs.some(x => x === 'estimativa') ? 'estimativa' : 'media';
-    const status = statusFor(player, oddsP);
+    const status = stOverride || statusFor(player, oddsP);
     const pp = (STATUS[status] || STATUS.ok).play;
     const mu2 = pp * mu;
     const v2 = Math.max(0, pp * (v + mu * mu) - mu2 * mu2);
     const one = raws.length === 1 ? raws[0] : {};
-    return { mu: mu2, v: v2, src, status, pPlay: pp, line: one.line != null ? one.line : null, pOver: one.pOver != null ? one.pOver : null, via: one.via || null, parts: raws.map((r, i) => ({ stat: terms[i].s, sign: terms[i].sign, mu: r.mu, src: r.src, line: r.line, via: r.via })) };
+    return { mu: mu2, v: v2, muIf: mu, vIf: v, src, status, pPlay: pp, line: one.line != null ? one.line : null, pOver: one.pOver != null ? one.pOver : null, via: one.via || null, parts: raws.map((r, i) => ({ stat: terms[i].s, sign: terms[i].sign, mu: r.mu, src: r.src, line: r.line, via: r.via })) };
   }
 
   function probAtLeast(S, V, T) {
@@ -259,6 +292,20 @@
     const open = allDays.filter(d => !isDone(d));
     const oddsDays = (odds && odds.days) || {};
     const winsSoFar = allDays.filter(d => isDone(d) && played[d.date].result === 'win').length;
+    // lesões: para cada jogador com aviso, que jogo dele (0 = o próximo) é cada dia que falta
+    const injuries = opts.injuries || null;
+    const todayEt = new Date(now - 5 * 3600e3).toISOString().slice(0, 10);
+    const injK = injuries ? players.map(p => {
+      if (!injuries[p.id] || p.injIgnore) return null;
+      const ks = new Array(open.length).fill(null); let k = 0;
+      open.forEach((day, di) => {
+        if (!teamsOn(day).has(p.team)) return;
+        const tt = tipTime(day, p.team);
+        if (tt != null ? tt <= now : day.date < todayEt) return; // jogo que já começou ou já passou
+        ks[di] = k++;
+      });
+      return ks;
+    }) : null;
 
     const days = open.map((day, di) => {
       const teams = teamsOn(day);
@@ -287,11 +334,15 @@
       const liveLocks = [];
       players.forEach((p, pi) => {
         const oddsP = oddsDay[p.id];
-        const dists = objs.map(o => playerDist(p, o.stat, oddsP));
+        const g = gameOf(day, p.team), opp = g ? (g[0] === p.team ? g[1] : g[0]) : null;
+        const mf = opts.teams && opp ? (s => { const m = matchup(opts.teams, opp, s); return m ? m.used : 1; }) : null;
+        const injSt = injK && injK[pi] ? injuryOn(injuries[p.id], day.date, injK[pi][di], now) : null;
+        const status = injSt ? worse(statusFor(p, oddsP), injSt) : statusFor(p, oddsP);
+        const dists = objs.map(o => playerDist(p, o.stat, oddsP, mf, status));
+        if (injuries && injuries[p.id]) { const inj = { rec: injuries[p.id], status: injSt, k: injK && injK[pi] ? injK[pi][di] : null, ignored: !!p.injIgnore }; dists.forEach(x => { x.injury = inj; }); }
         mu[pi] = dists.map(x => x.mu);
         v[pi] = dists.map(x => x.v);
         info[pi] = dists;
-        const status = statusFor(p, oddsP);
         const plays = teams.has(p.team);
         const avail = (STATUS[status] || STATUS.ok).play > 0;
         const inSub = submitted.includes(p.id);
@@ -635,6 +686,37 @@
     return out;
   }
 
+  // Compras: pré-seleção rápida antes de refazer a run para cada candidato. model = buildModel com o plantel e os
+  // candidatos; normal = plano atual (os mesmos ids); cands = índices no model; U = usos do Moment a comprar.
+  // Ganho aproximado = soma, nos U melhores dias, da subida da vitória nesse dia (entra no lugar de quem pesa
+  // menos) × quanto esse dia pesa nos prémios da run.
+  function buyScreen(model, normal, cands, U) {
+    const obj = makeObjective(model);
+    const byDate = new Map(normal.days.map(d => [d.date, d]));
+    const Ps = Float64Array.from(model.days.map(md => { const d = byDate.get(md.day.date); return d ? d.P : 0; }));
+    const base = obj.value(Ps);
+    const sens = model.days.map((md, d) => { const x = Ps[d], y = Math.min(1, x + 0.02); if (y <= x) return 0; Ps[d] = y; const up = obj.value(Ps); Ps[d] = x; return (up - base) / (y - x); });
+    const lineups = model.days.map(md => { const d = byDate.get(md.day.date); return d ? d.lineup.map(id => model.pIndex.get(id)).filter(i => i != null) : []; });
+    return cands.map(c => {
+      const days = [];
+      model.days.forEach((md, d) => {
+        if (!md.eligSet.has(c) || !md.objs.length) return;
+        const L = lineups[d]; if (L.includes(c)) return;
+        let best = 0, out = null;
+        for (const m of (L.length < md.size ? [-1] : []).concat(L)) {
+          if (m >= 0 && md.locks.includes(m)) continue;
+          const { S, V } = lineupStats(md, L.filter(x => x !== m).concat([c]));
+          const dp = winProb(md, S, V) - Ps[d];
+          if (dp > best) { best = dp; out = m; }
+        }
+        if (best > 1e-4) days.push({ d, date: md.day.date, dP: best, P0: Ps[d], P1: Ps[d] + best, out: out != null && out >= 0 ? model.players[out].id : null, g: best * sens[d] });
+      });
+      days.sort((a, b) => b.g - a.g);
+      const top = days.slice(0, Math.max(1, U));
+      return { p: c, id: model.players[c].id, score: top.reduce((t, x) => t + x.g, 0), days: top };
+    }).sort((a, b) => b.score - a.score);
+  }
+
   // Plano normal e plano "tudo pelo próximo dia", para comparar o custo
   function planRun(run, roster, odds, planDoc, opts) {
     const model = buildModel(run, roster, odds, planDoc, opts);
@@ -950,7 +1032,7 @@
     return { keys, byKey, transfers, clashes, objective: best.total };
   }
 
-  const api = { STATS, STATUS, QREM, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  const api = { STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

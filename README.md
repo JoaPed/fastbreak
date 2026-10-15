@@ -12,6 +12,7 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
 | Calendário e médias NBA | 09:17 todos os dias | Jogos de cada dia das runs, plantéis atuais, médias da época passada e desta época, e as estatísticas de cada jogo terminado para a forma (últimos 5 e 10 jogos) (ESPN) |
 | Odds dos jogadores | 15:07 e 21:37 | Linhas de mais/menos da estatística do objetivo de cada dia (The Odds API) |
 | Fast Break na blockchain | de 30 em 30 min | Runs, dias, objetivos e resultados de cada membro (contrato FastBreakV1 na Flow). Cada run Classic nova é criada no site sozinha, já ligada e ativa |
+| Lesões | de 30 em 30 min, das 13h às 4h | Relatório de lesões da NBA (ESPN) |
 | Carregar dados manuais | quando muda `data/seed/` | Dados escritos à mão (por exemplo, odds coladas) |
 
 ## Instalação (uma vez, ~20 minutos)
@@ -49,9 +50,32 @@ Em **Ajustes → Perfil**, cada pessoa pode juntar até 2 contas extra suas (uti
 - No topo de Hoje, Run e Plantel escolhe-se a conta a ver; jogo a jogo e fechar o dia funcionam por conta. Os resultados das smurf também vêm da blockchain.
 - A classificação do grupo conta só a conta principal.
 
+## Lesões
+- **Relatório de lesões**: a tarefa **Lesões** lê o relatório de lesões da NBA na ESPN (Fora, Fora da época, Pouco provável, Dúvida, Dia a dia, Provável; lesão, notícia curta e regresso previsto) e guarda-o na base de dados.
+- **No plano**: o relatório fala do próximo jogo de cada jogador. Nesse jogo: Fora → não entra; Pouco provável → 25% de jogar; Dúvida ou Dia a dia → 50%; Provável → 90%. Nos jogos seguintes conta a data prevista de regresso (Fora) ou volta ao normal aos poucos. Se puseres um estado à mão no plantel, conta o pior dos dois. Na ficha do jogador dá para **ignorar o relatório** (quando sabes que ele joga).
+- **Onde aparece**: no lineup de Hoje ("lesão: …"), em **Em que se baseia**, na ficha de cada jogador, e no Plantel (**No relatório de lesões**).
+- **Avisos antes dos jogos** (email ou telemóvel): o código está feito (`scripts/sync-injuries.mjs`, tabela `alerts`), mas está desligado por agora: o site não mostra a opção.
+
+## Em que se baseia
+- No ecrã Hoje, o cartão **Em que se baseia** diz de onde vem o lineup: para quantos jogadores há odds (e de quando são), quem está no relatório de lesões e com que probabilidade de jogar, como entram as médias e a forma, e como pesam os prémios da run.
+- **Porquê estes jogadores**: quanto cada um acrescenta à vitória de hoje (quem entrava no lugar dele) e os mais fortes que ficam de fora, com a razão (guardado para os dias X, sem usos, em dúvida…).
+- Na ficha de cada jogador, passo a passo: a linha das casas com os preços e a probabilidade sem a margem (ou, sem odds, as médias da época e dos últimos 10 e 5 jogos, a forma e o adversário), a probabilidade de jogar, e o valor final que o plano usa.
+- Quando há odds para um dia, são elas que mandam (já incluem forma, adversário e minutos). Chegam para hoje e amanhã, à tarde; os outros dias usam as médias até lá.
+
+## Dicas de compra
+- No separador Run, **Dicas de compra** refaz o plano da run com cada candidato e mostra quanto sobe a probabilidade de cada prémio, as vitórias esperadas e em que dias ele jogaria (com a vitória desse dia antes e depois). Exemplo: "Se comprares Stephen Curry com 2 usos, a probabilidade de chegares às 7 vitórias sobe de 22% para 30%: joga nos dias 3 (45% → 61%) e 7 (38% → 52%)."
+- **Jogadores novos** (do catálogo, com jogos nos dias que faltam) ou **Mais usos dos teus** (outro Moment de um jogador que já tens). Escolhe os usos do Moment (1 a 4): dependem do escalão, da edição e do preço médio (em geral Common 1, Rare 1 a 3, Legendary 3 ou mais), por isso confirma no Top Shot. Também dá para avaliar um jogador em especial.
+- Uma pré-seleção rápida escolhe os 8 melhores candidatos (5 com contas smurf) e só esses têm a run refeita. Os preços não entram nas contas.
+
 ## Forma e alternativas
 - **Forma**: sem odds para um dia, o plano usa as médias, e estas misturam a época com os últimos 10 e 5 jogos (normal: época 50%, últimos 10 30%, últimos 5 20%; com poucos jogos a forma pesa menos). Em **Ajustes → Forma recente** escolhe-se *Só a época*, *Normal* ou *Forte*. As odds das casas já incluem a forma, por isso quando há odds mandam elas. No lineup aparece "em forma ↑" ou "fora de forma ↓" quando os últimos 5 jogos se afastam mais de 12% da época.
 - **Alternativas**: no ecrã Hoje, **Ver 2 a 3 alternativas para hoje** mostra outros lineups (tudo pelo dia, ou guardar um dos jogadores que mais pesam para outro dia), cada um com o resto da run refeito e o efeito nos prémios. **Usar esta** fixa esse lineup hoje e refaz o resto; dá para voltar ao sugerido.
+
+## Comparar jogadores
+- Ao abrir um dia (separador Run), a tabela **Comparar jogadores** mostra todos os jogadores do plantel com jogo nesse dia: o que o plano espera, a linha das casas, médias dos últimos 5 e 10 jogos e da época, minutos, e conforme a estatística do dia, lançamentos e percentagens, ressaltos ofensivos e defensivos, assistências e perdas de bola, roubos e desarmes. Números grandes são os últimos 5 jogos e os pequenos a época. Toca num título para ordenar e num jogador para ver a ficha.
+- **Adv.** é quanto o adversário concede dessa estatística face à média da liga, nos últimos 10 jogos dele. Sem odds, o plano ajusta a média do jogador por metade dessa diferença (no máximo ±10%).
+- A ficha de cada jogador mostra os últimos 5 jogos (minutos, pontos, ressaltos, assistências, lançamentos, triplos, lances livres, perdas de bola, roubos, desarmes).
+- Estes dados vêm da tarefa **Calendário e médias NBA** (box score de cada jogo terminado na ESPN) e aparecem depois dos primeiros jogos da época.
 
 ## Estatísticas dos objetivos
 Os objetivos vêm da blockchain com estes nomes. Para cada jogador, o plano usa a linha das casas de apostas quando existe; se não, a linha da estatística mais parecida ajustada pelas médias dele; se não houver odds, a média da época.
@@ -75,6 +99,7 @@ Nomes novos que o leitor não conheça aparecem no log da tarefa **Fast Break na
 ## Limites a ter em conta
 - **The Odds API grátis**: 500 créditos por mês. Custa 1 crédito por jogo e por mercado pedido (os dias de AST−TOV pedem dois). Com 2 leituras por dia, chega para a maior parte dos meses; se faltar, tira uma das horas em `.github/workflows/odds.yml`.
 - **Pontos na área**: a ESPN não os dá por jogador, por isso as médias e os valores ao vivo são estimados. O resultado do dia vem sempre da blockchain.
+- **Relatório de lesões**: vem da ESPN, que segue o relatório oficial da NBA. Quem descansa ("Rest") também aparece. Se a ESPN não responder, fica o relatório anterior; se ficar parado mais de 3 dias, o plano deixa de o usar.
 - **Base de dados**: depois de atualizar o código, corre de novo `supabase/schema.sql` no SQL Editor (pode correr-se as vezes que for preciso; acrescenta o que falta sem apagar dados).
 - **GitHub Actions**: as tarefas agendadas podem atrasar-se uns minutos. Num repositório público ficam suspensas ao fim de 60 dias sem commits; volta a ligá-las no separador Actions.
 - **Supabase grátis**: o projeto adormece depois de 7 dias sem uso; as tarefas automáticas mantêm-no acordado.
@@ -89,6 +114,6 @@ Nomes novos que o leitor não conheça aparecem no log da tarefa **Fast Break na
 ## Desenvolvimento
 ```bash
 npm install
-npm test                     # motor, leitores de dados e regras de acesso da base de dados
+npm test                     # motor, leitores de dados, tarefa dos avisos e regras de acesso da base de dados
 python3 test/ui_test.py      # site completo num browser sem ecrã, com um Supabase falso
 ```

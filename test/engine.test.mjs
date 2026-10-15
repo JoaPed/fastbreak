@@ -97,6 +97,18 @@ ok('com poucos jogos a forma pesa menos', FB.avgOf(few, 'pts').v > 20 && FB.avgO
 ok('odds continuam a mandar quando existem', Math.abs(FB.playerDist(hot, 'pts', { pts: { line: 21.5, over: -110, under: -110 } }).mu - 21.5) < 1.5);
 const fi = FB.formInfo(hot, 'pts');
 ok('informação de forma para mostrar', fi.season === 20 && fi.l5 === 30 && fi.l10 === 24 && fi.trend > 0.4, fi);
+// adversário: o que concede (últimos 10 jogos) mexe nas médias, não nas odds
+const teams = { SAC: { n: 10, allowed: { pts: 126, reb: 46 } }, BOS: { n: 10, allowed: { pts: 104, reb: 42 } }, NBA: { n: 30, allowed: { pts: 115, reb: 44 } } };
+const mSac = FB.matchup(teams, 'SAC', 'pts'), mBos = FB.matchup(teams, 'BOS', 'pts+reb');
+ok('adversário: fator e meio-ajuste com limite', Math.abs(mSac.f - 126 / 115) < 1e-9 && Math.abs(mSac.used - (1 + 0.5 * (126 / 115 - 1))) < 1e-9 && mBos.used < 1 && FB.matchup(teams, 'XXX', 'pts') === null && FB.matchup({ SAC: { n: 3, allowed: { pts: 140 } }, NBA: { allowed: { pts: 115 } } }, 'SAC', 'pts') === null);
+const mrun = { name: 't', prizes: [], days: [{ date: '2026-11-03', objectives: [{ stat: 'pts', target: 100 }], games: [['BOS', 'SAC', '2026-11-04T00:00:00Z', 'x']] }] };
+const mro = { players: { a: { name: 'A', team: 'BOS', uses: 1, avg: { pts: 20 } }, b: { name: 'B', team: 'SAC', uses: 1, avg: { pts: 20 } } } };
+const mm = FB.buildModel(mrun, mro, { days: {} }, {}, { now: NOW, teams });
+const muA = mm.days[0].mu[mm.pIndex.get('a')][0], muB = mm.days[0].mu[mm.pIndex.get('b')][0];
+ok('contra quem concede mais, a média sobe; contra quem concede menos, desce', muA > 20 && muB < 20 && Math.abs(muA - 20 * (1 + 0.5 * (126 / 115 - 1))) < 1e-9, [muA, muB]);
+const mmO = FB.buildModel(mrun, mro, { days: { '2026-11-03': { players: { a: { pts: { line: 21.5, over: -110, under: -110 } } } } } }, {}, { now: NOW, teams });
+ok('com odds o adversário não mexe (já está na linha)', Math.abs(mmO.days[0].mu[mmO.pIndex.get('a')][0] - FB.playerDist(mro.players.a, 'pts', { pts: { line: 21.5, over: -110, under: -110 } }).mu) < 1e-9);
+
 // alternativas para hoje
 const seeds = FB.alternativeSeeds(r.model, r.normal);
 ok('alternativas: tudo pelo dia e guardar até 3 jogadores', seeds[0].kind === 'allin' && seeds[0].lineupIdx.length === 5 && seeds.filter(x => x.kind === 'save').length === 3 && seeds.filter(x => x.kind === 'save').every(x => r.normal.days[0].lineupIdx.includes(x.player)), seeds);
@@ -150,5 +162,40 @@ ok('o mesmo Moment fixado nas duas contas na mesma noite é assinalado', g4.clas
 const closedMain = { played: { [d1]: { done: true, result: 'win', lineup: [] } } };
 const g5 = FB.planGroup(run, [{ key: 'main', roster: split, plan: closedMain }, { key: 's1', roster: split, plan: {} }], odds, { now: NOW });
 ok('cada conta tem os seus dias fechados e vitórias', g5.byKey.main.wins === 1 && g5.byKey.main.model.days.length === run.days.length - 1 && g5.byKey.s1.model.days.length === run.days.length && !groupErrors(g5).errs.length);
+
+// lesões: relatório da ESPN por dia (o próximo jogo de cada jogador conta mais)
+const iso = new Date(NOW).toISOString();
+ok('lesão: fora no próximo jogo', FB.injuryOn({ status: 'out', updated_at: iso }, '2026-10-20', 0, NOW) === 'fora');
+ok('lesão: fora até à data de regresso, depois volta aos poucos', FB.injuryOn({ status: 'out', return_date: '2026-10-25' }, '2026-10-24', 2, NOW) === 'fora' && FB.injuryOn({ status: 'out', return_date: '2026-10-25' }, '2026-10-26', 3, NOW) === 'duv' && FB.injuryOn({ status: 'out', return_date: '2026-10-25' }, '2026-10-29', 4, NOW) === 'prov');
+ok('lesão: dia a dia é dúvida no próximo jogo e provável no seguinte', FB.injuryOn({ status: 'dtd' }, 'x', 0, NOW) === 'duv' && FB.injuryOn({ status: 'dtd' }, 'x', 1, NOW) === 'prov' && FB.injuryOn({ status: 'dtd' }, 'x', 2, NOW) === null);
+ok('lesão: fora da época em todos os jogos', FB.injuryOn({ status: 'ofs' }, 'x', 6, NOW) === 'fora');
+ok('lesão: relatório parado há mais de 3 dias não conta', FB.injuryOn({ status: 'out', updated_at: new Date(NOW - 4 * 86400e3).toISOString() }, 'x', 0, NOW) === null);
+const inj = { maxey: { status: 'out', updated_at: iso }, curry: { status: 'probable', updated_at: iso } };
+const ri = FB.planRun(run, roster, odds, {}, { now: NOW, injuries: inj });
+const mx = ri.model.pIndex.get('maxey'), dPHI = ri.model.days.findIndex(md => md.day.date === '2026-10-22');
+ok('lesão: Maxey fora no próximo jogo não entra nesse dia', !ri.model.days[0].eligSet.has(mx) && ri.model.days[0].info[mx][0].status === 'fora' && !ri.normal.days[0].lineup.includes('maxey'), ri.normal.days[0].lineup);
+ok('lesão: no jogo seguinte entra com 25% de jogar', ri.model.days[dPHI].info[mx][0].status === 'dout' && Math.abs(ri.model.days[dPHI].info[mx][0].pPlay - 0.25) < 1e-9 && ri.model.days[dPHI].info[mx][0].injury.k === 1);
+ok('lesão: o plano continua válido', violations(ri.normal, ri.model).length === 0, violations(ri.normal, ri.model));
+const ign = JSON.parse(JSON.stringify(roster)); ign.players.maxey.injIgnore = true;
+const rig = FB.planRun(run, ign, odds, {}, { now: NOW, injuries: inj });
+ok('lesão: "ignorar o relatório" volta a contar com ele', rig.model.days[0].eligSet.has(rig.model.pIndex.get('maxey')) && rig.model.days[0].info[rig.model.pIndex.get('maxey')][0].injury.ignored === true);
+const man = JSON.parse(JSON.stringify(roster)); man.players.curry.status = 'duv';
+const rmn = FB.buildModel(run, man, odds, {}, { now: NOW, injuries: inj });
+const cu = rmn.pIndex.get('curry'), dGS = rmn.days.findIndex(md => md.eligSet.has(cu));
+ok('lesão: fica o pior entre o estado posto à mão e o relatório', dGS >= 0 && rmn.days[dGS].info[cu][0].status === 'duv', dGS >= 0 && rmn.days[dGS].info[cu][0]);
+ok('lesão: o jogo que já começou não conta como o próximo', (() => { const late = Date.parse('2026-10-20T23:45:00Z'); const m = FB.buildModel(run, roster, odds, {}, { now: late, injuries: inj }); const i = m.pIndex.get('maxey'); return m.days[0].info[i][0].injury.k === null && m.days.find(md => md.day.date === '2026-10-22').info[i][0].injury.k === 0; })());
+
+// compras: um jogador forte a mais sobe as hipóteses de prémio nos dias em que joga
+const wide = JSON.parse(JSON.stringify(roster));
+wide.players.star = { name: 'Super Estrela', team: 'PHI', uses: 2, status: 'ok', avg: { pts: 36, reb: 11, ast: 9, fg3: 4, stl: 2, blk: 1.5 } };
+wide.players.bench = { name: 'Banco Fraco', team: 'PHI', uses: 2, status: 'ok', avg: { pts: 3, reb: 1, ast: 0.5, fg3: 0.2, stl: 0.1, blk: 0.1 } };
+const mw = FB.buildModel(run, wide, odds, {}, { now: NOW });
+const scr = FB.buyScreen(mw, r.normal, [mw.pIndex.get('star'), mw.pIndex.get('bench')], 2);
+ok('compras: o mais forte fica à frente na pré-seleção', scr[0].id === 'star' && scr[0].score > scr[1].score && scr[0].days.length === 2 && scr[0].days.every(x => x.P1 > x.P0), scr.map(x => [x.id, x.score, x.days.length]));
+ok('compras: os dias sugeridos são dias em que ele joga', scr[0].days.every(x => run.days.find(d => d.date === x.date).games.some(g => g.includes('PHI'))), scr[0].days);
+const withStar = JSON.parse(JSON.stringify(roster)); withStar.players.star = wide.players.star;
+const base2 = FB.optimize(FB.buildModel(run, roster, odds, {}, { now: NOW }), { restarts: 2 });
+const buy2 = FB.optimize(FB.buildModel(run, withStar, odds, {}, { now: NOW }), { restarts: 2 });
+ok('compras: refazer a run com ele sobe o valor dos prémios', buy2.objective > base2.objective && buy2.prizeProbs[1] >= base2.prizeProbs[1], [base2.prizeProbs, buy2.prizeProbs]);
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);
