@@ -4,7 +4,7 @@
 //   3) médias desta época (todos os dias), misturadas com as da época passada enquanto há poucos jogos;
 //   4) ressaltos ofensivos e defensivos, que só vêm na ficha de cada jogador (uma vez por época e quando joga mais jogos);
 //   5) forma: as estatísticas de cada jogo terminado (últimos 10 jogos de cada jogador).
-import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, parseEspnBox, addBoxForm, formOf, teamRows, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate, addDays } from './lib.mjs';
+import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, parseEspnBox, addBoxForm, formOf, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate, addDays } from './lib.mjs';
 
 const ESPN_TEAMS = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams';
 const ESPN_ROSTER = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/' + id + '/roster';
@@ -23,7 +23,7 @@ const y = +today.slice(0, 4), m = +today.slice(5, 7);
 const curYear = m >= 9 ? y + 1 : y;
 const fmt = year => (year - 1) + '-' + String(year).slice(2);
 // época nova: as médias "desta época" da anterior deixam de contar como atuais
-if (state.curSeason && state.curSeason !== fmt(curYear)) { for (const p of Object.values(state.players)) { delete p.curAvg; delete p.cur; delete p.log; } delete state.boxDate; delete state.teams; }
+if (state.curSeason && state.curSeason !== fmt(curYear)) { for (const p of Object.values(state.players)) { delete p.curAvg; delete p.cur; delete p.log; } delete state.boxDate; }
 state.curSeason = fmt(curYear);
 
 async function season(year, add) {
@@ -124,12 +124,6 @@ await upsertChunks(sb, 'nba_players', rows, 'id');
 const keep = new Set(rows.map(r => r.id));
 const old = (await must(sb.from('nba_players').select('id'))).map(r => r.id).filter(id => /^\d+$/.test(id) || (rostersLoaded && !keep.has(id)));
 for (let i = 0; i < old.length; i += 200) await must(sb.from('nba_players').delete().in('id', old.slice(i, i + 200)));
-// o que cada equipa concede (últimos 10 jogos), para comparar adversários
-const tRows = teamRows(state);
-if (tRows.length) {
-  try { await upsertChunks(sb, 'nba_teams', tRows.map(r => Object.assign({ updated_at: new Date().toISOString() }, r)), 'id'); console.log('Equipas (defesa nos últimos jogos):', tRows.length - 1); }
-  catch (e) { console.log('Aviso: corre o supabase/schema.sql novo para guardar os dados das equipas (' + e.message + ').'); }
-}
 await setState(sb, 'stats', state);
 console.log('Jogadores no catálogo:', rows.length, '· com equipa:', rows.filter(r => r.team).length, '· com médias:', rows.filter(r => r.avg).length,
   '· com ressaltos ofensivos:', rows.filter(r => r.avg && r.avg.oreb != null).length, '· com perdas de bola:', rows.filter(r => r.avg && r.avg.tov != null).length,

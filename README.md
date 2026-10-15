@@ -53,12 +53,6 @@ Em **Ajustes → Perfil**, cada pessoa pode juntar até 2 contas extra suas (uti
 - **Forma**: sem odds para um dia, o plano usa as médias, e estas misturam a época com os últimos 10 e 5 jogos (normal: época 50%, últimos 10 30%, últimos 5 20%; com poucos jogos a forma pesa menos). Em **Ajustes → Forma recente** escolhe-se *Só a época*, *Normal* ou *Forte*. As odds das casas já incluem a forma, por isso quando há odds mandam elas. No lineup aparece "em forma ↑" ou "fora de forma ↓" quando os últimos 5 jogos se afastam mais de 12% da época.
 - **Alternativas**: no ecrã Hoje, **Ver 2 a 3 alternativas para hoje** mostra outros lineups (tudo pelo dia, ou guardar um dos jogadores que mais pesam para outro dia), cada um com o resto da run refeito e o efeito nos prémios. **Usar esta** fixa esse lineup hoje e refaz o resto; dá para voltar ao sugerido.
 
-## Comparar jogadores
-- Ao abrir um dia (separador Run), a tabela **Comparar jogadores** mostra todos os jogadores do plantel com jogo nesse dia: o que o plano espera, a linha das casas, médias dos últimos 5 e 10 jogos e da época, minutos, e conforme a estatística do dia, lançamentos e percentagens, ressaltos ofensivos e defensivos, assistências e perdas de bola, roubos e desarmes. Números grandes são os últimos 5 jogos e os pequenos a época. Toca num título para ordenar e num jogador para ver a ficha.
-- **Adv.** é quanto o adversário concede dessa estatística face à média da liga, nos últimos 10 jogos dele. Sem odds, o plano ajusta a média do jogador por metade dessa diferença (no máximo ±10%).
-- A ficha de cada jogador mostra os últimos 5 jogos (minutos, pontos, ressaltos, assistências, lançamentos, triplos, lances livres, perdas de bola, roubos, desarmes).
-- Estes dados vêm da tarefa **Calendário e médias NBA** (box score de cada jogo terminado na ESPN) e aparecem depois dos primeiros jogos da época.
-
 ## Estatísticas dos objetivos
 Os objetivos vêm da blockchain com estes nomes. Para cada jogador, o plano usa a linha das casas de apostas quando existe; se não, a linha da estatística mais parecida ajustada pelas médias dele; se não houver odds, a média da época.
 
