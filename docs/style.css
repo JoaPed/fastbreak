@@ -223,3 +223,7 @@ html, body { min-height: 100%; }
 .tabbar .tab { font-size: 10.5px; }
 .kv.sm { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .kv.sm .v { font-size: 18px; }
+.acc-seg { margin: 0; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: var(--surface); border: 1px solid var(--line); }
+.acc-seg button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-seg button[aria-pressed="true"] { background: var(--surface-2); }
+.smurf-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; gap: 8px; }

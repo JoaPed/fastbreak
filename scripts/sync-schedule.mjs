@@ -5,7 +5,7 @@ const SCOREBOARD = date => 'https://site.api.espn.com/apis/site/v2/sports/basket
 
 const sb = await supa();
 const since = addDays(etDate(Date.now()), -3);
-const runs = await must(sb.from('runs').select('id,name,end_date').gte('end_date', since));
+const runs = await must(sb.from('runs').select('id,name,end_date').gte('end_date', since).eq('fictitious', false)); // runs de teste têm jogos inventados
 if (!runs.length) console.log('Nenhuma run por acabar: nada a fazer.');
 let changed = 0, failed = 0;
 for (const run of runs) {

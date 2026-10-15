@@ -84,5 +84,52 @@ ok('objetivo de pontos na área tem probabilidade', rm.normal.days[1].P > 0 && r
 const rmLive = FB.planRun(mini, ro, { days: {} }, { live: { '2026-11-01': { active: true, lineup: rm.normal.days[0].lineup, players: { [rm.normal.days[0].lineup[0]]: { state: 'fim', vals: { ast: 11, tov: 3, pts: 30 } } } } } }, { now: Date.parse('2026-11-02T03:00:00Z') });
 ok('jogo a jogo calcula a diferença a partir das estatísticas do jogo', rmLive.normal.days[0].totals[0].known === 8, rmLive.normal.days[0].totals[0]);
 ok('objetivo por jogador fica assinalado', FB.planRun({ name: 't', prizes: [], days: [{ date: '2026-11-01', objectives: [{ stat: 'pts', target: 20, each: true }], games: mini.days[0].games }] }, ro, { days: {} }, {}, { now: Date.parse('2026-10-30T10:00:00Z') }).normal.days[0].perPlayer === true);
+
+// várias contas (smurf)
+function groupErrors(g) {
+  const errs = [], night = {};
+  g.keys.forEach(k => {
+    const r = g.byKey[k], cnt = {};
+    r.normal.days.forEach((d, i) => {
+      const md = r.model.days[i];
+      if (d.lineup.length > md.size) errs.push(k + ' lineup grande ' + d.date);
+      d.lineupIdx.forEach(p => { if (!md.eligSet.has(p)) errs.push(k + ' sem jogo ' + d.date); cnt[p] = (cnt[p] || 0) + 1; });
+      d.lineup.forEach(id => { const key = d.date + '|' + id; night[key] = (night[key] || []).concat(k); });
+    });
+    Object.entries(cnt).forEach(([p, c]) => { if (c > r.model.uses[p]) errs.push(k + ' usos ' + r.model.players[p].id); });
+  });
+  return { errs, night };
+}
+const split = JSON.parse(JSON.stringify(roster));
+Object.keys(split.players).sort().forEach((pid, i) => { split.players[pid].owner = i % 2 ? 's1' : 'main'; split.players[pid].copies = 1; });
+const onlyOwn = key => { const r2 = JSON.parse(JSON.stringify(split)); Object.values(r2.players).forEach(p => { if (p.owner !== key) p.uses = 0; }); return r2; };
+const sepObj = ['main', 's1'].map(k => FB.planRun(run, onlyOwn(k), odds, {}, { now: NOW }).normal.objective).reduce((a, b) => a + b, 0);
+const tg = Date.now();
+const g2 = FB.planGroup(run, [{ key: 'main', roster: split, plan: {} }, { key: 's1', roster: split, plan: {} }], odds, { now: NOW });
+ok('duas contas: plano em menos de 3 s', Date.now() - tg < 3000, Date.now() - tg);
+const ge = groupErrors(g2);
+ok('duas contas: usos de cada conta, jogos e tamanho do lineup', !ge.errs.length, ge.errs);
+ok('duas contas: um Moment só joga por uma conta em cada noite', Object.values(ge.night).every(ks => ks.length === 1), Object.entries(ge.night).filter(([, ks]) => ks.length > 1));
+ok('juntar as coleções vale mais do que jogar cada conta sozinha', g2.objective > sepObj, [g2.objective, sepObj]);
+// para cada uso, o Moment tem de estar nessa conta: dono inicial, ou a última transferência antes dessa noite
+let okT = true;
+g2.keys.forEach(k => g2.byKey[k].normal.days.forEach(d => d.lineup.forEach(pid => {
+  const moved = g2.transfers.filter(t => t.id === pid && t.before <= d.date).pop();
+  if ((moved ? moved.to : split.players[pid].owner) !== k) okT = false;
+})));
+ok('transferências: cada Moment está na conta certa em cada noite', okT, g2.transfers.slice(0, 5));
+const allMain = JSON.parse(JSON.stringify(roster)); Object.values(allMain.players).forEach(p => { p.owner = 'main'; p.copies = 1; });
+const g1 = FB.planGroup(run, [{ key: 'main', roster: allMain, plan: {} }, { key: 's1', roster: allMain, plan: {} }], odds, { now: NOW });
+ok('smurf sem Moments e sem hipótese de prémio não pede transferências inúteis', g1.transfers.length === 0 && g1.byKey.main.normal.prizeProbs.every((x, i) => x >= r.normal.prizeProbs[i] - 0.02), [g1.transfers.length, g1.byKey.main.normal.prizeProbs, r.normal.prizeProbs]);
+ok('as transferências servem os prémios: nenhum Moment vai e volta para uma conta sem hipótese de prémio', g2.transfers.every(t => g2.byKey[t.to].normal.prizeProbs.some(x => x > 0.01)), g2.transfers.filter(t => !g2.byKey[t.to].normal.prizeProbs.some(x => x > 0.01)));
+const two = JSON.parse(JSON.stringify(allMain)); two.players.sga.copies = 2; delete two.players.sga.owner;
+const lockBoth = { locks: { [d1]: ['sga'] } };
+const g3 = FB.planGroup(run, [{ key: 'main', roster: two, plan: lockBoth }, { key: 's1', roster: two, plan: lockBoth }], odds, { now: NOW });
+ok('com dois Moments do mesmo jogador, as duas contas podem usá-lo na mesma noite', g3.byKey.main.normal.days[0].lineup.includes('sga') && g3.byKey.s1.normal.days[0].lineup.includes('sga') && !g3.clashes.length, [g3.byKey.main.normal.days[0].lineup, g3.byKey.s1.normal.days[0].lineup, g3.clashes]);
+const g4 = FB.planGroup(run, [{ key: 'main', roster: allMain, plan: lockBoth }, { key: 's1', roster: allMain, plan: lockBoth }], odds, { now: NOW });
+ok('o mesmo Moment fixado nas duas contas na mesma noite é assinalado', g4.clashes.some(c => c.id === 'sga' && c.date === d1), g4.clashes);
+const closedMain = { played: { [d1]: { done: true, result: 'win', lineup: [] } } };
+const g5 = FB.planGroup(run, [{ key: 'main', roster: split, plan: closedMain }, { key: 's1', roster: split, plan: {} }], odds, { now: NOW });
+ok('cada conta tem os seus dias fechados e vitórias', g5.byKey.main.wins === 1 && g5.byKey.main.model.days.length === run.days.length - 1 && g5.byKey.s1.model.days.length === run.days.length && !groupErrors(g5).errs.length);
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);

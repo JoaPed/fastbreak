@@ -15,7 +15,8 @@ if (!dates.length) dates.push(today, addDays(today, 1));
 
 // que estatísticas são precisas em cada data (objetivos das runs)
 const need = {};
-const rows = await must(sb.from('run_days').select('date,objectives').in('date', dates));
+const real = new Set((await must(sb.from('runs').select('id').eq('fictitious', false))).map(r => r.id)); // runs de teste não gastam créditos
+const rows = (await must(sb.from('run_days').select('run_id,date,objectives').in('date', dates))).filter(r => real.has(r.run_id));
 for (const r of rows) for (const o of r.objectives || []) for (const m of marketsForStat(o.stat)) (need[r.date] = need[r.date] || new Set()).add(m);
 if (!Object.keys(need).length) { console.log('Nenhum objetivo definido para', dates.join(', '), '— não gasto créditos.'); process.exit(0); }
 

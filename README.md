@@ -38,7 +38,16 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
 2. Em **Ajustes**: escolhe o código de convite, cria a run (nome, primeiro dia, número de dias), define os prémios por vitórias e os objetivos.
 3. Quando a run aparecer na blockchain, liga-a em **Ajustes → Blockchain**: os objetivos e os resultados de todos passam a entrar sozinhos.
 4. Manda aos amigos o link do site e o código de convite.
-5. Cada um põe o endereço Flow da carteira Dapper no perfil e, no **Plantel**, carrega em **Ler da carteira**: o site lê os Moments diretamente da blockchain (no browser) e junta os jogadores com equipa NBA. Os usos não estão na blockchain (dependem do escalão de cada Moment): os novos entram com 1 uso e acertam-se à mão.
+5. Cada um põe o endereço Flow da carteira Dapper no perfil e, no **Plantel**, carrega em **Ler carteira**: o site lê os Moments diretamente da blockchain (no browser) e guarda a coleção no perfil, mesmo sem haver run. Numa run, os jogadores da coleção passam para o plantel. Os usos não estão na blockchain (dependem do escalão de cada Moment): os novos entram com 1 uso e acertam-se à mão.
+6. **Run de teste** (admin, em Ajustes → Nova run): 11 dias a começar hoje, jogos inventados e objetivos com as estatísticas reais do Fast Break, para o grupo experimentar. Não gasta créditos de odds e apaga-se com um botão.
+
+## Contas smurf
+Em **Ajustes → Perfil**, cada pessoa pode juntar até 2 contas extra suas (utilizador do Top Shot e endereço Flow).
+- **Ler carteiras** lê as coleções de todas as contas e guarda onde está cada Moment.
+- O plano trata as coleções como uma só: escolhe o lineup de cada conta em cada noite, com os usos de cada conta, e um Moment só joga por uma conta em cada noite (regra do Top Shot). Maximiza a soma do valor dos prémios das contas.
+- Diz que Moments mandar para que conta e até quando (**Mandar antes de hoje** no ecrã Hoje; lista completa em Run). Cada transferência tem um pequeno custo no cálculo, por isso o plano só manda Moments quando isso aumenta as hipóteses de prémio. Uma conta sem hipóteses pode ficar sem jogar num dia.
+- No topo de Hoje, Run e Plantel escolhe-se a conta a ver; jogo a jogo e fechar o dia funcionam por conta. Os resultados das smurf também vêm da blockchain.
+- A classificação do grupo conta só a conta principal.
 
 ## Estatísticas dos objetivos
 Os objetivos vêm da blockchain com estes nomes. Para cada jogador, o plano usa a linha das casas de apostas quando existe; se não, a linha da estatística mais parecida ajustada pelas médias dele; se não houver odds, a média da época.
@@ -62,6 +71,7 @@ Nomes novos que o leitor não conheça aparecem no log da tarefa **Fast Break na
 ## Limites a ter em conta
 - **The Odds API grátis**: 500 créditos por mês. Custa 1 crédito por jogo e por mercado pedido (os dias de AST−TOV pedem dois). Com 2 leituras por dia, chega para a maior parte dos meses; se faltar, tira uma das horas em `.github/workflows/odds.yml`.
 - **Pontos na área**: a ESPN não os dá por jogador, por isso as médias e os valores ao vivo são estimados. O resultado do dia vem sempre da blockchain.
+- **Base de dados**: depois de atualizar o código, corre de novo `supabase/schema.sql` no SQL Editor (pode correr-se as vezes que for preciso; acrescenta o que falta sem apagar dados).
 - **GitHub Actions**: as tarefas agendadas podem atrasar-se uns minutos. Num repositório público ficam suspensas ao fim de 60 dias sem commits; volta a ligá-las no separador Actions.
 - **Supabase grátis**: o projeto adormece depois de 7 dias sem uso; as tarefas automáticas mantêm-no acordado.
 

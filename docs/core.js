@@ -300,7 +300,8 @@
   }
 
   // ---------- objetivo da run ----------
-  function makeObjective(model) {
+  function makeObjective(model, epsWins) {
+    const EPSW = epsWins != null ? epsWins : EPS_WINS;
     const prizes = model.prizes || [];
     const base = model.winsSoFar || 0;
     const n = model.days.length;
@@ -321,7 +322,7 @@
       if (!prizes.length) return ew;
       const pp = prizeProbs(Ps); let v = 0;
       for (let i = 0; i < pp.length; i++) v += prizes[i].value * pp[i];
-      return v / totalW + EPS_WINS * ew;
+      return v / totalW + EPSW * ew;
     }
     return { value, prizeProbs, prizes, winDist: Ps => Array.from(winDist(Ps).slice(0, Ps.length + 1)) };
   }
@@ -607,7 +608,278 @@
     return { model, normal, allIn, wins, losses, playedCount: playedDays.length, prizes: model.prizes };
   }
 
-  const api = { STATS, STATUS, QREM, statTerms, statValue, avgOf, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  // ---------- várias contas (smurf) ----------
+  // Cada conta tem os seus usos de cada jogador; um Moment só joga por uma conta em cada noite (copies = quantos
+  // Moments desse jogador há nas contas todas). Maximiza a soma do valor dos prémios das contas.
+  // models: um buildModel por conta, todos com os mesmos jogadores pela mesma ordem.
+  function optimizeMulti(models, copies, opts) {
+    opts = opts || {};
+    const A = models.length, P = models[0].P;
+    const TC = opts.transferCost != null ? opts.transferCost : 0.002; // ≈ 1 vitória esperada sem prémio, ou 1% do valor dos prémios // custo de cada Moment mandado para outra conta
+    const owners = opts.owners || new Array(P).fill(-1);
+    // com várias contas, os desempates (vitórias esperadas sem prémio, total do dia) pesam menos que uma transferência
+    const multi = A > 1, AUX = multi ? 0.2 : 1;
+    const objs = models.map(m => makeObjective(m, multi && m.prizes.length ? 0.002 : undefined));
+    const slots = [];
+    models.forEach((m, a) => m.days.forEach((md, d) => slots.push({ a, d, md, date: md.day.date })));
+    const S_ = slots.length;
+    const bySlot = models.map(() => []);
+    slots.forEach((s, i) => { bySlot[s.a][s.d] = i; });
+    const uses = models.map(m => m.uses);
+    const lockSets = slots.map(s => new Set(s.md.locks));
+    const isLocked = (i, p) => lockSets[i].has(p);
+    const dates = [...new Set(slots.map(s => s.date))].sort();
+    const ND = dates.length, dIdx = new Map(dates.map((dt, k) => [dt, k]));
+    slots.forEach(s => { s.di = dIdx.get(s.date); });
+    const night = new Map(dates.map(dt => [dt, new Int32Array(P)]));
+    // Moments que outra conta já usou nessa noite (dia fechado nessa conta)
+    if (opts.taken) Object.entries(opts.taken).forEach(([dt, ps]) => { const nt = night.get(dt); if (nt) ps.forEach(p => { nt[p]++; }); });
+    const cap = p => Math.max(1, copies[p] || 1);
+    // conta que usa cada jogador em cada noite (para contar as transferências dos Moments únicos)
+    let assign = new Int8Array(P * ND).fill(-1);
+    function tcOf(p) {
+      if (cap(p) > 1) return 0;
+      let at = owners[p], n = 0;
+      for (let k = 0; k < ND; k++) { const a = assign[p * ND + k]; if (a >= 0) { if (at >= 0 && a !== at) n++; at = a; } }
+      return n;
+    }
+    function tDelta(ch) { // ch: [[p, noite, conta ou -1], ...] aplicadas por ordem
+      if (!TC) return 0;
+      const ps = [...new Set(ch.map(c => c[0]))].filter(p => cap(p) === 1);
+      if (!ps.length) return 0;
+      let before = 0; ps.forEach(p => { before += tcOf(p); });
+      const saved = [];
+      ch.forEach(([p, k, a]) => { saved.push(assign[p * ND + k]); assign[p * ND + k] = a; });
+      let after = 0; ps.forEach(p => { after += tcOf(p); });
+      for (let n = ch.length - 1; n >= 0; n--) assign[ch[n][0] * ND + ch[n][1]] = saved[n];
+      return after - before;
+    }
+
+    let plan = slots.map(() => new Set());
+    let used = models.map(() => new Int32Array(P));
+    const conflicts = models.map(() => []);
+    const place = (i, p) => { const s = slots[i]; plan[i].add(p); used[s.a][p]++; night.get(s.date)[p]++; assign[p * ND + s.di] = s.a; };
+    // fixados primeiro (mesmo que passem dos limites: o aviso aparece)
+    slots.forEach((s, i) => s.md.locks.forEach(p => { if (plan[i].size < s.md.size) place(i, p); }));
+    models.forEach((m, a) => { for (let p = 0; p < P; p++) if (used[a][p] > uses[a][p]) conflicts[a].push({ player: m.players[p].id, used: used[a][p], uses: uses[a][p] }); });
+    const canAdd = (i, p) => { const s = slots[i]; return used[s.a][p] < uses[s.a][p] && night.get(s.date)[p] < cap(p); };
+    // ponto de partida dado (p. ex. o melhor plano da conta principal sozinha)
+    if (opts.init) slots.forEach((s, i) => ((opts.init[s.a] || [])[s.d] || []).forEach(p => { if (plan[i].size < s.md.size && !plan[i].has(p) && s.md.eligSet.has(p) && canAdd(i, p)) place(i, p); }));
+    // gulosa: o melhor par (dia/conta, jogador) primeiro; prefere quem já está na conta
+    const cand = [];
+    slots.forEach((s, i) => s.md.elig.forEach(p => {
+      let sc = 0; for (let k = 0; k < s.md.objs.length; k++) sc += s.md.mu[p][k] / s.md.T[k];
+      cand.push([sc / Math.max(1, s.md.objs.length) + (owners[p] === s.a ? 1e-6 : 0), i, p]);
+    }));
+    cand.sort((x, y) => y[0] - x[0] || x[1] - y[1]);
+    // no arranque, cada conta só usa os Moments que já tem (mandar Moments fica para a pesquisa, que pesa o custo)
+    const needsMove = (i, p) => cap(p) === 1 && owners[p] >= 0 && owners[p] !== slots[i].a;
+    for (const [, i, p] of cand) { const s = slots[i]; if (plan[i].size >= s.md.size || plan[i].has(p) || !canAdd(i, p) || needsMove(i, p)) continue; place(i, p); }
+
+    let st = slots.map((s, i) => lineupStats(s.md, plan[i]));
+    const dayP = models.map(m => new Float64Array(m.days.length)), aux = new Float64Array(S_);
+    slots.forEach((s, i) => { dayP[s.a][s.d] = winProb(s.md, st[i].S, st[i].V); aux[i] = AUX * auxOf(s.md, st[i].S); });
+    const auxSum = new Float64Array(A); slots.forEach((s, i) => { auxSum[s.a] += aux[i]; });
+    const val = new Float64Array(A);
+    let T = 0; for (let p = 0; p < P; p++) T += tcOf(p);
+    let cur = 0;
+    function refreshVals() { cur = -TC * T; for (let a = 0; a < A; a++) { val[a] = objs[a].value(dayP[a]) + auxSum[a]; cur += val[a]; } }
+    refreshVals();
+
+    function tryReplace(i, x, y) {
+      const s = slots[i], md = s.md, K = md.objs.length, S = st[i].S.slice(), V = st[i].V.slice();
+      for (let k = 0; k < K; k++) { if (x >= 0) { S[k] -= md.mu[x][k]; V[k] -= md.v[x][k]; } if (y >= 0) { S[k] += md.mu[y][k]; V[k] += md.v[y][k]; } }
+      return { i, S, V, p: winProb(md, S, V), x: AUX * auxOf(md, S) };
+    }
+    const tmp = models.map(m => new Float64Array(m.days.length));
+    function gain(rs) { // ganho no valor dos prémios das contas tocadas
+      const touched = new Set(rs.map(r => slots[r.i].a));
+      let g = 0;
+      touched.forEach(a => {
+        tmp[a].set(dayP[a]); let ax = auxSum[a];
+        rs.forEach(r => { if (slots[r.i].a === a) { tmp[a][slots[r.i].d] = r.p; ax += r.x - aux[r.i]; } });
+        g += objs[a].value(tmp[a]) + ax - val[a];
+      });
+      return g;
+    }
+    function commit(r) { const s = slots[r.i]; st[r.i] = { S: r.S, V: r.V }; auxSum[s.a] += r.x - aux[r.i]; aux[r.i] = r.x; dayP[s.a][s.d] = r.p; }
+    const replCh = (i, x, y) => { const s = slots[i]; return (x >= 0 ? [[x, s.di, -1]] : []).concat(y >= 0 ? [[y, s.di, s.a]] : []); };
+    const swapCh = (i, j, x, y) => { const si = slots[i], sj = slots[j]; return [[x, si.di, -1], [y, sj.di, -1], [y, si.di, si.a], [x, sj.di, sj.a]]; };
+    function applyReplace(i, x, y, r, dT) {
+      const s = slots[i], nt = night.get(s.date);
+      if (x >= 0) { plan[i].delete(x); used[s.a][x]--; nt[x]--; assign[x * ND + s.di] = -1; }
+      if (y >= 0) { plan[i].add(y); used[s.a][y]++; nt[y]++; assign[y * ND + s.di] = s.a; }
+      commit(r); T += dT;
+    }
+    // troca x (em i) com y (em j): valida usos por conta e Moments por noite
+    function swapOk(i, j, x, y) {
+      const si = slots[i], sj = slots[j];
+      if (x === y || isLocked(i, x) || isLocked(j, y) || plan[i].has(y) || plan[j].has(x)) return false;
+      if (!si.md.eligSet.has(y) || !sj.md.eligSet.has(x)) return false;
+      if (si.a !== sj.a && (used[si.a][y] >= uses[si.a][y] || used[sj.a][x] >= uses[sj.a][x])) return false;
+      if (si.date !== sj.date && (night.get(si.date)[y] >= cap(y) || night.get(sj.date)[x] >= cap(x))) return false;
+      return true;
+    }
+    function applySwap(i, j, x, y, ri, rj, dT) {
+      const si = slots[i], sj = slots[j];
+      plan[i].delete(x); plan[i].add(y); plan[j].delete(y); plan[j].add(x);
+      if (si.a !== sj.a) { used[si.a][x]--; used[si.a][y]++; used[sj.a][y]--; used[sj.a][x]++; }
+      if (si.date !== sj.date) { const ni = night.get(si.date), nj = night.get(sj.date); ni[x]--; ni[y]++; nj[y]--; nj[x]++; }
+      swapCh(i, j, x, y).forEach(([p, k, a]) => { assign[p * ND + k] = a; });
+      commit(ri); commit(rj); T += dT;
+    }
+
+    const open = []; slots.forEach((s, i) => { if (s.md.elig.length) open.push(i); });
+    // pares de lugares que vale a pena trocar: mesma conta (dias diferentes) ou mesma noite (contas diferentes)
+    const pairs = [];
+    for (let u = 0; u < open.length; u++) for (let w = u + 1; w < open.length; w++) { const i = open[u], j = open[w]; if (slots[i].a === slots[j].a || slots[i].date === slots[j].date) pairs.push([i, j]); }
+    const snapshot = () => ({ plan: plan.map(x => new Set(x)), used: used.map(x => x.slice()), night: new Map([...night].map(([k, v]) => [k, v.slice()])), st: st.map(x => ({ S: x.S.slice(), V: x.V.slice() })), dayP: dayP.map(x => x.slice()), aux: aux.slice(), auxSum: auxSum.slice(), assign: assign.slice(), T, cur });
+    const restore = sn => { plan = sn.plan.map(x => new Set(x)); used = sn.used.map(x => x.slice()); sn.night.forEach((v, k) => night.get(k).set(v)); st = sn.st.map(x => ({ S: x.S.slice(), V: x.V.slice() })); sn.dayP.forEach((v, a) => dayP[a].set(v)); aux.set(sn.aux); auxSum.set(sn.auxSum); assign = sn.assign.slice(); T = sn.T; refreshVals(); };
+
+    // subida: aplica a primeira melhoria que encontra e continua, até uma volta inteira sem melhorias
+    function hillClimb() {
+      const EPSV = 1e-10;
+      for (let round = 0; round < 60; round++) {
+        let improved = false;
+        for (const i of open) {
+          const s = slots[i], md = s.md;
+          for (const x of [...plan[i]].filter(p => !isLocked(i, p)).concat(plan[i].size < md.size ? [-1] : [])) {
+            if (x >= 0 && !plan[i].has(x)) continue;
+            // uma conta pode jogar com menos jogadores (ou não jogar) quando não compensa mandar-lhe Moments
+            for (const y of x >= 0 ? md.elig.concat([-1]) : md.elig) {
+              if (y >= 0 && (plan[i].has(y) || used[s.a][y] >= uses[s.a][y] || night.get(s.date)[y] >= cap(y))) continue;
+              const r = tryReplace(i, x, y), dT = tDelta(replCh(i, x, y));
+              if (gain([r]) - TC * dT > EPSV) { applyReplace(i, x, y, r, dT); refreshVals(); improved = true; break; }
+            }
+          }
+        }
+        for (const [i, j] of pairs) for (const x of [...plan[i]]) for (const y of [...plan[j]]) {
+          if (!plan[i].has(x) || !plan[j].has(y) || !swapOk(i, j, x, y)) continue;
+          const ri = tryReplace(i, x, y), rj = tryReplace(j, y, x), dT = tDelta(swapCh(i, j, x, y));
+          if (gain([ri, rj]) - TC * dT > EPSV) { applySwap(i, j, x, y, ri, rj, dT); refreshVals(); improved = true; }
+        }
+        // tirar um jogador de todas as noites de uma conta (desfaz as idas e voltas de um Moment)
+        if (A > 1) {
+          const uses2 = models.map(() => new Map());
+          open.forEach(i => plan[i].forEach(p => { if (!isLocked(i, p)) { const m = uses2[slots[i].a]; m.set(p, (m.get(p) || []).concat(i)); } }));
+          uses2.forEach(m => m.forEach((where, p) => {
+            if (where.length < 2 || cap(p) > 1 || !where.every(i => plan[i].has(p))) return;
+            const rs = where.map(i => tryReplace(i, p, -1)), dT = tDelta(where.map(i => [p, slots[i].di, -1]));
+            if (gain(rs) - TC * dT > EPSV) { where.forEach((i, k) => applyReplace(i, p, -1, rs[k], 0)); T += dT; refreshVals(); improved = true; }
+          }));
+        }
+        if (!improved) return;
+      }
+    }
+
+    if (open.length) {
+      if (opts.init) hillClimb(); // o ponto de partida dado também fica sem melhorias simples por fazer
+      const start = snapshot();
+      let best = opts.init ? start : null; // com ponto de partida, nunca fica pior do que ele
+      const iters = opts.iters || Math.min(30000, 4000 + open.length * 1500);
+      const t0 = opts.temp0 || 0.05;
+      for (let restart = 0; restart < (opts.restarts || 2); restart++) {
+        restore(start);
+        const rand = rng(4321 + restart * 7919), pick = arr => arr[Math.floor(rand() * arr.length)];
+        for (let it = 0; it < iters; it++) {
+          const temp = t0 * Math.pow(0.0005 / t0, it / iters);
+          if (rand() < 0.55 || open.length < 2) {
+            const i = pick(open), s = slots[i], md = s.md;
+            const members = [...plan[i]].filter(p => !isLocked(i, p));
+            let x;
+            if (plan[i].size < md.size && (rand() < 0.5 || !members.length)) x = -1; else if (members.length) x = pick(members); else continue;
+            const y = x >= 0 && rand() < 0.1 ? -1 : pick(md.elig); // às vezes só tira
+            if (y >= 0 && (plan[i].has(y) || used[s.a][y] >= uses[s.a][y] || night.get(s.date)[y] >= cap(y))) continue;
+            const r = tryReplace(i, x, y), dT = tDelta(replCh(i, x, y)), dv = gain([r]) - TC * dT;
+            if (dv > 0 || rand() < Math.exp(dv / temp)) { applyReplace(i, x, y, r, dT); refreshVals(); }
+          } else {
+            const i = pick(open), j = pick(open); if (i === j) continue;
+            const mi = [...plan[i]], mj = [...plan[j]]; if (!mi.length || !mj.length) continue;
+            const x = pick(mi), y = pick(mj);
+            if (!swapOk(i, j, x, y)) continue;
+            const ri = tryReplace(i, x, y), rj = tryReplace(j, y, x), dT = tDelta(swapCh(i, j, x, y)), dv = gain([ri, rj]) - TC * dT;
+            if (dv > 0 || rand() < Math.exp(dv / temp)) { applySwap(i, j, x, y, ri, rj, dT); refreshVals(); }
+          }
+        }
+        hillClimb();
+        if (!best || cur > best.cur + 1e-12) best = snapshot();
+      }
+      restore(best);
+    }
+    const results = models.map((m, a) => {
+      const planA = m.days.map((_, d) => plan[bySlot[a][d]]);
+      return summarize(m, planA, Array.from(used[a]), conflicts[a], objs[a], dayP[a], val[a]);
+    });
+    return { results, total: cur, transfers: T };
+  }
+
+  // Transferências: em que noite cada Moment tem de estar noutra conta (só jogadores com um Moment nas contas todas)
+  // plans: {conta: resultado}, owners: {jogador: conta onde o Moment está agora}
+  function transfersFor(keys, results, owners, copies) {
+    const uses = {};
+    keys.forEach(k => results[k].days.forEach(d => d.lineup.forEach(id => { (uses[id] = uses[id] || []).push({ date: d.date, acc: k }); })));
+    const out = [];
+    Object.entries(uses).forEach(([id, list]) => {
+      if ((copies[id] || 1) > 1 || !owners[id]) return;
+      list.sort((x, y) => x.date.localeCompare(y.date));
+      let at = owners[id];
+      list.forEach(u => { if (u.acc !== at) { out.push({ id, before: u.date, from: at, to: u.acc }); at = u.acc; } });
+    });
+    return out.sort((x, y) => x.before.localeCompare(y.before) || String(x.id).localeCompare(String(y.id)));
+  }
+
+  // Plano conjunto de várias contas. accounts: [{key, roster, plan}] (o mesmo plantel, com os usos de cada conta).
+  // Nos jogadores do plantel: copies (Moments nas contas todas) e owner (conta onde está o Moment, se só há um).
+  function planGroup(run, accounts, odds, opts) {
+    opts = opts || {};
+    const models = accounts.map(acc => buildModel(run, acc.roster, odds, acc.plan, opts));
+    const players = models[0].players;
+    const keys = accounts.map(a => a.key), byKey = {};
+    const copies = players.map(p => Math.max(1, Math.floor(+p.copies || 1)));
+    const owners = players.map(p => keys.indexOf(p.owner));
+    const base = Object.assign({}, opts, { owners });
+    // Moments já usados em dias fechados de cada conta: nessa noite não podem jogar por outra
+    const taken = {};
+    models.forEach(m => m.allDays.forEach(d => { const pl = m.played[d.date]; if (pl && pl.done) (pl.lineup || []).forEach(id => { const i = m.pIndex.get(id); if (i != null) (taken[d.date] = taken[d.date] || []).push(i); }); }));
+    base.taken = taken;
+    // três pontos de partida, fica o melhor: do zero; o melhor plano da conta principal sozinha; e uma divisão
+    // equilibrada (em cada noite as contas escolhem à vez, como num draft)
+    const cold = optimizeMulti(models, copies, Object.assign({}, base, { restarts: 1 }));
+    const lead = optimize(models[0], Object.assign({}, opts, { restarts: 2 }));
+    const warm = optimizeMulti(models, copies, Object.assign({}, base, { init: [lead.days.map(d => d.lineupIdx)], temp0: 0.01, restarts: 1 }));
+    const draft = models.map(m => m.days.map(() => []));
+    const slotsByDate = {};
+    models.forEach((m, a) => m.days.forEach((md, d) => { (slotsByDate[md.day.date] = slotsByDate[md.day.date] || []).push([a, d, md]); }));
+    Object.values(slotsByDate).forEach(list => {
+      const md0 = list[0][2], score = p => md0.objs.reduce((t, _, k) => t + md0.mu[p][k] / md0.T[k], 0);
+      const ranked = md0.elig.slice().sort((x, y) => score(y) - score(x));
+      let turn = 0, dir = 1;
+      ranked.forEach(p => {
+        const [a, d, md] = list[turn];
+        if (draft[a][d].length < md.size && md.eligSet.has(p)) draft[a][d].push(p);
+        if (list.length > 1) { turn += dir; if (turn === list.length || turn < 0) { dir = -dir; turn += dir; } }
+      });
+    });
+    const split = models.length > 1 ? optimizeMulti(models, copies, Object.assign({}, base, { init: draft, temp0: 0.02, restarts: 1 })) : null;
+    const best = [cold, warm, split].filter(Boolean).reduce((x, y) => (y.total > x.total + 1e-12 ? y : x));
+    const res = best.results;
+    models.forEach((model, a) => {
+      const playedDays = model.allDays.filter(d => model.played[d.date] && model.played[d.date].done);
+      const wins = playedDays.filter(d => model.played[d.date].result === 'win').length;
+      byKey[keys[a]] = { model, normal: res[a], allIn: null, group: true, wins, losses: playedDays.length - wins, playedCount: playedDays.length, prizes: model.prizes };
+    });
+    const ownerById = {}, cp = {};
+    players.forEach((p, i) => { cp[p.id] = copies[i]; if (p.owner) ownerById[p.id] = p.owner; });
+    const transfers = transfersFor(keys, Object.fromEntries(keys.map((k, a) => [k, res[a]])), ownerById, cp);
+    // um Moment em duas contas na mesma noite (só acontece com jogadores fixados à mão)
+    const clashes = [];
+    const byDate = {};
+    keys.forEach((k, a) => res[a].days.forEach(d => d.lineup.forEach(id => { const key = d.date + '|' + id; (byDate[key] = byDate[key] || []).push(k); })));
+    Object.entries(byDate).forEach(([key, ks]) => { const [date, id] = key.split('|'); if (ks.length > (cp[id] || 1)) clashes.push({ date, id, accounts: ks }); });
+    return { keys, byKey, transfers, clashes, objective: best.total };
+  }
+
+  const api = { STATS, STATUS, QREM, statTerms, statValue, avgOf, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

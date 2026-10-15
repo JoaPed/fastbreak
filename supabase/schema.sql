@@ -111,6 +111,23 @@ create table if not exists public.summaries (
   primary key (user_id, run_id)
 );
 
+-- Contas smurf, coleção e resultados por conta (acrescentado depois; seguro correr de novo)
+alter table public.profiles add column if not exists smurfs jsonb not null default '[]'::jsonb;  -- [{id: 's1', topshot_username, flow_address}]
+alter table public.profiles add column if not exists collection jsonb;                             -- Moments lidos das carteiras
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_smurfs_max') then
+    alter table public.profiles add constraint profiles_smurfs_max check (jsonb_typeof(smurfs) = 'array' and jsonb_array_length(smurfs) <= 2);
+  end if;
+end $$;
+alter table public.chain_results add column if not exists account text not null default 'main';   -- 'main', 's1' ou 's2'
+do $$ declare pk text; begin
+  select c.conname into pk from pg_constraint c where c.conrelid = 'public.chain_results'::regclass and c.contype = 'p' and array_length(c.conkey, 1) = 2;
+  if pk is not null then
+    execute format('alter table public.chain_results drop constraint %I', pk);
+    alter table public.chain_results add primary key (user_id, game_id, account);
+  end if;
+end $$;
+
 -- =========================================================
 -- Funções
 -- =========================================================
