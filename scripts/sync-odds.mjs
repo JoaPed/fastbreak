@@ -1,7 +1,8 @@
 // The Odds API → linhas de mais/menos de cada jogador, só para a estatística do objetivo de cada dia.
-// Custo: 1 crédito por jogo e por estatística (região us). Pedidos sem dados não contam.
+// Estatísticas sem mercado (pontos na área, ressaltos ofensivos, tentados) usam o mercado mais parecido.
+// Custo: 1 crédito por jogo e por mercado (região us). Pedidos sem dados não contam.
 // Uso: node scripts/sync-odds.mjs [AAAA-MM-DD ...]   (por defeito: hoje e amanhã, hora de Nova Iorque)
-import { supa, must, etDate, addDays, STAT_MARKET, consensusFromEvent, matchPlayers } from './lib.mjs';
+import { supa, must, etDate, addDays, marketsForStat, consensusFromEvent, matchPlayers } from './lib.mjs';
 
 const KEY = process.env.ODDS_API_KEY;
 if (!KEY) { console.log('Sem ODDS_API_KEY nos segredos do GitHub: nada a fazer.'); process.exit(0); }
@@ -15,7 +16,7 @@ if (!dates.length) dates.push(today, addDays(today, 1));
 // que estatísticas são precisas em cada data (objetivos das runs)
 const need = {};
 const rows = await must(sb.from('run_days').select('date,objectives').in('date', dates));
-for (const r of rows) for (const o of r.objectives || []) for (const s of String(o.stat || '').split('+')) if (STAT_MARKET[s]) (need[r.date] = need[r.date] || new Set()).add(s);
+for (const r of rows) for (const o of r.objectives || []) for (const m of marketsForStat(o.stat)) (need[r.date] = need[r.date] || new Set()).add(m);
 if (!Object.keys(need).length) { console.log('Nenhum objetivo definido para', dates.join(', '), '— não gasto créditos.'); process.exit(0); }
 
 const evRes = await fetch(API + '/events?apiKey=' + KEY);
@@ -26,7 +27,7 @@ const now = Date.now();
 let used = null, remaining = null;
 
 for (const date of Object.keys(need)) {
-  const markets = [...need[date]].map(s => STAT_MARKET[s]).join(',');
+  const markets = [...need[date]].join(',');
   const todays = events.filter(e => etDate(e.commence_time) === date && Date.parse(e.commence_time) > now);
   console.log(date, '·', todays.length, 'jogos por começar · mercados', markets);
   if (!todays.length) continue;

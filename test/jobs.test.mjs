@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -55,6 +55,30 @@ cur.athletes[0].categories[0].totals = ['3', '33.0', '1.0', '9.0']; cur.athletes
 addEspnCurrent(state, cur);
 const b2 = blendedAverages(state.players['lebron-james']);
 ok('ESPN: médias desta época (3 jogos) puxadas para a época passada', b2.gp === 3 && b2.avg.pts > 24.4 && b2.avg.pts < 30, b2);
+// lista completa da ESPN (nomes reais das colunas) e ficha de cada jogador
+const full = { categories: [
+  { name: 'general', names: ['gamesPlayed', 'avgMinutes', 'avgRebounds'] },
+  { name: 'offensive', names: ['avgPoints', 'avgFieldGoalsMade', 'avgFieldGoalsAttempted', 'avgThreePointFieldGoalsMade', 'avgThreePointFieldGoalsAttempted', 'avgFreeThrowsMade', 'avgFreeThrowsAttempted', 'avgAssists', 'avgTurnovers'] },
+  { name: 'defensive', names: ['avgSteals', 'avgBlocks'] } ],
+  athletes: [{ athlete: { id: '3945274', displayName: 'Luka Dončić', teamShortName: 'LAL' }, categories: [
+    { name: 'general', values: [64, 35.8, 7.73] }, { name: 'offensive', values: [33.5, 10.83, 22.77, 3.97, 10.84, 7.86, 10.08, 8.28, 3.98] }, { name: 'defensive', values: [1.64, 0.53] } ] }] };
+const st2 = { players: {} };
+addEspnSeason(st2, full);
+const luka = st2.players['luka-doncic'];
+ok('ESPN: médias de lançamentos, triplos tentados e perdas de bola', luka.espnId === '3945274' && luka.prevAvg.fga === 22.77 && luka.prevAvg.fg3a === 10.84 && luka.prevAvg.tov === 3.98 && luka.prevAvg.ftm === 7.86 && luka.prevAvg.oreb == null, luka.prevAvg);
+const core = parseEspnCoreStats({ splits: { categories: [
+  { name: 'defensive', stats: [{ name: 'defensiveRebounds', value: 454 }, { name: 'avgDefensiveRebounds', value: 7.09375 }] },
+  { name: 'general', stats: [{ name: 'gamesPlayed', value: 64 }] },
+  { name: 'offensive', stats: [{ name: 'avgOffensiveRebounds', value: 0.640625 }, { name: 'pointsInPaint', value: 0 }] } ] } });
+ok('ESPN: ficha do jogador dá ressaltos ofensivos e defensivos', core.gp === 64 && core.oreb === 0.64 && core.dreb === 7.09, core);
+ok('ficha junta-se às médias', addEspnCore(luka, 'prevAvg', core) && luka.prevAvg.oreb === 0.64 && luka.prevAvg.coreGp === 64);
+addEspnSeason(st2, full);
+ok('ressaltos ofensivos ficam enquanto o número de jogos não muda', luka.prevAvg.oreb === 0.64, luka.prevAvg);
+const bl = blendedAverages(luka).avg;
+ok('médias novas passam para o catálogo', bl.oreb === 0.64 && bl.fga === 22.77 && bl.tov === 3.98 && bl.pts === 33.5, bl);
+const half = blendedAverages({ prevAvg: { gp: 60, pts: 20, oreb: 2 }, curAvg: { gp: 4, pts: 30 } }).avg;
+ok('estatística que só a época passada tem não é puxada para zero', half.oreb === 2 && half.pts > 20 && half.pts < 30, half);
+ok('ficha sem jogos é ignorada', parseEspnCoreStats({ splits: { categories: [] } }) === null);
 const sbd = { events: [
   { id: '401909090', date: '2026-10-21T01:30Z', season: { type: 2 }, competitions: [{ competitors: [{ homeAway: 'home', team: { abbreviation: 'SA' } }, { homeAway: 'away', team: { abbreviation: 'OKC' } }] }] },
   { id: '401909088', date: '2026-10-20T19:00Z', season: { type: 2 }, competitions: [{ competitors: [{ homeAway: 'home', team: { abbreviation: 'DET' } }, { homeAway: 'away', team: { abbreviation: 'BOS' } }] }] },
@@ -72,6 +96,8 @@ const summary = { boxscore: { players: [{ team: { abbreviation: 'SAC' }, statist
   ] }] }] } };
 const bx = parseEspnBox(summary);
 ok('ESPN: estatísticas de um jogo por jogador', bx['domantas sabonis'].pts === 12 && bx['domantas sabonis'].reb === 7 && bx['domantas sabonis'].ast === 8 && bx['domantas sabonis'].fg3 === 0 && bx['domantas sabonis'].stl === 2 && !bx['doug mcdermott'], bx);
+const ds = bx['domantas sabonis'];
+ok('ESPN: lançamentos, tentados, perdas de bola e ressaltos ofensivos', ds.fgm === 6 && ds.fga === 7 && ds.fg3a === 0 && ds.ftm === 0 && ds.fta === 1 && ds.tov === 2 && ds.oreb === 3 && ds.dreb === 4, ds);
 ok('chave pelo nome com acentos', playerKey('Nikola Jokić') === 'nikola-jokic' && playerKey("De'Aaron Fox Jr.") === 'deaaron-fox');
 
 // odds
@@ -109,6 +135,14 @@ const ev2 = decodeCadence({ type: 'Event', value: { id: 'A.0b2a3299cc857e29.Fast
 ok('evento da blockchain', ev2.fastBreakGameID === 'g1' && ev2.valueNeeded === 45, ev2);
 ok('nomes de estatísticas', mapStat('POINTS') === 'pts' && mapStat('Total Rebounds') === 'reb' && mapStat('THREE_POINTERS_MADE') === 'fg3' && mapStat('3PM') === 'fg3' && mapStat('STEALS') === 'stl' && mapStat('BLOCKS') === 'blk' && mapStat('ASSISTS') === 'ast' && mapStat('POINTS_REBOUNDS') === 'pts+reb' && mapStat('XYZ') === null,
   ['POINTS', 'Total Rebounds', 'THREE_POINTERS_MADE', '3PM', 'POINTS_REBOUNDS'].map(mapStat));
+const real = { POINTS_IN_PAINT: 'pip', OFFENSIVE_REBOUNDS: 'oreb', THREE_POINTS_MADE: 'fg3', THREE_POINTS_ATT: 'fg3a', POINTS: 'pts', ASSISTS: 'ast', REBOUNDS: 'reb', ASSISTS_MINUS_TURNOVERS: 'ast-tov', FIELD_GOALS_MADE: 'fgm', FIELD_GOALS_ATT: 'fga', STEALS: 'stl', BLOCKS: 'blk' };
+const wrong = Object.entries(real).filter(([n, k]) => mapStat(n) !== k).map(([n]) => n + '→' + mapStat(n));
+ok('nomes reais do Fast Break (lidos da blockchain)', !wrong.length, wrong);
+ok('nomes desconhecidos não são lidos à sorte', mapStat('FAST_BREAK_POINTS') === null && mapStat('MINUS') === null && mapStat('POINTS_OFF_TURNOVERS') === null, ['FAST_BREAK_POINTS', 'MINUS', 'POINTS_OFF_TURNOVERS'].map(mapStat));
+ok('outros nomes prováveis', mapStat('DEFENSIVE_REBOUNDS') === 'dreb' && mapStat('TURNOVERS') === 'tov' && mapStat('FREE_THROWS_MADE') === 'ftm' && mapStat('STEALS_PLUS_BLOCKS') === 'stl+blk' && mapStat('POINTS_REBOUNDS_ASSISTS') === 'pts+reb+ast' && mapStat('THREE_POINT_FIELD_GOALS_ATTEMPTED') === 'fg3a');
+ok('mercados de odds para cada estatística', JSON.stringify(marketsForStat('ast-tov')) === JSON.stringify(['player_assists', 'player_turnovers']) && marketsForStat('pip')[0] === 'player_points' && marketsForStat('oreb')[0] === 'player_rebounds' && marketsForStat('fga')[0] === 'player_field_goals' && marketsForStat('fg3a')[0] === 'player_threes' && marketsForStat('xyz').length === 0);
+const ind = objectivesFromStats([{ name: 'ASSISTS_MINUS_TURNOVERS', type: 1, valueNeeded: 25 }, { name: 'POINTS', type: 0, valueNeeded: 20 }]);
+ok('objetivo combinado e objetivo por jogador', ind.objs[0].stat === 'ast-tov' && ind.objs[0].target === 25 && !ind.objs[0].each && ind.objs[1].each === true, ind);
 const ob = objectivesFromStats(dec[0].stats);
 ok('objetivo do dia a partir da blockchain', ob.objs[0].stat === 'pts' && ob.objs[0].target === 140 && !ob.objs[0].each, ob);
 

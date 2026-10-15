@@ -38,15 +38,37 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
 2. Em **Ajustes**: escolhe o código de convite, cria a run (nome, primeiro dia, número de dias), define os prémios por vitórias e os objetivos.
 3. Quando a run aparecer na blockchain, liga-a em **Ajustes → Blockchain**: os objetivos e os resultados de todos passam a entrar sozinhos.
 4. Manda aos amigos o link do site e o código de convite.
+5. Cada um põe o endereço Flow da carteira Dapper no perfil e, no **Plantel**, carrega em **Ler da carteira**: o site lê os Moments diretamente da blockchain (no browser) e junta os jogadores com equipa NBA. Os usos não estão na blockchain (dependem do escalão de cada Moment): os novos entram com 1 uso e acertam-se à mão.
+
+## Estatísticas dos objetivos
+Os objetivos vêm da blockchain com estes nomes. Para cada jogador, o plano usa a linha das casas de apostas quando existe; se não, a linha da estatística mais parecida ajustada pelas médias dele; se não houver odds, a média da época.
+
+| Nome no Fast Break | No site | Odds usadas | Médias |
+|---|---|---|---|
+| POINTS | PTS | pontos | ESPN |
+| REBOUNDS | REB | ressaltos | ESPN |
+| ASSISTS | AST | assistências | ESPN |
+| STEALS / BLOCKS | STL / BLK | roubos / desarmes | ESPN |
+| THREE_POINTS_MADE | 3PM | triplos | ESPN |
+| THREE_POINTS_ATT | 3PA | triplos (proporção) | ESPN |
+| FIELD_GOALS_MADE | FGM | lançamentos marcados | ESPN |
+| FIELD_GOALS_ATT | FGA | lançamentos marcados (proporção) | ESPN |
+| OFFENSIVE_REBOUNDS | OREB | ressaltos (proporção) | ficha de cada jogador na ESPN |
+| ASSISTS_MINUS_TURNOVERS | AST−TOV | assistências e perdas de bola | ESPN |
+| POINTS_IN_PAINT | PIP | pontos (proporção) | **estimativa**: lançamentos de 2 marcados × 2 × parte feita na área |
+
+Nomes novos que o leitor não conheça aparecem no log da tarefa **Fast Break na blockchain** ("estatística desconhecida") em vez de serem lidos mal.
 
 ## Limites a ter em conta
-- **The Odds API grátis**: 500 créditos por mês. Custa 1 crédito por jogo e por estatística pedida. Com 2 leituras por dia, chega para a maior parte dos meses; se faltar, tira uma das horas em `.github/workflows/odds.yml`.
+- **The Odds API grátis**: 500 créditos por mês. Custa 1 crédito por jogo e por mercado pedido (os dias de AST−TOV pedem dois). Com 2 leituras por dia, chega para a maior parte dos meses; se faltar, tira uma das horas em `.github/workflows/odds.yml`.
+- **Pontos na área**: a ESPN não os dá por jogador, por isso as médias e os valores ao vivo são estimados. O resultado do dia vem sempre da blockchain.
 - **GitHub Actions**: as tarefas agendadas podem atrasar-se uns minutos. Num repositório público ficam suspensas ao fim de 60 dias sem commits; volta a ligá-las no separador Actions.
 - **Supabase grátis**: o projeto adormece depois de 7 dias sem uso; as tarefas automáticas mantêm-no acordado.
 
-## Por confirmar no primeiro uso real
-- Se as runs Classic aparecem na blockchain e com que nomes de estatística (o leitor regista no log as que não conhece).
-- O endereço Flow a partir do utilizador do Top Shot. Se falhar, cada um pode pôr o endereço à mão no perfil.
+## Confirmado e por confirmar
+- Confirmado: as runs Classic estão na blockchain (contrato FastBreakV1), com objetivos, lineups e vitórias de cada conta. Em 137 dias lidos, todos os objetivos eram de total da equipa.
+- O contrato também prevê objetivos "por jogador" (cada um tem de chegar ao valor) e lineups com menos jogadores do que o máximo. Se aparecer um, o site avisa e o plano trata-o como total.
+- O endereço Flow a partir do utilizador do Top Shot: a API do Top Shot recusa pedidos do GitHub, por isso cada um põe o endereço à mão no perfil.
 - O botão **Atualizar estatísticas ao vivo** lê as estatísticas do jogo na ESPN diretamente no browser. Se o browser o bloquear, os valores metem-se à mão.
 - O site da NBA (cdn.nba.com) recusa pedidos vindos do GitHub e já não tem os jogos da época passada; por isso os dados vêm da ESPN.
 

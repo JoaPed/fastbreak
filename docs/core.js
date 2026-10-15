@@ -3,7 +3,16 @@
 (function (root) {
   'use strict';
 
+  // Parte dos pontos de 2 que são na área: alta para quem quase não lança de 3, mais baixa para atiradores
+  function paintShare(a) {
+    const fga = +((a || {}).fga), f3a = +((a || {}).fg3a);
+    const r = fga > 0 && f3a >= 0 ? f3a / fga : 0.35;
+    return Math.max(0.55, Math.min(0.97, 0.97 - 0.55 * r));
+  }
+  const num = x => x != null && x !== '' && isFinite(+x) ? +x : null;
   // k = dispersão (variância ≈ k × média); kind = modelo para converter linhas em médias
+  // proxy = estatísticas com odds que servem para esta (média da proxy nas odds × proporção nas médias do jogador)
+  // est = estimativa a partir de outras médias, quando falta a média desta
   const STATS = {
     pts: { label: 'Pontos', short: 'PTS', k: 2.0, kind: 'normal' },
     reb: { label: 'Ressaltos', short: 'REB', k: 1.3, kind: 'normal' },
@@ -11,7 +20,53 @@
     fg3: { label: 'Triplos', short: '3PM', k: 1.15, kind: 'poisson' },
     stl: { label: 'Roubos de bola', short: 'STL', k: 1.0, kind: 'poisson' },
     blk: { label: 'Desarmes', short: 'BLK', k: 1.1, kind: 'poisson' },
+    tov: { label: 'Perdas de bola', short: 'TOV', k: 1.0, kind: 'poisson',
+      est: a => num(a.pts) != null ? 0.4 + 0.05 * a.pts + 0.15 * (num(a.ast) || 0) : null },
+    oreb: { label: 'Ressaltos ofensivos', short: 'OREB', k: 1.2, kind: 'poisson', proxy: ['reb'],
+      est: a => num(a.reb) == null ? null : num(a.dreb) != null ? Math.max(0, a.reb - a.dreb) : 0.25 * a.reb },
+    dreb: { label: 'Ressaltos defensivos', short: 'DREB', k: 1.2, kind: 'normal', proxy: ['reb'],
+      est: a => num(a.reb) == null ? null : num(a.oreb) != null ? Math.max(0, a.reb - a.oreb) : 0.75 * a.reb },
+    fgm: { label: 'Lançamentos de campo marcados', short: 'FGM', k: 1.0, kind: 'normal', proxy: ['pts'],
+      est: a => num(a.pts) != null ? 0.37 * a.pts : null },
+    fga: { label: 'Lançamentos de campo tentados', short: 'FGA', k: 1.1, kind: 'normal', proxy: ['fgm', 'pts'],
+      est: a => num(a.fgm) != null ? a.fgm / 0.46 : num(a.pts) != null ? 0.8 * a.pts : null },
+    fg3a: { label: 'Triplos tentados', short: '3PA', k: 1.2, kind: 'normal', proxy: ['fg3'],
+      est: a => num(a.fg3) != null ? a.fg3 / 0.36 : null },
+    ftm: { label: 'Lances livres marcados', short: 'FTM', k: 1.3, kind: 'poisson', proxy: ['fta', 'pts'],
+      est: a => num(a.fta) != null ? 0.78 * a.fta : num(a.pts) != null ? 0.15 * a.pts : null },
+    fta: { label: 'Lances livres tentados', short: 'FTA', k: 1.3, kind: 'poisson', proxy: ['ftm', 'pts'],
+      est: a => num(a.ftm) != null ? a.ftm / 0.78 : num(a.pts) != null ? 0.19 * a.pts : null },
+    // a ESPN não dá pontos na área por jogador: estimam-se a partir dos lançamentos de 2 marcados
+    pip: { label: 'Pontos na área', short: 'PIP', k: 2.4, kind: 'normal', proxy: ['pts'],
+      est: a => num(a.fgm) != null ? 2 * Math.max(0, a.fgm - (num(a.fg3) || 0)) * paintShare(a) : num(a.pts) != null ? 0.42 * a.pts : null },
   };
+  // "ast-tov" → [{s:'ast', sign:1}, {s:'tov', sign:-1}]; "pts+reb" → dois termos positivos
+  function statTerms(key) {
+    const out = [], re = /([+-]?)\s*([a-z0-9]+)/gi; let m;
+    while ((m = re.exec(String(key || '')))) out.push({ s: m[2].toLowerCase(), sign: m[1] === '-' ? -1 : 1 });
+    return out;
+  }
+  // Valor de uma estatística (simples ou combinada) a partir das estatísticas de um jogo
+  function statValue(vals, key, avg) {
+    vals = vals || {};
+    if (num(vals[key]) != null) return +vals[key];
+    let t = 0;
+    for (const { s, sign } of statTerms(key)) {
+      let x = num(vals[s]);
+      if (x == null && s === 'pip' && num(vals.fgm) != null) x = 2 * Math.max(0, vals.fgm - (num(vals.fg3) || 0)) * paintShare(avg || vals);
+      if (x == null && s === 'dreb' && num(vals.reb) != null) x = Math.max(0, vals.reb - (num(vals.oreb) || 0));
+      t += sign * (x || 0);
+    }
+    return t;
+  }
+  // Média do jogador para uma estatística; se faltar, estimativa a partir das outras médias
+  function avgOf(player, s) {
+    const a = player && player.avg; if (!a) return null;
+    if (num(a[s]) != null) return { v: +a[s], est: false };
+    const st = STATS[s] || {};
+    const e = st.est ? st.est(a) : null;
+    return e != null && isFinite(e) ? { v: Math.max(0, e), est: true } : null;
+  }
   const STATUS = {
     ok: { label: 'Disponível', play: 1 },
     prov: { label: 'Provável', play: 0.9 },
@@ -94,39 +149,50 @@
   }
 
   // ---------- distribuição de um jogador num dia ----------
+  const hasLine = o => !!o && o.line != null && o.line !== '' && isFinite(+o.line);
+  function oddsMean(st, o) {
+    const line = +o.line, pOver = devig(o.over, o.under);
+    return { mu: st.kind === 'normal' ? solveNormal(line, pOver, st.k) : solvePoisson(line, pOver), line, pOver };
+  }
+  // src: 'odds' (linha desta estatística), 'proxy' (linha de outra × proporção nas médias), 'media', 'estimativa', 'sem'
   function rawStat(player, s, oddsP) {
     const st = STATS[s];
     if (!st) return { mu: 0, v: 0, src: 'sem' };
     const o = oddsP && oddsP[s];
-    let mu, src, line = null, pOver = null;
-    if (o && o.line != null && isFinite(+o.line)) {
-      line = +o.line;
-      pOver = devig(o.over, o.under);
-      mu = st.kind === 'normal' ? solveNormal(line, pOver, st.k) : solvePoisson(line, pOver);
-      src = 'odds';
-    } else if (player.avg && player.avg[s] != null && isFinite(+player.avg[s])) {
-      mu = +player.avg[s];
-      src = 'media';
-    } else {
-      mu = 0; src = 'sem';
+    let mu = 0, src = 'sem', line = null, pOver = null, via = null;
+    if (hasLine(o)) { ({ mu, line, pOver } = oddsMean(st, o)); src = 'odds'; }
+    else {
+      const a = avgOf(player, s);
+      for (const q of st.proxy || []) {
+        const oq = oddsP && oddsP[q], aq = avgOf(player, q);
+        if (!hasLine(oq) || !a || !aq || !(aq.v > 0)) continue;
+        const m = oddsMean(STATS[q], oq);
+        mu = m.mu * a.v / aq.v; line = m.line; pOver = m.pOver; via = q; src = 'proxy';
+        break;
+      }
+      if (src === 'sem' && a) { mu = a.v; src = a.est ? 'estimativa' : 'media'; }
     }
-    return { mu, v: Math.max(st.k * mu, mu > 0 ? 0.05 : 0), src, line, pOver };
+    const k = st.k * (src === 'proxy' || src === 'estimativa' ? 1.15 : 1); // menos certeza
+    return { mu, v: Math.max(k * mu, mu > 0 ? 0.05 : 0), src, line, pOver, via };
   }
   function statusFor(player, oddsP) { return (oddsP && oddsP.status) || player.status || 'ok'; }
 
   function playerDist(player, statKey, oddsP) {
-    const parts = String(statKey).split('+');
-    const raws = parts.map(s => rawStat(player, s, oddsP));
+    const terms = statTerms(statKey);
+    const raws = terms.map(t => rawStat(player, t.s, oddsP));
     let mu = 0, v = 0;
-    raws.forEach(r => { mu += r.mu; v += r.v; });
-    for (let i = 0; i < raws.length; i++) for (let j = i + 1; j < raws.length; j++) v += 2 * COMBO_RHO * Math.sqrt(raws[i].v * raws[j].v);
+    raws.forEach((r, i) => { mu += terms[i].sign * r.mu; v += r.v; });
+    for (let i = 0; i < raws.length; i++) for (let j = i + 1; j < raws.length; j++) v += 2 * COMBO_RHO * terms[i].sign * terms[j].sign * Math.sqrt(raws[i].v * raws[j].v);
+    v = Math.max(v, raws.some(r => r.v > 0) ? 0.05 : 0);
     const srcs = raws.map(r => r.src);
-    const src = srcs.every(x => x === 'odds') ? 'odds' : srcs.some(x => x === 'odds') ? 'misto' : srcs.every(x => x === 'sem') ? 'sem' : 'media';
+    const src = srcs.length === 1 ? srcs[0] : srcs.every(x => x === 'odds') ? 'odds' : srcs.some(x => x === 'odds' || x === 'proxy') ? 'misto'
+      : srcs.every(x => x === 'sem') ? 'sem' : srcs.some(x => x === 'estimativa') ? 'estimativa' : 'media';
     const status = statusFor(player, oddsP);
     const pp = (STATUS[status] || STATUS.ok).play;
     const mu2 = pp * mu;
     const v2 = Math.max(0, pp * (v + mu * mu) - mu2 * mu2);
-    return { mu: mu2, v: v2, src, status, pPlay: pp, line: raws.length === 1 ? raws[0].line : null, pOver: raws.length === 1 ? raws[0].pOver : null };
+    const one = raws.length === 1 ? raws[0] : {};
+    return { mu: mu2, v: v2, src, status, pPlay: pp, line: one.line != null ? one.line : null, pOver: one.pOver != null ? one.pOver : null, via: one.via || null, parts: raws.map((r, i) => ({ stat: terms[i].s, sign: terms[i].sign, mu: r.mu, src: r.src, line: r.line, via: r.via })) };
   }
 
   function probAtLeast(S, V, T) {
@@ -204,12 +270,13 @@
           const e = lp[p.id] || {};
           const state = e.state === 'fim' ? 'fim' : e.state === 'jogo' ? 'jogo' : 'jogo?';
           const vals = e.vals || {};
+          const knownK = objs.map(o => statValue(vals, o.stat, p.avg));
           objs.forEach((o, k) => {
-            const known = +vals[o.stat] || 0;
+            const known = knownK[k];
             if (state === 'fim') { offset[k] += known; mu[pi][k] = 0; v[pi][k] = 0; }
             else if (state === 'jogo') { const r = QREM[e.q] != null ? QREM[e.q] : 0.5; offset[k] += known; mu[pi][k] *= r; v[pi][k] *= r; }
           });
-          info[pi] = dists.map((x, k) => Object.assign({}, x, { liveState: state, known: +((e.vals || {})[objs[k].stat]) || 0, q: e.q || null, muLeft: mu[pi][k] }));
+          info[pi] = dists.map((x, k) => Object.assign({}, x, { liveState: state, known: state === 'jogo?' ? 0 : knownK[k], q: e.q || null, muLeft: mu[pi][k] }));
           elig.push(pi); liveLocks.push(pi);
           return;
         }
@@ -217,11 +284,13 @@
       });
       // os jogadores presos contam como "fixados" e não somam ao offset duas vezes (mu já é só o que falta)
       const eligSet = new Set(elig);
+      const size = Math.max(1, Math.min(10, Math.round(+day.numPlayers) || 5)); // jogadores por lineup (5 no Classic)
       const lockAll = (locks[day.date] || []).map(id => pIndex.get(id)).filter(i => i != null);
-      const lockIdx = Array.from(new Set(liveLocks.concat(lockAll.filter(i => eligSet.has(i))))).slice(0, 5);
+      const lockIdx = Array.from(new Set(liveLocks.concat(lockAll.filter(i => eligSet.has(i))))).slice(0, size);
       const badLocks = lockAll.filter(i => !eligSet.has(i)).map(i => players[i].id);
       return {
-        day, objs, T: objs.map(o => +o.target), mu, v, info, elig, eligSet, locks: lockIdx, badLocks, teams, oddsDay, offset,
+        day, objs, T: objs.map(o => +o.target), size, mu, v, info, elig, eligSet, locks: lockIdx, badLocks, teams, oddsDay, offset,
+        perPlayer: objs.some(o => o.each), // objetivo que cada jogador tem de cumprir sozinho (o plano trata-o como total)
         live: live ? { submitted, startedTeams: [...startedTeams], liveLocks: liveLocks.map(i => players[i].id) } : null,
       };
     });
@@ -305,7 +374,7 @@
 
     for (let d = 0; d < D; d++) {
       const base = fixed.has(d) ? fixed.get(d) : days[d].locks;
-      base.forEach(p => { if (!plan[d].has(p) && plan[d].size < 5) { plan[d].add(p); used[p]++; } });
+      base.forEach(p => { if (!plan[d].has(p) && plan[d].size < days[d].size) { plan[d].add(p); used[p]++; } });
     }
     const frozen = d => fixed.has(d);
     const isLocked = (d, p) => frozen(d) || lockSets[d].has(p);
@@ -325,7 +394,7 @@
     }
     cand.sort((a, b) => b[0] - a[0]);
     for (const [, d, p] of cand) {
-      if (plan[d].size >= 5 || plan[d].has(p) || used[p] >= uses[p]) continue;
+      if (plan[d].size >= days[d].size || plan[d].has(p) || used[p] >= uses[p]) continue;
       plan[d].add(p); used[p]++;
     }
 
@@ -363,7 +432,7 @@
         for (const d of openDays) {
           const md = days[d];
           const members = [...plan[d]].filter(p => !isLocked(d, p));
-          const slots = plan[d].size < 5 ? members.concat([-1]) : members;
+          const slots = plan[d].size < md.size ? members.concat([-1]) : members;
           for (const a of slots) for (const b of md.elig) {
             if (plan[d].has(b) || !free(b)) continue;
             const r = tryReplace(d, a, b);
@@ -409,7 +478,7 @@
           if (rand() < 0.55 || openDays.length < 2) {
             const d = pick(openDays), md = days[d];
             const members = [...plan[d]].filter(p => !isLocked(d, p));
-            const canAdd = plan[d].size < 5;
+            const canAdd = plan[d].size < md.size;
             let a;
             if (canAdd && (rand() < 0.5 || !members.length)) a = -1;
             else if (members.length) a = pick(members);
@@ -457,10 +526,11 @@
         date: md.day.date, idx: md.day.idx,
         lineup: ids, lineupIdx: lineup,
         P: winProb(md, S, V),
-        totals: md.objs.map((o, k) => ({ stat: o.stat, target: md.T[k], mu: S[k], sd: Math.sqrt(V[k]), known: md.offset[k] })),
+        totals: md.objs.map((o, k) => ({ stat: o.stat, each: !!o.each, target: md.T[k], mu: S[k], sd: Math.sqrt(V[k]), known: md.offset[k] })),
         ceiling: ceilingOf(md, S, V),
         eligible: md.elig.length,
         noObjective: !md.objs.length,
+        size: md.size, perPlayer: md.perPlayer,
         badLocks: md.badLocks,
         hasOdds: Object.keys(md.oddsDay || {}).length > 0,
       };
@@ -492,7 +562,7 @@
     const md = model.days[d];
     const locks = md.locks.filter(p => md.eligSet.has(p));
     const pool = md.elig.filter(p => model.uses[p] > 0 && !locks.includes(p));
-    const need = Math.max(0, Math.min(5, locks.length + pool.length) - locks.length);
+    const need = Math.max(0, Math.min(md.size, locks.length + pool.length) - locks.length);
     let best = null, bestScore = -Infinity;
     const score = set => { const { S, V } = lineupStats(md, set); return ceilingOf(md, S, V) + 0.05 * winProb(md, S, V); };
     const n = pool.length;
@@ -537,7 +607,7 @@
     return { model, normal, allIn, wins, losses, playedCount: playedDays.length, prizes: model.prizes };
   }
 
-  const api = { STATS, STATUS, QREM, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  const api = { STATS, STATUS, QREM, statTerms, statValue, avgOf, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

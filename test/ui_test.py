@@ -1,5 +1,5 @@
 # Testa o site completo num Chromium sem ecrã, com o Supabase falso (test/fake-supabase.js).
-import json, pathlib, sys
+import base64, json, pathlib, sys
 from playwright.sync_api import sync_playwright
 
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -64,6 +64,23 @@ def new_page(b, db):
         summ = {'boxscore': {'players': [{'team': {'abbreviation': 'SAC'}, 'statistics': [{'keys': ['minutes', 'points', 'rebounds', 'assists'], 'labels': ['MIN', 'PTS', 'REB', 'AST'], 'athletes': [{'athlete': {'displayName': 'Domantas Sabonis'}, 'stats': ['20', '9', '7', '3']}]}]}]}}
         return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(summ))
     pg.route('https://site.api.espn.com/**', espn)
+    # blockchain Flow falsa: carteira com 450 Moments; lotes de mais de 150 dão erro de cálculo (para testar a divisão dos lotes)
+    names = [p['name'] for p in roster['players'].values()][:12] + ['Sue Bird', 'Michael Jordan']
+    def cad(v): return json.dumps(base64.b64encode(json.dumps(v).encode()).decode())
+    def S(x): return {'type': 'String', 'value': x}
+    def row(k): return {'type': 'Array', 'value': [S(names[k % len(names)]), S('Metallic Gold LE' if k % 7 == 0 else 'Base Set'), S('8')]}
+    def flow(r):
+        body = json.loads(r.request.post_data); code = base64.b64decode(body['script']).decode()
+        args = [json.loads(base64.b64decode(a)) for a in body['arguments']]
+        h = {'access-control-allow-origin': '*'}
+        if 'TopShotMarketV3' in code:
+            return r.fulfill(status=200, content_type='application/json', headers=h, body=cad({'type': 'Array', 'value': [{'type': 'Array', 'value': [S('Jalen Brunson'), S('Rookie Debut'), S('2')]}]}))
+        if 'ids: [UInt64]' in code:
+            ids = [int(x['value']) for x in args[1]['value']]
+            if len(ids) > 150: return r.fulfill(status=400, content_type='application/json', headers=h, body='{"code":400,"message":"computation exceeds limit (100000)"}')
+            return r.fulfill(status=200, content_type='application/json', headers=h, body=cad({'type': 'Array', 'value': [row(k) for k in ids]}))
+        return r.fulfill(status=200, content_type='application/json', headers=h, body=cad({'type': 'Array', 'value': [{'type': 'UInt64', 'value': str(k)} for k in range(1, 451)]}))
+    pg.route('https://rest-mainnet.onflow.org/**', flow)
     return pg
 
 def width(pg): return pg.evaluate('document.documentElement.scrollWidth')
@@ -151,6 +168,12 @@ with sync_playwright() as pw:
     print('B ajustes sem admin:', pg.locator('#inviteForm').count() == 0, '· secções:', pg.locator('#tab-ajustes h2').all_inner_texts())
     print('B resumo publicado:', store(pg, '__FAKE_DB.tables.summaries.find(s=>s.user_id==="u-eu")'))
     print('B plantel gravado:', store(pg, 'Object.keys(__FAKE_DB.tables.user_runs[0].roster).length'), 'jogadores')
+    pg.click('#t-plantel'); pg.wait_for_timeout(300)
+    pg.click('#plBody button[data-action="wallet-sheet"]'); pg.wait_for_timeout(1500)
+    print('B carteira:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:420])
+    pg.screenshot(path=str(shots / 'carteira.png'))
+    pg.click('#sheetPanel button[data-action="wallet-apply"]'); pg.wait_for_timeout(1200)
+    print('B plantel depois da carteira:', store(pg, '{n: Object.keys(__FAKE_DB.tables.user_runs[0].roster).length, jokic: __FAKE_DB.tables.user_runs[0].roster["jokic"]}'))
     pg.click('button[data-action="logout"]'); pg.wait_for_timeout(300)
     print('B depois de sair:', pg.locator('#auSubmit').inner_text())
     b.close()

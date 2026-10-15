@@ -221,3 +221,5 @@ html, body { min-height: 100%; }
 .status-line { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 8px 0; }
 .status-line + .status-line { border-top: 1px solid var(--line); }
 .tabbar .tab { font-size: 10.5px; }
+.kv.sm { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.kv.sm .v { font-size: 18px; }

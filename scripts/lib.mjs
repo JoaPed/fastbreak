@@ -1,7 +1,18 @@
 // Funções partilhadas pelas tarefas automáticas. As puras (sem rede) têm testes em test/jobs.test.mjs.
 
-export const STAT_MARKET = { pts: 'player_points', reb: 'player_rebounds', ast: 'player_assists', fg3: 'player_threes', stl: 'player_steals', blk: 'player_blocks' };
+export const STAT_MARKET = { pts: 'player_points', reb: 'player_rebounds', ast: 'player_assists', fg3: 'player_threes', stl: 'player_steals', blk: 'player_blocks', tov: 'player_turnovers', fgm: 'player_field_goals', ftm: 'player_frees_made', fta: 'player_frees_attempts' };
 export const MARKET_STAT = Object.fromEntries(Object.entries(STAT_MARKET).map(([k, v]) => [v, k]));
+// Estatísticas sem mercado de odds: usa-se a linha de uma parecida (o motor ajusta pela proporção nas médias do jogador)
+export const MARKET_PROXY = { oreb: 'reb', dreb: 'reb', fga: 'fgm', fg3a: 'fg3', pip: 'pts' };
+// Mercados a pedir para uma estatística do objetivo ("ast-tov" → assistências e perdas de bola)
+export function marketsForStat(key) {
+  const out = new Set();
+  for (const s of String(key || '').split(/[+-]/)) { const m = STAT_MARKET[s] || STAT_MARKET[MARKET_PROXY[s]]; if (m) out.add(m); }
+  return [...out];
+}
+// Médias guardadas por jogador (a ordem é a das colunas)
+export const AVG_KEYS = ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'tov', 'oreb', 'dreb', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'min'];
+const isNum = x => x != null && x !== '' && isFinite(+x);
 export const FLOW_REST = 'https://rest-mainnet.onflow.org/v1';
 export const FASTBREAK = 'A.0b2a3299cc857e29.FastBreakV1';
 
@@ -86,6 +97,28 @@ export function addBoxscore(state, json, bucket, date) {
   }
   return n;
 }
+// Nomes da ESPN para as médias que não vêm sempre (ressaltos ofensivos e defensivos só vêm na ficha de cada jogador)
+const ESPN_AVG_EXTRA = { tov: 'avgTurnovers', fgm: 'avgFieldGoalsMade', fga: 'avgFieldGoalsAttempted', fg3a: 'avgThreePointFieldGoalsAttempted', ftm: 'avgFreeThrowsMade', fta: 'avgFreeThrowsAttempted', oreb: 'avgOffensiveRebounds', dreb: 'avgDefensiveRebounds' };
+// mantém os ressaltos ofensivos/defensivos lidos da ficha se o número de jogos não mudou
+function keepCore(old, gp) { return old && old.coreGp != null && old.coreGp === gp ? { oreb: old.oreb, dreb: old.dreb, coreGp: old.coreGp } : {}; }
+// ESPN — ficha de um jogador numa época (sports.core.api …/athletes/<id>/statistics) → médias que faltam na lista
+export function parseEspnCoreStats(json) {
+  const v = {};
+  for (const c of (((json || {}).splits || {}).categories) || []) for (const st of c.stats || []) if (v[st.name] == null && isNum(st.value)) v[st.name] = +st.value;
+  if (!v.gamesPlayed) return null;
+  const out = { gp: v.gamesPlayed };
+  for (const [k, name] of Object.entries(ESPN_AVG_EXTRA)) if (isNum(v[name])) out[k] = Math.round(v[name] * 100) / 100;
+  return out;
+}
+// Junta a ficha às médias de uma época (bucket 'prevAvg' ou 'curAvg')
+export function addEspnCore(p, bucket, core) {
+  if (!p || !core || !p[bucket]) return false;
+  const a = p[bucket];
+  if (isNum(core.oreb)) a.oreb = core.oreb;
+  if (isNum(core.dreb)) a.dreb = core.dreb;
+  a.coreGp = a.gp;
+  return true;
+}
 // ESPN — médias da época passada (statistics/byathlete). Devolve quantos jogadores leu nesta página.
 export function addEspnSeason(state, json) {
   const names = {};
@@ -98,8 +131,11 @@ export function addEspnSeason(state, json) {
       keys.forEach((k, i) => { if (arr[i] != null && vals[k] == null) vals[k] = parseFloat(String(arr[i]).replace(',', '.')); });
     }
     const p = entry(state, ath.displayName || [ath.firstName, ath.lastName].filter(Boolean).join(' ')); if (!p) continue;
+    if (ath.id) p.espnId = String(ath.id);
     p.prevTeam = espnTeam(ath.teamShortName || ((ath.teams || [])[0] || {}).abbreviation) || p.prevTeam;
-    p.prevAvg = { gp: vals.gamesPlayed || 0, min: vals.avgMinutes || 0, pts: vals.avgPoints || 0, reb: vals.avgRebounds || 0, ast: vals.avgAssists || 0, fg3: vals.avgThreePointFieldGoalsMade || 0, stl: vals.avgSteals || 0, blk: vals.avgBlocks || 0 };
+    const avg = { gp: vals.gamesPlayed || 0, min: vals.avgMinutes || 0, pts: vals.avgPoints || 0, reb: vals.avgRebounds || 0, ast: vals.avgAssists || 0, fg3: vals.avgThreePointFieldGoalsMade || 0, stl: vals.avgSteals || 0, blk: vals.avgBlocks || 0 };
+    for (const [k, name] of Object.entries(ESPN_AVG_EXTRA)) if (isNum(vals[name])) avg[k] = +vals[name];
+    p.prevAvg = Object.assign(keepCore(p.prevAvg, avg.gp), avg);
     n++;
   }
   return n;
@@ -121,7 +157,8 @@ export function addEspnCurrent(state, json) {
   const n = addEspnSeason(tmp, json);
   for (const [key, t] of Object.entries(tmp.players)) {
     const p = entry(state, t.name); if (!p) continue;
-    p.curAvg = t.prevAvg; p.curTeam = t.prevTeam || p.curTeam;
+    p.curAvg = Object.assign(keepCore(p.curAvg, t.prevAvg.gp), t.prevAvg); p.curTeam = t.prevTeam || p.curTeam;
+    if (t.espnId) p.espnId = t.espnId;
   }
   return n;
 }
@@ -130,14 +167,19 @@ export function teamOf(p) { return p.rosterTeam || p.curTeam || p.boxTeam || p.p
 // Média desta época puxada para a da época passada enquanto há poucos jogos
 export function blendedAverages(p, prior = 10) {
   let cur = p.curAvg && p.curAvg.gp > 0 ? p.curAvg : null;
-  if (!cur && p.cur && p.cur.gp > 0) { const t = p.cur; cur = { gp: t.gp }; for (const s of ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'min']) cur[s] = t[s] / t.gp; }
+  if (!cur && p.cur && p.cur.gp > 0) { const t = p.cur; cur = { gp: t.gp }; for (const s of AVG_KEYS) if (isNum(t[s])) cur[s] = t[s] / t.gp; }
   const prev = p.prevAvg && p.prevAvg.gp >= 5 ? p.prevAvg : null;
   if (!cur && !prev) return null;
   const gp = cur ? cur.gp : 0, k = prev ? Math.max(0, prior - gp) : 0;
   const avg = {};
-  for (const s of ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'min']) {
-    const c = cur ? cur[s] : 0, pa = prev ? prev[s] : 0;
-    avg[s] = gp + k > 0 ? Math.round(((gp * c + k * pa) / (gp + k)) * 10) / 10 : 0;
+  const r = x => Math.round(x * 100) / 100;
+  for (const s of AVG_KEYS) {
+    const c = cur && isNum(cur[s]) ? +cur[s] : null, pa = prev && isNum(prev[s]) ? +prev[s] : null;
+    const wc = c != null ? gp : 0, wp = pa != null ? k : 0;
+    // uma estatística que só uma das épocas tem (p. ex. ressaltos ofensivos ainda por ler) vem só dessa
+    if (wc + wp > 0) avg[s] = r((wc * c + wp * pa) / (wc + wp));
+    else if (c != null) avg[s] = r(c);
+    else if (pa != null) avg[s] = r(pa);
   }
   return { avg, gp };
 }
@@ -163,11 +205,14 @@ export function parseEspnBox(json) {
     for (const st of team.statistics || []) {
       const keys = st.keys || [], labels = (st.labels || []).map(l => String(l).toUpperCase());
       const idx = (k, l) => { let i = keys.findIndex(x => x === k || String(x).startsWith(k)); if (i < 0) i = labels.indexOf(l); return i; };
-      const I = { pts: idx('points', 'PTS'), reb: idx('rebounds', 'REB'), ast: idx('assists', 'AST'), fg3: idx('threePointFieldGoalsMade', '3PT'), stl: idx('steals', 'STL'), blk: idx('blocks', 'BLK'), min: idx('minutes', 'MIN') };
+      const fg = idx('fieldGoalsMade', 'FG'), tp = idx('threePointFieldGoalsMade', '3PT'), ft = idx('freeThrowsMade', 'FT');
+      // [coluna, parte]: "8-15" → parte 0 = marcados, parte 1 = tentados
+      const I = { pts: [idx('points', 'PTS'), 0], reb: [idx('rebounds', 'REB'), 0], ast: [idx('assists', 'AST'), 0], fg3: [tp, 0], stl: [idx('steals', 'STL'), 0], blk: [idx('blocks', 'BLK'), 0], min: [idx('minutes', 'MIN'), 0],
+        tov: [idx('turnovers', 'TO'), 0], oreb: [idx('offensiveRebounds', 'OREB'), 0], dreb: [idx('defensiveRebounds', 'DREB'), 0], fgm: [fg, 0], fga: [fg, 1], fg3a: [tp, 1], ftm: [ft, 0], fta: [ft, 1] };
       for (const a of st.athletes || []) {
         if (a.didNotPlay || !(a.stats || []).length) continue;
         const v = {};
-        for (const [k, i] of Object.entries(I)) v[k] = i >= 0 ? parseFloat(String(a.stats[i] || '0').split('-')[0]) || 0 : 0;
+        for (const [k, [i, part]] of Object.entries(I)) if (i >= 0) v[k] = parseFloat(String(a.stats[i] || '0').split('-')[part]) || 0;
         out[norm((a.athlete || {}).displayName)] = v;
       }
     }
@@ -285,19 +330,41 @@ export async function flowEvents(type, start, end, fetchImpl = fetch) {
   }
   return out;
 }
-// Nome da estatística no contrato → chave do planeador ('pts', 'reb', … ou combinação 'pts+reb')
+// Nome da estatística no contrato → chave do planeador ('pts', 'oreb', … combinações 'pts+reb' e diferenças 'ast-tov').
+// Nomes que não se reconhecem por inteiro devolvem null (aparecem no log em vez de serem lidos mal).
+const STAT_WORDS = [
+  ['pip', 'POINTS?_IN_(?:THE_)?PAINT|PAINT_POINTS|PITP'],
+  ['oreb', 'OFF(?:ENSIVE)?_?REB(?:OUND)?S?|OREB'],
+  ['dreb', 'DEF(?:ENSIVE)?_?REB(?:OUND)?S?|DREB'],
+  ['fg3a', '(?:THREE|3)_?(?:POINT(?:ER)?S?_?|PT_?|P_?)?(?:FIELD_GOALS?_)?ATT(?:EMPT(?:S|ED)?)?|3PA|FG3A'],
+  ['fg3', '(?:THREE|3)_?(?:POINT(?:ER)?S?|PT)(?:_FIELD_GOALS?)?(?:_MADE)?|3PM|FG3M?|TRIPLES?|THREES'],
+  ['fga', 'FIELD_GOALS?_ATT(?:EMPT(?:S|ED)?)?|FGA'],
+  ['fgm', 'FIELD_GOALS?(?:_MADE)?|FGM'],
+  ['fta', 'FREE_THROWS?_ATT(?:EMPT(?:S|ED)?)?|FTA'],
+  ['ftm', 'FREE_THROWS?(?:_MADE)?|FTM'],
+  ['tov', 'TURNOVERS?|TOV'],
+  ['pts', 'POINTS?|PTS'],
+  ['reb', '(?:TOTAL_)?REB(?:OUND)?S?'],
+  ['ast', 'ASSISTS?|AST'],
+  ['stl', 'STEALS?|STL'],
+  ['blk', 'BLOCK(?:S|ED_SHOTS)?|BLK'],
+].map(([k, re]) => [k, new RegExp('(?<=_)(?:' + re + ')(?=_)')]);
+const STAT_ORDER = ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'tov', 'oreb', 'dreb', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'pip'];
+const STAT_GLUE = new Set(['AND', 'PLUS', 'TOTAL', 'COMBINED']);
 export function mapStat(name) {
-  const u = String(name || '').toUpperCase();
-  const found = [];
-  const has = re => re.test(u);
-  if (has(/THREE|3P|FG3|TRIPLE/)) found.push('fg3');
-  if (has(/POINT|PTS/) && !has(/THREE[ _-]?POINT/)) found.push('pts');
-  if (has(/REB/)) found.push('reb');
-  if (has(/AST|ASSIST/)) found.push('ast');
-  if (has(/STEAL|STL/)) found.push('stl');
-  if (has(/BLOCK|BLK/)) found.push('blk');
-  const order = ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk'];
-  return found.length ? order.filter(s => found.includes(s)).join('+') : null;
+  const u = String(name || '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if (!u) return null;
+  const pos = [], neg = [];
+  const parts = u.split(/(?:^|_)MINUS(?:_|$)/);
+  for (let i = 0; i < parts.length; i++) {
+    let rest = '_' + parts[i] + '_';
+    const found = [];
+    for (const [k, re] of STAT_WORDS) { if (re.test(rest)) { found.push(k); rest = rest.replace(re, '_'); } }
+    if (!found.length || rest.split('_').some(t => t && !STAT_GLUE.has(t))) return null;
+    (i === 0 ? pos : neg).push(...found);
+  }
+  const sort = arr => [...new Set(arr)].sort((a, b) => STAT_ORDER.indexOf(a) - STAT_ORDER.indexOf(b));
+  return sort(pos).join('+') + sort(neg).map(s => '-' + s).join('');
 }
 export function objectivesFromStats(stats) {
   const objs = [], unknown = [];

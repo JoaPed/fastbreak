@@ -9,7 +9,10 @@ const WD = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const MO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const QLABEL = { 1: '1.º período', 2: '2.º período', 3: '3.º período', 4: '4.º período' };
 const TABS = ['hoje', 'run', 'plantel', 'grupo', 'ajustes'];
-const LIVE_STAT = { pts: 'points', reb: 'reboundsTotal', ast: 'assists', fg3: 'threePointersMade', stl: 'steals', blk: 'blocks' };
+const LIVE_STAT = { pts: 'points', reb: 'reboundsTotal', ast: 'assists', fg3: 'threePointersMade', stl: 'steals', blk: 'blocks', tov: 'turnovers', oreb: 'reboundsOffensive', dreb: 'reboundsDefensive', fgm: 'fieldGoalsMade', fga: 'fieldGoalsAttempted', fg3a: 'threePointersAttempted', ftm: 'freeThrowsMade', fta: 'freeThrowsAttempted', pip: 'pointsInThePaint' };
+// estatísticas que se podem escolher como objetivo à mão (as da blockchain entram sozinhas)
+const OBJ_STATS = ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'oreb', 'dreb', 'tov', 'ast-tov', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'pip', 'pts+reb', 'pts+ast', 'pts+reb+ast', 'stl+blk'];
+const AVG_SHOW = ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'tov', 'oreb', 'dreb', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'pip'];
 
 const configured = CFG.supabaseUrl && !/SEU-PROJETO/.test(CFG.supabaseUrl) && CFG.supabaseKey && !/COLOCA/.test(CFG.supabaseKey);
 const sb = configured ? createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
@@ -36,9 +39,20 @@ const dShort = s => { const d = dt(s); return d.getUTCDate() + ' ' + MO[d.getUTC
 const dWeek = s => WD[dt(s).getUTCDay()];
 const hm = iso => { try { return new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
 const ago = iso => { if (!iso) return 'nunca'; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); if (m < 2) return 'agora'; if (m < 60) return 'há ' + m + ' min'; const h = Math.round(m / 60); if (h < 36) return 'há ' + h + ' h'; return 'há ' + Math.round(h / 24) + ' dias'; };
-const statShort = st => String(st).split('+').map(s => (STATS[s] || {}).short || s.toUpperCase()).join('+');
-const statLabel = st => String(st).split('+').map(s => (STATS[s] || {}).label || s).join(' + ');
-const objText = o => o ? o.target + '+ ' + statShort(o.stat) : 'Objetivo por definir';
+const statShort = st => FB.statTerms(st).map((t, i) => (i ? (t.sign < 0 ? '−' : '+') : t.sign < 0 ? '−' : '') + ((STATS[t.s] || {}).short || t.s.toUpperCase())).join('');
+const statLabel = st => FB.statTerms(st).map((t, i) => (i ? (t.sign < 0 ? ' − ' : ' + ') : t.sign < 0 ? '− ' : '') + ((STATS[t.s] || {}).label || t.s)).join('');
+const objOne = o => o.target + '+ ' + statShort(o.stat) + (o.each ? ' cada' : '');
+const objText = o => o ? objOne(o) : 'Objetivo por definir';
+const objsText = day => { const list = ((day || {}).objectives || []).filter(o => o && o.stat); return list.length ? list.map(objOne).join(' e ') : 'Objetivo por definir'; };
+// de onde vem o valor esperado de um jogador (texto curto para as listas)
+function srcShort(info) {
+  if (info.src === 'odds') return 'linha ' + f1(info.line);
+  if (info.src === 'proxy') return 'linha de ' + ((STATS[info.via] || {}).short || info.via) + ' ' + f1(info.line);
+  if (info.src === 'misto') return 'odds + média';
+  if (info.src === 'media') return 'média';
+  if (info.src === 'estimativa') return 'estimativa';
+  return 'sem dados';
+}
 const icoLock = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Fixado"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 const todayET = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
 function norm(name) {
@@ -194,11 +208,14 @@ async function loadRun(runId) {
   if (!runId) { schedule(); return; }
   const uid = S.session.user.id;
   const run = S.runs.find(r => r.id === runId);
-  const [days, mine] = await Promise.all([
+  const [days, mine, cgames] = await Promise.all([
     q(sb.from('run_days').select('*').eq('run_id', runId).order('date')),
     q(sb.from('user_runs').select('*').eq('run_id', runId).eq('user_id', uid).maybeSingle()),
+    run && run.chain_run_id ? q(sb.from('chain_games').select('id,num_players').eq('run_id', run.chain_run_id)).catch(() => []) : Promise.resolve([]),
   ]);
-  S.days = (days || []).map(d => ({ date: d.date, objectives: d.objectives || [], games: d.games || [], chain_game_id: d.chain_game_id }));
+  // jogadores por lineup em cada dia (vem da blockchain; 5 por defeito)
+  const np = new Map((cgames || []).map(g => [g.id, +g.num_players || null]));
+  S.days = (days || []).map(d => ({ date: d.date, objectives: d.objectives || [], games: d.games || [], chain_game_id: d.chain_game_id, numPlayers: np.get(d.chain_game_id) || null }));
   S.mine = mine ? { roster: mine.roster || {}, plan: mine.plan || {} } : { roster: {}, plan: {} };
   S.mineSeen = mine ? Date.parse(mine.updated_at) : 0;
   S.mineLoaded = true;
@@ -392,11 +409,13 @@ function renderHoje() {
         : '<span>Projeção <b class="num">' + f1(t.mu) + '</b> <span class="num">± ' + f1(t.sd) + '</span></span><span>alvo <b class="num">' + t.target + '</b></span>') + '</div>';
   }
   html.push('<div class="card hero"><div class="hero-top"><span class="eyebrow">Dia ' + (nd.idx + 1) + ' · ' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>' + right + '</div>' +
-    '<div class="score"><div class="goal">' + (o ? o.target + '<small>' + esc(statShort(o.stat)) + '</small>' : '<small>Objetivo por definir</small>') + '</div>' +
+    '<div class="score"><div class="goal">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>').join('<small> e </small>') : '<small>Objetivo por definir</small>') + '</div>' +
     (d.noObjective ? '' : '<div class="pbig num c-' + tone(d.P) + '">' + pct(d.P) + '<span>vitória</span></div>') + '</div>' + barHtml +
     '<div class="seg" role="group" aria-label="Estratégia para hoje"><button type="button" data-action="mode" data-mode="run" aria-pressed="' + (modeFor(nd.date) !== 'allin') + '">Plano da run</button><button type="button" data-action="mode" data-mode="allin" aria-pressed="' + (modeFor(nd.date) === 'allin') + '">Tudo pelo dia</button></div>' +
     impactHtml(r) + '</div>');
   if (d.noObjective) html.push('<div class="note info">' + (S.role === 'admin' ? 'Este dia ainda não tem objetivo. Define-o em Ajustes.' : 'Este dia ainda não tem objetivo. O admin do grupo ainda não o definiu.') + '</div>');
+  if (d.perPlayer) html.push('<div class="note">Hoje o objetivo é por jogador: cada um tem de chegar ao valor sozinho. O plano ainda o calcula como total da equipa, por isso confirma o lineup à mão (e podes submeter menos jogadores).</div>');
+  if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) html.push('<div class="note info">Pontos na área: a ESPN não os dá por jogador, por isso as médias e os valores ao vivo são estimados a partir dos lançamentos de 2. O resultado final vem da blockchain.</div>');
   else if (!(nd.games || []).length) html.push('<div class="note info">Os jogos deste dia ainda não foram carregados do calendário NBA.</div>');
   if (r.normal.conflicts.length) html.push('<div class="note">Fixaste jogadores mais vezes do que os usos que têm: ' + r.normal.conflicts.map(c => esc(nameOf(c.player)) + ' (' + c.used + ' de ' + c.uses + ')').join(', ') + '.</div>');
   if (d.badLocks && d.badLocks.length) html.push('<div class="note">Sem jogo hoje, por isso não entram: ' + d.badLocks.map(id => esc(nameOf(id))).join(', ') + '.</div>');
@@ -417,8 +436,7 @@ function renderHoje() {
       else if (st === 'jogo?') sub = '<span class="pill jogo">Em jogo</span> toca para pôr o valor';
       else sub = (sb2 ? '' : '<span class="pill prov">Novo</span> ') + esc(p.team) + ' ' + esc(opp(p.team, nd));
     } else {
-      const src = info.src === 'odds' ? 'linha ' + f1(info.line) : info.src === 'media' ? 'média' : info.src === 'misto' ? 'odds + média' : 'sem dados';
-      sub = esc(p.team) + ' ' + esc(opp(p.team, nd)) + ' · ' + src;
+      sub = esc(p.team) + ' ' + esc(opp(p.team, nd)) + ' · ' + srcShort(info);
     }
     const stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
     return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + sub + '</div></div><div class="pv"><div class="v num">' + val + '</div><div class="u">' + esc(o ? statShort(o.stat) : '') + '</div></div></button></li>';
@@ -457,9 +475,9 @@ function renderRun() {
   const byDate = new Map(v.days.map(d => [d.date, d])), nd = nextDay();
   const rows = days.map((day, i) => {
     const pl = (((S.mine.plan || {}).played || {})[day.date]) || null, o = (day.objectives || [])[0];
-    if (pl && pl.done) return '<li><button class="drow" type="button" data-action="day" data-date="' + day.date + '"><span class="dn">' + (i + 1) + '<small>' + dWeek(day.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objText(o)) + '</b><span class="small muted">' + dShort(day.date) + (pl.chain ? ' · blockchain' : '') + '</span></span><span class="d2" style="display:block">' + ((pl.lineup || []).map(id => esc(lastName(id))).join(' · ') || '—') + '</span></span><span class="pchip ' + (pl.result === 'win' ? 'p-good' : 'p-bad') + '">' + (pl.result === 'win' ? 'V' : 'D') + '</span></button></li>';
+    if (pl && pl.done) return '<li><button class="drow" type="button" data-action="day" data-date="' + day.date + '"><span class="dn">' + (i + 1) + '<small>' + dWeek(day.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objsText(day)) + '</b><span class="small muted">' + dShort(day.date) + (pl.chain ? ' · blockchain' : '') + '</span></span><span class="d2" style="display:block">' + ((pl.lineup || []).map(id => esc(lastName(id))).join(' · ') || '—') + '</span></span><span class="pchip ' + (pl.result === 'win' ? 'p-good' : 'p-bad') + '">' + (pl.result === 'win' ? 'V' : 'D') + '</span></button></li>';
     const d = byDate.get(day.date); if (!d) return '';
-    return '<li class="' + (nd && nd.date === day.date ? 'is-next' : '') + '"><button class="drow" type="button" data-action="day" data-date="' + day.date + '"><span class="dn">' + (i + 1) + '<small>' + dWeek(day.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objText(o)) + '</b><span class="small muted">' + dShort(day.date) + ' · ' + (day.games || []).length + ' jogos' + (d.hasOdds ? ' · odds' : '') + '</span></span><span class="d2" style="display:block">' + (d.lineup.length ? d.lineup.map(id => esc(lastName(id))).join(' · ') : 'sem jogadores') + '</span></span>' +
+    return '<li class="' + (nd && nd.date === day.date ? 'is-next' : '') + '"><button class="drow" type="button" data-action="day" data-date="' + day.date + '"><span class="dn">' + (i + 1) + '<small>' + dWeek(day.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objsText(day)) + '</b><span class="small muted">' + dShort(day.date) + ' · ' + (day.games || []).length + ' jogos' + (d.hasOdds ? ' · odds' : '') + '</span></span><span class="d2" style="display:block">' + (d.lineup.length ? d.lineup.map(id => esc(lastName(id))).join(' · ') : 'sem jogadores') + '</span></span>' +
       (d.noObjective ? '<span class="pchip p-done">—</span>' : '<span class="pchip p-' + tone(d.P) + ' num">' + pct(d.P) + '</span>') + '</button></li>';
   }).join('');
   html.push('<div class="card"><div class="list-head"><h2>Dias</h2><span class="small muted">toca para ver e ajustar</span></div><ul class="list">' + rows + '</ul></div>');
@@ -479,8 +497,9 @@ function renderPlantel() {
   const body = $('plBody');
   if (!ids.length) {
     const prev = S.runs.filter(x => x.id !== S.runId);
-    body.innerHTML = empty('Plantel vazio', 'Adiciona os jogadores dos teus Moments e os usos de cada um nesta run. Podes colar uma lista inteira.',
-      '<div class="btns" style="width:100%;max-width:340px"><button class="btn primary" type="button" data-action="add-player">Adicionar</button><button class="btn" type="button" data-action="paste-sheet">Colar lista</button></div>' +
+    body.innerHTML = empty('Plantel vazio', 'Lê os jogadores dos teus Moments da blockchain, ou junta-os à mão. Depois acerta os usos de cada um nesta run.',
+      '<button class="btn primary" type="button" data-action="wallet-sheet" style="width:100%;max-width:340px">Ler da minha carteira</button>' +
+      '<div class="btns" style="width:100%;max-width:340px"><button class="btn" type="button" data-action="add-player">Adicionar</button><button class="btn" type="button" data-action="paste-sheet">Colar lista</button></div>' +
       (prev.length ? '<button class="btn link" type="button" data-action="copy-roster">Copiar o plantel de outra run</button>' : ''));
     return;
   }
@@ -508,7 +527,7 @@ function renderPlantel() {
   body.innerHTML = '<div class="card"><div class="list-head"><h2>Quem joga quando</h2><span class="small muted">plano usa ' + totalP + ' de ' + totalU + ' usos</span></div>' +
     '<div class="mx-wrap"><div class="mx">' + head + (rows || '<div class="mx-row muted small">Nenhum jogador encontrado.</div>') + '</div></div>' +
     '<div class="legend"><span><i class="dot on"></i>no plano</span><span><i class="dot off"></i>tem jogo</span><span><i class="dot used"></i>já usado</span><span>usos = no plano / restantes</span></div></div>' +
-    '<div class="btns"><button class="btn" type="button" data-action="paste-sheet">Colar lista</button><button class="btn" type="button" data-action="add-player">Adicionar jogador</button></div>' +
+    '<div class="btns"><button class="btn" type="button" data-action="wallet-sheet">Ler da carteira</button><button class="btn" type="button" data-action="paste-sheet">Colar lista</button></div>' +
     '<p class="small muted" style="margin:0 4px">Toca num jogador para mudar os usos ou o estado.</p>';
 }
 
@@ -550,7 +569,7 @@ function friendSheet(uid) {
   const rows = S.days.map((d, i) => {
     const c = ch[d.date], r = c && c.win != null ? (c.win ? 'win' : 'loss') : ((s.days || {})[d.date] || null);
     const lineup = c && Array.isArray(c.lineup) && c.lineup.length ? c.lineup.join(' · ') : '';
-    return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">Dia ' + (i + 1) + ' · ' + esc(objText((d.objectives || [])[0])) + '</span></div><div class="ps">' + dShort(d.date) + (c && c.points != null ? ' · ' + f0(+c.points) + ' feitos' : '') + (lineup ? ' · ' + esc(lineup) : '') + '</div></div>' +
+    return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">Dia ' + (i + 1) + ' · ' + esc(objsText(d)) + '</span></div><div class="ps">' + dShort(d.date) + (c && c.points != null ? ' · ' + f0(+c.points) + ' feitos' : '') + (lineup ? ' · ' + esc(lineup) : '') + '</div></div>' +
       (r ? '<span class="pchip ' + (r === 'win' ? 'p-good' : 'p-bad') + '">' + (r === 'win' ? 'V' : 'D') + '</span>' : '<span class="pchip p-done">—</span>') + '</li>';
   }).join('');
   openSheet('<h3>' + esc(p.display_name || 'Sem nome') + '</h3><div class="small muted">' + (p.topshot_username ? 'Top Shot: ' + esc(p.topshot_username) : 'Sem utilizador do Top Shot no perfil') + '</div>' +
@@ -596,7 +615,7 @@ function adminHtml(run) {
       S.days.map((day, i) => {
         const o = (day.objectives || [])[0] || { stat: 'pts', target: '' };
         return '<div class="objrow"><div><div class="label">Dia ' + (i + 1) + '</div><div class="small">' + dWeek(day.date) + ', ' + dShort(day.date) + '</div></div><select class="field" id="obj-stat-' + i + '" data-action="obj-stat" data-i="' + i + '" aria-label="Estatística do dia ' + (i + 1) + '">' +
-          Object.keys(STATS).map(k => '<option value="' + k + '"' + (o.stat === k ? ' selected' : '') + '>' + STATS[k].label + '</option>').join('') + (STATS[o.stat] ? '' : '<option value="' + esc(o.stat) + '" selected>' + esc(statLabel(o.stat)) + '</option>') +
+          OBJ_STATS.map(k => '<option value="' + k + '"' + (o.stat === k ? ' selected' : '') + '>' + esc(statLabel(k)) + '</option>').join('') + (OBJ_STATS.includes(o.stat) ? '' : '<option value="' + esc(o.stat) + '" selected>' + esc(statLabel(o.stat)) + '</option>') +
           '</select><input class="field num" id="obj-target-' + i + '" data-action="obj-target" data-i="' + i + '" type="number" inputmode="numeric" min="1" value="' + esc(o.target) + '" aria-label="Alvo do dia ' + (i + 1) + '"></div>';
       }).join('') +
       '<div class="label">Blockchain</div><div class="small muted">Liga esta run à run do Top Shot para os objetivos e os resultados de todos entrarem sozinhos.</div>' +
@@ -629,7 +648,7 @@ function daySheet(date) {
   const day = S.days[i], o = (day.objectives || [])[0];
   const pl = (((S.mine.plan || {}).played || {})[date]) || null;
   if (pl && pl.done) {
-    openSheet('<h3>Dia ' + (i + 1) + ' · ' + esc(objText(o)) + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + (pl.result === 'win' ? 'Vitória' : 'Derrota') + (pl.points != null ? ' · ' + f0(pl.points) + ' feitos' : '') + (pl.chain ? ' · lido da blockchain' : '') + '</div>' +
+    openSheet('<h3>Dia ' + (i + 1) + ' · ' + esc(objsText(day)) + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + (pl.result === 'win' ? 'Vitória' : 'Derrota') + (pl.points != null ? ' · ' + f0(pl.points) + ' feitos' : '') + (pl.chain ? ' · lido da blockchain' : '') + '</div>' +
       '<ul class="list card">' + ((pl.lineup || []).map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">Sem jogadores registados.</li>') + '</ul>' +
       '<div class="small muted">Os usos destes jogadores já foram descontados.</div>' + (pl.chain ? '' : '<button class="btn" type="button" data-action="undo-result" data-date="' + date + '">Desfazer resultado</button>') + closeRow());
     return;
@@ -640,7 +659,7 @@ function daySheet(date) {
   const inLine = d.lineup.map(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], p = r.model.players[pi]; return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '" data-back="day"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '</div></div><div class="pv"><div class="v num">' + f1(info.mu) + '</div><div class="u">' + esc(o ? statShort(o.stat) : '') + '</div></div></button></li>'; }).join('');
   const others = md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).map(pi => ({ p: r.model.players[pi], mu: md.info[pi][0].mu })).sort((a, b) => b.mu - a.mu);
   const otherRows = others.map(({ p, mu }) => { const left = (p.uses || 0) - (v.usage[p.id] || 0); return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps num">' + f1(mu) + ' ' + esc(o ? statShort(o.stat) : '') + ' · ' + (left > 0 ? left + ' uso' + (left > 1 ? 's' : '') + ' livre' + (left > 1 ? 's' : '') : 'usos todos no plano') + '</div></div><button class="btn small" type="button" data-action="lock" data-id="' + esc(p.id) + '" data-date="' + date + '"' + ((p.uses || 0) < 1 ? ' disabled' : '') + '>Fixar</button></li>'; }).join('');
-  openSheet('<h3>Dia ' + (i + 1) + ' · ' + esc(objText(o)) + '</h3>' +
+  openSheet('<h3>Dia ' + (i + 1) + ' · ' + esc(objsText(day)) + '</h3>' + (d.perPlayer ? '<div class="note">Objetivo por jogador: o plano calcula-o como total. Confirma o lineup à mão.</div>' : '') +
     '<div class="kv"><div><div class="label">Vitória</div><div class="v num c-' + tone(d.P) + '">' + (d.noObjective ? '—' : pct(d.P)) + '</div></div><div><div class="label">Projeção</div><div class="v num">' + (d.totals[0] ? f0(d.totals[0].mu) : '–') + '</div></div><div><div class="label">Jogos</div><div class="v num">' + (day.games || []).length + '</div></div></div>' +
     '<div class="card"><div class="list-head"><h2>Lineup do plano</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div><ul class="list">' + (inLine || '<li class="row muted small">Nenhum jogador do plantel joga neste dia.</li>') + '</ul></div>' +
     (locks.size ? '<div class="small">Fixados: ' + [...locks].map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">soltar</button>').join(' · ') + '</div>' : '') +
@@ -656,12 +675,16 @@ function playerSheet(id, date, back) {
   const live = date === (nextDay() || {}).date && liveOn(date), sub = live && d.live && d.live.submitted.includes(id);
   let src;
   if (info.src === 'odds') { const raw = (((md.oddsDay || {})[id] || {})[o.stat]) || {}; src = 'Linha ' + f1(info.line) + ' (mais ' + esc(raw.over) + ' / menos ' + esc(raw.under) + '): ' + pct(info.pOver) + ' de passar a linha, sem a margem da casa.'; }
-  else src = info.src === 'media' ? 'Ainda sem odds para este dia: usa a média da época.' : 'Sem dados para esta estatística.';
+  else if (info.src === 'proxy') src = 'Não há odds de ' + esc(statLabel(o.stat).toLowerCase()) + ': usa a linha de ' + esc(((STATS[info.via] || {}).label || info.via).toLowerCase()) + ' (' + f1(info.line) + ') e a proporção entre as duas nas médias dele.';
+  else if (info.src === 'misto' || (info.parts || []).length > 1) src = 'Soma das partes: ' + (info.parts || []).map(x => (x.sign < 0 ? '− ' : '') + esc((STATS[x.stat] || {}).short || x.stat) + ' ' + f1(x.mu) + ' (' + srcShort(x) + ')').join(', ') + '.';
+  else if (info.src === 'media') src = 'Ainda sem odds para este dia: usa a média da época.';
+  else if (info.src === 'estimativa') src = (o.stat === 'pip' ? 'A ESPN não dá pontos na área por jogador: estimativa a partir dos lançamentos de 2 marcados (menos certeza).' : 'Sem média desta estatística: estimativa a partir das outras médias dele (menos certeza).');
+  else src = 'Sem dados para esta estatística.';
   let liveHtml = '';
   if (live && sub) {
-    const e = (((liveDoc(date) || {}).players || {})[id]) || {}, state = e.state || 'por', val = (e.vals || {})[o.stat] || 0;
+    const e = (((liveDoc(date) || {}).players || {})[id]) || {}, state = e.state || 'por', val = Math.round(FB.statValue(e.vals || {}, o.stat, p.avg) * 10) / 10;
     liveHtml = '<div class="card panel" style="gap:10px"><div class="label">Jogo a jogo</div><div class="chips" role="group" aria-label="Estado do jogo">' + [['por', 'Por jogar'], ['jogo', 'Em jogo'], ['fim', 'Terminado']].map(([k, l]) => '<button type="button" data-action="live-state" data-id="' + esc(id) + '" data-state="' + k + '" aria-pressed="' + (state === k) + '">' + l + '</button>').join('') + '</div>' +
-      (state !== 'por' ? '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="stepper"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um">−</button><input class="num" id="liveVal" type="number" inputmode="numeric" min="0" value="' + val + '" data-action="live-input" data-id="' + esc(id) + '" aria-label="Valor até agora"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um">+</button></div><span class="small muted">' + esc(statShort(o.stat)) + (state === 'fim' ? ' no final' : ' até agora') + '</span></div>' : '') +
+      (state !== 'por' ? '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="stepper"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um">−</button><input class="num" id="liveVal" type="number" inputmode="decimal"' + (/-/.test(o.stat) ? '' : ' min="0"') + ' value="' + val + '" data-action="live-input" data-id="' + esc(id) + '" aria-label="Valor até agora"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um">+</button></div><span class="small muted">' + esc(statShort(o.stat)) + (state === 'fim' ? ' no final' : ' até agora') + '</span></div>' : '') +
       (state === 'jogo' ? '<div class="chips" role="group" aria-label="Período">' + [1, 2, 3, 4].map(qn => '<button type="button" data-action="live-q" data-id="' + esc(id) + '" data-q="' + qn + '" aria-pressed="' + (+e.q === qn) + '">' + qn + '.º</button>').join('') + '</div>' : '') + '</div>';
   } else if (live) liveHtml = '<div class="note info">Ainda não está no lineup que submeteste. Se fizeres a troca no Top Shot, carrega em <b>Fiz a troca</b> no ecrã Hoje.</div>';
   openSheet('<h3>' + esc(p.name) + '</h3><div class="small muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · Dia ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
@@ -679,9 +702,10 @@ function rosterSheet(id) {
   const games = S.days.filter(d => FB.teamsOn(d).has(team)).length;
   const st = e.status || 'ok', avg = e.avg || c.avg;
   openSheet('<h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + esc(team || 'sem equipa') + ' · ' + games + ' jogos na run · no plano: ' + (inPlan.length ? 'dias ' + inPlan.join(', ') : 'nenhum dia') + '</div>' +
+    (e.moments ? '<div class="small muted">Na carteira: ' + e.moments + ' Moment' + (e.moments > 1 ? 's' : '') + ((e.sets || []).length ? ' (' + e.sets.map(esc).join(', ') + ')' : '') + '</div>' : '') +
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="label">Usos restantes</div><div class="small muted">o plano usa ' + inPlan.length + '</div></div><div class="stepper"><button type="button" data-action="uses" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um uso">−</button><output class="num" id="usesOut">' + uses + '</output><button type="button" data-action="uses" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um uso">+</button></div></div>' +
     '<div><div class="label" style="margin-bottom:6px">Estado</div><div class="chips" role="group" aria-label="Estado">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
-    (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo' + (c.gp ? ' (' + c.gp + ' jogos)' : '') + '</div><div class="kv">' + ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk'].map(k => '<div><div class="label">' + STATS[k].short + '</div><div class="v num">' + f1(+avg[k] || 0) + '</div></div>').join('') + '</div></div>' : '<div class="note info">Ainda sem médias para este jogador. Entram quando ele jogar.</div>') +
+    (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo' + (c.gp ? ' (' + c.gp + ' jogos)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimativa a partir das outras médias</div>' : '') + '</div>' : '<div class="note info">Ainda sem médias para este jogador. Entram quando ele jogar.</div>') +
     '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Tirar do plantel</button>' + closeRow());
 }
 function addPlayerSheet() {
@@ -723,6 +747,154 @@ function pasteSheet() {
     '<textarea class="field" id="pasteText" rows="6" aria-label="Lista de jogadores"></textarea><button class="btn" type="button" data-action="paste-preview">Ver correspondências</button><div id="pasteOut"></div>' + closeRow());
 }
 
+// ---------- carteira: Moments lidos da blockchain Flow, diretamente no browser ----------
+// A API pública da Flow aceita pedidos de qualquer site. Os usos não estão na blockchain (dependem do escalão de cada Moment).
+const FLOW_REST = 'https://rest-mainnet.onflow.org/v1';
+const CAD_ROW = `let series: UInt32 = TopShot.getSetSeries(setID: m.data.setID) ?? 0
+        out.append([TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "FullName") ?? "", TopShot.getSetName(setID: m.data.setID) ?? "", series.toString()])`;
+const CAD_IDS = `import TopShot from 0x0b2a3299cc857e29
+access(all) fun main(addr: Address): [UInt64] {
+  if let col = getAccount(addr).capabilities.borrow<&{TopShot.MomentCollectionPublic}>(/public/MomentCollection) { return col.getIDs() }
+  return []
+}`;
+const CAD_MOMENTS = `import TopShot from 0x0b2a3299cc857e29
+access(all) fun main(addr: Address, ids: [UInt64]): [[String]] {
+  let out: [[String]] = []
+  if let col = getAccount(addr).capabilities.borrow<&{TopShot.MomentCollectionPublic}>(/public/MomentCollection) {
+    for id in ids {
+      if let m = col.borrowMoment(id: id) {
+        ${CAD_ROW}
+      }
+    }
+  }
+  return out
+}`;
+const CAD_LISTED = `import TopShot from 0x0b2a3299cc857e29
+import TopShotMarketV3 from 0xc1e4f4f4c4257510
+access(all) fun main(addr: Address): [[String]] {
+  let out: [[String]] = []
+  if let sale = getAccount(addr).capabilities.borrow<&TopShotMarketV3.SaleCollection>(/public/topshotSalev3Collection) {
+    for id in sale.getIDs() {
+      if let m = sale.borrowMoment(id: id) {
+        ${CAD_ROW}
+      }
+    }
+  }
+  return out
+}`;
+function cadDecode(v) {
+  if (v == null) return null;
+  const { type, value } = v;
+  if (type === 'Optional') return value == null ? null : cadDecode(value);
+  if (type === 'Array') return (value || []).map(cadDecode);
+  if (type === 'Dictionary') { const o = {}; (value || []).forEach(kv => { o[String(cadDecode(kv.key))] = cadDecode(kv.value); }); return o; }
+  if (type === 'Bool') return !!value;
+  if (type === 'Address' || type === 'String' || type === 'Character') return value;
+  if (/^U?Int\d*$|^Word\d+$|Fix64$/.test(type)) return type === 'UInt64' || type === 'Int64' ? String(value) : Number(value);
+  return value;
+}
+async function flowRun(code, args) {
+  const enc = str => btoa(unescape(encodeURIComponent(str)));
+  const res = await fetch(FLOW_REST + '/scripts?block_height=sealed', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ script: enc(code), arguments: (args || []).map(a => enc(JSON.stringify(a))) }) });
+  const text = await res.text();
+  if (!res.ok) throw new Error('Flow ' + res.status + ': ' + text.slice(0, 200));
+  const bin = atob(JSON.parse(text));
+  return cadDecode(JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)))));
+}
+async function readWallet(addr, progress) {
+  const A = { type: 'Address', value: addr };
+  const ids = await flowRun(CAD_IDS, [A]) || [];
+  const rows = [];
+  // lotes de 200; se a Flow recusar (limite de cálculo), parte o lote ao meio
+  async function batch(b) {
+    try { return await flowRun(CAD_MOMENTS, [A, { type: 'Array', value: b.map(x => ({ type: 'UInt64', value: String(x) })) }]) || []; }
+    catch (e) { if (b.length > 20) { const h = b.length >> 1; return (await batch(b.slice(0, h))).concat(await batch(b.slice(h))); } throw e; }
+  }
+  const lots = []; for (let i = 0; i < ids.length; i += 200) lots.push(ids.slice(i, i + 200));
+  let done = 0, next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, lots.length) }, async () => {
+    while (next < lots.length) { const b = lots[next++]; rows.push(...await batch(b)); done += b.length; if (progress) progress(done, ids.length); }
+  }));
+  let listed = [];
+  try { listed = await flowRun(CAD_LISTED, [A]) || []; } catch (e) { /* sem Moments à venda, ou mercado indisponível */ }
+  return { total: ids.length, rows, listed };
+}
+// nome completo do Top Shot → jogador do catálogo (nome igual; ou primeiro + último nome; ou todas as palavras, se só houver um)
+function catalogIndex() {
+  const all = [...S.players.values()].map(p => ({ p, n: norm(p.name) }));
+  const exact = new Map(), short = new Map();
+  all.forEach(a => { exact.set(a.n, a.p); const t = a.n.split(' '); if (t.length > 2) short.set(t[0] + ' ' + t[t.length - 1], a.p); });
+  return name => {
+    const qn = norm(name); if (!qn) return null;
+    if (exact.has(qn)) return exact.get(qn);
+    const t = qn.split(' ');
+    if (t.length > 2 && exact.has(t[0] + ' ' + t[t.length - 1])) return exact.get(t[0] + ' ' + t[t.length - 1]);
+    if (short.has(qn)) return short.get(qn);
+    const c = all.filter(a => t.every(w => a.n.split(' ').includes(w)));
+    return c.length === 1 ? c[0].p : null;
+  };
+}
+// quantas vezes cada jogador já foi usado nesta run (dias fechados; os lidos da blockchain pelo nome)
+function usedThisRun(find) {
+  const used = {}, uid = S.session.user.id;
+  const chain = new Map(S.group.chain.filter(c => c.user_id === uid).map(c => [c.date, c]));
+  Object.entries((S.mine.plan || {}).played || {}).forEach(([date, pl]) => {
+    if (!pl || !pl.done) return;
+    const c = chain.get(date);
+    const ids = c && (c.lineup || []).length ? c.lineup.map(n => (find(n) || {}).id).filter(Boolean) : (pl.lineup || []);
+    ids.forEach(id => { used[id] = (used[id] || 0) + 1; });
+  });
+  return used;
+}
+async function walletSheet() {
+  const addr = ((S.profile || {}).flow_address || '').trim();
+  if (!/^0x[0-9a-fA-F]{16}$/.test(addr)) {
+    openSheet('<h3>Ler da carteira</h3><div class="small muted">Para ler os teus Moments preciso do endereço Flow da tua carteira Dapper (0x seguido de 16 letras e números). Põe-no no teu perfil, em Ajustes.</div><div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Cancelar</button><button class="btn primary" type="button" data-action="goto" data-tab="ajustes">Ir a Ajustes</button></div>');
+    return;
+  }
+  openSheet('<h3>Ler da carteira</h3><div class="small muted" id="wProg">A ler os teus Moments na blockchain…</div>' + closeRow());
+  let w;
+  try { w = await readWallet(addr, (d, t) => { const el = $('wProg'); if (el) el.textContent = 'A ler os teus Moments na blockchain… ' + d + ' de ' + t; }); }
+  catch (e) { console.warn(e); const el = $('wProg'); if (el) el.innerHTML = '<span class="down">Não consegui ler a carteira.</span> ' + esc(String(e.message || e).slice(0, 160)) + '<br>Confirma o endereço Flow no perfil e tenta outra vez.'; return; }
+  if (!$('wProg')) return; // fechou a folha entretanto
+  const find = catalogIndex(), used = usedThisRun(find);
+  const by = new Map();
+  const add = (r, sale) => { const name = r[0]; if (!name) return; const k = norm(name); const e = by.get(k) || { name, n: 0, sale: 0, sets: {} }; e.n++; if (sale) e.sale++; e.sets[r[1] || '?'] = (e.sets[r[1] || '?'] || 0) + 1; by.set(k, e); };
+  w.rows.forEach(r => add(r, false)); w.listed.forEach(r => add(r, true));
+  const found = [], outside = [];
+  by.forEach(e => { const p = find(e.name); if (p) found.push(Object.assign(e, { p })); else outside.push(e); });
+  found.sort((a, b) => ((b.p.avg && +b.p.avg.pts) || 0) - ((a.p.avg && +a.p.avg.pts) || 0));
+  const inWallet = new Set(found.map(e => String(e.p.id)));
+  const gone = Object.keys(S.mine.roster || {}).filter(id => !inWallet.has(String(id)) && S.players.has(String(id)));
+  const fresh = found.filter(e => !S.mine.roster[e.p.id]);
+  S.walletFound = found; S.walletGone = gone;
+  const setsTxt = e => Object.entries(e.sets).sort((a, b) => b[1] - a[1]).map(([n, c]) => esc(n) + (c > 1 ? ' ×' + c : '')).join(', ');
+  const li = e => { const inR = S.mine.roster[e.p.id], u = used[e.p.id] || 0;
+    return '<li><b>' + esc(e.p.name) + '</b> <span class="muted">(' + esc(e.p.team || '—') + ')</span> · ' + e.n + ' Moment' + (e.n > 1 ? 's' : '') + (e.sale ? ' (' + e.sale + ' à venda)' : '') +
+      ' · ' + (inR ? '<span class="muted">já no plantel, ' + (+inR.uses || 0) + ' uso' + (+inR.uses === 1 ? '' : 's') + '</span>' : '<span class="up">novo</span>' + (u ? ' <span class="muted">(já usado ' + u + '× nesta run)</span>' : '')) +
+      '<div class="small muted">' + setsTxt(e) + '</div></li>'; };
+  openSheet('<h3>A tua carteira</h3><div class="small muted">' + w.total + ' Moments' + (w.listed.length ? ' + ' + w.listed.length + ' à venda' : '') + ' · ' + by.size + ' jogadores · ' + found.length + ' na NBA esta época</div>' +
+    '<div class="note info">Os usos não estão na blockchain: dependem do escalão de cada Moment. Os novos entram com 1 uso (menos os que já gastaste nesta run). Depois muda no plantel os que têm mais.</div>' +
+    (found.length ? '<ul class="ops">' + found.map(li).join('') + '</ul>' : '<div class="small muted">Nenhum Moment de um jogador com equipa NBA esta época.</div>') +
+    (outside.length ? '<div class="small muted">Fora do catálogo (WNBA, retirados ou sem equipa), não entram: ' + outside.slice(0, 25).map(e => esc(e.name)).join(', ') + (outside.length > 25 ? ' e mais ' + (outside.length - 25) : '') + '.</div>' : '') +
+    (gone.length ? '<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wGone"> <span>Tirar do plantel quem já não está na carteira: ' + gone.map(id => esc(nameOf(id))).join(', ') + '</span></label>' : '') +
+    '<button class="btn primary" type="button" data-action="wallet-apply" style="width:100%">' + (fresh.length ? 'Juntar ' + fresh.length + ' jogador' + (fresh.length > 1 ? 'es' : '') + ' ao plantel' : 'Atualizar o plantel') + '</button>' + closeRow());
+}
+function walletApply() {
+  const found = S.walletFound || [], find = catalogIndex(), used = usedThisRun(find);
+  let added = 0, removed = 0;
+  found.forEach(e => {
+    const id = e.p.id, info = { moments: e.n, sets: Object.keys(e.sets).slice(0, 8) };
+    if (S.mine.roster[id]) Object.assign(S.mine.roster[id], info);
+    else { S.mine.roster[id] = Object.assign({ uses: Math.max(0, 1 - (used[id] || 0)), status: 'ok' }, info); added++; }
+  });
+  const box = $('wGone');
+  if (box && box.checked) (S.walletGone || []).forEach(id => { delete S.mine.roster[id]; removed++; });
+  S.walletFound = null; S.walletGone = null;
+  closeSheet(); applyChainResults(); schedule(); saveMine();
+  toast((added ? added + ' jogador' + (added > 1 ? 'es' : '') + ' novo' + (added > 1 ? 's' : '') + ' no plantel' : 'Plantel atualizado') + (removed ? ', ' + removed + ' tirado' + (removed > 1 ? 's' : '') : '') + '. Acerta os usos.');
+}
+
 // ---------- ações ----------
 function deepMerge(a, b) {
   Object.keys(b).forEach(k => {
@@ -735,7 +907,8 @@ function planPatch(patch) { S.mine.plan = deepMerge(S.mine.plan || {}, patch); s
 function lockToggle(id, date, on) {
   const cur = new Set((((S.mine.plan || {}).locks || {})[date]) || []);
   if (on) {
-    if (cur.size >= 5) { toast('Já tens 5 jogadores fixados neste dia.'); return; }
+    const lim = (S.days.find(d => d.date === date) || {}).numPlayers || 5;
+    if (cur.size >= lim) { toast('Já tens ' + lim + ' jogadores fixados neste dia.'); return; }
     cur.add(id);
     planPatch({ locks: { [date]: [...cur] }, bans: { [date]: ((((S.mine.plan || {}).bans || {})[date]) || []).filter(x => x !== id) } });
     toast(lastName(id) + ' fixado. Plano refeito.');
@@ -785,28 +958,35 @@ function liveToggle() {
 function liveSet(id, patch) { const nd = nextDay(); if (nd) planPatch({ live: { [nd.date]: { players: { [id]: patch } } } }); }
 function swapDone() { const nd = nextDay(), d = view().days[0]; planPatch({ live: { [nd.date]: { lineup: d.lineup.slice() } } }); toast('Lineup atualizado.'); }
 // Vai buscar o box score oficial da NBA para os jogadores do lineup submetido
-// ESPN: estatísticas de um jogo (summary) → {nomeNormalizado: {pts, reb, ast, fg3, stl, blk}}
+// ESPN: estatísticas de um jogo (summary) → {nomeNormalizado: {pts, reb, ast, fg3, stl, blk, tov, oreb, dreb, fgm, fga, fg3a, ftm, fta}}
 function espnBox(json) {
   const out = {};
   for (const team of (((json || {}).boxscore || {}).players) || []) {
     for (const st of team.statistics || []) {
       const keys = st.keys || [], labels = (st.labels || []).map(l => String(l).toUpperCase());
       const idx = (k, l) => { let i = keys.findIndex(x => x === k || String(x).startsWith(k)); if (i < 0) i = labels.indexOf(l); return i; };
-      const I = { pts: idx('points', 'PTS'), reb: idx('rebounds', 'REB'), ast: idx('assists', 'AST'), fg3: idx('threePointFieldGoalsMade', '3PT'), stl: idx('steals', 'STL'), blk: idx('blocks', 'BLK') };
+      const fg = idx('fieldGoalsMade', 'FG'), tp = idx('threePointFieldGoalsMade', '3PT'), ft = idx('freeThrowsMade', 'FT');
+      // [coluna, parte]: "8-15" → parte 0 = marcados, parte 1 = tentados
+      const I = { pts: [idx('points', 'PTS'), 0], reb: [idx('rebounds', 'REB'), 0], ast: [idx('assists', 'AST'), 0], fg3: [tp, 0], stl: [idx('steals', 'STL'), 0], blk: [idx('blocks', 'BLK'), 0],
+        tov: [idx('turnovers', 'TO'), 0], oreb: [idx('offensiveRebounds', 'OREB'), 0], dreb: [idx('defensiveRebounds', 'DREB'), 0], fgm: [fg, 0], fga: [fg, 1], fg3a: [tp, 1], ftm: [ft, 0], fta: [ft, 1] };
       for (const a of st.athletes || []) {
         if (a.didNotPlay || !(a.stats || []).length) continue;
-        const v = {}; for (const [k, i] of Object.entries(I)) v[k] = i >= 0 ? parseFloat(String(a.stats[i] || '0').split('-')[0]) || 0 : 0;
+        const v = {}; for (const [k, [i, part]] of Object.entries(I)) if (i >= 0) v[k] = parseFloat(String(a.stats[i] || '0').split('-')[part]) || 0;
         out[norm((a.athlete || {}).displayName)] = v;
       }
     }
   }
   return out;
 }
+// estatísticas de um jogador num jogo → valores guardados (as do jogo + o valor de cada objetivo do dia)
+function liveVals(nd, raw, id) {
+  const vals = Object.assign({}, raw), avg = (S.result.model.players[S.result.model.pIndex.get(id)] || {}).avg;
+  (nd.objectives || []).forEach(o => { if (o && o.stat) vals[o.stat] = Math.round(FB.statValue(raw, o.stat, avg) * 10) / 10; });
+  return vals;
+}
 // Vai buscar as estatísticas ao vivo dos jogadores do lineup submetido (ESPN; NBA para ids antigos)
 async function liveFetch() {
   const nd = nextDay(); if (!nd) return;
-  const stat = ((nd.objectives || [])[0] || {}).stat || 'pts';
-  const parts = String(stat).split('+');
   const sub = ((liveDoc(nd.date) || {}).lineup) || [];
   const gameIds = new Set();
   sub.forEach(id => { const team = (S.result.model.players[S.result.model.pIndex.get(id)] || {}).team; const g = FB.gameOf(nd, team); if (g && g[3]) gameIds.add(g[3]); });
@@ -832,8 +1012,8 @@ async function liveFetch() {
         const box = espnBox(await res.json()); ok++;
         Object.entries(box).forEach(([nm, v]) => {
           const id = byName.get(nm); if (!id) return;
-          const val = parts.reduce((a, k) => a + (+v[k] || 0), 0);
-          players[id] = stt.state === 'post' ? { state: 'fim', vals: { [stat]: val } } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals: { [stat]: val } };
+          const vals = liveVals(nd, v, id);
+          players[id] = stt.state === 'post' ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };
         });
         return;
       }
@@ -844,8 +1024,9 @@ async function liveFetch() {
       [g.homeTeam, g.awayTeam].forEach(t => (t.players || []).forEach(pl => {
         const nm = norm(pl.name || [pl.firstName, pl.familyName].filter(Boolean).join(' '));
         const id = byName.get(nm) || (sub.includes(String(pl.personId)) ? String(pl.personId) : null); if (!id) return;
-        const val = parts.reduce((a, k) => a + (+((pl.statistics || {})[LIVE_STAT[k]]) || 0), 0);
-        players[id] = g.gameStatus === 3 ? { state: 'fim', vals: { [stat]: val } } : { state: 'jogo', q: Math.min(4, Math.max(1, +g.period || 1)), vals: { [stat]: val } };
+        const raw = {}; Object.entries(LIVE_STAT).forEach(([k, f]) => { const x = (pl.statistics || {})[f]; if (x != null && isFinite(+x)) raw[k] = +x; });
+        const vals = liveVals(nd, raw, id);
+        players[id] = g.gameStatus === 3 ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, +g.period || 1)), vals };
       }));
     } catch (e) { /* bloqueado ou sem rede */ }
   }));
@@ -900,7 +1081,7 @@ document.addEventListener('click', async e => {
   switch (a) {
     case 'auth-mode': renderAuth(b.dataset.mode); break;
     case 'logout': await sb.auth.signOut(); S.session = null; S.role = null; S.profile = null; S.invite = null; closeSheet(); renderAuth(); break;
-    case 'goto': setTab(b.dataset.tab); break;
+    case 'goto': closeSheet(); setTab(b.dataset.tab); break;
     case 'close-sheet': closeSheet(); break;
     case 'sheet-back': { const fn = S.sheetBack; fn ? fn() : closeSheet(); break; }
     case 'mode': planPatch({ mode: { [nd.date]: b.dataset.mode } }); break;
@@ -931,7 +1112,7 @@ document.addEventListener('click', async e => {
     case 'live-q': liveSet(id, { q: +b.dataset.q }); playerSheet(id, nd.date, S.sheetBack); break;
     case 'live-val': {
       const inp = $('liveVal'), stat = ((nd.objectives || [])[0] || {}).stat || 'pts';
-      const nv = Math.max(0, (parseInt(inp.value, 10) || 0) + (+b.dataset.d)); inp.value = nv;
+      let nv = Math.round(((parseFloat(inp.value) || 0) + (+b.dataset.d)) * 10) / 10; if (!/-/.test(stat)) nv = Math.max(0, nv); inp.value = nv;
       clearTimeout(liveInputTimer); liveInputTimer = setTimeout(() => liveSet(id, { vals: { [stat]: nv } }), 400); break;
     }
     case 'add-player': addPlayerSheet(); break;
@@ -943,6 +1124,8 @@ document.addEventListener('click', async e => {
       addToRoster(cid, Math.max(0, parseInt($('cpUses').value, 10) || 0), { name, team: $('cpTeam').value }); closeSheet(); toast(name + ' adicionado.'); break;
     }
     case 'paste-sheet': pasteSheet(); break;
+    case 'wallet-sheet': await walletSheet(); break;
+    case 'wallet-apply': walletApply(); break;
     case 'paste-preview': {
       const items = parseList($('pasteText').value); S.pasteItems = items;
       const okN = items.filter(x => x.match).length;
@@ -994,7 +1177,7 @@ document.addEventListener('change', async e => {
     if (a === 'pz-w') pz[i].wins = Math.max(1, Math.round(n)); else pz[i].value = n;
     setPrizes(pz);
   }
-  if (a === 'live-input') { const nd = nextDay(), stat = ((nd.objectives || [])[0] || {}).stat || 'pts'; liveSet(t.dataset.id, { vals: { [stat]: Math.max(0, parseInt(t.value, 10) || 0) } }); }
+  if (a === 'live-input') { const nd = nextDay(), stat = ((nd.objectives || [])[0] || {}).stat || 'pts'; const x = parseFloat(t.value) || 0; liveSet(t.dataset.id, { vals: { [stat]: /-/.test(stat) ? x : Math.max(0, x) } }); }
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'rosterFilter') { S.filter = e.target.value; renderPlantel(); }
