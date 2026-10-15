@@ -55,14 +55,18 @@ console.log('Médias da época', fmt(curYear) + ':', nCur, 'jogadores', nCur ? '
 
 // catálogo
 const rows = [];
+const rostersLoaded = Object.values(state.players).some(p => p.rosterDate === today);
 for (const [id, p] of Object.entries(state.players)) {
   if (!p.name) continue;
+  // só jogadores num plantel atual (ou com jogos esta época): tira agentes livres e retirados da pesquisa
+  if (rostersLoaded && p.rosterDate !== today && !(p.curAvg && p.curAvg.gp > 0)) continue;
   const b = blendedAverages(p);
   rows.push({ id, name: p.name, team: teamOf(p), avg: b ? b.avg : null, gp: b ? b.gp : 0, updated_at: new Date().toISOString() });
 }
 if (!rows.length) throw new Error('A ESPN não devolveu jogadores. Tenta outra vez mais tarde.');
 await upsertChunks(sb, 'nba_players', rows, 'id');
-const old = (await must(sb.from('nba_players').select('id'))).map(r => r.id).filter(id => /^\d+$/.test(id));
+const keep = new Set(rows.map(r => r.id));
+const old = (await must(sb.from('nba_players').select('id'))).map(r => r.id).filter(id => /^\d+$/.test(id) || (rostersLoaded && !keep.has(id)));
 for (let i = 0; i < old.length; i += 200) await must(sb.from('nba_players').delete().in('id', old.slice(i, i + 200)));
 await setState(sb, 'stats', state);
 console.log('Jogadores no catálogo:', rows.length, '· com equipa:', rows.filter(r => r.team).length, '· com médias:', rows.filter(r => r.avg).length);

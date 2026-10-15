@@ -9,6 +9,8 @@ const sb = await supa();
 const nowS = Math.floor(Date.now() / 1000);
 const argB = process.argv.indexOf('--backfill');
 const BACKFILL = argB > 0 ? Math.max(0, parseInt(process.argv[argB + 1], 10) || 0) : 0;
+const argD = process.argv.indexOf('--since-days');
+const SINCE_DAYS = argD > 0 ? Math.max(1, parseInt(process.argv[argD + 1], 10) || 45) : 45; // lineups dos últimos N dias
 const CHUNK = 250, MAX_CHUNKS = +(process.env.FLOW_MAX_CHUNKS || 600);
 
 const GAMES_SCRIPT = `
@@ -114,7 +116,9 @@ else if (failed < ranges.length * types.length) await setState(sb, 'flow', { hei
 const linked = (await must(sb.from('runs').select('id,chain_run_id').not('chain_run_id', 'is', null))).map(r => r.chain_run_id);
 const profiles = await must(sb.from('profiles').select('user_id,topshot_username,flow_address'));
 const members = new Set((await must(sb.from('members').select('user_id'))).map(m => m.user_id));
-const since = nowS - 45 * 86400;
+const since = nowS - SINCE_DAYS * 86400;
+const profilesWithTs = profiles.filter(p => members.has(p.user_id) && (p.topshot_username || p.flow_address));
+if (!profilesWithTs.length) console.log('Nenhum membro com utilizador do Top Shot no perfil: não há resultados para ler.');
 for (const p of profiles) {
   if (!members.has(p.user_id)) continue;
   let addr = p.flow_address;
@@ -150,6 +154,10 @@ if (games.length) {
   await must(sb.from('chain_games').upsert(games.map(g => ({ id: g.id, run_id: g.runId, name: g.name, deadline: g.deadline, num_players: g.numPlayers, stats: g.stats || [], status: g.status, updated_at: new Date().toISOString() }))));
 }
 console.log('Runs na blockchain:', runList.length, '· dias:', games.length);
+const named = await must(sb.from('chain_runs').select('name,run_start').order('run_start', { ascending: false }).limit(8));
+if (named.length) console.log('Runs conhecidas:', named.map(r => r.name).join(' | '));
+const statNames = [...new Set(games.flatMap(g => (g.stats || []).map(s => s.name + (s.type === 0 ? ' (cada jogador)' : ''))))];
+if (statNames.length) console.log('Estatísticas usadas nos dias lidos:', statNames.join(', '));
 
 const siteRuns = await must(sb.from('runs').select('id,name,chain_run_id').not('chain_run_id', 'is', null));
 for (const run of siteRuns) {
