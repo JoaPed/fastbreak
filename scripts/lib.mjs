@@ -115,20 +115,64 @@ export function addEspnRoster(state, team, json, date) {
   }
   return n;
 }
-// Equipa atual: último jogo da época > plantel ESPN > pré-época > época passada
-export function teamOf(p) { return p.boxTeam || p.rosterTeam || p.preTeam || p.prevTeam || null; }
-// Média da época atual puxada para a da época passada enquanto há poucos jogos
+// ESPN — médias desta época (mesma lista que a época passada, outro ano)
+export function addEspnCurrent(state, json) {
+  const tmp = { players: {} };
+  const n = addEspnSeason(tmp, json);
+  for (const [key, t] of Object.entries(tmp.players)) {
+    const p = entry(state, t.name); if (!p) continue;
+    p.curAvg = t.prevAvg; p.curTeam = t.prevTeam || p.curTeam;
+  }
+  return n;
+}
+// Equipa atual: plantel ESPN > equipa nos jogos desta época > último jogo da NBA > pré-época > época passada
+export function teamOf(p) { return p.rosterTeam || p.curTeam || p.boxTeam || p.preTeam || p.prevTeam || null; }
+// Média desta época puxada para a da época passada enquanto há poucos jogos
 export function blendedAverages(p, prior = 10) {
-  const cur = p.cur;
+  let cur = p.curAvg && p.curAvg.gp > 0 ? p.curAvg : null;
+  if (!cur && p.cur && p.cur.gp > 0) { const t = p.cur; cur = { gp: t.gp }; for (const s of ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'min']) cur[s] = t[s] / t.gp; }
   const prev = p.prevAvg && p.prevAvg.gp >= 5 ? p.prevAvg : null;
   if (!cur && !prev) return null;
   const gp = cur ? cur.gp : 0, k = prev ? Math.max(0, prior - gp) : 0;
   const avg = {};
   for (const s of ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'min']) {
     const c = cur ? cur[s] : 0, pa = prev ? prev[s] : 0;
-    avg[s] = gp + k > 0 ? Math.round(((c + k * pa) / (gp + k)) * 10) / 10 : 0;
+    avg[s] = gp + k > 0 ? Math.round(((gp * c + k * pa) / (gp + k)) * 10) / 10 : 0;
   }
   return { avg, gp };
+}
+
+// ---------- ESPN: calendário e estatísticas de um jogo ----------
+// scoreboard?dates=AAAAMMDD → [[fora, casa, inícioISO, 'espn:<id>']] (sem pré-época)
+export function parseEspnScoreboard(json) {
+  const out = [];
+  for (const ev of (json && json.events) || []) {
+    if (ev.season && +ev.season.type === 1) continue;
+    const comp = (ev.competitions || [])[0] || {};
+    const side = h => ((comp.competitors || []).find(c => c.homeAway === h) || {}).team || {};
+    const away = espnTeam(side('away').abbreviation), home = espnTeam(side('home').abbreviation);
+    if (!away || !home) continue;
+    out.push([away, home, ev.date || comp.date || null, 'espn:' + ev.id]);
+  }
+  return out.sort((a, b) => String(a[2]).localeCompare(String(b[2])));
+}
+// summary?event=<id> → {nomeNormalizado: {pts, reb, ast, fg3, stl, blk, min}}
+export function parseEspnBox(json) {
+  const out = {};
+  for (const team of (((json || {}).boxscore || {}).players) || []) {
+    for (const st of team.statistics || []) {
+      const keys = st.keys || [], labels = (st.labels || []).map(l => String(l).toUpperCase());
+      const idx = (k, l) => { let i = keys.findIndex(x => x === k || String(x).startsWith(k)); if (i < 0) i = labels.indexOf(l); return i; };
+      const I = { pts: idx('points', 'PTS'), reb: idx('rebounds', 'REB'), ast: idx('assists', 'AST'), fg3: idx('threePointFieldGoalsMade', '3PT'), stl: idx('steals', 'STL'), blk: idx('blocks', 'BLK'), min: idx('minutes', 'MIN') };
+      for (const a of st.athletes || []) {
+        if (a.didNotPlay || !(a.stats || []).length) continue;
+        const v = {};
+        for (const [k, i] of Object.entries(I)) v[k] = i >= 0 ? parseFloat(String(a.stats[i] || '0').split('-')[0]) || 0 : 0;
+        out[norm((a.athlete || {}).displayName)] = v;
+      }
+    }
+  }
+  return out;
 }
 
 // ---------- odds (The Odds API) ----------
@@ -295,7 +339,7 @@ export async function fetchJson(url, opts = {}, tries = 3) {
   let last;
   for (let i = 0; i < tries; i++) {
     try {
-      const res = await fetch(url, Object.assign({ headers: { 'user-agent': 'Mozilla/5.0 fastbreak-planner', accept: 'application/json' } }, opts));
+      const res = await fetch(url, Object.assign({ headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', accept: 'application/json, text/plain, */*', 'accept-language': 'en-US,en;q=0.9' } }, opts));
       if (res.status === 404 || res.status === 403) return { status: res.status, json: null, res };
       if (!res.ok) throw new Error(res.status + ' ' + url);
       return { status: res.status, json: await res.json(), res };

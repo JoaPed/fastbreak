@@ -784,18 +784,58 @@ function liveToggle() {
 function liveSet(id, patch) { const nd = nextDay(); if (nd) planPatch({ live: { [nd.date]: { players: { [id]: patch } } } }); }
 function swapDone() { const nd = nextDay(), d = view().days[0]; planPatch({ live: { [nd.date]: { lineup: d.lineup.slice() } } }); toast('Lineup atualizado.'); }
 // Vai buscar o box score oficial da NBA para os jogadores do lineup submetido
+// ESPN: estatísticas de um jogo (summary) → {nomeNormalizado: {pts, reb, ast, fg3, stl, blk}}
+function espnBox(json) {
+  const out = {};
+  for (const team of (((json || {}).boxscore || {}).players) || []) {
+    for (const st of team.statistics || []) {
+      const keys = st.keys || [], labels = (st.labels || []).map(l => String(l).toUpperCase());
+      const idx = (k, l) => { let i = keys.findIndex(x => x === k || String(x).startsWith(k)); if (i < 0) i = labels.indexOf(l); return i; };
+      const I = { pts: idx('points', 'PTS'), reb: idx('rebounds', 'REB'), ast: idx('assists', 'AST'), fg3: idx('threePointFieldGoalsMade', '3PT'), stl: idx('steals', 'STL'), blk: idx('blocks', 'BLK') };
+      for (const a of st.athletes || []) {
+        if (a.didNotPlay || !(a.stats || []).length) continue;
+        const v = {}; for (const [k, i] of Object.entries(I)) v[k] = i >= 0 ? parseFloat(String(a.stats[i] || '0').split('-')[0]) || 0 : 0;
+        out[norm((a.athlete || {}).displayName)] = v;
+      }
+    }
+  }
+  return out;
+}
+// Vai buscar as estatísticas ao vivo dos jogadores do lineup submetido (ESPN; NBA para ids antigos)
 async function liveFetch() {
   const nd = nextDay(); if (!nd) return;
   const stat = ((nd.objectives || [])[0] || {}).stat || 'pts';
-  const key = LIVE_STAT[stat];
+  const parts = String(stat).split('+');
   const sub = ((liveDoc(nd.date) || {}).lineup) || [];
   const gameIds = new Set();
   sub.forEach(id => { const team = (S.result.model.players[S.result.model.pIndex.get(id)] || {}).team; const g = FB.gameOf(nd, team); if (g && g[3]) gameIds.add(g[3]); });
   if (!gameIds.size) { toast('Sem identificador de jogo no calendário. Mete os valores à mão.'); return; }
   const players = {}; let ok = 0;
   const byName = new Map(sub.map(id => [norm(nameOf(id)), id]));
+  const espnIds = [...gameIds].filter(g => String(g).startsWith('espn:'));
+  // estado dos jogos (por começar / a decorrer / terminado) e período, de uma vez para o dia todo
+  const status = {};
+  if (espnIds.length) {
+    try {
+      const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + nd.date.replace(/-/g, ''), { cache: 'no-store' });
+      if (res.ok) ((await res.json()).events || []).forEach(ev => { const st = ev.status || ((ev.competitions || [])[0] || {}).status || {}; status['espn:' + ev.id] = { state: (st.type || {}).state, period: +st.period || 1 }; });
+    } catch (e) { /* sem estado: assume a decorrer */ }
+  }
   await Promise.all([...gameIds].map(async gid => {
     try {
+      if (String(gid).startsWith('espn:')) {
+        const stt = status[gid] || { state: 'in', period: 1 };
+        if (stt.state === 'pre') return;
+        const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=' + String(gid).slice(5), { cache: 'no-store' });
+        if (!res.ok) return;
+        const box = espnBox(await res.json()); ok++;
+        Object.entries(box).forEach(([nm, v]) => {
+          const id = byName.get(nm); if (!id) return;
+          const val = parts.reduce((a, k) => a + (+v[k] || 0), 0);
+          players[id] = stt.state === 'post' ? { state: 'fim', vals: { [stat]: val } } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals: { [stat]: val } };
+        });
+        return;
+      }
       const res = await fetch('https://cdn.nba.com/static/json/liveData/boxscore/boxscore_' + gid + '.json', { cache: 'no-store' });
       if (!res.ok) return;
       const js = await res.json(), g = js.game; if (!g || g.gameStatus < 2) return;
@@ -803,12 +843,12 @@ async function liveFetch() {
       [g.homeTeam, g.awayTeam].forEach(t => (t.players || []).forEach(pl => {
         const nm = norm(pl.name || [pl.firstName, pl.familyName].filter(Boolean).join(' '));
         const id = byName.get(nm) || (sub.includes(String(pl.personId)) ? String(pl.personId) : null); if (!id) return;
-        const val = +((pl.statistics || {})[key]) || 0;
+        const val = parts.reduce((a, k) => a + (+((pl.statistics || {})[LIVE_STAT[k]]) || 0), 0);
         players[id] = g.gameStatus === 3 ? { state: 'fim', vals: { [stat]: val } } : { state: 'jogo', q: Math.min(4, Math.max(1, +g.period || 1)), vals: { [stat]: val } };
       }));
     } catch (e) { /* bloqueado ou sem rede */ }
   }));
-  if (!ok) { toast('Não consegui ler as estatísticas ao vivo agora. Mete os valores à mão ou tenta daqui a pouco.'); return; }
+  if (!ok) { toast('Ainda não há estatísticas ao vivo (jogo por começar?) ou não consegui lê-las. Mete os valores à mão ou tenta daqui a pouco.'); return; }
   if (Object.keys(players).length) planPatch({ live: { [nd.date]: { players } } });
   toast('Estatísticas ao vivo atualizadas.');
 }

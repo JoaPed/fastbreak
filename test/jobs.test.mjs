@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnRoster, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -50,6 +50,28 @@ ok('jogo de pré-época não conta para a média', lj.cur.gp === 1, lj.cur);
 ok('quem não jogou não conta', !state.players['banco-teste'].cur, state.players['banco-teste']);
 const b = blendedAverages(lj);
 ok('média puxada para a época passada no início', b.avg.pts > 24.4 && b.avg.pts < 26, b);
+const cur = JSON.parse(JSON.stringify(espnSeason)); cur.athletes = [cur.athletes[0]]; cur.athletes[0].athlete.teamShortName = 'PHI';
+cur.athletes[0].categories[0].totals = ['3', '33.0', '1.0', '9.0']; cur.athletes[0].categories[1].totals = ['30.0', '11', '2.0', '7.0'];
+addEspnCurrent(state, cur);
+const b2 = blendedAverages(state.players['lebron-james']);
+ok('ESPN: médias desta época (3 jogos) puxadas para a época passada', b2.gp === 3 && b2.avg.pts > 24.4 && b2.avg.pts < 30, b2);
+const sbd = { events: [
+  { id: '401909090', date: '2026-10-21T01:30Z', season: { type: 2 }, competitions: [{ competitors: [{ homeAway: 'home', team: { abbreviation: 'SA' } }, { homeAway: 'away', team: { abbreviation: 'OKC' } }] }] },
+  { id: '401909088', date: '2026-10-20T19:00Z', season: { type: 2 }, competitions: [{ competitors: [{ homeAway: 'home', team: { abbreviation: 'DET' } }, { homeAway: 'away', team: { abbreviation: 'BOS' } }] }] },
+  { id: '1', date: '2026-10-10T19:00Z', season: { type: 1 }, competitions: [{ competitors: [{ homeAway: 'home', team: { abbreviation: 'NY' } }, { homeAway: 'away', team: { abbreviation: 'PHI' } }] }] },
+] };
+const games = parseEspnScoreboard(sbd);
+ok('ESPN: calendário do dia, por hora, sem pré-época, com equipas NBA', games.length === 2 && JSON.stringify(games[0]) === JSON.stringify(['BOS', 'DET', '2026-10-20T19:00Z', 'espn:401909088']) && games[1][1] === 'SAS', games);
+ok('hora da ESPN lê-se como data', !isNaN(Date.parse('2026-10-20T19:00Z')));
+const summary = { boxscore: { players: [{ team: { abbreviation: 'SAC' }, statistics: [{
+  keys: ['minutes', 'points', 'fieldGoalsMade-fieldGoalsAttempted', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'freeThrowsMade-freeThrowsAttempted', 'rebounds', 'assists', 'turnovers', 'steals', 'blocks', 'offensiveRebounds', 'defensiveRebounds', 'fouls', 'plusMinus'],
+  labels: ['MIN', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'TO', 'STL', 'BLK', 'OREB', 'DREB', 'PF', '+/-'],
+  athletes: [
+    { athlete: { displayName: 'Domantas Sabonis' }, didNotPlay: false, stats: ['25', '12', '6-7', '0-0', '0-1', '7', '8', '2', '2', '0', '3', '4', '2', '-11'] },
+    { athlete: { displayName: 'Doug McDermott' }, didNotPlay: true, stats: [] },
+  ] }] }] } };
+const bx = parseEspnBox(summary);
+ok('ESPN: estatísticas de um jogo por jogador', bx['domantas sabonis'].pts === 12 && bx['domantas sabonis'].reb === 7 && bx['domantas sabonis'].ast === 8 && bx['domantas sabonis'].fg3 === 0 && bx['domantas sabonis'].stl === 2 && !bx['doug mcdermott'], bx);
 ok('chave pelo nome com acentos', playerKey('Nikola Jokić') === 'nikola-jokic' && playerKey("De'Aaron Fox Jr.") === 'deaaron-fox');
 
 // odds

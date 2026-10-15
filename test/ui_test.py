@@ -13,7 +13,7 @@ shots = root / 'test' / 'shots'; shots.mkdir(exist_ok=True)
 def seeded():
     days = []
     for i, d in enumerate(run['days']):
-        games = [g[:3] + ['00226%05d' % (i * 20 + j + 1)] for j, g in enumerate(d['games'])]
+        games = [g[:3] + ['espn:4019%05d' % (i * 20 + j + 1)] for j, g in enumerate(d['games'])]
         days.append({'run_id': 'run-1', 'date': d['date'], 'objectives': d['objectives'], 'games': games, 'chain_game_id': None})
     players = [{'id': pid, 'name': p['name'], 'team': p['team'], 'avg': p['avg'], 'gp': 20, 'updated_at': '2026-10-15T09:20:00Z'} for pid, p in roster['players'].items()]
     odds_rows = [{'date': d, 'players': o['players'], 'source': 'The Odds API · 6 casas', 'updated_at': '2026-10-15T15:10:00Z'} for d, o in odds['days'].items()]
@@ -56,7 +56,14 @@ def new_page(b, db):
     pg.route('https://fonts.googleapis.com/**', lambda r: r.abort())
     pg.route('https://fonts.gstatic.com/**', lambda r: r.abort())
     box = {'game': {'gameStatus': 2, 'period': 2, 'homeTeam': {'teamTricode': 'SAC', 'players': [{'personId': 1627734, 'name': 'Domantas Sabonis', 'statistics': {'reboundsTotal': 7, 'points': 9}}]}, 'awayTeam': {'teamTricode': 'X', 'players': []}}}
-    pg.route('https://cdn.nba.com/**', lambda r: r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(box)))
+    def espn(r):
+        url = r.request.url
+        if 'scoreboard' in url:
+            evs = [{'id': '4019%05d' % k, 'status': {'type': {'state': 'in'}, 'period': 2}} for k in range(1, 400)]
+            return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps({'events': evs}))
+        summ = {'boxscore': {'players': [{'team': {'abbreviation': 'SAC'}, 'statistics': [{'keys': ['minutes', 'points', 'rebounds', 'assists'], 'labels': ['MIN', 'PTS', 'REB', 'AST'], 'athletes': [{'athlete': {'displayName': 'Domantas Sabonis'}, 'stats': ['20', '9', '7', '3']}]}]}]}}
+        return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(summ))
+    pg.route('https://site.api.espn.com/**', espn)
     return pg
 
 def width(pg): return pg.evaluate('document.documentElement.scrollWidth')

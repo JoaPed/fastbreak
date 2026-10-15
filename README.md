@@ -9,7 +9,7 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
 
 | Tarefa | Quando (UTC) | O quê |
 |---|---|---|
-| Calendário e médias NBA | 09:17 todos os dias | Jogos de cada dia das runs (cdn.nba.com); plantéis atuais e médias da época passada (ESPN); médias desta época a partir dos box scores oficiais (cdn.nba.com) |
+| Calendário e médias NBA | 09:17 todos os dias | Jogos de cada dia das runs, plantéis atuais, médias da época passada e desta época (ESPN) |
 | Odds dos jogadores | 15:07 e 21:37 | Linhas de mais/menos da estatística do objetivo de cada dia (The Odds API) |
 | Fast Break na blockchain | de 30 em 30 min | Runs, dias, objetivos e resultados de cada membro (contrato FastBreakV1 na Flow) |
 | Carregar dados manuais | quando muda `data/seed/` | Dados escritos à mão (por exemplo, odds coladas) |
@@ -47,7 +47,8 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
 ## Por confirmar no primeiro uso real
 - Se as runs Classic aparecem na blockchain e com que nomes de estatística (o leitor regista no log as que não conhece).
 - O endereço Flow a partir do utilizador do Top Shot. Se falhar, cada um pode pôr o endereço à mão no perfil.
-- O botão **Atualizar estatísticas ao vivo** lê o box score oficial da NBA diretamente no browser. Se o browser o bloquear, os valores metem-se à mão.
+- O botão **Atualizar estatísticas ao vivo** lê as estatísticas do jogo na ESPN diretamente no browser. Se o browser o bloquear, os valores metem-se à mão.
+- O site da NBA (cdn.nba.com) recusa pedidos vindos do GitHub e já não tem os jogos da época passada; por isso os dados vêm da ESPN.
 
 ## Desenvolvimento
 ```bash
