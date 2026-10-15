@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       backfill: { description: 'Blocos para trás (ex.: 300000 ≈ 3,5 dias). Vazio = continuar de onde ficou', default: '', required: false }
+      dias: { description: 'Lineups dos membros dos últimos N dias (vazio = 45; 400 para ver as runs passadas)', default: '', required: false }
 concurrency: { group: flow, cancel-in-progress: false }
 jobs:
   run:
@@ -18,4 +19,4 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci --omit=dev
-      - run: node scripts/sync-fastbreak.mjs ${{ inputs.backfill && format('--backfill {0}', inputs.backfill) || '' }}
+      - run: node scripts/sync-fastbreak.mjs ${{ inputs.backfill && format('--backfill {0}', inputs.backfill) || '' }} ${{ inputs.dias && format('--since-days {0}', inputs.dias) || '' }}
