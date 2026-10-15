@@ -1,0 +1,20 @@
+name: Calendário e médias NBA
+on:
+  schedule:
+    - cron: '17 9 * * *'     # todos os dias às 09:17 UTC
+  workflow_dispatch:
+concurrency: { group: stats, cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --omit=dev
+      - run: node scripts/sync-schedule.mjs
+      - run: node scripts/sync-stats.mjs

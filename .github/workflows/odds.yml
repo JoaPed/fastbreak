@@ -1,0 +1,23 @@
+name: Odds dos jogadores
+on:
+  schedule:
+    - cron: '7 15 * * *'     # 15:07 UTC (manhã nos EUA)
+    - cron: '37 21 * * *'    # 21:37 UTC (antes dos primeiros jogos)
+  workflow_dispatch:
+    inputs:
+      dates: { description: 'Datas AAAA-MM-DD separadas por espaço (vazio = hoje e amanhã)', default: '', required: false }
+concurrency: { group: odds, cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --omit=dev
+      - run: node scripts/sync-odds.mjs ${{ inputs.dates }}

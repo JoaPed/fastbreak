@@ -1,0 +1,1876 @@
+{
+ "app/state": {
+  "activeRun": "teste-out26",
+  "runs": [
+   {
+    "id": "teste-out26",
+    "name": "Run de teste",
+    "start": "2026-10-20",
+    "end": "2026-10-30"
+   }
+  ]
+ },
+ "runs/teste-out26": {
+  "name": "Run de teste",
+  "fictitious": true,
+  "mode": "classic",
+  "start": "2026-10-20",
+  "end": "2026-10-30",
+  "days": [
+   {
+    "date": "2026-10-20",
+    "objectives": [
+     {
+      "stat": "pts",
+      "target": 130
+     }
+    ],
+    "games": [
+     [
+      "BOS",
+      "DET",
+      "2026-10-20T19:00:00Z"
+     ],
+     [
+      "PHI",
+      "NYK",
+      "2026-10-20T23:30:00Z"
+     ],
+     [
+      "OKC",
+      "SAS",
+      "2026-10-21T01:30:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-21",
+    "objectives": [
+     {
+      "stat": "reb",
+      "target": 45
+     }
+    ],
+    "games": [
+     [
+      "PHX",
+      "ORL",
+      "2026-10-21T23:00:00Z"
+     ],
+     [
+      "TOR",
+      "MIL",
+      "2026-10-21T23:00:00Z"
+     ],
+     [
+      "UTA",
+      "MEM",
+      "2026-10-21T23:30:00Z"
+     ],
+     [
+      "GSW",
+      "LAC",
+      "2026-10-22T00:00:00Z"
+     ],
+     [
+      "CLE",
+      "BKN",
+      "2026-10-22T00:00:00Z"
+     ],
+     [
+      "ATL",
+      "LAL",
+      "2026-10-22T00:30:00Z"
+     ],
+     [
+      "CHI",
+      "HOU",
+      "2026-10-22T01:00:00Z"
+     ],
+     [
+      "CHA",
+      "MIA",
+      "2026-10-22T02:00:00Z"
+     ],
+     [
+      "IND",
+      "WAS",
+      "2026-10-22T02:00:00Z"
+     ],
+     [
+      "SAC",
+      "MIN",
+      "2026-10-22T02:30:00Z"
+     ],
+     [
+      "DEN",
+      "DAL",
+      "2026-10-22T03:00:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-22",
+    "objectives": [
+     {
+      "stat": "ast",
+      "target": 32
+     }
+    ],
+    "games": [
+     [
+      "IND",
+      "NYK",
+      "2026-10-22T23:00:00Z"
+     ],
+     [
+      "NOP",
+      "PHI",
+      "2026-10-22T23:30:00Z"
+     ],
+     [
+      "SAS",
+      "DET",
+      "2026-10-23T00:30:00Z"
+     ],
+     [
+      "POR",
+      "OKC",
+      "2026-10-23T01:00:00Z"
+     ],
+     [
+      "BOS",
+      "UTA",
+      "2026-10-23T02:30:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-23",
+    "objectives": [
+     {
+      "stat": "pts",
+      "target": 140
+     }
+    ],
+    "games": [
+     [
+      "SAC",
+      "MIA",
+      "2026-10-23T23:00:00Z"
+     ],
+     [
+      "TOR",
+      "ATL",
+      "2026-10-23T23:00:00Z"
+     ],
+     [
+      "HOU",
+      "CHI",
+      "2026-10-23T23:30:00Z"
+     ],
+     [
+      "CHA",
+      "MEM",
+      "2026-10-24T00:00:00Z"
+     ],
+     [
+      "DEN",
+      "GSW",
+      "2026-10-24T00:30:00Z"
+     ],
+     [
+      "BKN",
+      "CLE",
+      "2026-10-24T01:00:00Z"
+     ],
+     [
+      "LAC",
+      "LAL",
+      "2026-10-24T02:00:00Z"
+     ],
+     [
+      "WAS",
+      "PHX",
+      "2026-10-24T02:30:00Z"
+     ],
+     [
+      "MIN",
+      "MIL",
+      "2026-10-24T03:00:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-24",
+    "objectives": [
+     {
+      "stat": "fg3",
+      "target": 15
+     }
+    ],
+    "games": [
+     [
+      "NOP",
+      "POR",
+      "2026-10-24T23:00:00Z"
+     ],
+     [
+      "BOS",
+      "SAS",
+      "2026-10-24T23:30:00Z"
+     ],
+     [
+      "UTA",
+      "ORL",
+      "2026-10-25T00:00:00Z"
+     ],
+     [
+      "DET",
+      "NYK",
+      "2026-10-25T01:00:00Z"
+     ],
+     [
+      "IND",
+      "DAL",
+      "2026-10-25T02:00:00Z"
+     ],
+     [
+      "OKC",
+      "PHI",
+      "2026-10-25T02:30:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-25",
+    "objectives": [
+     {
+      "stat": "stl",
+      "target": 8
+     }
+    ],
+    "games": [
+     [
+      "MIA",
+      "HOU",
+      "2026-10-25T23:00:00Z"
+     ],
+     [
+      "BKN",
+      "SAC",
+      "2026-10-25T23:00:00Z"
+     ],
+     [
+      "MEM",
+      "LAC",
+      "2026-10-25T23:30:00Z"
+     ],
+     [
+      "WAS",
+      "TOR",
+      "2026-10-26T00:00:00Z"
+     ],
+     [
+      "CHI",
+      "MIL",
+      "2026-10-26T00:30:00Z"
+     ],
+     [
+      "PHX",
+      "LAL",
+      "2026-10-26T01:00:00Z"
+     ],
+     [
+      "ATL",
+      "DEN",
+      "2026-10-26T01:00:00Z"
+     ],
+     [
+      "UTA",
+      "GSW",
+      "2026-10-26T02:00:00Z"
+     ],
+     [
+      "CLE",
+      "IND",
+      "2026-10-26T02:30:00Z"
+     ],
+     [
+      "MIN",
+      "CHA",
+      "2026-10-26T03:00:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-26",
+    "objectives": [
+     {
+      "stat": "pts",
+      "target": 150
+     }
+    ],
+    "games": [
+     [
+      "NYK",
+      "PHI",
+      "2026-10-26T23:00:00Z"
+     ],
+     [
+      "BOS",
+      "SAS",
+      "2026-10-27T00:00:00Z"
+     ],
+     [
+      "OKC",
+      "DET",
+      "2026-10-27T01:00:00Z"
+     ],
+     [
+      "POR",
+      "ORL",
+      "2026-10-27T02:30:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-27",
+    "objectives": [
+     {
+      "stat": "reb",
+      "target": 50
+     }
+    ],
+    "games": [
+     [
+      "MEM",
+      "GSW",
+      "2026-10-27T23:00:00Z"
+     ],
+     [
+      "WAS",
+      "CLE",
+      "2026-10-27T23:30:00Z"
+     ],
+     [
+      "CHA",
+      "LAL",
+      "2026-10-28T00:00:00Z"
+     ],
+     [
+      "CHI",
+      "DEN",
+      "2026-10-28T00:30:00Z"
+     ],
+     [
+      "ATL",
+      "IND",
+      "2026-10-28T01:00:00Z"
+     ],
+     [
+      "NOP",
+      "UTA",
+      "2026-10-28T02:00:00Z"
+     ],
+     [
+      "MIL",
+      "SAC",
+      "2026-10-28T02:30:00Z"
+     ],
+     [
+      "DAL",
+      "HOU",
+      "2026-10-28T03:00:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-28",
+    "objectives": [
+     {
+      "stat": "blk",
+      "target": 7
+     }
+    ],
+    "games": [
+     [
+      "PHX",
+      "POR",
+      "2026-10-28T23:00:00Z"
+     ],
+     [
+      "MIA",
+      "SAS",
+      "2026-10-28T23:30:00Z"
+     ],
+     [
+      "BKN",
+      "TOR",
+      "2026-10-29T00:00:00Z"
+     ],
+     [
+      "LAC",
+      "NYK",
+      "2026-10-29T00:30:00Z"
+     ],
+     [
+      "ORL",
+      "OKC",
+      "2026-10-29T01:00:00Z"
+     ],
+     [
+      "DET",
+      "MIN",
+      "2026-10-29T02:00:00Z"
+     ],
+     [
+      "PHI",
+      "BOS",
+      "2026-10-29T02:30:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-29",
+    "objectives": [
+     {
+      "stat": "ast",
+      "target": 35
+     }
+    ],
+    "games": [
+     [
+      "TOR",
+      "HOU",
+      "2026-10-29T23:00:00Z"
+     ],
+     [
+      "MEM",
+      "WAS",
+      "2026-10-29T23:00:00Z"
+     ],
+     [
+      "ATL",
+      "NOP",
+      "2026-10-29T23:30:00Z"
+     ],
+     [
+      "SAC",
+      "MIA",
+      "2026-10-30T00:00:00Z"
+     ],
+     [
+      "BKN",
+      "LAL",
+      "2026-10-30T00:00:00Z"
+     ],
+     [
+      "CHI",
+      "CHA",
+      "2026-10-30T00:30:00Z"
+     ],
+     [
+      "DAL",
+      "DEN",
+      "2026-10-30T01:00:00Z"
+     ],
+     [
+      "SAS",
+      "NYK",
+      "2026-10-30T02:00:00Z"
+     ],
+     [
+      "UTA",
+      "IND",
+      "2026-10-30T02:00:00Z"
+     ],
+     [
+      "PHI",
+      "MIL",
+      "2026-10-30T02:30:00Z"
+     ],
+     [
+      "GSW",
+      "CLE",
+      "2026-10-30T03:00:00Z"
+     ]
+    ]
+   },
+   {
+    "date": "2026-10-30",
+    "objectives": [
+     {
+      "stat": "pts",
+      "target": 145
+     }
+    ],
+    "games": [
+     [
+      "MIN",
+      "BOS",
+      "2026-10-30T23:00:00Z"
+     ],
+     [
+      "CHI",
+      "POR",
+      "2026-10-30T23:30:00Z"
+     ],
+     [
+      "ORL",
+      "PHX",
+      "2026-10-31T00:00:00Z"
+     ],
+     [
+      "LAL",
+      "OKC",
+      "2026-10-31T01:00:00Z"
+     ],
+     [
+      "PHI",
+      "LAC",
+      "2026-10-31T02:00:00Z"
+     ],
+     [
+      "SAS",
+      "DET",
+      "2026-10-31T02:30:00Z"
+     ]
+    ]
+   }
+  ],
+  "prizes": [
+   {
+    "wins": 5,
+    "value": 10,
+    "label": "Exemplo"
+   },
+   {
+    "wins": 7,
+    "value": 30,
+    "label": "Exemplo"
+   },
+   {
+    "wins": 9,
+    "value": 100,
+    "label": "Exemplo"
+   }
+  ]
+ },
+ "rosters/teste-out26": {
+  "players": {
+   "sga": {
+    "name": "Shai Gilgeous-Alexander",
+    "team": "OKC",
+    "uses": 2,
+    "status": "ok",
+    "avg": {
+     "pts": 31.5,
+     "reb": 4.5,
+     "ast": 6.3,
+     "fg3": 1.9,
+     "stl": 1.4,
+     "blk": 0.8
+    }
+   },
+   "jokic": {
+    "name": "Nikola Jokić",
+    "team": "DEN",
+    "uses": 2,
+    "status": "ok",
+    "avg": {
+     "pts": 28,
+     "reb": 12.5,
+     "ast": 10.5,
+     "fg3": 1.9,
+     "stl": 1.6,
+     "blk": 0.7
+    }
+   },
+   "giannis": {
+    "name": "Giannis Antetokounmpo",
+    "team": "MIL",
+    "uses": 2,
+    "status": "ok",
+    "avg": {
+     "pts": 29,
+     "reb": 11,
+     "ast": 6,
+     "fg3": 0.3,
+     "stl": 0.9,
+     "blk": 1
+    }
+   },
+   "luka": {
+    "name": "Luka Dončić",
+    "team": "LAL",
+    "uses": 2,
+    "status": "ok",
+    "avg": {
+     "pts": 32,
+     "reb": 8,
+     "ast": 8.5,
+     "fg3": 3.8,
+     "stl": 1.5,
+     "blk": 0.5
+    }
+   },
+   "wemby": {
+    "name": "Victor Wembanyama",
+    "team": "SAS",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 25,
+     "reb": 11.5,
+     "ast": 3.5,
+     "fg3": 2.5,
+     "stl": 1.2,
+     "blk": 3.6
+    }
+   },
+   "ant": {
+    "name": "Anthony Edwards",
+    "team": "MIN",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 28,
+     "reb": 5.5,
+     "ast": 4,
+     "fg3": 3.8,
+     "stl": 1.2,
+     "blk": 0.7
+    }
+   },
+   "mitchell": {
+    "name": "Donovan Mitchell",
+    "team": "CLE",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 27,
+     "reb": 4.5,
+     "ast": 5.5,
+     "fg3": 3.4,
+     "stl": 1.3,
+     "blk": 0.3
+    }
+   },
+   "brunson": {
+    "name": "Jalen Brunson",
+    "team": "NYK",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 26.5,
+     "reb": 3.5,
+     "ast": 6.5,
+     "fg3": 2.6,
+     "stl": 0.9,
+     "blk": 0.2
+    }
+   },
+   "cade": {
+    "name": "Cade Cunningham",
+    "team": "DET",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 26,
+     "reb": 6,
+     "ast": 9.5,
+     "fg3": 2.2,
+     "stl": 1.2,
+     "blk": 0.8
+    }
+   },
+   "maxey": {
+    "name": "Tyrese Maxey",
+    "team": "PHI",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 28,
+     "reb": 4,
+     "ast": 6.5,
+     "fg3": 3.3,
+     "stl": 1.8,
+     "blk": 0.6
+    }
+   },
+   "lebron": {
+    "name": "LeBron James",
+    "team": "PHI",
+    "uses": 2,
+    "status": "ok",
+    "avg": {
+     "pts": 21,
+     "reb": 6,
+     "ast": 7,
+     "fg3": 1.8,
+     "stl": 1,
+     "blk": 0.5
+    }
+   },
+   "jbrown": {
+    "name": "Jaylen Brown",
+    "team": "PHI",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 28,
+     "reb": 6.5,
+     "ast": 4.5,
+     "fg3": 2,
+     "stl": 1,
+     "blk": 0.4
+    }
+   },
+   "sabonis": {
+    "name": "Domantas Sabonis",
+    "team": "SAC",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 17,
+     "reb": 13,
+     "ast": 6,
+     "fg3": 0.5,
+     "stl": 0.8,
+     "blk": 0.4
+    }
+   },
+   "kat": {
+    "name": "Karl-Anthony Towns",
+    "team": "NYK",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 22,
+     "reb": 12,
+     "ast": 3,
+     "fg3": 2.3,
+     "stl": 0.9,
+     "blk": 0.6
+    }
+   },
+   "sengun": {
+    "name": "Alperen Şengün",
+    "team": "HOU",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 21,
+     "reb": 9.5,
+     "ast": 6.5,
+     "fg3": 0.3,
+     "stl": 1.2,
+     "blk": 1
+    }
+   },
+   "curry": {
+    "name": "Stephen Curry",
+    "team": "GSW",
+    "uses": 2,
+    "status": "ok",
+    "avg": {
+     "pts": 27,
+     "reb": 4,
+     "ast": 5,
+     "fg3": 4.5,
+     "stl": 1.1,
+     "blk": 0.4
+    }
+   },
+   "booker": {
+    "name": "Devin Booker",
+    "team": "PHX",
+    "uses": 3,
+    "status": "ok",
+    "avg": {
+     "pts": 25,
+     "reb": 4,
+     "ast": 6.5,
+     "fg3": 2,
+     "stl": 0.9,
+     "blk": 0.3
+    }
+   },
+   "mobley": {
+    "name": "Evan Mobley",
+    "team": "CLE",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 18,
+     "reb": 9,
+     "ast": 3.5,
+     "fg3": 0.8,
+     "stl": 0.9,
+     "blk": 1.6
+    }
+   },
+   "chet": {
+    "name": "Chet Holmgren",
+    "team": "OKC",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 17.5,
+     "reb": 8.5,
+     "ast": 2,
+     "fg3": 1.5,
+     "stl": 0.6,
+     "blk": 2
+    }
+   },
+   "jjohnson": {
+    "name": "Jalen Johnson",
+    "team": "ATL",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 23,
+     "reb": 10.5,
+     "ast": 8,
+     "fg3": 1.5,
+     "stl": 1.4,
+     "blk": 0.6
+    }
+   },
+   "barnes": {
+    "name": "Scottie Barnes",
+    "team": "TOR",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 20,
+     "reb": 7.5,
+     "ast": 5.5,
+     "fg3": 1.3,
+     "stl": 1.3,
+     "blk": 1.4
+    }
+   },
+   "hart": {
+    "name": "Josh Hart",
+    "team": "NYK",
+    "uses": 5,
+    "status": "ok",
+    "avg": {
+     "pts": 11,
+     "reb": 8.5,
+     "ast": 5,
+     "fg3": 1,
+     "stl": 1.3,
+     "blk": 0.3
+    }
+   },
+   "daniels": {
+    "name": "Dyson Daniels",
+    "team": "ATL",
+    "uses": 5,
+    "status": "ok",
+    "avg": {
+     "pts": 13,
+     "reb": 6,
+     "ast": 5.5,
+     "fg3": 0.7,
+     "stl": 2.6,
+     "blk": 0.6
+    }
+   },
+   "blopez": {
+    "name": "Brook Lopez",
+    "team": "LAC",
+    "uses": 5,
+    "status": "ok",
+    "avg": {
+     "pts": 9,
+     "reb": 4.5,
+     "ast": 1.5,
+     "fg3": 1.7,
+     "stl": 0.4,
+     "blk": 1.7
+    }
+   },
+   "gobert": {
+    "name": "Rudy Gobert",
+    "team": "MIN",
+    "uses": 5,
+    "status": "ok",
+    "avg": {
+     "pts": 11,
+     "reb": 11,
+     "ast": 1.8,
+     "fg3": 0,
+     "stl": 0.8,
+     "blk": 1.5
+    }
+   },
+   "jallen": {
+    "name": "Jarrett Allen",
+    "team": "CLE",
+    "uses": 5,
+    "status": "ok",
+    "avg": {
+     "pts": 13,
+     "reb": 9,
+     "ast": 2,
+     "fg3": 0,
+     "stl": 0.8,
+     "blk": 1
+    }
+   },
+   "pritchard": {
+    "name": "Payton Pritchard",
+    "team": "BOS",
+    "uses": 5,
+    "status": "ok",
+    "avg": {
+     "pts": 16,
+     "reb": 4,
+     "ast": 4.5,
+     "fg3": 3,
+     "stl": 0.8,
+     "blk": 0.1
+    }
+   },
+   "dwhite": {
+    "name": "Derrick White",
+    "team": "BOS",
+    "uses": 4,
+    "status": "ok",
+    "avg": {
+     "pts": 17,
+     "reb": 4.5,
+     "ast": 5,
+     "fg3": 3,
+     "stl": 1.1,
+     "blk": 1.3
+    }
+   }
+  }
+ },
+ "odds/teste-out26": {
+  "days": {
+   "2026-10-20": {
+    "updatedAt": "2026-10-10T10:00:00Z",
+    "source": "Simuladas (run fictícia)",
+    "players": {
+     "sga": {
+      "pts": {
+       "line": 31.5,
+       "over": -117,
+       "under": -103
+      },
+      "reb": {
+       "line": 4.5,
+       "over": 108,
+       "under": -131
+      },
+      "ast": {
+       "line": 6.5,
+       "over": -135,
+       "under": 111
+      },
+      "fg3": {
+       "line": 1.5,
+       "over": -127,
+       "under": 105
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 135,
+       "under": -165
+      },
+      "blk": {
+       "line": 0.5,
+       "over": -130,
+       "under": 107
+      }
+     },
+     "wemby": {
+      "pts": {
+       "line": 23.5,
+       "over": -106,
+       "under": -115
+      },
+      "reb": {
+       "line": 11.5,
+       "over": 111,
+       "under": -134
+      },
+      "ast": {
+       "line": 3.5,
+       "over": -136,
+       "under": 112
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": 144,
+       "under": -176
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 193,
+       "under": -241
+      },
+      "blk": {
+       "line": 3.5,
+       "over": 100,
+       "under": -122
+      }
+     },
+     "brunson": {
+      "pts": {
+       "line": 24.5,
+       "over": -101,
+       "under": -120
+      },
+      "reb": {
+       "line": 3.5,
+       "over": 109,
+       "under": -132
+      },
+      "ast": {
+       "line": 6.5,
+       "over": 103,
+       "under": -125
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": 124,
+       "under": -152
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -178,
+       "under": 146
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 434,
+       "under": -619
+      }
+     },
+     "cade": {
+      "pts": {
+       "line": 26.5,
+       "over": -120,
+       "under": -101
+      },
+      "reb": {
+       "line": 5.5,
+       "over": -117,
+       "under": -104
+      },
+      "ast": {
+       "line": 8.5,
+       "over": -122,
+       "under": 101
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": 184,
+       "under": -229
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 223,
+       "under": -282
+      },
+      "blk": {
+       "line": 0.5,
+       "over": -148,
+       "under": 122
+      }
+     },
+     "maxey": {
+      "pts": {
+       "line": 26.5,
+       "over": -117,
+       "under": -103
+      },
+      "reb": {
+       "line": 4.5,
+       "over": -101,
+       "under": -120
+      },
+      "ast": {
+       "line": 6.5,
+       "over": -130,
+       "under": 107
+      },
+      "fg3": {
+       "line": 3.5,
+       "over": 116,
+       "under": -142
+      },
+      "stl": {
+       "line": 1.5,
+       "over": -115,
+       "under": -105
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 103,
+       "under": -124
+      }
+     },
+     "lebron": {
+      "pts": {
+       "line": 20.5,
+       "over": -105,
+       "under": -116
+      },
+      "reb": {
+       "line": 5.5,
+       "over": -142,
+       "under": 117
+      },
+      "ast": {
+       "line": 6.5,
+       "over": -117,
+       "under": -104
+      },
+      "fg3": {
+       "line": 1.5,
+       "over": -102,
+       "under": -119
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -179,
+       "under": 146
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 156,
+       "under": -191
+      }
+     },
+     "jbrown": {
+      "pts": {
+       "line": 26.5,
+       "over": -105,
+       "under": -115
+      },
+      "reb": {
+       "line": 6.5,
+       "over": 107,
+       "under": -130
+      },
+      "ast": {
+       "line": 4.5,
+       "over": -117,
+       "under": -104
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": 150,
+       "under": -184
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -166,
+       "under": 136
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 169,
+       "under": -209
+      }
+     },
+     "kat": {
+      "pts": {
+       "line": 19.5,
+       "over": -116,
+       "under": -105
+      },
+      "reb": {
+       "line": 11.5,
+       "over": -120,
+       "under": -101
+      },
+      "ast": {
+       "line": 3.5,
+       "over": 101,
+       "under": -123
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": 149,
+       "under": -183
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -154,
+       "under": 126
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 127,
+       "under": -155
+      }
+     },
+     "chet": {
+      "pts": {
+       "line": 17.5,
+       "over": -111,
+       "under": -110
+      },
+      "reb": {
+       "line": 8.5,
+       "over": 105,
+       "under": -127
+      },
+      "ast": {
+       "line": 1.5,
+       "over": -148,
+       "under": 122
+      },
+      "fg3": {
+       "line": 1.5,
+       "over": -100,
+       "under": -121
+      },
+      "stl": {
+       "line": 0.5,
+       "over": 118,
+       "under": -144
+      },
+      "blk": {
+       "line": 2.5,
+       "over": 155,
+       "under": -191
+      }
+     },
+     "hart": {
+      "pts": {
+       "line": 10.5,
+       "over": -105,
+       "under": -115
+      },
+      "reb": {
+       "line": 8.5,
+       "over": 108,
+       "under": -131
+      },
+      "ast": {
+       "line": 4.5,
+       "over": -127,
+       "under": 105
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": -177,
+       "under": 144
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 169,
+       "under": -209
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 255,
+       "under": -328
+      }
+     },
+     "pritchard": {
+      "pts": {
+       "line": 17.5,
+       "over": -121,
+       "under": -100
+      },
+      "reb": {
+       "line": 4.5,
+       "over": 113,
+       "under": -137
+      },
+      "ast": {
+       "line": 4.5,
+       "over": 116,
+       "under": -142
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": -112,
+       "under": -108
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -117,
+       "under": -103
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 475,
+       "under": -694
+      }
+     },
+     "dwhite": {
+      "pts": {
+       "line": 17.5,
+       "over": -107,
+       "under": -113
+      },
+      "reb": {
+       "line": 4.5,
+       "over": -140,
+       "under": 116
+      },
+      "ast": {
+       "line": 4.5,
+       "over": -114,
+       "under": -106
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": -110,
+       "under": -110
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -189,
+       "under": 154
+      },
+      "blk": {
+       "line": 1.5,
+       "over": 127,
+       "under": -154
+      }
+     }
+    }
+   },
+   "2026-10-21": {
+    "updatedAt": "2026-10-10T10:00:00Z",
+    "source": "Simuladas (run fictícia)",
+    "players": {
+     "jokic": {
+      "pts": {
+       "line": 28.5,
+       "over": -102,
+       "under": -119
+      },
+      "reb": {
+       "line": 11.5,
+       "over": -107,
+       "under": -114
+      },
+      "ast": {
+       "line": 9.5,
+       "over": -117,
+       "under": -103
+      },
+      "fg3": {
+       "line": 1.5,
+       "over": -161,
+       "under": 132
+      },
+      "stl": {
+       "line": 1.5,
+       "over": -104,
+       "under": -117
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 105,
+       "under": -128
+      }
+     },
+     "giannis": {
+      "pts": {
+       "line": 32.5,
+       "over": -102,
+       "under": -119
+      },
+      "reb": {
+       "line": 10.5,
+       "over": -112,
+       "under": -108
+      },
+      "ast": {
+       "line": 6.5,
+       "over": -113,
+       "under": -107
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": 238,
+       "under": -304
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -134,
+       "under": 111
+      },
+      "blk": {
+       "line": 1.5,
+       "over": 235,
+       "under": -299
+      },
+      "status": "duv"
+     },
+     "luka": {
+      "pts": {
+       "line": 28.5,
+       "over": -114,
+       "under": -106
+      },
+      "reb": {
+       "line": 8.5,
+       "over": 100,
+       "under": -122
+      },
+      "ast": {
+       "line": 9.5,
+       "over": 106,
+       "under": -128
+      },
+      "fg3": {
+       "line": 3.5,
+       "over": 117,
+       "under": -143
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 110,
+       "under": -134
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 134,
+       "under": -163
+      }
+     },
+     "ant": {
+      "pts": {
+       "line": 30.5,
+       "over": -111,
+       "under": -109
+      },
+      "reb": {
+       "line": 4.5,
+       "over": -151,
+       "under": 124
+      },
+      "ast": {
+       "line": 4.5,
+       "over": 106,
+       "under": -129
+      },
+      "fg3": {
+       "line": 4.5,
+       "over": 150,
+       "under": -185
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 178,
+       "under": -221
+      },
+      "blk": {
+       "line": 0.5,
+       "over": -125,
+       "under": 103
+      }
+     },
+     "mitchell": {
+      "pts": {
+       "line": 29.5,
+       "over": -107,
+       "under": -114
+      },
+      "reb": {
+       "line": 5.5,
+       "over": 122,
+       "under": -149
+      },
+      "ast": {
+       "line": 6.5,
+       "over": 120,
+       "under": -146
+      },
+      "fg3": {
+       "line": 3.5,
+       "over": 130,
+       "under": -159
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 138,
+       "under": -169
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 249,
+       "under": -319
+      }
+     },
+     "sabonis": {
+      "pts": {
+       "line": 17.5,
+       "over": -110,
+       "under": -110
+      },
+      "reb": {
+       "line": 14.5,
+       "over": -110,
+       "under": -110
+      },
+      "ast": {
+       "line": 6.5,
+       "over": -118,
+       "under": -103
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": 146,
+       "under": -178
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -142,
+       "under": 117
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 164,
+       "under": -202
+      }
+     },
+     "sengun": {
+      "pts": {
+       "line": 22.5,
+       "over": -114,
+       "under": -106
+      },
+      "reb": {
+       "line": 8.5,
+       "over": -106,
+       "under": -115
+      },
+      "ast": {
+       "line": 6.5,
+       "over": -121,
+       "under": -100
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": 287,
+       "under": -376
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 179,
+       "under": -222
+      },
+      "blk": {
+       "line": 1.5,
+       "over": 204,
+       "under": -256
+      }
+     },
+     "curry": {
+      "pts": {
+       "line": 28.5,
+       "over": -112,
+       "under": -109
+      },
+      "reb": {
+       "line": 4.5,
+       "over": 106,
+       "under": -128
+      },
+      "ast": {
+       "line": 5.5,
+       "over": -114,
+       "under": -106
+      },
+      "fg3": {
+       "line": 5.5,
+       "over": 143,
+       "under": -175
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 174,
+       "under": -216
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 164,
+       "under": -203
+      }
+     },
+     "booker": {
+      "pts": {
+       "line": 23.5,
+       "over": -111,
+       "under": -109
+      },
+      "reb": {
+       "line": 3.5,
+       "over": -148,
+       "under": 122
+      },
+      "ast": {
+       "line": 6.5,
+       "over": 119,
+       "under": -144
+      },
+      "fg3": {
+       "line": 2.5,
+       "over": 160,
+       "under": -197
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -182,
+       "under": 148
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 266,
+       "under": -345
+      }
+     },
+     "mobley": {
+      "pts": {
+       "line": 19.5,
+       "over": 100,
+       "under": -122
+      },
+      "reb": {
+       "line": 8.5,
+       "over": 106,
+       "under": -128
+      },
+      "ast": {
+       "line": 3.5,
+       "over": 111,
+       "under": -134
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": -140,
+       "under": 115
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -156,
+       "under": 128
+      },
+      "blk": {
+       "line": 1.5,
+       "over": 105,
+       "under": -127
+      }
+     },
+     "jjohnson": {
+      "pts": {
+       "line": 25.5,
+       "over": -107,
+       "under": -113
+      },
+      "reb": {
+       "line": 9.5,
+       "over": -102,
+       "under": -119
+      },
+      "ast": {
+       "line": 8.5,
+       "over": 107,
+       "under": -130
+      },
+      "fg3": {
+       "line": 1.5,
+       "over": 114,
+       "under": -139
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 121,
+       "under": -148
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 111,
+       "under": -135
+      }
+     },
+     "barnes": {
+      "pts": {
+       "line": 20.5,
+       "over": -102,
+       "under": -119
+      },
+      "reb": {
+       "line": 7.5,
+       "over": -119,
+       "under": -102
+      },
+      "ast": {
+       "line": 5.5,
+       "over": 109,
+       "under": -132
+      },
+      "fg3": {
+       "line": 1.5,
+       "over": 122,
+       "under": -149
+      },
+      "stl": {
+       "line": 1.5,
+       "over": 178,
+       "under": -221
+      },
+      "blk": {
+       "line": 1.5,
+       "over": 133,
+       "under": -162
+      }
+     },
+     "daniels": {
+      "pts": {
+       "line": 14.5,
+       "over": -110,
+       "under": -110
+      },
+      "reb": {
+       "line": 5.5,
+       "over": -120,
+       "under": -101
+      },
+      "ast": {
+       "line": 5.5,
+       "over": -102,
+       "under": -119
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": -111,
+       "under": -109
+      },
+      "stl": {
+       "line": 2.5,
+       "over": -121,
+       "under": -101
+      },
+      "blk": {
+       "line": 0.5,
+       "over": 110,
+       "under": -134
+      }
+     },
+     "blopez": {
+      "pts": {
+       "line": 9.5,
+       "over": -101,
+       "under": -120
+      },
+      "reb": {
+       "line": 4.5,
+       "over": 126,
+       "under": -153
+      },
+      "ast": {
+       "line": 1.5,
+       "over": 109,
+       "under": -133
+      },
+      "fg3": {
+       "line": 1.5,
+       "over": 101,
+       "under": -123
+      },
+      "stl": {
+       "line": 0.5,
+       "over": 184,
+       "under": -229
+      },
+      "blk": {
+       "line": 1.5,
+       "over": 112,
+       "under": -136
+      }
+     },
+     "gobert": {
+      "pts": {
+       "line": 10.5,
+       "over": -123,
+       "under": 101
+      },
+      "reb": {
+       "line": 10.5,
+       "over": 102,
+       "under": -124
+      },
+      "ast": {
+       "line": 1.5,
+       "over": -177,
+       "under": 145
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": 475,
+       "under": -694
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -153,
+       "under": 125
+      },
+      "blk": {
+       "line": 1.5,
+       "over": 123,
+       "under": -150
+      }
+     },
+     "jallen": {
+      "pts": {
+       "line": 12.5,
+       "over": -108,
+       "under": -112
+      },
+      "reb": {
+       "line": 8.5,
+       "over": -130,
+       "under": 107
+      },
+      "ast": {
+       "line": 1.5,
+       "over": -160,
+       "under": 131
+      },
+      "fg3": {
+       "line": 0.5,
+       "over": 475,
+       "under": -694
+      },
+      "stl": {
+       "line": 0.5,
+       "over": -127,
+       "under": 104
+      },
+      "blk": {
+       "line": 0.5,
+       "over": -168,
+       "under": 138
+      }
+     }
+    }
+   }
+  }
+ },
+ "plans/teste-out26": {
+  "locks": {},
+  "bans": {},
+  "played": {},
+  "mode": {},
+  "live": {}
+ }
+}

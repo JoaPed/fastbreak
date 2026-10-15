@@ -1,0 +1,19 @@
+name: Médias da época passada (correr uma vez)
+on:
+  workflow_dispatch:
+    inputs:
+      season: { description: 'Época (ex.: 2025-26)', default: '2025-26', required: true }
+concurrency: { group: stats, cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --omit=dev
+      - run: node scripts/sync-stats.mjs --backfill "${{ inputs.season }}"

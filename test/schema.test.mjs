@@ -1,0 +1,80 @@
+// Testa o esquema e as regras de acesso num Postgres local (PGlite), com o essencial do Supabase simulado.
+import { PGlite } from '@electric-sql/pglite';
+import fs from 'node:fs';
+
+const db = new PGlite();
+const sql = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
+
+await db.exec(`
+  create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
+  create schema auth;
+  create table auth.users (id uuid primary key);
+  create function auth.uid() returns uuid language sql stable as $$
+    select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+  grant usage on schema auth to anon, authenticated, service_role;
+  grant execute on function auth.uid() to anon, authenticated, service_role;
+  grant usage on schema public to anon, authenticated, service_role;
+`);
+await db.exec(sql);
+await db.exec(sql); // idempotente
+await db.exec('grant all on all tables in schema public to service_role');
+
+const U = { a: '00000000-0000-0000-0000-00000000000a', b: '00000000-0000-0000-0000-00000000000b', c: '00000000-0000-0000-0000-00000000000c' };
+await db.exec(`insert into auth.users values ('${U.a}'), ('${U.b}'), ('${U.c}')`);
+
+let fails = 0;
+async function as(user, q, params) {
+  await db.exec('reset role');
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [user ? U[user] : '']);
+  await db.exec(user === 'service' ? 'set role service_role' : user ? 'set role authenticated' : 'set role anon');
+  try { return { rows: (await db.query(q, params)).rows }; }
+  catch (e) { return { error: e.message }; }
+  finally { await db.exec('reset role'); }
+}
+function expect(label, cond, info) { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); }
+
+let r;
+r = await as('a', 'select public.group_status() s'); expect('estado inicial sem membros', r.rows?.[0].s.has_members === false, r);
+r = await as('a', `select public.join_group(null) r`); expect('primeiro a entrar fica admin', r.rows?.[0].r === 'admin', r);
+r = await as('b', `select public.join_group('x') r`); expect('sem código definido, B não entra', !!r.error, r);
+r = await as('b', `select public.set_invite_code('amigos26')`); expect('B não pode definir código', !!r.error, r);
+r = await as('a', `select public.set_invite_code('amigos26')`); expect('admin define código', !r.error, r);
+r = await as('b', `select public.get_invite_code() c`); expect('B não vê código', !!r.error, r);
+r = await as('b', `select public.join_group('errado') r`); expect('código errado recusado', !!r.error, r);
+r = await as('b', `select public.join_group(' AMIGOS26 ') r`); expect('código certo (maiúsculas/espaços) entra', r.rows?.[0].r === 'member', r);
+r = await as('b', `select * from public.settings`); expect('B não lê settings', r.rows?.length === 0 || !!r.error, r);
+
+// partilhado
+r = await as('a', `insert into public.runs (id, name, start_date, end_date) values ('run-1', 'Run 1', '2026-10-20', '2026-10-30')`); expect('admin cria run', !r.error, r);
+r = await as('b', `insert into public.runs (id, name, start_date, end_date) values ('run-x', 'X', '2026-10-20', '2026-10-30')`); expect('membro não cria run', !!r.error, r);
+r = await as('b', `select id from public.runs`); expect('membro lê runs', r.rows?.length === 1, r);
+r = await as('c', `select id from public.runs`); expect('não-membro não lê runs', r.rows?.length === 0, r);
+r = await as(null, `select id from public.runs`); expect('anónimo não lê runs', !!r.error || r.rows?.length === 0, r);
+r = await as('service', `insert into public.odds_days (date, players) values ('2026-10-20', '{"1":{"pts":{"line":20.5}}}')`); expect('tarefa automática escreve odds', !r.error, r);
+r = await as('b', `select date from public.odds_days`); expect('membro lê odds', r.rows?.length === 1, r);
+r = await as('b', `update public.odds_days set source = 'x'`); expect('membro não altera odds (0 linhas)', !r.error, r);
+r = await as('service', `select source from public.odds_days`); expect('… e as odds ficaram iguais', r.rows?.[0].source === null, r);
+
+// privado
+r = await as('b', `insert into public.user_runs (run_id, roster) values ('run-1', '{"203999":{"uses":2}}')`); expect('B guarda o seu plantel', !r.error, r);
+r = await as('a', `select * from public.user_runs`); expect('A não vê o plantel de B', r.rows?.length === 0, r);
+r = await as('a', `insert into public.user_runs (user_id, run_id) values ('${U.b}', 'run-1') on conflict do nothing`); expect('A não escreve por B', !!r.error, r);
+r = await as('c', `insert into public.user_runs (run_id) values ('run-1')`); expect('não-membro não guarda plantel', !!r.error, r);
+
+// resumos e perfis
+r = await as('b', `insert into public.summaries (run_id, wins, losses) values ('run-1', 3, 1)`); expect('B publica resumo', !r.error, r);
+r = await as('a', `select wins from public.summaries`); expect('A vê resumo de B', r.rows?.[0]?.wins === 3, r);
+r = await as('a', `update public.summaries set wins = 0 where user_id = '${U.b}'`); r = await as('a', `select wins from public.summaries`); expect('A não altera resumo de B', r.rows?.[0]?.wins === 3, r);
+r = await as('b', `insert into public.profiles (display_name, topshot_username) values ('Bruno', 'bruno_ts')`); expect('B cria perfil', !r.error, r);
+r = await as('a', `select display_name from public.profiles`); expect('A vê perfil de B', r.rows?.[0]?.display_name === 'Bruno', r);
+r = await as('b', `insert into public.profiles (user_id, display_name) values ('${U.a}', 'falso')`); expect('B não cria perfil de A', !!r.error, r);
+r = await as('b', `update public.profiles set flow_address = 'xyz'`); expect('endereço Flow inválido recusado', !!r.error, r);
+
+// membros
+r = await as('b', `delete from public.members where user_id = '${U.a}'`); r = await as('a', `select count(*)::int n from public.members`); expect('membro não expulsa admin', r.rows?.[0].n === 2, r);
+r = await as('b', `update public.members set role = 'admin' where user_id = '${U.b}'`); r = await as('a', `select role from public.members where user_id = '${U.b}'`); expect('membro não se promove', r.rows?.[0].role === 'member', r);
+r = await as('a', `delete from public.members where user_id = '${U.b}'`); r = await as('a', `select count(*)::int n from public.members`); expect('admin remove membro', r.rows?.[0].n === 1, r);
+r = await as('b', `select id from public.runs`); expect('removido deixa de ver runs', r.rows?.length === 0, r);
+
+console.log(fails ? `\n${fails} falha(s)` : '\ntodas as regras passaram');
+process.exit(fails ? 1 : 0);

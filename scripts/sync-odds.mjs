@@ -1,0 +1,52 @@
+// The Odds API → linhas de mais/menos de cada jogador, só para a estatística do objetivo de cada dia.
+// Custo: 1 crédito por jogo e por estatística (região us). Pedidos sem dados não contam.
+// Uso: node scripts/sync-odds.mjs [AAAA-MM-DD ...]   (por defeito: hoje e amanhã, hora de Nova Iorque)
+import { supa, must, etDate, addDays, STAT_MARKET, consensusFromEvent, matchPlayers } from './lib.mjs';
+
+const KEY = process.env.ODDS_API_KEY;
+if (!KEY) { console.log('Sem ODDS_API_KEY nos segredos do GitHub: nada a fazer.'); process.exit(0); }
+const API = 'https://api.the-odds-api.com/v4/sports/basketball_nba';
+
+const sb = await supa();
+const today = etDate(Date.now());
+const dates = process.argv.slice(2).filter(a => /^\d{4}-\d{2}-\d{2}$/.test(a));
+if (!dates.length) dates.push(today, addDays(today, 1));
+
+// que estatísticas são precisas em cada data (objetivos das runs)
+const need = {};
+const rows = await must(sb.from('run_days').select('date,objectives').in('date', dates));
+for (const r of rows) for (const o of r.objectives || []) for (const s of String(o.stat || '').split('+')) if (STAT_MARKET[s]) (need[r.date] = need[r.date] || new Set()).add(s);
+if (!Object.keys(need).length) { console.log('Nenhum objetivo definido para', dates.join(', '), '— não gasto créditos.'); process.exit(0); }
+
+const evRes = await fetch(API + '/events?apiKey=' + KEY);
+if (!evRes.ok) throw new Error('The Odds API /events ' + evRes.status + ': ' + (await evRes.text()).slice(0, 200));
+const events = await evRes.json();
+const catalog = await must(sb.from('nba_players').select('id,name'));
+const now = Date.now();
+let used = null, remaining = null;
+
+for (const date of Object.keys(need)) {
+  const markets = [...need[date]].map(s => STAT_MARKET[s]).join(',');
+  const todays = events.filter(e => etDate(e.commence_time) === date && Date.parse(e.commence_time) > now);
+  console.log(date, '·', todays.length, 'jogos por começar · mercados', markets);
+  if (!todays.length) continue;
+  const byName = {}; let books = new Set();
+  for (const ev of todays) {
+    const res = await fetch(API + '/events/' + ev.id + '/odds?apiKey=' + KEY + '&regions=us&oddsFormat=american&markets=' + markets);
+    used = res.headers.get('x-requests-used') || used; remaining = res.headers.get('x-requests-remaining') || remaining;
+    if (!res.ok) { console.log('  ', ev.away_team, '@', ev.home_team, '→ erro', res.status); continue; }
+    const js = await res.json();
+    (js.bookmakers || []).forEach(b => books.add(b.key));
+    const c = consensusFromEvent(js);
+    for (const [who, stats] of Object.entries(c)) byName[who] = Object.assign(byName[who] || {}, stats);
+    console.log('  ', ev.away_team, '@', ev.home_team, '→', Object.keys(c).length, 'jogadores');
+  }
+  const { players, unmatched } = matchPlayers(byName, catalog);
+  if (unmatched.length) console.log('  sem correspondência no catálogo:', unmatched.slice(0, 20).join(', '), unmatched.length > 20 ? '…' : '');
+  const prev = await must(sb.from('odds_days').select('players').eq('date', date).maybeSingle());
+  const merged = Object.assign({}, (prev && prev.players) || {});
+  for (const [id, stats] of Object.entries(players)) merged[id] = Object.assign({}, merged[id] || {}, stats);
+  await must(sb.from('odds_days').upsert({ date, players: merged, source: 'The Odds API · ' + books.size + ' casas', updated_at: new Date().toISOString() }));
+  console.log('  guardado:', Object.keys(players).length, 'jogadores');
+}
+console.log('Créditos usados este mês:', used, '· restantes:', remaining);

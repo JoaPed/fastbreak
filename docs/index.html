@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1018" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#EEF1F5" media="(prefers-color-scheme: light)">
+<title>Fastbreak Run Planner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23DB5A17'/%3E%3Cpath d='M2 16h28M16 2v28M6 6c5 4 5 16 0 20M26 6c-5 4-5 16 0 20' stroke='%23111' stroke-width='1.6' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body { margin: 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap" id="gate" hidden></div>
+
+<div id="app" hidden>
+  <div class="wrap">
+    <header class="top">
+      <div style="min-width:0">
+        <h1 class="run-name" id="runName">Fastbreak</h1>
+        <div class="run-meta" id="runMeta">A carregar…</div>
+      </div>
+      <button class="me-btn" id="meBtn" type="button" data-action="goto" data-tab="ajustes" aria-label="O meu perfil"></button>
+    </header>
+    <main>
+      <section role="tabpanel" id="tab-hoje" aria-labelledby="t-hoje"></section>
+      <section role="tabpanel" id="tab-run" aria-labelledby="t-run" hidden></section>
+      <section role="tabpanel" id="tab-plantel" aria-labelledby="t-plantel" hidden></section>
+      <section role="tabpanel" id="tab-grupo" aria-labelledby="t-grupo" hidden></section>
+      <section role="tabpanel" id="tab-ajustes" aria-labelledby="t-ajustes" hidden></section>
+    </main>
+  </div>
+  <nav class="tabbar" aria-label="Secções">
+    <div class="tabbar-in" role="tablist">
+      <button class="tab" role="tab" id="t-hoje" aria-controls="tab-hoje" aria-selected="true" data-tab="hoje" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Hoje</button>
+      <button class="tab" role="tab" id="t-run" aria-controls="tab-run" aria-selected="false" data-tab="run" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Run</button>
+      <button class="tab" role="tab" id="t-plantel" aria-controls="tab-plantel" aria-selected="false" data-tab="plantel" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Plantel</button>
+      <button class="tab" role="tab" id="t-grupo" aria-controls="tab-grupo" aria-selected="false" data-tab="grupo" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Grupo</button>
+      <button class="tab" role="tab" id="t-ajustes" aria-controls="tab-ajustes" aria-selected="false" data-tab="ajustes" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Ajustes</button>
+    </div>
+  </nav>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <button class="sheet-bg" type="button" aria-label="Fechar" data-action="close-sheet"></button>
+  <div class="sheet-panel" role="dialog" aria-modal="true" id="sheetPanel"></div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="config.js"></script>
+<script src="core.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

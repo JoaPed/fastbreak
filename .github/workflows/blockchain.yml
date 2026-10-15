@@ -1,0 +1,21 @@
+name: Fast Break na blockchain
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # de 30 em 30 minutos
+  workflow_dispatch:
+    inputs:
+      backfill: { description: 'Blocos para trás (ex.: 300000 ≈ 3,5 dias). Vazio = continuar de onde ficou', default: '', required: false }
+concurrency: { group: flow, cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --omit=dev
+      - run: node scripts/sync-fastbreak.mjs ${{ inputs.backfill && format('--backfill {0}', inputs.backfill) || '' }}
