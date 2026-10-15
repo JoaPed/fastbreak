@@ -1,5 +1,5 @@
 // Supabase falso, em memória, só para testar o site no navegador (test/ui_test.py).
-const KEYS = { members: ['user_id'], profiles: ['user_id'], runs: ['id'], run_days: ['run_id', 'date'], nba_players: ['id'], odds_days: ['date'], chain_runs: ['id'], chain_games: ['id'], chain_results: ['user_id', 'game_id'], user_runs: ['user_id', 'run_id'], summaries: ['user_id', 'run_id'], settings: ['key'] };
+const KEYS = { members: ['user_id'], profiles: ['user_id'], runs: ['id'], run_days: ['run_id', 'date'], nba_players: ['id'], nba_teams: ['id'], odds_days: ['date'], chain_runs: ['id'], chain_games: ['id'], chain_results: ['user_id', 'game_id'], user_runs: ['user_id', 'run_id'], summaries: ['user_id', 'run_id'], settings: ['key'] };
 const db = window.__FAKE_DB = window.__FAKE_DB || { tables: {}, users: [], session: null, calls: [] };
 Object.keys(KEYS).forEach(t => { db.tables[t] = db.tables[t] || []; });
 const clone = o => JSON.parse(JSON.stringify(o));

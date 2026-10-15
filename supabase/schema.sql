@@ -57,6 +57,13 @@ create table if not exists public.nba_players (
   updated_at timestamptz not null default now()
 );
 
+-- O que cada equipa concede e marca por jogo (últimos 10 jogos; id 'NBA' = média da liga)
+create table if not exists public.nba_teams (
+  id text primary key,
+  stats jsonb not null default '{}'::jsonb,       -- {n, allowed: {pts, reb, ...}, scored: {...}, last}
+  updated_at timestamptz not null default now()
+);
+
 -- Odds por dia de jogos (data da NBA, hora de Nova Iorque)
 create table if not exists public.odds_days (
   date date primary key,
@@ -229,6 +236,7 @@ alter table public.job_state enable row level security;
 alter table public.runs enable row level security;
 alter table public.run_days enable row level security;
 alter table public.nba_players enable row level security;
+alter table public.nba_teams enable row level security;
 alter table public.odds_days enable row level security;
 alter table public.chain_runs enable row level security;
 alter table public.chain_games enable row level security;
@@ -254,7 +262,7 @@ create policy profiles_update on public.profiles for update to authenticated usi
 do $$
 declare t text;
 begin
-  foreach t in array array['runs', 'run_days', 'nba_players', 'odds_days'] loop
+  foreach t in array array['runs', 'run_days', 'nba_players', 'nba_teams', 'odds_days'] loop
     execute format('drop policy if exists %I on public.%I', t || '_read', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member())', t || '_read', t);
     execute format('drop policy if exists %I on public.%I', t || '_admin', t);

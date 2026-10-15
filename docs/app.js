@@ -29,7 +29,7 @@ const S = {
   group: { profiles: [], summaries: [], members: [], chain: [] },
   tab: 'hoje', result: null, calcError: null, pendingUses: {}, filter: '', sheetBack: null,
   invite: null, lastSummary: '', loading: true,
-  acc: 'main', multi: null, smDraft: null,
+  acc: 'main', multi: null, smDraft: null, teams: {}, cmpSort: { col: 'proj', dir: -1 },
 };
 
 // ---------- utilidades ----------
@@ -196,11 +196,13 @@ async function enterApp() {
   S.loading = false; schedule();
 }
 async function loadShared() {
-  const [runs, players, chainRuns] = await Promise.all([
+  const [runs, players, chainRuns, teams] = await Promise.all([
     q(sb.from('runs').select('*').order('start_date', { ascending: false })),
     fetchAll('nba_players', 'id,name,team,avg,gp,updated_at'),
     q(sb.from('chain_runs').select('*').order('run_start', { ascending: false }).limit(40)),
+    q(sb.from('nba_teams').select('id,stats')).catch(() => []), // o que cada equipa concede (sem a tabela: vazio)
   ]);
+  S.teams = {}; (teams || []).forEach(t => { S.teams[t.id] = t.stats || {}; });
   S.runs = runs || [];
   S.players = new Map((players || []).map(p => [String(p.id), p]));
   S.chainRuns = chainRuns || [];
@@ -400,11 +402,11 @@ function compute() {
       const accs = accounts();
       if (!accs.some(a => a.id === S.acc)) S.acc = 'main';
       const base = engineInputs('main');
-      S.multi = FB.planGroup(base.run, accs.map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); return { key: a.id, roster: x.roster, plan: x.plan }; }), base.odds);
+      S.multi = FB.planGroup(base.run, accs.map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); return { key: a.id, roster: x.roster, plan: x.plan }; }), base.odds, { teams: S.teams });
       S.result = S.multi.byKey[S.acc];
     } else {
       S.acc = 'main';
-      const x = engineInputs('main'); S.result = FB.planRun(x.run, x.roster, x.odds, x.plan);
+      const x = engineInputs('main'); S.result = FB.planRun(x.run, x.roster, x.odds, x.plan, { teams: S.teams });
     }
   } catch (e) { console.error(e); S.calcError = 'Erro no cálculo: ' + (e && e.message); }
 }
@@ -561,12 +563,12 @@ function transfersCard(onlyNow) {
 function evalAlt(mod) {
   if (!S.multi) {
     const x = engineInputs('main'), plan = clone(x.plan); mod(plan);
-    const model = FB.buildModel(x.run, x.roster, x.odds, plan), res = FB.optimize(model);
+    const model = FB.buildModel(x.run, x.roster, x.odds, plan, { teams: S.teams }), res = FB.optimize(model);
     return { res, total: res.objective };
   }
   const base = engineInputs('main');
   const list = accounts().map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); let plan = x.plan; if (a.id === S.acc) { plan = clone(plan); mod(plan); } return { key: a.id, roster: x.roster, plan }; });
-  const g = FB.planGroup(base.run, list, base.odds);
+  const g = FB.planGroup(base.run, list, base.odds, { teams: S.teams });
   return { res: g.byKey[S.acc].normal, total: g.objective, group: g };
 }
 const altMods = {
@@ -920,6 +922,77 @@ function closeSheet() { $('sheet').hidden = true; $('sheetPanel').innerHTML = ''
 const closeRow = back => '<div class="btns">' + (back ? '<button class="btn quiet" type="button" data-action="sheet-back">Voltar</button>' : '<span></span>') + '<button class="btn quiet" type="button" data-action="close-sheet">Fechar</button></div>';
 function dayInfo(date) { const r = S.result; const md = r && r.model.days.find(x => x.day.date === date); const d = md && view().days.find(x => x.date === date); return { md, d }; }
 
+// ---- comparar os jogadores de um dia (forma, minutos, lançamentos, adversário) ----
+const GK = ['min', 'pts', 'reb', 'ast', 'fg3', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'tov', 'stl', 'blk', 'oreb']; // ordem dos jogos guardados
+const nn = x => (x != null && x !== '' && isFinite(+x) ? +x : null);
+const ratio = (a, b) => (nn(a) != null && nn(b) > 0 ? 100 * a / b : null);
+// "Shai Gilgeous-Alexander" → "S. Gilgeous-Alexander" (para colunas estreitas)
+const shortName = n => { const t = String(n || '').trim().split(/\s+/); return t.length > 1 ? t[0][0] + '. ' + t.slice(1).join(' ') : t[0] || ''; };
+function compareCard(md, d, date) {
+  const r = S.result, o = (md.day.objectives || [])[0], v = view();
+  if (!o || !md.elig.length) return '';
+  const terms = FB.statTerms(o.stat).map(t => t.s), has = list => terms.some(t => list.includes(t));
+  const locks = new Set(((curPlan().locks || {})[date]) || []);
+  const rows = md.elig.map(pi => {
+    const p = r.model.players[pi], info = md.info[pi][0], a = p.avg || {}, f = a.form || null, l5 = (f && f.l5) || {}, fi = FB.formInfo(p, o.stat) || {};
+    const g = FB.gameOf(md.day, p.team), opp = g ? (g[0] === p.team ? g[1] : g[0]) : null, home = g ? g[1] === p.team : false, m = FB.matchup(S.teams, opp, o.stat);
+    return { p, info, a, f, l5, fi, g, opp, home, m, inL: d.lineup.includes(p.id), locked: locks.has(p.id), planned: (v.usage || {})[p.id] || 0 };
+  });
+  // colunas: [id, título, valor para ordenar, html, ajuda]
+  const two = (now, season, fmt) => (now == null && season == null ? '<span class="muted">–</span>' : '<b>' + (now != null ? fmt(now) : '–') + '</b>' + (season != null ? '<small>' + fmt(season) + '</small>' : ''));
+  const one = (x, fmt) => (x == null ? '<span class="muted">–</span>' : fmt(x));
+  const pf = x => Math.round(x) + '%';
+  const cols = [
+    ['proj', 'Proj.', x => x.info.mu, x => '<b>' + f1(x.info.mu) + '</b>' + (x.info.src === 'odds' ? '<small>linha ' + f1(x.info.line) + '</small>' : x.info.src === 'proxy' ? '<small>linha ' + esc((STATS[x.info.via] || {}).short || '') + '</small>' : '<small>' + esc(srcShort(x.info)) + '</small>'), 'O que o plano espera hoje (odds se houver; senão médias com forma e adversário)'],
+    ['l5', 'Últ. 5', x => x.fi.l5, x => one(x.fi.l5, f1), 'Média nos últimos 5 jogos'],
+    ['l10', 'Últ. 10', x => x.fi.l10, x => one(x.fi.l10, f1), 'Média nos últimos 10 jogos'],
+    ['season', 'Época', x => x.fi.season, x => one(x.fi.season, f1), 'Média da época'],
+    ['min', 'MIN', x => nn(x.l5.min) != null ? x.l5.min : nn(x.a.min), x => two(nn(x.l5.min), nn(x.a.min), f0), 'Minutos: últimos 5 jogos (em baixo, época)'],
+  ];
+  if (has(['pts', 'fgm', 'fga', 'fg3', 'fg3a', 'pip', 'ftm', 'fta'])) cols.push(
+    ['fga', 'FGA', x => nn(x.l5.fga) != null ? x.l5.fga : nn(x.a.fga), x => two(nn(x.l5.fga), nn(x.a.fga), f1), 'Lançamentos tentados'],
+    ['fgp', 'FG%', x => ratio(x.l5.fgm, x.l5.fga) != null ? ratio(x.l5.fgm, x.l5.fga) : ratio(x.a.fgm, x.a.fga), x => two(ratio(x.l5.fgm, x.l5.fga), ratio(x.a.fgm, x.a.fga), pf), 'Percentagem de lançamentos'],
+    ['fg3a', '3PA', x => nn(x.l5.fg3a) != null ? x.l5.fg3a : nn(x.a.fg3a), x => two(nn(x.l5.fg3a), nn(x.a.fg3a), f1), 'Triplos tentados'],
+    ['fg3p', '3P%', x => ratio(x.l5.fg3, x.l5.fg3a) != null ? ratio(x.l5.fg3, x.l5.fg3a) : ratio(x.a.fg3, x.a.fg3a), x => two(ratio(x.l5.fg3, x.l5.fg3a), ratio(x.a.fg3, x.a.fg3a), pf), 'Percentagem de triplos'],
+    ['fta', 'FTA', x => nn(x.l5.fta) != null ? x.l5.fta : nn(x.a.fta), x => two(nn(x.l5.fta), nn(x.a.fta), f1), 'Lances livres tentados']);
+  if (has(['reb', 'oreb', 'dreb'])) cols.push(
+    ['oreb', 'OREB', x => nn(x.l5.oreb) != null ? x.l5.oreb : nn(x.a.oreb), x => two(nn(x.l5.oreb), nn(x.a.oreb), f1), 'Ressaltos ofensivos'],
+    ['dreb', 'DREB', x => nn(x.l5.dreb) != null ? x.l5.dreb : nn(x.a.dreb), x => two(nn(x.l5.dreb), nn(x.a.dreb), f1), 'Ressaltos defensivos']);
+  if (has(['ast', 'tov'])) cols.push(
+    ['ast', 'AST', x => nn(x.l5.ast) != null ? x.l5.ast : nn(x.a.ast), x => two(nn(x.l5.ast), nn(x.a.ast), f1), 'Assistências'],
+    ['tov', 'TOV', x => nn(x.l5.tov) != null ? x.l5.tov : nn(x.a.tov), x => two(nn(x.l5.tov), nn(x.a.tov), f1), 'Perdas de bola']);
+  if (has(['stl', 'blk'])) cols.push(
+    ['stl', 'STL', x => nn(x.l5.stl) != null ? x.l5.stl : nn(x.a.stl), x => two(nn(x.l5.stl), nn(x.a.stl), f1), 'Roubos de bola'],
+    ['blk', 'BLK', x => nn(x.l5.blk) != null ? x.l5.blk : nn(x.a.blk), x => two(nn(x.l5.blk), nn(x.a.blk), f1), 'Desarmes de lançamento']);
+  cols.push(
+    ['opp', 'Adv.', x => (x.m ? x.m.f : 1), x => (x.m ? '<b class="' + (x.m.f >= 1.03 ? 'up' : x.m.f <= 0.97 ? 'down' : '') + '">' + (x.m.f >= 1 ? '+' : '−') + Math.round(Math.abs(x.m.f - 1) * 100) + '%</b><small>' + esc(x.opp) + '</small>' : '<span class="muted">–</span><small>' + (x.g && x.g[2] ? hm(x.g[2]) : '') + '</small>'), 'Quanto o adversário concede desta estatística face à média da liga (últimos 10 jogos)'],
+    ['uses', 'Usos', x => x.p.uses || 0, x => '<b>' + (x.p.uses || 0) + '</b><small>plano ' + x.planned + '</small>', 'Usos restantes e quantos o plano usa até ao fim']);
+  const sort = S.cmpSort || { col: 'proj', dir: -1 }, col = cols.find(c => c[0] === sort.col) || cols[0];
+  rows.sort((x, y) => { const a = col[2](x), b = col[2](y); if (a == null && b == null) return 0; if (a == null) return 1; if (b == null) return -1; return (a - b) * sort.dir; });
+  const head = '<tr><th class="sticky">Jogador</th>' + cols.map(c => '<th><button type="button" data-action="cmp-sort" data-col="' + c[0] + '" data-date="' + date + '" title="' + esc(c[4]) + '" aria-sort="' + (sort.col === c[0] ? (sort.dir < 0 ? 'descending' : 'ascending') : 'none') + '">' + c[1] + (sort.col === c[0] ? (sort.dir < 0 ? ' ↓' : ' ↑') : '') + '</button></th>').join('') + '</tr>';
+  const body = rows.map(x => '<tr class="' + (x.inL ? 'inl' : '') + '" data-action="player" data-id="' + esc(x.p.id) + '" data-date="' + date + '" data-back="day" tabindex="0"><th class="sticky"><span class="cn" title="' + esc(x.p.name) + '">' + (x.locked ? icoLock : x.inL ? '<i class="dot on" title="no lineup do plano"></i>' : '') + esc(shortName(x.p.name)) + '</span><small>' + esc(x.p.team) + (x.opp ? (x.home ? ' vs ' : ' @ ') + esc(x.opp) : '') + (x.info.status !== 'ok' ? ' · ' + esc(STATUS[x.info.status].label) : '') + '</small></th>' + cols.map(c => '<td>' + c[3](x) + '</td>').join('') + '</tr>').join('');
+  const noForm = !rows.some(x => x.f);
+  return '<div class="card"><div class="list-head"><h2>Comparar jogadores</h2><span class="small muted">' + rows.length + ' jogam · toca para ver</span></div>' +
+    '<div class="cmp-wrap" id="cmpWrap"><table class="cmp"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+    '<div class="row small muted" style="display:block">Números grandes: últimos 5 jogos; pequenos: época. <i class="dot on"></i> no lineup do plano. Toca num título para ordenar.' + (noForm ? ' A forma aparece depois dos primeiros jogos da época; até lá vês as médias da época.' : '') + '</div></div>';
+}
+// últimos jogos de um jogador (guardados pela tarefa diária)
+function gamesTable(a) {
+  const games = (((a || {}).form) || {}).games;
+  if (!games || !games.length) return '';
+  const ix = k => 2 + GK.indexOf(k), val = (g, k) => g[ix(k)];
+  const pair = (g, m, t) => (val(g, m) != null ? val(g, m) + '-' + val(g, t) : '–');
+  return '<div class="card"><div class="list-head"><h2>Últimos jogos</h2></div><div class="cmp-wrap"><table class="cmp games"><thead><tr><th class="sticky">Data</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th><th>FG</th><th>3PT</th><th>FT</th><th>TO</th><th>STL</th><th>BLK</th></tr></thead><tbody>' +
+    games.map(g => '<tr><th class="sticky"><span class="cn">' + dShort(g[0]) + '</span><small>' + (g[1] ? esc(g[1]) : '') + '</small></th>' + ['min', 'pts', 'reb', 'ast', 'fg3'].map(k => '<td>' + (val(g, k) != null ? val(g, k) : '–') + '</td>').join('') +
+      '<td>' + pair(g, 'fgm', 'fga') + '</td><td>' + pair(g, 'fg3', 'fg3a') + '</td><td>' + pair(g, 'ftm', 'fta') + '</td>' + ['tov', 'stl', 'blk'].map(k => '<td>' + (val(g, k) != null ? val(g, k) : '–') + '</td>').join('') + '</tr>').join('') + '</tbody></table></div></div>';
+}
+function matchupLine(p, day, stat) {
+  const g = FB.gameOf(day, p.team); if (!g) return '';
+  const opp = g[0] === p.team ? g[1] : g[0], m = FB.matchup(S.teams, opp, stat), t = S.teams[opp], lg = S.teams.NBA;
+  if (!m) return '';
+  const sum = obj => FB.statTerms(stat).reduce((acc, x) => acc + x.sign * (+((obj || {})[x.s]) || 0), 0);
+  return '<div class="small muted">Adversário: ' + esc(opp) + ' concede ' + f1(sum(t.allowed)) + ' ' + esc(statShort(stat)) + ' por jogo nos últimos ' + t.n + ' (liga ' + f1(sum(lg.allowed)) + '): <b class="' + (m.f >= 1.03 ? 'up' : m.f <= 0.97 ? 'down' : '') + '">' + (m.f >= 1 ? '+' : '−') + Math.round(Math.abs(m.f - 1) * 100) + '%</b>. Sem odds, o plano ajusta a média em ' + (m.used >= 1 ? '+' : '−') + Math.round(Math.abs(m.used - 1) * 100) + '%.</div>';
+}
 function daySheet(date) {
   const i = S.days.findIndex(x => x.date === date); if (i < 0) return;
   const day = S.days[i], o = (day.objectives || [])[0];
@@ -934,14 +1007,12 @@ function daySheet(date) {
   const r = S.result, v = view();
   const locks = new Set(((curPlan().locks || {})[date]) || []), bans = ((curPlan().bans || {})[date]) || [];
   const inLine = d.lineup.map(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], p = r.model.players[pi]; return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '" data-back="day"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '</div></div><div class="pv"><div class="v num">' + f1(info.mu) + '</div><div class="u">' + esc(o ? statShort(o.stat) : '') + '</div></div></button></li>'; }).join('');
-  const others = md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).map(pi => ({ p: r.model.players[pi], mu: md.info[pi][0].mu })).sort((a, b) => b.mu - a.mu);
-  const otherRows = others.map(({ p, mu }) => { const left = (p.uses || 0) - (v.usage[p.id] || 0); return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps num">' + f1(mu) + ' ' + esc(o ? statShort(o.stat) : '') + ' · ' + (left > 0 ? left + ' uso' + (left > 1 ? 's' : '') + ' livre' + (left > 1 ? 's' : '') : 'usos todos no plano') + '</div></div><button class="btn small" type="button" data-action="lock" data-id="' + esc(p.id) + '" data-date="' + date + '"' + ((p.uses || 0) < 1 ? ' disabled' : '') + '>Fixar</button></li>'; }).join('');
   openSheet('<h3>Dia ' + (i + 1) + ' · ' + esc(objsText(day)) + '</h3>' + (d.perPlayer ? '<div class="note">Objetivo por jogador: o plano calcula-o como total. Confirma o lineup à mão.</div>' : '') +
     '<div class="kv"><div><div class="label">Vitória</div><div class="v num c-' + tone(d.P) + '">' + (d.noObjective ? '—' : pct(d.P)) + '</div></div><div><div class="label">Projeção</div><div class="v num">' + (d.totals[0] ? f0(d.totals[0].mu) : '–') + '</div></div><div><div class="label">Jogos</div><div class="v num">' + (day.games || []).length + '</div></div></div>' +
     '<div class="card"><div class="list-head"><h2>Lineup do plano</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div><ul class="list">' + (inLine || '<li class="row muted small">Nenhum jogador do plantel joga neste dia.</li>') + '</ul></div>' +
     (locks.size ? '<div class="small">Fixados: ' + [...locks].map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">soltar</button>').join(' · ') + '</div>' : '') +
     (bans.length ? '<div class="small">Tirados: ' + bans.map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + date + '">repor</button>').join(' · ') + '</div>' : '') +
-    (otherRows ? '<div class="card"><div class="list-head"><h2>Também jogam</h2><span class="small muted">fixar obriga o plano a usá-lo</span></div><ul class="list">' + otherRows + '</ul></div>' : '') + closeRow());
+    compareCard(md, d, date) + closeRow());
 }
 function playerSheet(id, date, back) {
   const r = S.result, pi = r.model.pIndex.get(id), p = r.model.players[pi];
@@ -966,9 +1037,9 @@ function playerSheet(id, date, back) {
   } else if (live) liveHtml = '<div class="note info">Ainda não está no lineup que submeteste. Se fizeres a troca no Top Shot, carrega em <b>Fiz a troca</b> no ecrã Hoje.</div>';
   openSheet('<h3>' + esc(p.name) + '</h3><div class="small muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · Dia ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
     '<div class="kv"><div><div class="label">Esperado</div><div class="v num">' + f1(info.mu) + '</div><div class="small muted">' + esc(statShort(o.stat)) + '</div></div><div><div class="label">Usos</div><div class="v num">' + (p.uses || 0) + '</div><div class="small muted">restantes</div></div><div><div class="label">No plano</div><div class="v num">' + inPlan.length + '</div><div class="small muted">' + (inPlan.length ? 'dias ' + inPlan.join(', ') : '—') + '</div></div></div>' +
-    liveHtml + '<div class="small muted">' + src + (info.status !== 'ok' ? ' Estado: ' + esc(STATUS[info.status].label) + ' (' + Math.round(info.pPlay * 100) + '% de jogar).' : '') + '</div>' + formLine(p, o.stat) +
+    liveHtml + '<div class="small muted">' + src + (info.status !== 'ok' ? ' Estado: ' + esc(STATUS[info.status].label) + ' (' + Math.round(info.pPlay * 100) + '% de jogar).' : '') + '</div>' + formLine(p, o.stat) + matchupLine(p, day, o.stat) + gamesTable(p.avg) +
     '<div class="stack">' + (locked ? '<button class="btn" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">Deixar de fixar neste dia</button>' : '<button class="btn primary" type="button" data-action="lock" data-id="' + esc(id) + '" data-date="' + date + '">Fixar neste dia</button>') +
-    '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Tirar deste dia</button></div>' + closeRow(back));
+    '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Tirar deste dia</button></div>' + closeRow(back), back);
 }
 function rosterSheet(id) {
   const e = S.mine.roster[id]; if (!e) return;
@@ -990,7 +1061,7 @@ function rosterSheet(id) {
     (groupMode() ? '<div class="small muted">Usos restantes em cada conta</div>' : '') + usesRows +
     '<div><div class="label" style="margin-bottom:6px">Estado</div><div class="chips" role="group" aria-label="Estado">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
     (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo' + (c.gp ? ' (' + c.gp + ' jogos)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimativa a partir das outras médias</div>' : '') + '</div>' : '<div class="note info">Ainda sem médias para este jogador. Entram quando ele jogar.</div>') +
-    (avg && avg.form ? '<div class="small muted">Últimos 5 jogos: ' + ['pts', 'reb', 'ast', 'fg3'].filter(k => avg.form.l5 && avg.form.l5[k] != null).map(k => STATS[k].short + ' ' + f1(avg.form.l5[k])).join(' · ') + ' (último jogo ' + dShort(avg.form.last) + ')</div>' : '') +
+    (avg && avg.form ? '<div class="small muted">Últimos 5 jogos: ' + ['pts', 'reb', 'ast', 'fg3'].filter(k => avg.form.l5 && avg.form.l5[k] != null).map(k => STATS[k].short + ' ' + f1(avg.form.l5[k])).join(' · ') + ' (último jogo ' + dShort(avg.form.last) + ')</div>' : '') + gamesTable(avg) +
     '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Tirar do plantel</button>' + closeRow());
 }
 function addPlayerSheet() {
@@ -1381,6 +1452,8 @@ document.addEventListener('submit', async e => {
   if (f.id === 'inviteForm') { const c = $('invCode').value.trim(); if (await adminWrite(sb.rpc('set_invite_code', { code: c }), 'Código mudado.')) { S.invite = c; renderAjustes(); } }
   if (f.id === 'newRunForm') createRun(f);
 });
+// linhas de tabela que abrem fichas: Enter também abre
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('tr[data-action]')) e.target.click(); });
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-action], [data-tab]');
   if (!b || b.disabled) return;
@@ -1438,6 +1511,13 @@ document.addEventListener('click', async e => {
     case 'col-to-roster': collectionToRoster(); break;
     case 'col-sheet': colSheet(); break;
     case 'alts': await altSheet(); break;
+    case 'cmp-sort': {
+      const c = b.dataset.col, cur = S.cmpSort || {};
+      S.cmpSort = { col: c, dir: cur.col === c ? -cur.dir : -1 };
+      const top = $('sheetPanel').scrollTop, left = ($('cmpWrap') || {}).scrollLeft || 0;
+      daySheet(date); $('sheetPanel').scrollTop = top; if ($('cmpWrap')) $('cmpWrap').scrollLeft = left;
+      break;
+    }
     case 'alt-use': altUse(b.dataset.i); break;
     case 'alt-reset': { const nd = nextDay(); if (nd) { planPatch({ locks: { [nd.date]: [] } }); closeSheet(); toast('Voltaste ao lineup sugerido.'); } break; }
     case 'form-level': formLevel = b.dataset.level; try { localStorage.setItem('fb-form', formLevel); } catch (e) {} FB.setForm(+formLevel); schedule(); renderAjustes(); toast('Peso da forma: ' + FORM_LEVELS.find(x => x[0] === formLevel)[1] + '.'); break;

@@ -75,6 +75,9 @@ r = await as('b', `update public.profiles set flow_address = 'xyz'`); expect('en
 r = await as('b', `update public.profiles set smurfs = '[{"id":"s1","flow_address":"0x0000000000000001"},{"id":"s2"}]'`); expect('B guarda 2 contas smurf', !r.error, r);
 r = await as('b', `update public.profiles set smurfs = '[{"id":"s1"},{"id":"s2"},{"id":"s3"}]'`); expect('mais de 2 smurfs recusado', !!r.error, r);
 r = await as('b', `update public.profiles set collection = '{"players":{"x":{"moments":2}}}'`); expect('B guarda a coleção', !r.error, r);
+r = await db.query(`insert into public.nba_teams (id, stats) values ('BOS', '{"n":10}')`); r = await as('b', `select id from public.nba_teams`); expect('membro lê os dados das equipas', r.rows?.length === 1, r);
+r = await as('b', `update public.nba_teams set stats = '{}'`); r = await as('b', `select stats from public.nba_teams`); expect('membro não altera os dados das equipas', r.rows?.[0]?.stats?.n === 10, r);
+r = await as('c', `select id from public.nba_teams`); expect('não-membro não lê os dados das equipas', !r.rows?.length, r);
 r = await db.query(`insert into public.chain_results (user_id, game_id, account, win) values ('${U.b}', 'g1', 'main', true), ('${U.b}', 'g1', 's1', false)`); expect('resultados da principal e da smurf no mesmo dia', true, r);
 r = await as('a', `select account from public.chain_results where user_id = '${U.b}' order by account`); expect('o grupo vê os resultados por conta', r.rows?.length === 2 && r.rows[1].account === 's1', r);
 

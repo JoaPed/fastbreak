@@ -202,6 +202,7 @@ export function parseEspnScoreboard(json) {
 export function parseEspnBox(json) {
   const out = {};
   for (const team of (((json || {}).boxscore || {}).players) || []) {
+    const abbr = espnTeam((team.team || {}).abbreviation);
     for (const st of team.statistics || []) {
       const keys = st.keys || [], labels = (st.labels || []).map(l => String(l).toUpperCase());
       const idx = (k, l) => { let i = keys.findIndex(x => x === k || String(x).startsWith(k)); if (i < 0) i = labels.indexOf(l); return i; };
@@ -213,6 +214,7 @@ export function parseEspnBox(json) {
         if (a.didNotPlay || !(a.stats || []).length) continue;
         const v = {};
         for (const [k, [i, part]] of Object.entries(I)) if (i >= 0) v[k] = parseFloat(String(a.stats[i] || '0').split('-')[part]) || 0;
+        if (abbr) v.team = abbr;
         out[norm((a.athlete || {}).displayName)] = v;
       }
     }
@@ -224,24 +226,65 @@ export function parseEspnBox(json) {
 // Junta as estatísticas de um jogo (parseEspnBox) ao registo de cada jogador; guarda só os últimos 10 jogos
 export function addBoxForm(state, box, date) {
   let n = 0;
+  const teams = [...new Set(Object.values(box || {}).map(v => v.team).filter(Boolean))];
+  const oppOf = t => (teams.length === 2 ? teams.find(x => x !== t) : null);
+  addTeamGame(state, box, date, teams);
   for (const [nm, v] of Object.entries(box || {})) {
     if (!(v.min > 0)) continue;
     const key = nm.replace(/ /g, '-'), p = state.players[key];
     if (!p) continue;
     const g = { date };
+    if (v.team) { g.team = v.team; g.opp = oppOf(v.team); }
     for (const k of AVG_KEYS) if (isNum(v[k])) g[k] = +v[k];
     p.log = (p.log || []).filter(x => x.date !== date).concat([g]).sort((x, y) => x.date.localeCompare(y.date)).slice(-10);
     n++;
   }
   return n;
 }
-// Médias dos últimos 5 e 10 jogos (o motor mistura-as com as da época)
+// Médias dos últimos 5 e 10 jogos (o motor mistura-as com as da época) e os últimos 5 jogos, para mostrar
+export const GAME_KEYS = ['min', 'pts', 'reb', 'ast', 'fg3', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'tov', 'stl', 'blk', 'oreb'];
+const meanOf = list => { const o = {}; for (const k of AVG_KEYS) { const xs = list.map(g => g[k]).filter(isNum); if (xs.length) o[k] = Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100; } return o; };
 export function formOf(p) {
   const log = (p && p.log) || [];
   if (!log.length) return null;
-  const mean = list => { const o = {}; for (const k of AVG_KEYS) { const xs = list.map(g => g[k]).filter(isNum); if (xs.length) o[k] = Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100; } return o; };
   const l10 = log.slice(-10), l5 = log.slice(-5);
-  return { n10: l10.length, n5: l5.length, l10: mean(l10), l5: mean(l5), last: log[log.length - 1].date };
+  // jogos: [data, adversário, ...GAME_KEYS] (compacto, do mais recente para o mais antigo)
+  const games = l5.slice().reverse().map(g => [g.date, g.opp || null].concat(GAME_KEYS.map(k => (isNum(g[k]) ? Math.round(g[k]) : null))));
+  return { n10: l10.length, n5: l5.length, l10: meanOf(l10), l5: meanOf(l5), last: log[log.length - 1].date, games };
+}
+// Equipas: totais de cada jogo (soma dos jogadores) a favor e contra, últimos 15 jogos
+function addTeamGame(state, box, date, teams) {
+  if (teams.length !== 2) return;
+  const tot = {};
+  for (const v of Object.values(box || {})) {
+    if (!v.team || !(v.min > 0)) continue;
+    const t = (tot[v.team] = tot[v.team] || {});
+    for (const k of AVG_KEYS) if (k !== 'min' && isNum(v[k])) t[k] = (t[k] || 0) + +v[k];
+  }
+  state.teams = state.teams || {};
+  for (const t of teams) {
+    const o = teams.find(x => x !== t);
+    if (!tot[t] || !tot[o]) continue;
+    const e = (state.teams[t] = state.teams[t] || { log: [] });
+    e.log = e.log.filter(x => x.date !== date).concat([{ date, opp: o, for: tot[t], against: tot[o] }]).sort((a, b) => a.date.localeCompare(b.date)).slice(-15);
+  }
+}
+// O que cada equipa concede por jogo (últimos 10) e a média da liga, para comparar adversários
+export function teamRows(state) {
+  const rows = [], all = [];
+  for (const [id, e] of Object.entries((state && state.teams) || {})) {
+    const l10 = (e.log || []).slice(-10);
+    if (!l10.length) continue;
+    const allowed = meanOf(l10.map(g => g.against)), scored = meanOf(l10.map(g => g.for));
+    rows.push({ id, stats: { n: l10.length, allowed, scored, last: l10[l10.length - 1].date } });
+    all.push(allowed);
+  }
+  if (all.length) {
+    const league = {};
+    for (const k of AVG_KEYS) { const xs = all.map(a => a[k]).filter(isNum); if (xs.length) league[k] = Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100; }
+    rows.push({ id: 'NBA', stats: { n: all.length, allowed: league } });
+  }
+  return rows;
 }
 
 // ---------- odds (The Odds API) ----------
