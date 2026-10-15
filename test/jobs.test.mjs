@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -98,6 +98,17 @@ const bx = parseEspnBox(summary);
 ok('ESPN: estatísticas de um jogo por jogador', bx['domantas sabonis'].pts === 12 && bx['domantas sabonis'].reb === 7 && bx['domantas sabonis'].ast === 8 && bx['domantas sabonis'].fg3 === 0 && bx['domantas sabonis'].stl === 2 && !bx['doug mcdermott'], bx);
 const ds = bx['domantas sabonis'];
 ok('ESPN: lançamentos, tentados, perdas de bola e ressaltos ofensivos', ds.fgm === 6 && ds.fga === 7 && ds.fg3a === 0 && ds.ftm === 0 && ds.fta === 1 && ds.tov === 2 && ds.oreb === 3 && ds.dreb === 4, ds);
+// forma: últimos 10 jogos a partir das estatísticas de cada jogo
+const fst = { players: { 'domantas-sabonis': { name: 'Domantas Sabonis' } } };
+for (let k = 1; k <= 12; k++) {
+  const day = '2026-11-' + String(k).padStart(2, '0');
+  const sm = JSON.parse(JSON.stringify(summary)); sm.boxscore.players[0].statistics[0].athletes[0].stats[1] = String(10 + k); // pontos 11..22
+  addBoxForm(fst, parseEspnBox(sm), day);
+}
+addBoxForm(fst, parseEspnBox(summary), '2026-11-12'); // o mesmo jogo lido duas vezes não conta a dobrar
+const fm = formOf(fst.players['domantas-sabonis']);
+ok('forma: últimos 10 e últimos 5 jogos', fm.n10 === 10 && fm.n5 === 5 && fm.l5.pts === (18 + 19 + 20 + 21 + 12) / 5 && fm.l10.reb === 7 && fm.last === '2026-11-12', fm);
+ok('forma: quem não jogou não entra e jogador desconhecido é ignorado', addBoxForm(fst, { 'ninguem conhecido': { min: 30, pts: 10 }, 'domantas sabonis': { min: 0, pts: 0 } }, '2026-11-13') === 0 && formOf({}) === null);
 ok('chave pelo nome com acentos', playerKey('Nikola Jokić') === 'nikola-jokic' && playerKey("De'Aaron Fox Jr.") === 'deaaron-fox');
 
 // odds

@@ -85,6 +85,25 @@ const rmLive = FB.planRun(mini, ro, { days: {} }, { live: { '2026-11-01': { acti
 ok('jogo a jogo calcula a diferença a partir das estatísticas do jogo', rmLive.normal.days[0].totals[0].known === 8, rmLive.normal.days[0].totals[0]);
 ok('objetivo por jogador fica assinalado', FB.planRun({ name: 't', prizes: [], days: [{ date: '2026-11-01', objectives: [{ stat: 'pts', target: 20, each: true }], games: mini.days[0].games }] }, ro, { days: {} }, {}, { now: Date.parse('2026-10-30T10:00:00Z') }).normal.days[0].perPlayer === true);
 
+// forma: últimos 10 e 5 jogos misturados com a época
+const hot = { name: 'Quente', team: 'BOS', uses: 2, avg: { pts: 20, reb: 6, form: { n10: 10, n5: 5, l10: { pts: 24, reb: 6 }, l5: { pts: 30, reb: 6 } } } };
+FB.setForm(1);
+ok('forma normal: época 50%, últimos 10 30%, últimos 5 20%', Math.abs(FB.avgOf(hot, 'pts').v - (0.5 * 20 + 0.3 * 24 + 0.2 * 30)) < 1e-9, FB.avgOf(hot, 'pts'));
+FB.setForm(0);
+ok('sem forma: só a época', FB.avgOf(hot, 'pts').v === 20);
+FB.setForm(1);
+const few = { name: 'Poucos', avg: { pts: 20, form: { n10: 2, n5: 2, l10: { pts: 30 }, l5: { pts: 30 } } } };
+ok('com poucos jogos a forma pesa menos', FB.avgOf(few, 'pts').v > 20 && FB.avgOf(few, 'pts').v < FB.avgOf(hot, 'pts').v + 1, FB.avgOf(few, 'pts'));
+ok('odds continuam a mandar quando existem', Math.abs(FB.playerDist(hot, 'pts', { pts: { line: 21.5, over: -110, under: -110 } }).mu - 21.5) < 1.5);
+const fi = FB.formInfo(hot, 'pts');
+ok('informação de forma para mostrar', fi.season === 20 && fi.l5 === 30 && fi.l10 === 24 && fi.trend > 0.4, fi);
+// alternativas para hoje
+const seeds = FB.alternativeSeeds(r.model, r.normal);
+ok('alternativas: tudo pelo dia e guardar até 3 jogadores', seeds[0].kind === 'allin' && seeds[0].lineupIdx.length === 5 && seeds.filter(x => x.kind === 'save').length === 3 && seeds.filter(x => x.kind === 'save').every(x => r.normal.days[0].lineupIdx.includes(x.player)), seeds);
+const banDate = r.model.days[0].day.date, banId = r.model.players[seeds[1].player].id;
+const rb = FB.planRun(run, roster, odds, { bans: { [banDate]: [banId] } }, { now: NOW });
+ok('guardar um jogador hoje refaz a run sem ele nesse dia', !rb.normal.days[0].lineup.includes(banId) && violations(rb.normal, rb.model).length === 0);
+
 // várias contas (smurf)
 function groupErrors(g) {
   const errs = [], night = {};

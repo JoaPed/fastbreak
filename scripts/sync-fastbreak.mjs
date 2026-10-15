@@ -3,7 +3,7 @@
 // 2) para cada membro (e as suas contas smurf) com endereço Flow: lineups submetidos, pontos e vitórias;
 // 3) nas runs do site ligadas a uma run da blockchain, preenche os objetivos de cada dia.
 // Uso: node scripts/sync-fastbreak.mjs [--backfill N]   (N = blocos para trás na primeira leitura; ~1 bloco/s)
-import { supa, must, getState, setState, flowScript, flowEvents, flowLatestHeight, etDate, objectivesFromStats, cadence, pool, FASTBREAK } from './lib.mjs';
+import { supa, must, getState, setState, flowScript, flowEvents, flowLatestHeight, etDate, addDays, objectivesFromStats, cadence, pool, fetchJson, parseEspnScoreboard, FASTBREAK } from './lib.mjs';
 
 const sb = await supa();
 const nowS = Math.floor(Date.now() / 1000);
@@ -172,6 +172,27 @@ if (named.length) console.log('Runs conhecidas:', named.map(r => r.name).join(' 
 const statNames = [...new Set(games.flatMap(g => (g.stats || []).map(s => s.name + (s.type === 0 ? ' (cada jogador)' : ''))))];
 if (statNames.length) console.log('Estatísticas usadas nos dias lidos:', statNames.join(', '));
 
+// runs Classic novas na blockchain (a decorrer ou a começar) passam a existir no site sozinhas, já ligadas
+const espnGames = async date => { try { const { json } = await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + date.replace(/-/g, '')); return json ? parseEspnScoreboard(json) : []; } catch (e) { return []; } };
+{
+  const allRuns = await must(sb.from('runs').select('id,name,chain_run_id,prizes,fictitious,start_date'));
+  const linkedIds = new Set(allRuns.map(r => r.chain_run_id).filter(Boolean));
+  const fresh = (await must(sb.from('chain_runs').select('id,name,run_start,run_end')))
+    .filter(c => /classic/i.test(c.name || '') && !linkedIds.has(c.id) && c.run_end && c.run_end > nowS && c.run_start && c.run_start < nowS + 30 * 86400);
+  for (const c of fresh) {
+    const start = etDate(c.run_start * 1000), end = etDate((c.run_end - 12 * 3600) * 1000); // o fim costuma ser de madrugada do dia seguinte
+    const n = (c.name || '').match(/run\s*(\d+)/i);
+    const name = n ? 'Run ' + n[1] + ' · Classic' : c.name;
+    const id = (c.name || 'classic').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+    const prev = allRuns.filter(r => !r.fictitious && (r.prizes || []).length).sort((x, y) => String(y.start_date).localeCompare(String(x.start_date)))[0];
+    await must(sb.from('runs').update({ active: false }).eq('active', true));
+    await must(sb.from('runs').upsert({ id, name, mode: 'classic', start_date: start, end_date: end < start ? start : end, prizes: prev ? prev.prizes : [], active: true, chain_run_id: c.id, fictitious: false }));
+    const dates = []; for (let d = start; d <= end && dates.length < 40; d = addDays(d, 1)) dates.push(d);
+    for (const date of dates) await must(sb.from('run_days').upsert({ run_id: id, date, games: await espnGames(date) }, { onConflict: 'run_id,date', ignoreDuplicates: true }));
+    console.log('Run nova criada a partir da blockchain:', name, '·', start, '→', end, '·', dates.length, 'dias · ligada e ativa' + (prev ? ' · prémios copiados de ' + prev.name : ''));
+  }
+}
+
 const siteRuns = await must(sb.from('runs').select('id,name,chain_run_id').not('chain_run_id', 'is', null));
 for (const run of siteRuns) {
   const cg = await must(sb.from('chain_games').select('*').eq('run_id', run.chain_run_id));
@@ -180,9 +201,12 @@ for (const run of siteRuns) {
   let n = 0;
   for (const g of cg) {
     const date = etDate(g.deadline * 1000), day = byDate.get(date);
-    if (!day) { console.log('  ', run.name, ': dia', date, 'da blockchain não existe no site'); continue; }
     const { objs, unknown } = objectivesFromStats(g.stats);
     if (unknown.length) console.log('  estatística desconhecida em', date, ':', unknown.join(', '));
+    if (!day) { // dia da blockchain que o site ainda não tinha: acrescenta-o
+      await must(sb.from('run_days').insert({ run_id: run.id, date, objectives: objs, chain_game_id: g.id, games: await espnGames(date) }));
+      console.log('  ', run.name, ': dia', date, 'acrescentado a partir da blockchain'); n++; continue;
+    }
     const patch = { chain_game_id: g.id };
     if (objs.length) patch.objectives = objs;
     if (day.chain_game_id === g.id && JSON.stringify(day.objectives) === JSON.stringify(patch.objectives || day.objectives)) continue;

@@ -220,6 +220,30 @@ export function parseEspnBox(json) {
   return out;
 }
 
+// ---------- forma: últimos 10 jogos de cada jogador ----------
+// Junta as estatísticas de um jogo (parseEspnBox) ao registo de cada jogador; guarda só os últimos 10 jogos
+export function addBoxForm(state, box, date) {
+  let n = 0;
+  for (const [nm, v] of Object.entries(box || {})) {
+    if (!(v.min > 0)) continue;
+    const key = nm.replace(/ /g, '-'), p = state.players[key];
+    if (!p) continue;
+    const g = { date };
+    for (const k of AVG_KEYS) if (isNum(v[k])) g[k] = +v[k];
+    p.log = (p.log || []).filter(x => x.date !== date).concat([g]).sort((x, y) => x.date.localeCompare(y.date)).slice(-10);
+    n++;
+  }
+  return n;
+}
+// Médias dos últimos 5 e 10 jogos (o motor mistura-as com as da época)
+export function formOf(p) {
+  const log = (p && p.log) || [];
+  if (!log.length) return null;
+  const mean = list => { const o = {}; for (const k of AVG_KEYS) { const xs = list.map(g => g[k]).filter(isNum); if (xs.length) o[k] = Math.round(xs.reduce((a, b) => a + b, 0) / xs.length * 100) / 100; } return o; };
+  const l10 = log.slice(-10), l5 = log.slice(-5);
+  return { n10: l10.length, n5: l5.length, l10: mean(l10), l5: mean(l5), last: log[log.length - 1].date };
+}
+
 // ---------- odds (The Odds API) ----------
 function implied(o) { o = +o; if (!isFinite(o)) return null; if (o >= 100) return 100 / (o + 100); if (o <= -100) return -o / (-o + 100); if (o > 1 && o < 100) return 1 / o; return null; }
 function toAmerican(p) { const d = 1 / p; return d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1)); }

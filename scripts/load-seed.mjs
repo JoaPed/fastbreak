@@ -18,6 +18,11 @@ if (fs.existsSync(path.join(root, 'players.json'))) {
 }
 for (const f of list(path.join(root, 'runs'))) {
   const { run, days } = read(f);
+  // não tira a run ativa a outra: só fica ativa se ainda não houver nenhuma (sem contar com ela própria)
+  if (run.active) {
+    const act = await must(sb.from('runs').select('id').eq('active', true).neq('id', run.id));
+    if (act.length) delete run.active;
+  }
   await must(sb.from('runs').upsert(run));
   for (const d of days || []) {
     const row = { run_id: run.id, date: d.date };

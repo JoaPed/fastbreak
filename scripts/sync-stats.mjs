@@ -2,11 +2,14 @@
 //   1) plantéis atuais das 30 equipas (trocas e rookies certos antes do 1.º jogo);
 //   2) médias da época passada (uma vez por época, ou com --backfill AAAA-AA);
 //   3) médias desta época (todos os dias), misturadas com as da época passada enquanto há poucos jogos;
-//   4) ressaltos ofensivos e defensivos, que só vêm na ficha de cada jogador (uma vez por época e quando joga mais jogos).
-import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate } from './lib.mjs';
+//   4) ressaltos ofensivos e defensivos, que só vêm na ficha de cada jogador (uma vez por época e quando joga mais jogos);
+//   5) forma: as estatísticas de cada jogo terminado (últimos 10 jogos de cada jogador).
+import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, parseEspnBox, addBoxForm, formOf, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate, addDays } from './lib.mjs';
 
 const ESPN_TEAMS = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams';
 const ESPN_ROSTER = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/' + id + '/roster';
+const ESPN_BOARD = d => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + d.replace(/-/g, '');
+const ESPN_SUMMARY = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=' + id;
 const ESPN_CORE = (year, id) => 'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/' + year + '/types/2/athletes/' + id + '/statistics';
 const ESPN_SEASON = (year, page) => 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&isqualified=false&limit=200&sort=offensive.avgPoints:desc&seasontype=2&season=' + year + '&page=' + page;
 
@@ -20,7 +23,7 @@ const y = +today.slice(0, 4), m = +today.slice(5, 7);
 const curYear = m >= 9 ? y + 1 : y;
 const fmt = year => (year - 1) + '-' + String(year).slice(2);
 // época nova: as médias "desta época" da anterior deixam de contar como atuais
-if (state.curSeason && state.curSeason !== fmt(curYear)) for (const p of Object.values(state.players)) { delete p.curAvg; delete p.cur; }
+if (state.curSeason && state.curSeason !== fmt(curYear)) { for (const p of Object.values(state.players)) { delete p.curAvg; delete p.cur; delete p.log; } delete state.boxDate; }
 state.curSeason = fmt(curYear);
 
 async function season(year, add) {
@@ -83,12 +86,38 @@ if (jobs.length) {
   console.log('Fichas ESPN (ressaltos ofensivos/defensivos):', ok, 'lidas de', jobs.length + (miss ? ' · ' + miss + ' sem dados' : '') + (stop ? ' · parei: a ESPN não está a responder' : ''));
 }
 
+// 5) forma: jogos terminados desde a última leitura (na primeira vez, as últimas 2 semanas)
+{
+  const yesterday = addDays(today, -1);
+  let d = state.boxDate ? addDays(state.boxDate, 1) : addDays(today, -14);
+  if (d < addDays(today, -21)) d = addDays(today, -21);
+  let games = 0, lines = 0, stopped = null;
+  for (; d <= yesterday; d = addDays(d, 1)) {
+    let json = null;
+    try { ({ json } = await fetchJson(ESPN_BOARD(d))); } catch (e) { /* sem resposta */ }
+    if (!json) { stopped = d; break; }
+    const done = (json.events || []).filter(ev => {
+      const st = ev.status || ((ev.competitions || [])[0] || {}).status || {};
+      return ev.season && [2, 3].includes(+ev.season.type) && st.type && st.type.completed; // época regular e playoffs
+    });
+    const got = await pool(done, 4, async ev => {
+      try { const { json: sj } = await fetchJson(ESPN_SUMMARY(ev.id)); return sj ? addBoxForm(state, parseEspnBox(sj), d) : -1; } catch (e) { return -1; }
+    });
+    if (got.some(x => x < 0)) { stopped = d; break; }
+    games += done.length; lines += got.reduce((a, b) => a + b, 0);
+    state.boxDate = d;
+  }
+  console.log('Forma: ' + games + ' jogos terminados lidos (' + lines + ' linhas de jogadores)' + (stopped ? ' · parei em ' + stopped + ', a ESPN não respondeu (continua amanhã)' : ''));
+}
+
 // catálogo
 const rows = [];
 for (const [id, p] of Object.entries(state.players)) {
   if (!inCatalog(p)) continue;
-  const b = blendedAverages(p);
-  rows.push({ id, name: p.name, team: teamOf(p), avg: b ? b.avg : null, gp: b ? b.gp : 0, updated_at: new Date().toISOString() });
+  const b = blendedAverages(p), f = formOf(p);
+  const avg = b ? Object.assign({}, b.avg) : (f ? {} : null);
+  if (avg && f) avg.form = f; // últimos 5 e 10 jogos
+  rows.push({ id, name: p.name, team: teamOf(p), avg, gp: b ? b.gp : 0, updated_at: new Date().toISOString() });
 }
 if (!rows.length) throw new Error('A ESPN não devolveu jogadores. Tenta outra vez mais tarde.');
 await upsertChunks(sb, 'nba_players', rows, 'id');
@@ -97,4 +126,5 @@ const old = (await must(sb.from('nba_players').select('id'))).map(r => r.id).fil
 for (let i = 0; i < old.length; i += 200) await must(sb.from('nba_players').delete().in('id', old.slice(i, i + 200)));
 await setState(sb, 'stats', state);
 console.log('Jogadores no catálogo:', rows.length, '· com equipa:', rows.filter(r => r.team).length, '· com médias:', rows.filter(r => r.avg).length,
-  '· com ressaltos ofensivos:', rows.filter(r => r.avg && r.avg.oreb != null).length, '· com perdas de bola:', rows.filter(r => r.avg && r.avg.tov != null).length);
+  '· com ressaltos ofensivos:', rows.filter(r => r.avg && r.avg.oreb != null).length, '· com perdas de bola:', rows.filter(r => r.avg && r.avg.tov != null).length,
+  '· com forma (últimos jogos):', rows.filter(r => r.avg && r.avg.form).length);

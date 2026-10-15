@@ -59,13 +59,45 @@
     }
     return t;
   }
-  // Média do jogador para uma estatística; se faltar, estimativa a partir das outras médias
+  // Forma: as médias da época misturadas com as dos últimos 10 e 5 jogos (avg.form = {n10, n5, l10, l5}).
+  // Peso normal: época 50%, últimos 10 30%, últimos 5 20% (com menos jogos, a forma pesa menos). 0 = só a época.
+  let FORM_K = 1;
+  function setForm(k) { FORM_K = Math.max(0, Math.min(1.6, +k || 0)); formCache = new WeakMap(); }
+  let formCache = new WeakMap();
+  function formAvg(a) {
+    if (!a || !a.form || !FORM_K) return a;
+    if (formCache.has(a)) return formCache.get(a);
+    const f = a.form, w10 = 0.3 * FORM_K * Math.min(1, (f.n10 || 0) / 10), w5 = 0.2 * FORM_K * Math.min(1, (f.n5 || 0) / 5);
+    const out = {};
+    Object.keys(a).forEach(k => { if (k !== 'form') out[k] = a[k]; });
+    const keys = new Set(Object.keys(f.l10 || {}).concat(Object.keys(f.l5 || {})));
+    keys.forEach(k => {
+      const se = num(a[k]), t = num((f.l10 || {})[k]), c = num((f.l5 || {})[k]);
+      if (se == null) { if (t != null || c != null) out[k] = t != null && c != null ? 0.6 * t + 0.4 * c : (t != null ? t : c); return; } // sem média da época: só a forma
+      let v = se;
+      if (t != null) { v += w10 * (t - se); }
+      if (c != null) { v += w5 * (c - se); }
+      out[k] = Math.max(0, v);
+    });
+    formCache.set(a, out);
+    return out;
+  }
+  // Média do jogador para uma estatística (já com a forma); se faltar, estimativa a partir das outras médias
   function avgOf(player, s) {
-    const a = player && player.avg; if (!a) return null;
+    const a = formAvg(player && player.avg); if (!a) return null;
     if (num(a[s]) != null) return { v: +a[s], est: false };
     const st = STATS[s] || {};
     const e = st.est ? st.est(a) : null;
     return e != null && isFinite(e) ? { v: Math.max(0, e), est: true } : null;
+  }
+  // Para mostrar: época, últimos 10, últimos 5 e o valor usado (estatística simples ou combinada)
+  function formInfo(player, statKey) {
+    const a = player && player.avg; if (!a) return null;
+    const f = a.form || null, val = (src, k) => { const x = src ? num(src[k]) : null; return x; };
+    const sum = src => { let t = 0, any = false; for (const { s, sign } of statTerms(statKey)) { let x = val(src, s); if (x == null && src && STATS[s] && STATS[s].est && src === a) x = STATS[s].est(a); if (x == null) return null; t += sign * x; any = true; } return any ? t : null; };
+    const season = sum(a), l10 = f ? sum(f.l10) : null, l5 = f ? sum(f.l5) : null;
+    let used = 0, ok = true; for (const { s, sign } of statTerms(statKey)) { const x = avgOf(player, s); if (!x) { ok = false; break; } used += sign * x.v; }
+    return { season, l10, l5, n10: f ? f.n10 : 0, n5: f ? f.n5 : 0, used: ok ? used : null, trend: season && l5 != null && f.n5 >= 3 ? (l5 - season) / Math.max(1, Math.abs(season)) : 0 };
   }
   const STATUS = {
     ok: { label: 'Disponível', play: 1 },
@@ -591,6 +623,18 @@
   }
   function choose(n, k) { if (k < 0 || k > n) return 0; let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return Math.round(r); }
 
+  // Alternativas para o próximo dia: "tudo pelo dia" e "guardar" cada um dos 3 jogadores que mais pesam no lineup
+  // sugerido (sem ele hoje). Devolve as sementes; quem chama refaz o plano da run para cada uma.
+  function alternativeSeeds(model, normal) {
+    const md = model.days[0], d0 = normal && normal.days[0];
+    if (!md || !d0 || !d0.lineupIdx.length || !md.objs.length) return [];
+    const out = [{ kind: 'allin', lineupIdx: bestSingleDay(model, 0) }];
+    const locked = new Set(md.locks);
+    const weight = p => md.objs.reduce((t, _, k) => t + md.mu[p][k] / md.T[k], 0);
+    d0.lineupIdx.filter(p => !locked.has(p)).sort((x, y) => weight(y) - weight(x)).slice(0, 3).forEach(p => out.push({ kind: 'save', player: p }));
+    return out;
+  }
+
   // Plano normal e plano "tudo pelo próximo dia", para comparar o custo
   function planRun(run, roster, odds, planDoc, opts) {
     const model = buildModel(run, roster, odds, planDoc, opts);
@@ -805,6 +849,28 @@
         if (!best || cur > best.cur + 1e-12) best = snapshot();
       }
       restore(best);
+      // pesquisa local repetida: força 3 mudanças ao acaso (a melhor troca que não seja manter o jogador), volta a
+      // subir, e só fica se o plano todo melhorar. Sai de becos em que nenhuma mudança sozinha ajuda.
+      const kicks = opts.kicks || 0;
+      const krand = rng(777);
+      for (let kk = 0; kk < kicks; kk++) {
+        const before = snapshot();
+        for (let m = 0; m < 3; m++) {
+          const withP = open.filter(i => [...plan[i]].some(p => !isLocked(i, p)));
+          if (!withP.length) break;
+          const i = withP[Math.floor(krand() * withP.length)], s = slots[i], md = s.md;
+          const mem = [...plan[i]].filter(p => !isLocked(i, p)), x = mem[Math.floor(krand() * mem.length)];
+          let bestY = -1, bestG = -Infinity, bestR = null, bestT = 0;
+          for (const y of md.elig.concat([-1])) {
+            if (y === x || (y >= 0 && (plan[i].has(y) || used[s.a][y] >= uses[s.a][y] || night.get(s.date)[y] >= cap(y)))) continue;
+            const r = tryReplace(i, x, y), dT = tDelta(replCh(i, x, y)), g = gain([r]) - TC * dT;
+            if (g > bestG) { bestG = g; bestY = y; bestR = r; bestT = dT; }
+          }
+          if (bestR) { applyReplace(i, x, bestY, bestR, bestT); refreshVals(); }
+        }
+        hillClimb();
+        if (cur < before.cur - 1e-12) restore(before);
+      }
     }
     const results = models.map((m, a) => {
       const planA = m.days.map((_, d) => plan[bySlot[a][d]]);
@@ -861,7 +927,12 @@
       });
     });
     const split = models.length > 1 ? optimizeMulti(models, copies, Object.assign({}, base, { init: draft, temp0: 0.02, restarts: 1 })) : null;
-    const best = [cold, warm, split].filter(Boolean).reduce((x, y) => (y.total > x.total + 1e-12 ? y : x));
+    let best = [cold, warm, split].filter(Boolean).reduce((x, y) => (y.total > x.total + 1e-12 ? y : x));
+    // no fim, a pesquisa local repetida parte do melhor dos três
+    if (models.length > 1) {
+      const polished = optimizeMulti(models, copies, Object.assign({}, base, { init: best.results.map(r => r.days.map(d => d.lineupIdx)), iters: 1, restarts: 1, temp0: 0.001, kicks: opts.kicks != null ? opts.kicks : 40 }));
+      if (polished.total > best.total + 1e-12) best = polished;
+    }
     const res = best.results;
     models.forEach((model, a) => {
       const playedDays = model.allDays.filter(d => model.played[d.date] && model.played[d.date].done);
@@ -879,7 +950,7 @@
     return { keys, byKey, transfers, clashes, objective: best.total };
   }
 
-  const api = { STATS, STATUS, QREM, statTerms, statValue, avgOf, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  const api = { STATS, STATUS, QREM, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

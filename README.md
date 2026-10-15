@@ -9,9 +9,9 @@ Site para um grupo de amigos planear os lineups de uma run inteira do Fast Break
 
 | Tarefa | Quando (UTC) | O quê |
 |---|---|---|
-| Calendário e médias NBA | 09:17 todos os dias | Jogos de cada dia das runs, plantéis atuais, médias da época passada e desta época (ESPN) |
+| Calendário e médias NBA | 09:17 todos os dias | Jogos de cada dia das runs, plantéis atuais, médias da época passada e desta época, e as estatísticas de cada jogo terminado para a forma (últimos 5 e 10 jogos) (ESPN) |
 | Odds dos jogadores | 15:07 e 21:37 | Linhas de mais/menos da estatística do objetivo de cada dia (The Odds API) |
-| Fast Break na blockchain | de 30 em 30 min | Runs, dias, objetivos e resultados de cada membro (contrato FastBreakV1 na Flow) |
+| Fast Break na blockchain | de 30 em 30 min | Runs, dias, objetivos e resultados de cada membro (contrato FastBreakV1 na Flow). Cada run Classic nova é criada no site sozinha, já ligada e ativa |
 | Carregar dados manuais | quando muda `data/seed/` | Dados escritos à mão (por exemplo, odds coladas) |
 
 ## Instalação (uma vez, ~20 minutos)
@@ -48,6 +48,10 @@ Em **Ajustes → Perfil**, cada pessoa pode juntar até 2 contas extra suas (uti
 - Diz que Moments mandar para que conta e até quando (**Mandar antes de hoje** no ecrã Hoje; lista completa em Run). Cada transferência tem um pequeno custo no cálculo, por isso o plano só manda Moments quando isso aumenta as hipóteses de prémio. Uma conta sem hipóteses pode ficar sem jogar num dia.
 - No topo de Hoje, Run e Plantel escolhe-se a conta a ver; jogo a jogo e fechar o dia funcionam por conta. Os resultados das smurf também vêm da blockchain.
 - A classificação do grupo conta só a conta principal.
+
+## Forma e alternativas
+- **Forma**: sem odds para um dia, o plano usa as médias, e estas misturam a época com os últimos 10 e 5 jogos (normal: época 50%, últimos 10 30%, últimos 5 20%; com poucos jogos a forma pesa menos). Em **Ajustes → Forma recente** escolhe-se *Só a época*, *Normal* ou *Forte*. As odds das casas já incluem a forma, por isso quando há odds mandam elas. No lineup aparece "em forma ↑" ou "fora de forma ↓" quando os últimos 5 jogos se afastam mais de 12% da época.
+- **Alternativas**: no ecrã Hoje, **Ver 2 a 3 alternativas para hoje** mostra outros lineups (tudo pelo dia, ou guardar um dos jogadores que mais pesam para outro dia), cada um com o resto da run refeito e o efeito nos prémios. **Usar esta** fixa esse lineup hoje e refaz o resto; dá para voltar ao sugerido.
 
 ## Estatísticas dos objetivos
 Os objetivos vêm da blockchain com estes nomes. Para cada jogador, o plano usa a linha das casas de apostas quando existe; se não, a linha da estatística mais parecida ajustada pelas médias dele; se não houver odds, a média da época.
