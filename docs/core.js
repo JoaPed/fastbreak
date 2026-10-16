@@ -205,9 +205,31 @@
 
   // ---------- distribuição de um jogador num dia ----------
   const hasLine = o => !!o && o.line != null && o.line !== '' && isFinite(+o.line);
-  function oddsMean(st, o) {
+  // Regularidade: dispersão (variância ÷ média por jogo) de cada jogador na época passada (avg.hist), puxada para a
+  // da estatística quando há poucos jogos. Quem varia muito tem mais hipóteses de um jogo grande e de um jogo vazio.
+  function kOf(player, s) {
+    const st = STATS[s], h = player && player.avg && player.avg.hist;
+    if (!st || !h || !h.d || num(h.d[s]) == null || !(h.n >= 15)) return st ? st.k : 1;
+    const k = (h.n * +h.d[s] + 20 * st.k) / (h.n + 20);
+    return clamp(k, 0.6 * st.k, 2 * st.k);
+  }
+  // Jogos seguidos (back-to-back): no 2.º jogo rende-se um pouco menos (−3%). Com 6+ jogos assim na época passada,
+  // conta o que esse jogador fez (puxado para os −3%). Só mexe nas médias: as odds já contam com isto.
+  const B2B_DEFAULT = 0.97;
+  function b2bFactor(player, statKey) {
+    const h = player && player.avg && player.avg.hist, b = h && h.b2b;
+    let t = 0, base = 0;
+    for (const { s, sign } of statTerms(statKey)) {
+      const a = avgOf(player, s), w = a ? a.v : 1;
+      let f = B2B_DEFAULT;
+      if (b && b.n >= 6 && b.r && num(b.r[s]) != null) { const sh = b.n / (b.n + 10); f = clamp(B2B_DEFAULT + sh * (+b.r[s] - B2B_DEFAULT), 0.85, 1.08); }
+      t += sign * w * f; base += sign * w;
+    }
+    return base > 0 ? clamp(t / base, 0.85, 1.08) : B2B_DEFAULT;
+  }
+  function oddsMean(st, o, k) {
     const line = +o.line, pOver = devig(o.over, o.under);
-    return { mu: st.kind === 'normal' ? solveNormal(line, pOver, st.k) : solvePoisson(line, pOver), line, pOver };
+    return { mu: st.kind === 'normal' ? solveNormal(line, pOver, k != null ? k : st.k) : solvePoisson(line, pOver), line, pOver };
   }
   // Adversário: o que concede por jogo (últimos 10) a dividir pela média da liga. teams = {BOS: {n, allowed}, NBA: {allowed}}
   function matchup(teams, opp, statKey) {
@@ -225,19 +247,20 @@
     if (!st) return { mu: 0, v: 0, src: 'sem' };
     const o = oddsP && oddsP[s];
     let mu = 0, src = 'sem', line = null, pOver = null, via = null;
-    if (hasLine(o)) { ({ mu, line, pOver } = oddsMean(st, o)); src = 'odds'; }
+    const kp = kOf(player, s);
+    if (hasLine(o)) { ({ mu, line, pOver } = oddsMean(st, o, kp)); src = 'odds'; }
     else {
       const a = avgOf(player, s);
       for (const q of st.proxy || []) {
         const oq = oddsP && oddsP[q], aq = avgOf(player, q);
         if (!hasLine(oq) || !a || !aq || !(aq.v > 0)) continue;
-        const m = oddsMean(STATS[q], oq);
+        const m = oddsMean(STATS[q], oq, kOf(player, q));
         mu = m.mu * a.v / aq.v; line = m.line; pOver = m.pOver; via = q; src = 'proxy';
         break;
       }
       if (src === 'sem' && a) { mu = a.v * (mf ? mf(s) : 1); src = a.est ? 'estimativa' : 'media'; } // sem odds: ajusta ao adversário
     }
-    const k = st.k * (src === 'proxy' || src === 'estimativa' ? 1.15 : 1); // menos certeza
+    const k = kp * (src === 'proxy' || src === 'estimativa' ? 1.15 : 1); // menos certeza
     return { mu, v: Math.max(k * mu, mu > 0 ? 0.05 : 0), src, line, pOver, via };
   }
   function statusFor(player, oddsP) { return (oddsP && oddsP.status) || player.status || 'ok'; }
@@ -307,8 +330,14 @@
       return ks;
     }) : null;
 
+    // equipas que jogaram na véspera de cada dia (dias da run e, fora deles, opts.prevGames = {data: [equipas]})
+    const playedOn = new Map();
+    allDays.forEach(d => playedOn.set(d.date, teamsOn(d)));
+    Object.entries(opts.prevGames || {}).forEach(([dt, ts]) => { if (!playedOn.has(dt) || !playedOn.get(dt).size) playedOn.set(dt, new Set(ts)); });
+    const prevDate = dt => { const x = new Date(dt + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - 1); return x.toISOString().slice(0, 10); };
     const days = open.map((day, di) => {
       const teams = teamsOn(day);
+      const yday = opts.b2b === false ? new Set() : (playedOn.get(prevDate(day.date)) || new Set());
       const oddsDay = (oddsDays[day.date] && oddsDays[day.date].players) || {};
       const banned = new Set(bans[day.date] || []);
       const objs = (day.objectives || []).filter(o => o && o.stat && +o.target > 0);
@@ -335,11 +364,14 @@
       players.forEach((p, pi) => {
         const oddsP = oddsDay[p.id];
         const g = gameOf(day, p.team), opp = g ? (g[0] === p.team ? g[1] : g[0]) : null;
-        const mf = opts.teams && opp ? (s => { const m = matchup(opts.teams, opp, s); return m ? m.used : 1; }) : null;
+        const b2b = !!g && yday.has(p.team);
+        const mf0 = opts.teams && opp ? (s => { const m = matchup(opts.teams, opp, s); return m ? m.used : 1; }) : null;
+        const mf = b2b ? (s => (mf0 ? mf0(s) : 1) * b2bFactor(p, s)) : mf0;
         const injSt = injK && injK[pi] ? injuryOn(injuries[p.id], day.date, injK[pi][di], now) : null;
         const status = injSt ? worse(statusFor(p, oddsP), injSt) : statusFor(p, oddsP);
         const dists = objs.map(o => playerDist(p, o.stat, oddsP, mf, status));
         if (injuries && injuries[p.id]) { const inj = { rec: injuries[p.id], status: injSt, k: injK && injK[pi] ? injK[pi][di] : null, ignored: !!p.injIgnore }; dists.forEach(x => { x.injury = inj; }); }
+        if (b2b) dists.forEach((x, k) => { x.b2b = { f: b2bFactor(p, objs[k].stat) }; });
         mu[pi] = dists.map(x => x.mu);
         v[pi] = dists.map(x => x.v);
         info[pi] = dists;
@@ -363,7 +395,8 @@
           elig.push(pi); liveLocks.push(pi);
           return;
         }
-        if (plays && avail && !banned.has(p.id) && !banAll.has(p.id) && K) elig.push(pi);
+        const onDate = !p.availDates || p.availDates.includes(day.date); // Moment emprestado: só nos dias combinados
+        if (plays && avail && onDate && !banned.has(p.id) && !banAll.has(p.id) && K) elig.push(pi);
       });
       // os jogadores presos contam como "fixados" e não somam ao offset duas vezes (mu já é só o que falta)
       const eligSet = new Set(elig);
@@ -1032,7 +1065,42 @@
     return { keys, byKey, transfers, clashes, objective: best.total };
   }
 
-  const api = { STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  // Nome da estatística no contrato do Fast Break → chave do planeador (igual ao das tarefas automáticas, scripts/lib.mjs)
+  const STAT_WORDS = [
+    ['pip', 'POINTS?_IN_(?:THE_)?PAINT|PAINT_POINTS|PITP'],
+    ['oreb', 'OFF(?:ENSIVE)?_?REB(?:OUND)?S?|OREB'],
+    ['dreb', 'DEF(?:ENSIVE)?_?REB(?:OUND)?S?|DREB'],
+    ['fg3a', '(?:THREE|3)_?(?:POINT(?:ER)?S?_?|PT_?|P_?)?(?:FIELD_GOALS?_)?ATT(?:EMPT(?:S|ED)?)?|3PA|FG3A'],
+    ['fg3', '(?:THREE|3)_?(?:POINT(?:ER)?S?|PT)(?:_FIELD_GOALS?)?(?:_MADE)?|3PM|FG3M?|TRIPLES?|THREES'],
+    ['fga', 'FIELD_GOALS?_ATT(?:EMPT(?:S|ED)?)?|FGA'],
+    ['fgm', 'FIELD_GOALS?(?:_MADE)?|FGM'],
+    ['fta', 'FREE_THROWS?_ATT(?:EMPT(?:S|ED)?)?|FTA'],
+    ['ftm', 'FREE_THROWS?(?:_MADE)?|FTM'],
+    ['tov', 'TURNOVERS?|TOV'],
+    ['pts', 'POINTS?|PTS'],
+    ['reb', '(?:TOTAL_)?REB(?:OUND)?S?'],
+    ['ast', 'ASSISTS?|AST'],
+    ['stl', 'STEALS?|STL'],
+    ['blk', 'BLOCK(?:S|ED_SHOTS)?|BLK'],
+  ].map(([k, re]) => [k, new RegExp('(?<=_)(?:' + re + ')(?=_)')]);
+  const STAT_ORDER = ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'tov', 'oreb', 'dreb', 'fgm', 'fga', 'fg3a', 'ftm', 'fta', 'pip'];
+  const STAT_GLUE = new Set(['AND', 'PLUS', 'TOTAL', 'COMBINED']);
+  function mapStat(name) {
+    const u = String(name || '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!u) return null;
+    const pos = [], neg = [], parts = u.split(/(?:^|_)MINUS(?:_|$)/);
+    for (let i = 0; i < parts.length; i++) {
+      let rest = '_' + parts[i] + '_';
+      const found = [];
+      for (const [k, re] of STAT_WORDS) { if (re.test(rest)) { found.push(k); rest = rest.replace(re, '_'); } }
+      if (!found.length || rest.split('_').some(t => t && !STAT_GLUE.has(t))) return null;
+      (i === 0 ? pos : neg).push(...found);
+    }
+    const sort = arr => [...new Set(arr)].sort((a, b) => STAT_ORDER.indexOf(a) - STAT_ORDER.indexOf(b));
+    return sort(pos).join('+') + sort(neg).map(x => '-' + x).join('');
+  }
+
+  const api = { mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

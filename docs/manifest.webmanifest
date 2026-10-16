@@ -1,0 +1,16 @@
+{
+  "name": "Fastbreak Run Planner",
+  "short_name": "Fastbreak",
+  "description": "Planeia os lineups da run do Fast Break e acompanha o teu grupo.",
+  "lang": "pt-PT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1F5",
+  "theme_color": "#141C2A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -68,7 +68,13 @@ r = await as('c', `insert into public.user_runs (run_id) values ('run-1')`); exp
 r = await as('b', `insert into public.summaries (run_id, wins, losses) values ('run-1', 3, 1)`); expect('B publica resumo', !r.error, r);
 r = await as('a', `select wins from public.summaries`); expect('A vê resumo de B', r.rows?.[0]?.wins === 3, r);
 r = await as('a', `update public.summaries set wins = 0 where user_id = '${U.b}'`); r = await as('a', `select wins from public.summaries`); expect('A não altera resumo de B', r.rows?.[0]?.wins === 3, r);
+r = await as('b', `update public.summaries set share = '{"roster":{"jokic":[2,3,1]},"use":{"jokic":["2026-10-21"]}}' where user_id = '${U.b}'`); expect('B partilha o plano no resumo', !r.error, r);
+r = await as('a', `select share from public.summaries`); expect('A vê o plano partilhado de B', r.rows?.[0]?.share?.roster?.jokic?.[1] === 3, r);
+r = await as('c', `select share from public.summaries`); expect('não-membro não vê planos partilhados', !r.rows?.length, r);
+r = await as('a', `update public.summaries set share = null where user_id = '${U.b}'`); r = await as('b', `select share from public.summaries`); expect('A não apaga a partilha de B', !!r.rows?.[0]?.share, r);
 r = await as('b', `insert into public.profiles (display_name, topshot_username) values ('Bruno', 'bruno_ts')`); expect('B cria perfil', !r.error, r);
+r = await as('b', `select share_plan from public.profiles`); expect('partilha ligada por defeito', r.rows?.[0]?.share_plan === true, r);
+r = await as('b', `update public.profiles set share_plan = false`); r = await as('a', `select share_plan from public.profiles`); expect('B desliga a partilha e o grupo vê isso', !r.error && r.rows?.[0]?.share_plan === false, r);
 r = await as('a', `select display_name from public.profiles`); expect('A vê perfil de B', r.rows?.[0]?.display_name === 'Bruno', r);
 r = await as('b', `insert into public.profiles (user_id, display_name) values ('${U.a}', 'falso')`); expect('B não cria perfil de A', !!r.error, r);
 r = await as('b', `update public.profiles set flow_address = 'xyz'`); expect('endereço Flow inválido recusado', !!r.error, r);

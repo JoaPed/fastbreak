@@ -3,14 +3,16 @@
 //   2) médias da época passada (uma vez por época, ou com --backfill AAAA-AA);
 //   3) médias desta época (todos os dias), misturadas com as da época passada enquanto há poucos jogos;
 //   4) ressaltos ofensivos e defensivos, que só vêm na ficha de cada jogador (uma vez por época e quando joga mais jogos);
-//   5) forma: as estatísticas de cada jogo terminado (últimos 10 jogos de cada jogador).
-import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, parseEspnBox, addBoxForm, formOf, teamRows, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate, addDays } from './lib.mjs';
+//   5) forma: as estatísticas de cada jogo terminado (últimos 10 jogos de cada jogador);
+//   6) jogos da época passada de cada jogador (uma vez por época, aos bocados): regularidade e jogos seguidos.
+import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, parseEspnBox, addBoxForm, formOf, teamRows, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate, addDays, parseEspnGamelog, histFromGames } from './lib.mjs';
 
 const ESPN_TEAMS = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams';
 const ESPN_ROSTER = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/' + id + '/roster';
 const ESPN_BOARD = d => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + d.replace(/-/g, '');
 const ESPN_SUMMARY = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=' + id;
 const ESPN_CORE = (year, id) => 'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/' + year + '/types/2/athletes/' + id + '/statistics';
+const ESPN_GAMELOG = (year, id) => 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/' + id + '/gamelog?season=' + year;
 const ESPN_SEASON = (year, page) => 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&isqualified=false&limit=200&sort=offensive.avgPoints:desc&seasontype=2&season=' + year + '&page=' + page;
 
 const sb = await supa();
@@ -110,6 +112,23 @@ if (jobs.length) {
   console.log('Forma: ' + games + ' jogos terminados lidos (' + lines + ' linhas de jogadores)' + (stopped ? ' · parei em ' + stopped + ', a ESPN não respondeu (continua amanhã)' : ''));
 }
 
+// 6) jogos da época passada (até 300 jogadores por dia; os que faltam ficam para o dia seguinte)
+{
+  const want = Object.values(state.players).filter(p => inCatalog(p) && p.espnId && (!p.hist || p.hist.season !== fmt(prevYear)) && p.histTry !== today);
+  const batch = want.slice(0, +(process.env.GAMELOG_MAX || 300));
+  let ok = 0, miss = 0, stop = false;
+  await pool(batch, 8, async p => {
+    if (stop) return;
+    try {
+      const { json } = await fetchJson(ESPN_GAMELOG(prevYear, p.espnId), {}, 2);
+      if (!json) { p.histTry = today; miss++; return; }
+      p.hist = Object.assign(histFromGames(parseEspnGamelog(json)), { season: fmt(prevYear) }); delete p.histTry; ok++;
+    } catch (e) { p.histTry = today; miss++; }
+    if (!ok && miss >= 25) stop = true;
+  });
+  if (want.length) console.log('Jogos da época ' + fmt(prevYear) + ' (regularidade e jogos seguidos):', ok, 'jogadores lidos de', batch.length + (want.length > batch.length ? ' · faltam ' + (want.length - batch.length) + ' (amanhã)' : '') + (miss ? ' · ' + miss + ' sem resposta' : ''));
+}
+
 // catálogo
 const rows = [];
 for (const [id, p] of Object.entries(state.players)) {
@@ -117,6 +136,7 @@ for (const [id, p] of Object.entries(state.players)) {
   const b = blendedAverages(p), f = formOf(p);
   const avg = b ? Object.assign({}, b.avg) : (f ? {} : null);
   if (avg && f) avg.form = f; // últimos 5 e 10 jogos
+  if (avg && p.hist && p.hist.n >= 5) avg.hist = { n: p.hist.n, d: p.hist.d, b2b: p.hist.b2b }; // época passada: regularidade e jogos seguidos
   rows.push({ id, name: p.name, team: teamOf(p), avg, gp: b ? b.gp : 0, updated_at: new Date().toISOString() });
 }
 if (!rows.length) throw new Error('A ESPN não devolveu jogadores. Tenta outra vez mais tarde.');
@@ -133,4 +153,4 @@ if (tRows.length) {
 await setState(sb, 'stats', state);
 console.log('Jogadores no catálogo:', rows.length, '· com equipa:', rows.filter(r => r.team).length, '· com médias:', rows.filter(r => r.avg).length,
   '· com ressaltos ofensivos:', rows.filter(r => r.avg && r.avg.oreb != null).length, '· com perdas de bola:', rows.filter(r => r.avg && r.avg.tov != null).length,
-  '· com forma (últimos jogos):', rows.filter(r => r.avg && r.avg.form).length);
+  '· com forma (últimos jogos):', rows.filter(r => r.avg && r.avg.form).length, '· com jogos da época passada:', rows.filter(r => r.avg && r.avg.hist).length);

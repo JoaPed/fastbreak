@@ -197,5 +197,36 @@ const withStar = JSON.parse(JSON.stringify(roster)); withStar.players.star = wid
 const base2 = FB.optimize(FB.buildModel(run, roster, odds, {}, { now: NOW }), { restarts: 2 });
 const buy2 = FB.optimize(FB.buildModel(run, withStar, odds, {}, { now: NOW }), { restarts: 2 });
 ok('compras: refazer a run com ele sobe o valor dos prémios', buy2.objective > base2.objective && buy2.prizeProbs[1] >= base2.prizeProbs[1], [base2.prizeProbs, buy2.prizeProbs]);
+
+// jogos seguidos (back-to-back), regularidade de cada jogador e Moments emprestados (só alguns dias)
+{
+  const dates = run.days.map(d => d.date);
+  const teamsOf = d => new Set(d.games.flatMap(g => [g[0], g[1]]));
+  let pick = null;
+  for (let i = 3; i < run.days.length && !pick; i++) { const t1 = teamsOf(run.days[i - 1]), t2 = teamsOf(run.days[i]); for (const [id, p] of Object.entries(roster.players)) if (t1.has(p.team) && t2.has(p.team)) { pick = { id, i }; break; } }
+  ok('back-to-back: há um jogador com jogos em dias seguidos na run de teste', !!pick);
+  if (pick) {
+    const on = FB.buildModel(run, roster, odds, {}, { now: NOW }), off = FB.buildModel(run, roster, odds, {}, { now: NOW, b2b: false });
+    const pi = on.pIndex.get(pick.id), d = on.days.findIndex(md => md.day.date === dates[pick.i]);
+    const a = on.days[d].info[pi][0], b = off.days[d].info[pi][0];
+    ok('back-to-back: 2.º jogo seguido rende 3% menos (sem odds)', a.b2b && Math.abs(a.mu / b.mu - 0.97) < 1e-6 && !b.b2b, [a.mu, b.mu, a.src]);
+    const r2 = JSON.parse(JSON.stringify(roster)); r2.players[pick.id].avg.hist = { n: 70, d: { pts: 4 }, b2b: { n: 20, r: { pts: 0.85, reb: 0.85, ast: 0.85, fg3: 0.85, stl: 0.85, blk: 0.85 } } };
+    const m2 = FB.buildModel(run, r2, odds, {}, { now: NOW }), c = m2.days[d].info[m2.pIndex.get(pick.id)][0];
+    ok('back-to-back: quem rendeu menos nos jogos seguidos da época passada desce mais', Math.abs(c.b2b.f - (0.97 + 20 / 30 * (0.85 - 0.97))) < 1e-6 && c.mu < a.mu, [c.b2b, c.mu, a.mu]);
+    ok('regularidade: jogador irregular (dispersão 4 em vez de 2) tem mais variância', Math.abs(FB.kOf(r2.players[pick.id], 'pts') - (70 * 4 + 20 * 2) / 90) < 1e-9 && FB.kOf(roster.players[pick.id], 'pts') === FB.STATS.pts.k);
+    ok('back-to-back: a véspera fora da run também conta (opts.prevGames)', (() => { const t = [...teamsOf(run.days[0])][0], pid = Object.keys(roster.players).find(k => roster.players[k].team === t); if (!pid) return true; const prev = '2026-10-19'; const m = FB.buildModel(run, roster, {}, {}, { now: NOW, prevGames: { [prev]: [t] } }); return !!m.days[0].info[m.pIndex.get(pid)][0].b2b; })());
+  }
+  const lend = JSON.parse(JSON.stringify(roster)); lend.players.star = { name: 'Emprestado', team: 'PHI', uses: 2, status: 'ok', avg: { pts: 40, reb: 10, ast: 10, fg3: 5, stl: 2, blk: 2 }, availDates: ['2026-10-24'] };
+  const ml = FB.buildModel(run, lend, odds, {}, { now: NOW }), si = ml.pIndex.get('star');
+  ok('emprestado: só entra nos dias combinados', ml.days.filter(md => md.eligSet.has(si)).map(md => md.day.date).join() === '2026-10-24', ml.days.filter(md => md.eligSet.has(si)).map(md => md.day.date));
+}
+
+// nomes das estatísticas (o site lê o histórico da blockchain com o mesmo leitor das tarefas)
+{
+  const { mapStat } = await import('../scripts/lib.mjs');
+  const names = ['POINTS', 'REBOUNDS', 'ASSISTS', 'STEALS', 'BLOCKS', 'THREE_POINTS_MADE', 'THREE_POINTS_ATT', 'FIELD_GOALS_MADE', 'FIELD_GOALS_ATT', 'OFFENSIVE_REBOUNDS', 'ASSISTS_MINUS_TURNOVERS', 'POINTS_IN_PAINT', 'POINTS_REBOUNDS', 'XYZ', 'FAST_BREAK_POINTS'];
+  const diff = names.filter(n => FB.mapStat(n) !== mapStat(n));
+  ok('nomes das estatísticas: site e tarefas leem igual', !diff.length, diff);
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);

@@ -368,7 +368,23 @@ export function decodeCadence(v) {
 export const cadence = {
   address: a => ({ type: 'Address', value: a }),
   strings: arr => ({ type: 'Array', value: arr.map(s => ({ type: 'String', value: String(s) })) }),
+  uint64s: arr => ({ type: 'Array', value: arr.map(x => ({ type: 'UInt64', value: String(x) })) }),
 };
+// Lê uma lista aos lotes (fn recebe um lote). Se um lote passa o limite de cálculo da Flow, parte-o ao meio e
+// tenta outra vez; outros erros saltam o lote. Devolve {out: tudo o que veio, done: os itens dos lotes lidos, failed}
+export async function readBatched(items, size, fn) {
+  const out = [], done = [], failed = [];
+  let i = 0, n = Math.max(1, size);
+  while (i < items.length) {
+    const part = items.slice(i, i + n);
+    try { out.push(...((await fn(part)) || [])); done.push(...part); i += part.length; }
+    catch (e) {
+      if (/computation|limit|exceed/i.test(String(e && e.message)) && n > 1) { n = Math.max(1, Math.floor(n / 2)); continue; }
+      failed.push({ part, error: String(e && e.message).slice(0, 200) }); i += part.length;
+    }
+  }
+  return { out, done, failed };
+}
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
 const unb64 = s => Buffer.from(s, 'base64').toString('utf8');
 export async function flowScript(code, args, fetchImpl = fetch) {
@@ -574,4 +590,48 @@ export function alertText(items, opts = {}) {
   const title = bad.length === 1 ? (bad[0].kind === 'last' ? 'Última chamada: ' : 'Lesão no teu lineup: ') + bad[0].name + ' ' + (INJ_LABEL[bad[0].status] || '').toLowerCase()
     : bad.length ? bad.length + ' avisos de lesão no teu lineup' : items.length === 1 ? items[0].name + ' deve jogar' : 'Lineup sem lesões';
   return { title: 'Fast Break · ' + title, body: lines.join('\n'), urgent: items.some(i => (i.status === 'out' || i.status === 'ofs') && i.kind !== 'clear') || items.some(i => i.kind === 'last') };
+}
+
+// ---------- jogos da época passada (gamelog da ESPN): regularidade e jogos seguidos ----------
+// https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/{id}/gamelog?season=AAAA
+// names: ['minutes', 'fieldGoalsMade-fieldGoalsAttempted', ..., 'points']; seasonTypes[].categories[].events[] = {eventId, stats}
+const GL_NAME = { minutes: ['min'], 'fieldGoalsMade-fieldGoalsAttempted': ['fgm', 'fga'], 'threePointFieldGoalsMade-threePointFieldGoalsAttempted': ['fg3', 'fg3a'], 'freeThrowsMade-freeThrowsAttempted': ['ftm', 'fta'], totalRebounds: ['reb'], assists: ['ast'], blocks: ['blk'], steals: ['stl'], turnovers: ['tov'], points: ['pts'] };
+export const HIST_KEYS = ['min', 'pts', 'reb', 'ast', 'fg3', 'fg3a', 'fgm', 'fga', 'ftm', 'fta', 'stl', 'blk', 'tov'];
+export function parseEspnGamelog(json) {
+  const names = (json && json.names) || [], evs = (json && json.events) || {}, out = new Map();
+  for (const st of (json && json.seasonTypes) || []) {
+    const label = String(st.displayName || st.name || '');
+    if (/pre|post|play-?in|all-?star|cup final/i.test(label) && !/regular/i.test(label)) continue; // só a época regular
+    for (const cat of st.categories || []) for (const e of cat.events || []) {
+      if (!e || !e.eventId || !Array.isArray(e.stats) || out.has(e.eventId)) continue;
+      const meta = evs[e.eventId] || {};
+      if (!meta.gameDate) continue;
+      const g = { date: etDate(meta.gameDate) };
+      names.forEach((nm, i) => { const keys = GL_NAME[nm]; if (!keys) return; const parts = String(e.stats[i] == null ? '' : e.stats[i]).split('-'); keys.forEach((k, j) => { const x = parseFloat(parts[j]); if (isFinite(x)) g[k] = x; }); });
+      if (g.min > 0) out.set(e.eventId, g);
+    }
+  }
+  return [...out.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+// Regularidade (variância ÷ média por jogo) e quanto rende no 2.º de dois jogos seguidos face aos outros jogos
+export function histFromGames(games) {
+  const gs = (games || []).filter(g => g && g.min > 0);
+  const n = gs.length;
+  if (n < 5) return { n };
+  const dayN = d => Date.parse(d + 'T12:00:00Z') / 86400e3;
+  const b2b = gs.map((g, i) => i > 0 && Math.round(dayN(g.date) - dayN(gs[i - 1].date)) === 1);
+  const r2 = x => Math.round(x * 100) / 100;
+  const d = {}, r = {};
+  for (const k of HIST_KEYS) {
+    const xs = gs.map(g => g[k]).filter(x => isNum(x));
+    if (xs.length < 5) continue;
+    const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+    if (!(m > 0.05)) continue;
+    const v = xs.reduce((a, x) => a + (x - m) * (x - m), 0) / (xs.length - 1);
+    d[k] = r2(v / m);
+    const on = gs.filter((g, i) => b2b[i] && isNum(g[k])).map(g => g[k]), off = gs.filter((g, i) => !b2b[i] && isNum(g[k])).map(g => g[k]);
+    if (on.length && off.length) { const mOff = off.reduce((a, b) => a + b, 0) / off.length; if (mOff > 0.05) r[k] = r2((on.reduce((a, b) => a + b, 0) / on.length) / mOff); }
+  }
+  const nb = b2b.filter(Boolean).length;
+  return Object.assign({ n, d }, nb ? { b2b: { n: nb, r } } : {});
 }

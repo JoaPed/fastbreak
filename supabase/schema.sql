@@ -157,6 +157,11 @@ create table if not exists public.alerts (
   updated_at timestamptz not null default now()
 );
 
+-- Partilha com o grupo (acrescentado depois; seguro correr de novo): o plano e o plantel de cada um na run, para ver
+-- os lineups dos amigos e sugerir a quem pedir Moments emprestados. Quem não quiser partilhar desliga no perfil.
+alter table public.profiles add column if not exists share_plan boolean not null default true;
+alter table public.summaries add column if not exists share jsonb;   -- {at, roster: {jogador: [usos restantes, usos por run, Moments]}, use: {jogador: [datas]}, lineups: {data: [jogadores]}}
+
 -- =========================================================
 -- Funções
 -- =========================================================

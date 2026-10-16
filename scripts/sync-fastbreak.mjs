@@ -3,9 +3,9 @@
 // 2) para cada membro (e as suas contas smurf) com endereço Flow: lineups submetidos, pontos e vitórias;
 // 3) nas runs do site ligadas a uma run da blockchain, preenche os objetivos de cada dia.
 // Uso: node scripts/sync-fastbreak.mjs [--backfill N]   (N = blocos para trás na primeira leitura; ~1 bloco/s)
-import { supa, must, getState, setState, flowScript, flowEvents, flowLatestHeight, etDate, addDays, objectivesFromStats, cadence, pool, fetchJson, parseEspnScoreboard, FASTBREAK } from './lib.mjs';
+import { supa, must, getState, setState, flowScript, flowEvents, flowLatestHeight, etDate, addDays, objectivesFromStats, cadence, pool, fetchJson, parseEspnScoreboard, FASTBREAK, readBatched } from './lib.mjs';
 
-const sb = await supa();
+const sb = globalThis.__FB_TEST_SB || await supa(); // (nos testes: base de dados falsa)
 const nowS = Math.floor(Date.now() / 1000);
 const argB = process.argv.indexOf('--backfill');
 const BACKFILL = argB > 0 ? Math.max(0, parseInt(process.argv[argB + 1], 10) || 0) : 0;
@@ -78,6 +78,49 @@ access(all) fun main(addr: Address, runIds: [String], since: UInt64): [{String: 
   return out
 }`;
 
+// histórico: todos os dias de Fast Break de uma conta (um NFT por dia jogado), lidos aos lotes pelos ids dos NFT
+const IDS_SCRIPT = `
+import FastBreakV1 from 0x0b2a3299cc857e29
+access(all) fun main(addr: Address): [UInt64] {
+  let col = getAccount(addr).capabilities.borrow<&{FastBreakV1.FastBreakNFTCollectionPublic}>(FastBreakV1.CollectionPublicPath)
+  if col == nil { return [] }
+  return col!.getIDs()
+}`;
+const HISTORY_SCRIPT = `
+import FastBreakV1 from 0x0b2a3299cc857e29
+import TopShot from 0x0b2a3299cc857e29
+access(all) fun main(addr: Address, ids: [UInt64]): [{String: AnyStruct}] {
+  let acct = getAccount(addr)
+  let out: [{String: AnyStruct}] = []
+  let col = acct.capabilities.borrow<&{FastBreakV1.FastBreakNFTCollectionPublic}>(FastBreakV1.CollectionPublicPath)
+  if col == nil { return out }
+  let moments = acct.capabilities.borrow<&{TopShot.MomentCollectionPublic}>(/public/MomentCollection)
+  for id in ids {
+    var found = false
+    if let nft = col!.borrowFastBreakNFT(id: id) {
+      if let game = FastBreakV1.getFastBreakGame(id: nft.fastBreakGameID) {
+        let names: [String] = []
+        for mid in nft.topShots {
+          var n = ""
+          if moments != nil {
+            if let m = moments!.borrowMoment(id: mid) {
+              n = TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "FullName") ?? ""
+            }
+          }
+          names.append(n)
+        }
+        let row: {String: AnyStruct} = {"nft": id, "gameId": game.id, "runId": game.fastBreakRunID, "deadline": game.submissionDeadline, "points": nft.points(), "win": nft.isWinner(), "names": names}
+        out.append(row)
+        found = true
+      }
+    }
+    if !found {
+      let none: {String: AnyStruct} = {"nft": id}
+      out.append(none)
+    }
+  }
+  return out
+}`;
 // ---------- 1) eventos ----------
 const flow = await getState(sb, 'flow', {});
 const latest = await flowLatestHeight();
@@ -139,6 +182,7 @@ for (const acc of accounts) {
   }
   const label = (acc.username || addr || '?') + (acc.account !== 'main' ? ' (smurf)' : '');
   if (!addr) { if (acc.username) console.log('Sem endereço Flow para', label); continue; }
+  acc.addr = addr; acc.label = label;
   let rows;
   try { rows = await flowScript(PLAYER_SCRIPT, [cadence.address(addr), cadence.strings(linked), { type: 'UInt64', value: String(since) }]); }
   catch (e) { console.log('Erro a ler', label, String(e.message).slice(0, 300)); continue; }
@@ -150,6 +194,46 @@ for (const acc of accounts) {
   if (out.length) await must(sb.from('chain_results').upsert(out, { onConflict: hasAccounts ? 'user_id,game_id,account' : 'user_id,game_id' }));
   console.log(label + ':', out.length, 'dias lidos,', out.filter(x => x.win).length, 'vitórias');
 }
+
+// ---------- 2b) histórico: dias de todas as runs (também as passadas), aos poucos ----------
+// Cada conta tem um NFT do Fast Break por dia jogado. Lê os que ainda não leu (até HISTORY_MAX por conta de cada vez,
+// os mais recentes primeiro) e guarda-os em chain_results; os dias e as runs desses NFT entram no passo 3.
+try {
+  const hist = await getState(sb, 'history', {});
+  const MAX = Math.max(0, +(process.env.HISTORY_MAX || 300)), final = nowS - 2 * 86400;
+  let read = 0, left = 0;
+  for (const acc of accounts) {
+    if (!acc.addr || !MAX) continue;
+    const key = acc.user_id + '|' + acc.account;
+    const st = hist[key] && hist[key].addr === acc.addr ? hist[key] : { addr: acc.addr, done: [] };
+    let ids;
+    try { ids = (await flowScript(IDS_SCRIPT, [cadence.address(acc.addr)])) || []; }
+    catch (e) { console.log('Histórico de', acc.label + ': não li os NFT (' + String(e.message).slice(0, 160) + ')'); continue; }
+    const seen = new Set(st.done.map(String));
+    const todo = ids.map(Number).filter(id => !seen.has(String(id))).sort((a, b) => b - a);
+    left += Math.max(0, todo.length - MAX);
+    if (!todo.length) { hist[key] = st; continue; }
+    const { out, done, failed } = await readBatched(todo.slice(0, MAX), 40, part => flowScript(HISTORY_SCRIPT, [cadence.address(acc.addr), cadence.uint64s(part)]));
+    if (failed.length) console.log('Histórico de', acc.label + ':', failed.length, 'lotes falharam (' + failed[0].error + ')');
+    const byGame = new Map();
+    for (const r of out) {
+      if (!r || !r.gameId) continue;
+      runIds.add(r.runId); gameIds.add(r.gameId);
+      byGame.set(r.gameId, { user_id: acc.user_id, account: acc.account, game_id: r.gameId, chain_run_id: r.runId, date: etDate(r.deadline * 1000), points: r.points, win: !!r.win, lineup: (r.names || []).filter(Boolean), updated_at: new Date().toISOString() });
+    }
+    const rows = [...byGame.values()];
+    if (!hasAccounts) rows.forEach(o => { delete o.account; });
+    for (let i = 0; i < rows.length; i += 200) await must(sb.from('chain_results').upsert(rows.slice(i, i + 200), { onConflict: hasAccounts ? 'user_id,game_id,account' : 'user_id,game_id' }));
+    // dias que ainda podem mudar (últimos 2 dias) voltam a ser lidos da próxima vez
+    const byNft = new Map(out.filter(Boolean).map(r => [String(r.nft), r]));
+    const fin = done.filter(id => { const r = byNft.get(String(id)); return !r || !r.gameId || +r.deadline < final; });
+    st.done = st.done.concat(fin.map(String));
+    hist[key] = st; read += rows.length;
+    console.log('Histórico de', acc.label + ':', rows.length, (rows.length === 1 ? 'dia lido' : 'dias lidos') + ' (' + rows.filter(x => x.win).length + (rows.filter(x => x.win).length === 1 ? ' vitória)' : ' vitórias)') + (todo.length > MAX ? ' · faltam ' + (todo.length - MAX) : ''));
+  }
+  await setState(sb, 'history', hist);
+  if (read || left) console.log('Histórico: ' + read + ' dias lidos nesta vez' + (left ? ', ' + left + ' ficam para as próximas' : ', tudo em dia') + '.');
+} catch (e) { console.log('Aviso: o histórico falhou (' + String(e.message).slice(0, 200) + '); o resto continua.'); }
 
 // ---------- 3) detalhes de runs e dias; objetivos ----------
 for (const id of linked) runIds.add(id);

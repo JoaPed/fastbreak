@@ -13,6 +13,10 @@ class Q {
   eq(c, v) { this.f.push(r => String(r[c]) === String(v)); return this; }
   in(c, a) { this.f.push(r => a.map(String).includes(String(r[c]))); return this; }
   lt(c, v) { this.f.push(r => r[c] < v); return this; }
+  gte(c, v) { this.f.push(r => r[c] >= v); return this; }
+  lte(c, v) { this.f.push(r => r[c] <= v); return this; }
+  not(c, op, v) { this.f.push(r => (op === 'is' && v === null ? r[c] != null : String(r[c]) !== String(v))); return this; }
+  insert(rows) { this.op = 'upsert'; this.rows = [].concat(rows); return this; }
   order() { return this; } range() { return this; } limit() { return this; }
   maybeSingle() { this.one = true; return this; }
   upsert(rows) { this.op = 'upsert'; this.rows = [].concat(rows); return this; }
@@ -35,6 +39,28 @@ globalThis.fetch = async (url, opts = {}) => {
   url = String(url);
   if (/site\.api\.espn\.com.*\/injuries/.test(url)) return new Response(JSON.stringify(db.espn || { injuries: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
   if (/^https:\/\/ntfy\.sh\//.test(url)) { db.sent.push(Object.assign({ via: 'ntfy' }, JSON.parse(opts.body))); return new Response('{}', { status: 200 }); }
+  if (/onflow\.org/.test(url) && db.flow) return flowFake(url, opts);
+  if (/site\.api\.espn\.com.*scoreboard/.test(url)) return new Response(JSON.stringify({ events: [] }), { status: 200 });
   return new Response('nada', { status: 404 });
 };
+// Flow falsa (db.flow): altura, eventos (nenhum) e scripts do Fast Break, reconhecidos pelo código Cadence
+const enc = v => (v == null ? { type: 'Optional', value: null } : typeof v === 'boolean' ? { type: 'Bool', value: v } : typeof v === 'number' ? { type: 'UInt64', value: String(v) } : typeof v === 'string' ? { type: 'String', value: v } : Array.isArray(v) ? { type: 'Array', value: v.map(enc) } : { type: 'Dictionary', value: Object.entries(v).map(([k, x]) => ({ key: { type: 'String', value: k }, value: enc(x) })) });
+const dec = a => { const v = JSON.parse(Buffer.from(a, 'base64').toString('utf8')); return Array.isArray(v.value) ? v.value.map(x => x.value) : v.value; };
+function flowFake(url, opts) {
+  const F = db.flow, ok = v => new Response(JSON.stringify(Buffer.from(JSON.stringify(enc(v))).toString('base64')), { status: 200 });
+  if (/\/blocks\?height=sealed/.test(url)) return new Response(JSON.stringify([{ header: { height: String(F.height || 1000) } }]), { status: 200 });
+  if (/\/events\?/.test(url)) return new Response('[]', { status: 200 });
+  const body = JSON.parse(opts.body), code = Buffer.from(body.script, 'base64').toString('utf8'), args = body.arguments.map(dec);
+  F.scripts = F.scripts || []; 
+  if (/fun main\(addr: Address\): \[UInt64\]/.test(code)) { F.scripts.push('ids'); return ok((F.ids || {})[args[0]] || []); }
+  if (/ids: \[UInt64\]\): \[\{String: AnyStruct\}\]/.test(code)) {
+    F.scripts.push('history ' + args[1].length);
+    if (args[1].length > (F.maxBatch || 1e9)) return new Response('{"code":400,"message":"[Error Code: 1110] computation exceeds limit (100000)"}', { status: 400 });
+    return ok(args[1].map(id => Object.assign({ nft: +id }, (F.nfts || {})[id] || {})));
+  }
+  if (/runIds: \[String\], since: UInt64/.test(code)) { F.scripts.push('player'); return ok([]); }
+  if (/getFastBreakGameStats/.test(code)) { F.scripts.push('games ' + args[0].length); return ok(args[0].map(id => (F.games || {})[id]).filter(Boolean)); }
+  if (/getFastBreakRun\(/.test(code)) { F.scripts.push('runs ' + args[0].length); return ok(args[0].map(id => (F.runs || {})[id]).filter(Boolean)); }
+  return new Response('script desconhecido', { status: 400 });
+}
 process.on('exit', () => fs.writeFileSync(file, JSON.stringify(db)));

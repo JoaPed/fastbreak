@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf, teamRows, GAME_KEYS, parseEspnInjuries, injuryStatus, buildAlerts, alertText } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf, teamRows, GAME_KEYS, parseEspnInjuries, injuryStatus, buildAlerts, alertText, parseEspnGamelog, histFromGames } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -208,5 +208,21 @@ ok('avisos: jogo já começado não avisa', buildAlerts({ now: tip + 60e3, lineu
 const tx = alertText(a1.items, { tz: 'Europe/Lisbon' });
 ok('avisos: texto com estado, lesão, hora de Lisboa e de onde vem o lineup', /Stephen Curry \(GSW\): Fora · Ankle/.test(tx.body) && /00:30/.test(tx.body) && /submetido no Top Shot/.test(tx.body) && tx.urgent && /2 avisos/.test(tx.title), tx);
 ok('avisos: estado antigo é esquecido ao fim de 3 dias', Object.keys(buildAlerts({ now: T0 + 4 * 86400e3, lineups: [], injuries: im, state: a1.state }).state).length === 0);
+
+// jogos da época passada (gamelog da ESPN): regularidade e jogos seguidos
+const glNames = ['minutes', 'fieldGoalsMade-fieldGoalsAttempted', 'fieldGoalPct', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'threePointPct', 'freeThrowsMade-freeThrowsAttempted', 'freeThrowPct', 'totalRebounds', 'assists', 'blocks', 'steals', 'fouls', 'turnovers', 'points'];
+const glEv = {}, glStats = [], glPre = [];
+const glDates = ['2025-10-22', '2025-10-23', '2025-10-25', '2025-10-27', '2025-10-28', '2025-10-30', '2025-11-01', '2025-11-02', '2025-11-04', '2025-11-06'];
+glDates.forEach((d, i) => { const id = '4018' + i; glEv[id] = { id, gameDate: d + 'T23:30:00.000+00:00', opponent: { abbreviation: 'BOS' } };
+  const b2b = i > 0 && (Date.parse(d) - Date.parse(glDates[i - 1])) === 86400e3, pts = b2b ? 18 : 26 + (i % 3) * 4;
+  glStats.push({ eventId: id, stats: ['34', '9-18', '50.0', (b2b ? 1 : 3) + '-8', '37.5', '5-6', '83.3', '7', '6', '1', '1', '2', '3', String(pts)] }); });
+glEv.pre1 = { id: 'pre1', gameDate: '2025-10-08T23:00:00.000+00:00' };
+glPre.push({ eventId: 'pre1', stats: ['20', '3-9', '', '1-4', '', '0-0', '', '2', '1', '0', '0', '1', '1', '7'] });
+const glJson = { names: glNames, events: glEv, seasonTypes: [{ displayName: '2025-26 Regular Season', categories: [{ type: 'event', events: glStats.slice(0, 5) }, { type: 'event', events: glStats.slice(5) }] }, { displayName: '2025-26 Preseason', categories: [{ events: glPre }] }] };
+const gl = parseEspnGamelog(glJson);
+ok('jogos da época passada: só a época regular, com lançamentos separados', gl.length === 10 && gl[0].date === '2025-10-22' && gl[0].fgm === 9 && gl[0].fga === 18 && gl[0].fg3a === 8 && gl[0].pts === 26 && gl[0].min === 34, gl[0]);
+const hs = histFromGames(gl);
+ok('regularidade: dispersão dos pontos e jogos seguidos detetados', hs.n === 10 && hs.d.pts > 0 && hs.b2b && hs.b2b.n === 3 && hs.b2b.r.pts < 0.75 && hs.b2b.r.fg3 < 0.5, hs);
+ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d === undefined);
 console.log(fails ? fails + ' falha(s)' : 'tarefas: tudo certo');
 process.exit(fails ? 1 : 0);
