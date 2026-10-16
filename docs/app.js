@@ -54,6 +54,17 @@ const injuredInRoster = () => Object.keys((S.mine || {}).roster || {}).filter(id
 // jogos seguidos (back-to-back): ajustar ou não (fica neste aparelho)
 let b2bOn = true;
 try { b2bOn = localStorage.getItem('fb-b2b') !== '0'; } catch (e) {}
+// aspeto: automático (segue o telemóvel), claro ou escuro (fica neste aparelho)
+let theme = 'auto';
+try { const t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark') theme = t; } catch (e) {}
+function applyTheme(t) {
+  theme = t;
+  try { if (t === 'auto') localStorage.removeItem('fb-theme'); else localStorage.setItem('fb-theme', t); } catch (e) {}
+  const root = document.documentElement;
+  if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+  const sys = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches, dark = t === 'dark' || (t === 'auto' && sys);
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', t === 'auto' ? (/dark/.test(m.getAttribute('media') || '') ? '#0B1018' : '#EEF1F5') : dark ? '#0B1018' : '#EEF1F5'); });
+}
 const engOpts = () => ({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn });
 // siglas da ESPN → siglas do site
 const ESPN_ABBR = { GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX', BRK: 'BKN', CHO: 'CHA' };
@@ -1277,6 +1288,14 @@ function renderPlantel() {
   const planned = {};
   v.days.forEach(d => d.lineup.forEach(id => { (planned[id] = planned[id] || new Set()).add(d.date); }));
   const played = curPlan().played || {};
+  // com smurfs: noites em que outra conta usa o jogador (um Moment só joga por uma conta em cada noite)
+  const elsewhere = {};
+  if (S.multi) accounts().filter(a => a.id !== S.acc).forEach(a => {
+    const ra = S.multi.byKey[a.id]; if (!ra) return;
+    const pa = planOf(a.id), va = ra.normal;
+    va.days.forEach(d => d.lineup.forEach(id => { ((elsewhere[id] = elsewhere[id] || {})[d.date] = elsewhere[id][d.date] || []).push(a.label); }));
+    Object.entries(pa.played || {}).forEach(([dt, pl]) => { if (pl && pl.done) (pl.lineup || []).forEach(id => { ((elsewhere[id] = elsewhere[id] || {})[dt] = elsewhere[id][dt] || []).push(a.label); }); });
+  });
   const qq = norm(S.filter);
   const list = r.model.players.filter(p => !qq || norm(p.name).includes(qq) || p.team.toLowerCase().includes(qq));
   const cols = 'minmax(72px,1fr) repeat(' + days.length + ', 20px) 34px';
@@ -1287,6 +1306,8 @@ function renderPlantel() {
       const nx = nd && nd.date === day.date ? ' nx' : '', pl = played[day.date];
       if (pl && pl.done) return '<span class="cell' + nx + '">' + ((pl.lineup || []).includes(p.id) ? '<i class="dot used"></i>' : '') + '</span>';
       if (set.has(day.date)) return '<span class="cell' + nx + '"><i class="dot on"></i></span>';
+      const oth = (elsewhere[p.id] || {})[day.date];
+      if (oth) return '<span class="cell' + nx + '" title="Joga pela ' + esc(oth.join(' e ')) + ' nesta noite"><i class="dot other"></i></span>';
       return '<span class="cell' + nx + '">' + (FB.teamsOn(day).has(p.team) ? '<i class="dot off"></i>' : '') + '</span>';
     }).join('');
     const n = set.size, u = p.uses || 0;
@@ -1302,7 +1323,8 @@ function renderPlantel() {
     '<div class="card"><div class="list-head"><h2>' + esc(run.name || 'Run') + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + '</h2><button class="btn small" type="button" data-action="uses-sheet">Acertar usos</button></div>' +
     '<div class="kv" style="padding:0 14px 10px"><div><div class="label">Usados</div><div class="v num">' + usedTot + '</div><div class="small muted">' + closed + ' dia' + (closed === 1 ? '' : 's') + ' fechado' + (closed === 1 ? '' : 's') + '</div></div><div><div class="label">Restantes</div><div class="v num">' + totalU + '</div><div class="small muted">' + ids.length + ' jogadores</div></div><div><div class="label">No plano</div><div class="v num">' + totalP + '</div><div class="small muted">até ao fim</div></div></div>' +
     '<div class="mx-wrap"><div class="mx">' + head + (rows || '<div class="mx-row muted small">Nenhum jogador encontrado.</div>') + '</div></div>' +
-    '<div class="legend"><span><i class="dot used"></i>já usado</span><span><i class="dot on"></i>no plano</span><span><i class="dot off"></i>tem jogo</span><span>usos = no plano / restantes</span></div></div>' +
+    '<div class="legend"><span><i class="dot used"></i>já usado</span><span><i class="dot on"></i>no plano</span>' + (S.multi ? '<span><i class="dot other"></i>na outra conta</span>' : '') + '<span><i class="dot off"></i>tem jogo</span><span>usos = no plano / restantes' + (S.multi ? ' nesta conta' : '') + '</span></div>' +
+    (S.multi ? '<div class="small muted" style="padding:0 14px 12px">Os usos são de cada conta, mas um Moment só joga por uma conta em cada noite: com um só Moment de um jogador, o plano nunca o põe nas duas no mesmo dia (manda-o de uma para a outra entre noites).</div>' : '') + '</div>' +
     '<div class="btns"><button class="btn" type="button" data-action="paste-sheet">Colar lista</button><button class="btn" type="button" data-action="add-player">Adicionar jogador</button></div>' +
     '<p class="small muted" style="margin:0 4px">Toca num jogador para ver quantas vezes já o usaste e mudar os usos' + (groupMode() ? ' de cada conta' : '') + ' ou o estado.</p>';
 }
@@ -1451,9 +1473,11 @@ async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
   const owned = id => !!S.mine.roster[id];
   let pool;
   if (onlyId) pool = [String(onlyId)];
-  else if (mode === 'new') {
+  else if (mode === 'new' || mode === 'mix') {
     const teams = new Set(); r.model.days.forEach(md => { if (md.objs.length) md.teams.forEach(t => teams.add(t)); });
     pool = [...S.players.values()].filter(p => p.team && p.avg && !owned(p.id) && teams.has(p.team)).map(p => String(p.id));
+    // com smurfs: também um 2.º Moment de quem só tens um (para as duas contas o usarem na mesma noite)
+    if (mode === 'mix') pool = pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && collectionInfo(id).copies === 1));
   } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null);
   if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true };
   // compra: jogador novo com U usos (fica na conta principal), ou mais U usos (e mais um Moment) para quem já tens
@@ -1463,11 +1487,16 @@ async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
   };
   let shortlist = pool;
   if (pool.length > 1) {
-    const x = engineInputs('main'), wide = clone(x.roster);
-    pool.forEach(id => add(id)(wide.players));
-    const mw = FB.buildModel(x.run, wide, x.odds, x.plan, engOpts());
-    const scr = FB.buyScreen(mw, r.normal, pool.map(id => mw.pIndex.get(id)).filter(i => i != null), U);
-    shortlist = scr.filter(z => z.score > 1e-5).slice(0, topN).map(z => z.id);
+    // cada conta vê o que ganharia com o candidato nos seus dias (com as smurf, um 2.º Moment de quem já tens
+    // vale sobretudo nas noites em que a outra conta o está a usar)
+    const score = {};
+    (S.multi ? accounts().map(a => a.id) : ['main']).forEach(k => {
+      const x = engineInputs(k), wide = clone(x.roster), rk = S.multi ? S.multi.byKey[k] : r; if (!rk) return;
+      pool.forEach(id => add(id)(wide.players));
+      const mw = FB.buildModel(x.run, wide, x.odds, x.plan, engOpts());
+      FB.buyScreen(mw, rk.normal, pool.map(id => mw.pIndex.get(id)).filter(i => i != null), U).forEach(z => { score[z.id] = (score[z.id] || 0) + z.score; });
+    });
+    shortlist = Object.entries(score).filter(([, v]) => v > 1e-5).sort((a, b) => b[1] - a[1]).slice(0, topN).map(([id]) => id);
   }
   const list = [];
   let base = null;
@@ -1512,7 +1541,7 @@ function scheduleAutoBuy() {
     if (autoBuyKey() !== key || document.visibilityState !== 'visible') return;
     autoBuyBusy = key;
     try {
-      const res = await computeBuy({ mode: 'new', U: 2, topN: S.multi ? 2 : 4, alive: () => autoBuyKey() === key, kicks: S.multi ? 10 : null });
+      const res = await computeBuy({ mode: S.multi ? 'mix' : 'new', U: 2, topN: S.multi ? 3 : 4, alive: () => autoBuyKey() === key, kicks: S.multi ? 10 : null });
       if (res && autoBuyKey() === key) { S.autoBuy = Object.assign({ key }, res); if (S.tab === 'hoje' || S.tab === 'run') render(); }
     } catch (e) { console.warn('sugestões de compra', e); }
     finally { if (autoBuyBusy === key) autoBuyBusy = null; }
@@ -1539,8 +1568,8 @@ function buyTipsCard(limit) {
   const tips = A.list.map(x => buySummary(A, x)).filter(t => t.worth).slice(0, limit);
   if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Nenhuma compra com 2 usos muda muito esta run. Em Jogadores → Comprar dá para ver outros usos ou um jogador em especial.</div></div>';
   return '<div class="card">' + head + '<ul class="list">' + tips.map(t => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' vitórias' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'vitórias esperadas ' + f1(t.e0) + ' → <b class="up">' + f1(t.e1) + '</b>';
-    return '<li><button class="row" type="button" data-action="buy-open"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || t.id) + '</span></div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num up">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : f1(t.e1 - t.e0)) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
-    '</ul><div class="row small muted" style="display:block">Calculado sozinho com Moments de 2 usos de jogadores que ainda não tens. Toca para ver os detalhes, outros usos ou reforços.</div></div>';
+    return '<li><button class="row" type="button" data-action="buy-open"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">2.º Moment</span>' : '') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num up">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : f1(t.e1 - t.e0)) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
+    '</ul><div class="row small muted" style="display:block">Calculado sozinho com Moments de 2 usos de jogadores que ainda não tens' + (S.multi ? ' e um 2.º Moment de quem só tens um (assim as duas contas podem usá-lo no mesmo dia)' : '') + '. Toca para ver os detalhes, outros usos ou reforços.</div></div>';
 }
 function buyResultsHtml(R) {
   const usesTxt = n => n + ' uso' + (n > 1 ? 's' : '');
@@ -1775,6 +1804,8 @@ function renderAjustes() {
   if (sub === 'prefs' && S.runs.length) {
     html.push('<div class="card panel"><h2>Run a ver</h2><select class="field" id="runPick" aria-label="Escolher run">' + S.runs.map(x => '<option value="' + esc(x.id) + '"' + (x.id === S.runId ? ' selected' : '') + '>' + esc(x.name) + ' · ' + dShort(x.start_date) + (x.active ? ' (ativa)' : '') + '</option>').join('') + '</select></div>');
   }
+  if (sub === 'prefs') html.push('<div class="card panel"><h2>Aspeto</h2><div class="small muted">Automático segue o modo claro ou escuro do telemóvel. Fica guardado neste aparelho.</div>' +
+    '<div class="seg acc-seg" role="group" aria-label="Aspeto">' + [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Jogos seguidos</h2><div class="small muted">No 2.º de dois jogos em dias seguidos (back-to-back) os jogadores costumam render um pouco menos. Sem odds, o plano tira 3%, ou o que esse jogador fez nesses jogos na época passada (há quem não note diferença). As odds já contam com isto. Fica guardado neste aparelho.</div>' +
     '<div class="seg acc-seg" role="group" aria-label="Jogos seguidos"><button type="button" data-action="b2b" data-v="1" aria-pressed="' + b2bOn + '">Ajustar</button><button type="button" data-action="b2b" data-v="0" aria-pressed="' + !b2bOn + '">Não ajustar</button></div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Forma recente</h2><div class="small muted">Sem odds para um dia, o plano usa as médias. Com a forma, as médias da época misturam-se com as dos últimos 10 e 5 jogos (normal: época 50%, últimos 10 30%, últimos 5 20%). As odds das casas já incluem a forma. Fica guardado neste aparelho.</div>' +
@@ -1980,7 +2011,7 @@ function compareCard(md, d, date, inTab) {
   const noForm = !rows.some(x => x.f);
   return '<div class="card"><div class="list-head"><h2>Comparar jogadores</h2><span class="small muted">' + rows.length + ' jogam · toca para ver</span></div>' +
     '<div class="cmp-wrap" id="cmpWrap"><table class="cmp"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
-    '<div class="row small muted" style="display:block">Números grandes: últimos 5 jogos; pequenos: época. <i class="dot on"></i> no lineup do plano. Toca num título para ordenar.' + (noForm ? ' A forma aparece depois dos primeiros jogos da época; até lá vês as médias da época.' : '') + '</div></div>';
+    '<div class="row small muted" style="display:block">Números grandes: últimos 5 jogos; pequenos: época. <i class="dot on" style="display:inline-block;vertical-align:-1px"></i> no lineup do plano. Toca num título para ordenar.' + (noForm ? ' A forma aparece depois dos primeiros jogos da época; até lá vês as médias da época.' : '') + '</div></div>';
 }
 // últimos jogos de um jogador (guardados pela tarefa diária)
 function gamesTable(a) {
@@ -2050,11 +2081,25 @@ function rosterSheet(id) {
     (() => { const ci = ((((S.profile || {}).collection) || {}).players || {})[id] || (e.moments ? { moments: e.moments, sets: e.sets } : null); if (!ci) return '';
       return '<div class="small muted">Na carteira: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : ci.moments + ' Moment' + (ci.moments > 1 ? 's' : '')) + ((ci.sets || []).length ? ' (' + ci.sets.map(esc).join(', ') + ')' : '') + '</div>'; })() +
     injuryBlock(id, null, null) +
-    (groupMode() ? '<div class="small muted">Usos restantes em cada conta</div>' : '') + usesRows +
+    (groupMode() ? '<div class="small muted">Usos restantes em cada conta</div>' : '') + usesRows + momentsBlock(id) +
     '<div><div class="label" style="margin-bottom:6px">Estado</div><div class="chips" role="group" aria-label="Estado">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
     (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo' + (c.gp ? ' (' + c.gp + ' jogos)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimativa a partir das outras médias</div>' : '') + '</div>' : '<div class="note info">Ainda sem médias para este jogador. Entram quando ele jogar.</div>') +
     (avg && avg.form ? '<div class="small muted">Últimos 5 jogos: ' + ['pts', 'reb', 'ast', 'fg3'].filter(k => avg.form.l5 && avg.form.l5[k] != null).map(k => STATS[k].short + ' ' + f1(avg.form.l5[k])).join(' · ') + ' (último jogo ' + dShort(avg.form.last) + ')</div>' : '') + gamesTable(avg) +
     '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Tirar do plantel</button>' + closeRow());
+}
+// com smurfs: em que noites cada conta o usa e, com um só Moment, se compensa um 2.º
+function momentsBlock(id) {
+  if (!S.multi) return '';
+  const copies = collectionInfo(id).copies;
+  const daysOf = k => { const r = S.multi.byKey[k]; const ds = new Set(r ? r.normal.days.filter(x => x.lineup.includes(id)).map(x => x.idx + 1) : []);
+    Object.entries(planOf(k).played || {}).forEach(([dt, pl]) => { if (pl && pl.done && (pl.lineup || []).includes(id)) { const i = S.days.findIndex(x => x.date === dt); if (i >= 0) ds.add(i + 1); } }); return [...ds]; };
+  const per = accounts().map(a => ({ a, ds: daysOf(a.id) })).filter(x => x.ds.length);
+  const nights = per.length ? per.map(x => esc(x.a.label) + ': ' + (x.ds.length === 1 ? 'dia ' : 'dias ') + spans(x.ds)).join(' · ') : 'nenhuma conta o usa no plano';
+  const inWallet = !!((((S.profile || {}).collection) || {}).players || {})[id], nAcc = accounts().length;
+  return '<div class="note' + (copies === 1 ? ' info' : '') + '" style="display:grid;gap:8px"><div>' + (copies === 1
+    ? '<b>' + (inWallet ? 'Tens 1 Moment dele' : 'Conta com 1 Moment dele') + ':</b> em cada noite só joga por uma conta' + (inWallet ? '' : ' (não aparece nas carteiras lidas)') + '. ' + nights + '. As contas nunca o usam no mesmo dia; se o plano o quiser em mais do que uma, muda-o de conta entre noites (aparece no A fazer).'
+    : '<b>Tens ' + copies + ' Moments dele:</b> ' + (copies >= nAcc ? 'todas as contas podem usá-lo na mesma noite' : 'até ' + copies + ' contas podem usá-lo na mesma noite') + '. ' + nights + '.') + '</div>' +
+    (copies === 1 && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">Ver se compensa um 2.º Moment</button>' : '') + '</div>';
 }
 function addPlayerSheet() {
   openSheet('<h3>Adicionar jogador</h3><input class="field" id="apSearch" type="search" placeholder="Nome do jogador" autocomplete="off" aria-label="Procurar jogador"><div id="apResults" class="search-list"></div>' +
@@ -2571,6 +2616,7 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'spec-stat': S.spec.stat = b.dataset.v; renderPlantel(); break;
+    case 'theme': applyTheme(b.dataset.v); renderAjustes(); break;
     case 'spec-scope': S.spec.scope = b.dataset.v; renderPlantel(); break;
     case 'buy-run': b.disabled = true; await buyRun(null); if (b.isConnected) b.disabled = false; break;
     case 'buy-pick': await buyRun(id); break;

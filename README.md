@@ -23,7 +23,7 @@ Cada separador tem partes no topo (ficam lembradas neste aparelho):
 - **Jogadores**: *Plantel* (usos e plano; **Acertar usos** abre uma lista com pesquisa e botões − / + para mudar vários jogadores depressa), *Forma* (últimos 5 jogos face à época, teus ou de toda a NBA), *Lesões*, *Comprar* (o que compensa comprar e os **Especialistas** de cada estatística) e *Coleção* (carteiras).
 - **Grupo**: *Classificação* (aros de cada um), *Lineups* (o lineup que o plano de cada amigo sugere para cada dia) e *Empréstimos* (Moments dos amigos que compensa pedir, só nos dias em que eles não os usam).
 - **No telemóvel como app**: no iPhone, abre o site no Safari → Partilhar → **Adicionar ao ecrã principal**. Abre em ecrã inteiro, com ícone próprio.
-- **Ajustes**: *Perfil*, *Preferências*, *Admin* (só o admin) e *Dados*.
+- **Ajustes**: *Perfil*, *Preferências* (run a ver, **Aspeto** automático/claro/escuro, jogos seguidos, forma), *Admin* (só o admin) e *Dados*.
 
 Os aros: cada patamar de prémio (por exemplo 5, 7 e 9 vitórias) é um aro que enche com a probabilidade de lá chegares. Verde é provável, amarelo meio-meio, vermelho difícil.
 
@@ -59,6 +59,7 @@ Em **Ajustes → Perfil**, cada pessoa pode juntar até 2 contas extra suas (uti
 - **Ler carteiras** lê as coleções de todas as contas e guarda onde está cada Moment.
 - O plano trata as coleções como uma só: escolhe o lineup de cada conta em cada noite, com os usos de cada conta, e um Moment só joga por uma conta em cada noite (regra do Top Shot). Maximiza a soma do valor dos prémios das contas.
 - Diz que Moments mandar para que conta e até quando (**Mandar antes de hoje** no ecrã Hoje; lista completa em Run → Contas). Cada transferência tem um pequeno custo no cálculo, por isso o plano só manda Moments quando isso aumenta as hipóteses de prémio. Uma conta sem hipóteses pode ficar sem jogar num dia.
+- Com um só Moment de um jogador, os usos aparecem em cada conta (por exemplo 1/1 na principal e 1/1 na smurf), mas nunca no mesmo dia: na grelha do plantel, o quadrado laranja marca as noites em que ele joga pela outra conta. Na ficha do jogador vês em que dias joga por cada conta e **Ver se compensa um 2.º Moment**; as sugestões de compra automáticas também contam com um 2.º Moment de quem só tens um.
 - No topo de Hoje, Run e Jogadores escolhe-se a conta a ver; jogo a jogo e fechar o dia funcionam por conta. Os resultados das smurf também vêm da blockchain.
 - A classificação do grupo conta só a conta principal.
 

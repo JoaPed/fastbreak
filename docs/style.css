@@ -157,6 +157,7 @@ section[role="tabpanel"] > *, .stack > * { min-width: 0; }
 .dot.on { background: var(--accent); }
 .dot.off { border: 1.5px solid var(--faint); width: 8px; height: 8px; }
 .dot.used { background: var(--faint); }
+.dot.other { width: 9px; height: 9px; border-radius: 2px; border: 2px solid var(--ball); background: transparent; }
 .mx-uses { text-align: right; font-family: var(--font-display); font-weight: 700; font-size: 16px; }
 .mx-uses.full { color: var(--accent); }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding: 10px 16px 12px; border-top: 1px solid var(--line); }
@@ -214,8 +215,8 @@ html, body { min-height: 100%; }
 .grp-rank { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--muted); text-align: center; }
 .grp-wl { font-family: var(--font-display); font-weight: 800; font-size: 22px; text-align: right; line-height: 1; }
 .grp-wl small { display: block; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; }
-.strip { display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap; }
-.strip i { width: 12px; height: 12px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); }
+.strip { display: flex; gap: 3px; margin-top: 5px; flex-wrap: nowrap; max-width: 100%; }
+.strip i { flex: 0 1 12px; min-width: 5px; height: 12px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); }
 .strip i.w { background: var(--good); border-color: var(--good); }
 .strip i.l { background: var(--bad); border-color: var(--bad); }
 .strip i.n { border-color: var(--ball); }
@@ -345,7 +346,9 @@ table.cmp { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 .dist-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
 /* Forma: barras dos últimos 5 jogos e variação face à época */
-.tdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.tdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; box-shadow: 0 0 0 1px rgba(18, 26, 38, .08); }
+:root[data-theme="dark"] .tdot { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .28); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tdot { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .28); } }
 .frow { width: 100%; border: 0; background: none; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) 52px 60px; gap: 10px; align-items: center; padding: 10px 16px; }
 .frow:active { background: var(--surface-2); }
 .spark { display: block; }
@@ -408,3 +411,4 @@ table.cmp { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 /* Grupo: lineups dos amigos e empréstimos */
 .lu-row .ps { white-space: normal; line-height: 1.45; }
 .lu-same { text-decoration: underline; text-decoration-color: var(--ball); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.an-kpis .small { font-size: 12px; }
