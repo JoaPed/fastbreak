@@ -775,7 +775,10 @@
   function optimizeMulti(models, copies, opts) {
     opts = opts || {};
     const A = models.length, P = models[0].P;
-    const TC = opts.transferCost != null ? opts.transferCost : 0.002; // ≈ 1 vitória esperada sem prémio, ou 1% do valor dos prémios // custo de cada Moment mandado para outra conta
+    // custo de cada Moment mandado para outra conta: ≈ 0,1 vitórias esperadas (mandar entre as tuas contas é de graça
+    // no Top Shot; o custo só evita trocas por migalhas). Com prémios, as vitórias esperadas pesam 0,002 → 0,0002.
+    const hasPrizes = models.some(m => m.prizes && m.prizes.length);
+    const TC = opts.transferCost != null ? opts.transferCost : (hasPrizes ? 0.0002 : 0.1);
     const owners = opts.owners || new Array(P).fill(-1);
     // com várias contas, os desempates (vitórias esperadas sem prémio, total do dia) pesam menos que uma transferência
     const multi = A > 1, AUX = multi ? 0.2 : 1;
@@ -997,13 +1000,32 @@
 
   // Transferências: em que noite cada Moment tem de estar noutra conta (só jogadores com um Moment nas contas todas)
   // plans: {conta: resultado}, owners: {jogador: conta onde o Moment está agora}
-  function transfersFor(keys, results, owners, copies) {
+  // holds: { id: { conta: quantos Moments } } (lido das carteiras). Com vários Moments do mesmo jogador, uma conta que
+  // o use numa noite sem ter nenhum recebe um de uma conta que nessa noite não o usa (ou que tem dois).
+  function transfersFor(keys, results, owners, copies, holds) {
     const uses = {};
     keys.forEach(k => results[k].days.forEach(d => d.lineup.forEach(id => { (uses[id] = uses[id] || []).push({ date: d.date, acc: k }); })));
     const out = [];
     Object.entries(uses).forEach(([id, list]) => {
-      if ((copies[id] || 1) > 1 || !owners[id]) return;
       list.sort((x, y) => x.date.localeCompare(y.date));
+      if ((copies[id] || 1) > 1) {
+        const h0 = holds && holds[id]; if (!h0) return;
+        const h = {}; Object.entries(h0).forEach(([k, n]) => { if (+n > 0) h[k] = +n; });
+        const byDate = {}; list.forEach(u => { (byDate[u.date] = byDate[u.date] || []).push(u.acc); });
+        Object.keys(byDate).sort().forEach(date => {
+          const users = byDate[date];
+          users.forEach(acc => {
+            if ((h[acc] || 0) > 0) return;
+            const spare = n => Object.keys(h).filter(k => k !== acc && (h[k] || 0) > (users.includes(k) ? n : 0));
+            const from = spare(0)[0] || spare(1)[0];
+            if (!from) return;
+            h[from]--; h[acc] = (h[acc] || 0) + 1;
+            out.push({ id, before: date, from, to: acc });
+          });
+        });
+        return;
+      }
+      if (!owners[id]) return;
       let at = owners[id];
       list.forEach(u => { if (u.acc !== at) { out.push({ id, before: u.date, from: at, to: u.acc }); at = u.acc; } });
     });
@@ -1024,8 +1046,8 @@
     const taken = {};
     models.forEach(m => m.allDays.forEach(d => { const pl = m.played[d.date]; if (pl && pl.done) (pl.lineup || []).forEach(id => { const i = m.pIndex.get(id); if (i != null) (taken[d.date] = taken[d.date] || []).push(i); }); }));
     base.taken = taken;
-    // três pontos de partida, fica o melhor: do zero; o melhor plano da conta principal sozinha; e uma divisão
-    // equilibrada (em cada noite as contas escolhem à vez, como num draft)
+    // pontos de partida, fica o melhor: do zero; o melhor plano da conta principal sozinha; uma divisão
+    // equilibrada (em cada noite as contas escolhem à vez, como num draft); e a principal mais as sobras
     const cold = optimizeMulti(models, copies, Object.assign({}, base, { restarts: 1 }));
     const lead = optimize(models[0], Object.assign({}, opts, { restarts: 2 }));
     const warm = optimizeMulti(models, copies, Object.assign({}, base, { init: [lead.days.map(d => d.lineupIdx)], temp0: 0.01, restarts: 1 }));
@@ -1043,7 +1065,28 @@
       });
     });
     const split = models.length > 1 ? optimizeMulti(models, copies, Object.assign({}, base, { init: draft, temp0: 0.02, restarts: 1 })) : null;
-    let best = [cold, warm, split].filter(Boolean).reduce((x, y) => (y.total > x.total + 1e-12 ? y : x));
+    // quarto ponto de partida: o plano da principal e, em cada noite, as outras contas com os Moments que sobram
+    // (mesmo os de outra conta: é aqui que nascem as trocas; um a um, a pesquisa não chega lá porque um jogador
+    // sozinho não ganha um dia)
+    let fillRun = null;
+    if (models.length > 1) {
+      const fill = models.map((m, a) => (a === 0 ? lead.days.map(d => d.lineupIdx.slice()) : m.days.map(() => [])));
+      const usedA = models.map(m => new Int32Array(m.P)), dayOf = models.map(m => new Map(m.days.map((md, d) => [md.day.date, d])));
+      fill[0].forEach(l => l.forEach(p => { usedA[0][p]++; }));
+      Object.keys(slotsByDate).sort().forEach(date => {
+        const list = slotsByDate[date], md0 = list[0][2], night = new Int32Array(models[0].P);
+        const d0 = dayOf[0].get(date); if (d0 != null) fill[0][d0].forEach(p => { night[p]++; });
+        (taken[date] || []).forEach(p => { night[p]++; });
+        const score = p => md0.objs.reduce((t, _, k) => t + md0.mu[p][k] / md0.T[k], 0);
+        const ranked = md0.elig.slice().sort((x, y) => score(y) - score(x));
+        list.forEach(([a, d, md]) => {
+          if (a === 0) return;
+          ranked.forEach(p => { if (fill[a][d].length < md.size && md.eligSet.has(p) && night[p] < copies[p] && usedA[a][p] < models[a].uses[p]) { fill[a][d].push(p); night[p]++; usedA[a][p]++; } });
+        });
+      });
+      fillRun = optimizeMulti(models, copies, Object.assign({}, base, { init: fill, temp0: 0.01, restarts: 1 }));
+    }
+    let best = [cold, warm, split, fillRun].filter(Boolean).reduce((x, y) => (y.total > x.total + 1e-12 ? y : x));
     // no fim, a pesquisa local repetida parte do melhor dos três
     if (models.length > 1) {
       const polished = optimizeMulti(models, copies, Object.assign({}, base, { init: best.results.map(r => r.days.map(d => d.lineupIdx)), iters: 1, restarts: 1, temp0: 0.001, kicks: opts.kicks != null ? opts.kicks : 40 }));
@@ -1056,9 +1099,9 @@
       const losses = playedDays.filter(d => model.played[d.date].result === 'loss').length;
       byKey[keys[a]] = { model, normal: res[a], allIn: null, group: true, wins, losses, playedCount: wins + losses, prizes: model.prizes };
     });
-    const ownerById = {}, cp = {};
-    players.forEach((p, i) => { cp[p.id] = copies[i]; if (p.owner) ownerById[p.id] = p.owner; });
-    const transfers = transfersFor(keys, Object.fromEntries(keys.map((k, a) => [k, res[a]])), ownerById, cp);
+    const ownerById = {}, cp = {}, holdById = {};
+    players.forEach((p, i) => { cp[p.id] = copies[i]; if (p.owner) ownerById[p.id] = p.owner; if (p.hold) holdById[p.id] = p.hold; });
+    const transfers = transfersFor(keys, Object.fromEntries(keys.map((k, a) => [k, res[a]])), ownerById, cp, holdById);
     // um Moment em duas contas na mesma noite (só acontece com jogadores fixados à mão)
     const clashes = [];
     const byDate = {};

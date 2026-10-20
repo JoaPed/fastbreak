@@ -151,12 +151,25 @@ g2.keys.forEach(k => g2.byKey[k].normal.days.forEach(d => d.lineup.forEach(pid =
 ok('transferências: cada Moment está na conta certa em cada noite', okT, g2.transfers.slice(0, 5));
 const allMain = JSON.parse(JSON.stringify(roster)); Object.values(allMain.players).forEach(p => { p.owner = 'main'; p.copies = 1; });
 const g1 = FB.planGroup(run, [{ key: 'main', roster: allMain, plan: {} }, { key: 's1', roster: allMain, plan: {} }], odds, { now: NOW });
-ok('smurf sem Moments e sem hipótese de prémio não pede transferências inúteis', g1.transfers.length === 0 && g1.byKey.main.normal.prizeProbs.every((x, i) => x >= r.normal.prizeProbs[i] - 0.02), [g1.transfers.length, g1.byKey.main.normal.prizeProbs, r.normal.prizeProbs]);
-ok('as transferências servem os prémios: nenhum Moment vai e volta para uma conta sem hipótese de prémio', g2.transfers.every(t => g2.byKey[t.to].normal.prizeProbs.some(x => x > 0.01)), g2.transfers.filter(t => !g2.byKey[t.to].normal.prizeProbs.some(x => x > 0.01)));
+ok('smurf sem Moments: a conta principal não perde hipóteses de prémio por emprestar à smurf', g1.byKey.main.normal.prizeProbs.every((x, i) => x >= r.normal.prizeProbs[i] - 0.02), [g1.byKey.main.normal.prizeProbs, r.normal.prizeProbs]);
+// com o custo baixo (≈ 0,1 vitórias por troca) uma troca que vale a pena aparece: com uma conta sem nada, só se o
+// lineup que ela faria com o que sobra valer mais do que as trocas (aqui não vale: 0,03 vitórias por troca)
+const gCheap = FB.planGroup(run, [{ key: 'main', roster: allMain, plan: {} }, { key: 's1', roster: allMain, plan: {} }], odds, { now: NOW, transferCost: 0 });
+ok('smurf sem Moments: sem custo de troca joga com o que sobra da principal', gCheap.transfers.length > 0 && gCheap.byKey.s1.normal.days.some(d => d.lineup.length), gCheap.transfers.length);
+// cada transferência tem de compensar: sem elas (cada conta só com os seus) o plano vale menos
+const gNo = FB.planGroup(run, [{ key: 'main', roster: split, plan: {} }, { key: 's1', roster: split, plan: {} }], odds, { now: NOW, transferCost: 10 });
+ok('duas contas: há trocas e o plano com trocas vale mais do que sem trocas', g2.transfers.length > 0 && gNo.transfers.length === 0 && g2.objective > gNo.objective, [g2.transfers.length, gNo.transfers.length, g2.objective, gNo.objective]);
 const two = JSON.parse(JSON.stringify(allMain)); two.players.sga.copies = 2; delete two.players.sga.owner;
 const lockBoth = { locks: { [d1]: ['sga'] } };
 const g3 = FB.planGroup(run, [{ key: 'main', roster: two, plan: lockBoth }, { key: 's1', roster: two, plan: lockBoth }], odds, { now: NOW });
 ok('com dois Moments do mesmo jogador, as duas contas podem usá-lo na mesma noite', g3.byKey.main.normal.days[0].lineup.includes('sga') && g3.byKey.s1.normal.days[0].lineup.includes('sga') && !g3.clashes.length, [g3.byKey.main.normal.days[0].lineup, g3.byKey.s1.normal.days[0].lineup, g3.clashes]);
+// os dois Moments estão na principal: a smurf só o pode usar se receber um antes
+const twoMain = JSON.parse(JSON.stringify(two)); twoMain.players.sga.hold = { main: 2 };
+const g3b = FB.planGroup(run, [{ key: 'main', roster: twoMain, plan: lockBoth }, { key: 's1', roster: twoMain, plan: lockBoth }], odds, { now: NOW });
+ok('dois Moments na mesma conta: manda um para a smurf antes da noite em que as duas o usam', g3b.transfers.some(t => t.id === 'sga' && t.from === 'main' && t.to === 's1' && t.before <= d1), g3b.transfers.filter(t => t.id === 'sga'));
+const twoSplit = JSON.parse(JSON.stringify(two)); twoSplit.players.sga.hold = { main: 1, s1: 1 };
+const g3c = FB.planGroup(run, [{ key: 'main', roster: twoSplit, plan: lockBoth }, { key: 's1', roster: twoSplit, plan: lockBoth }], odds, { now: NOW });
+ok('um Moment em cada conta: nenhuma troca para o usarem as duas na mesma noite', !g3c.transfers.some(t => t.id === 'sga' && t.before <= d1), g3c.transfers.filter(t => t.id === 'sga'));
 const g4 = FB.planGroup(run, [{ key: 'main', roster: allMain, plan: lockBoth }, { key: 's1', roster: allMain, plan: lockBoth }], odds, { now: NOW });
 ok('o mesmo Moment fixado nas duas contas na mesma noite é assinalado', g4.clashes.some(c => c.id === 'sga' && c.date === d1), g4.clashes);
 const closedMain = { played: { [d1]: { done: true, result: 'win', lineup: [] } } };

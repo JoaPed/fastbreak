@@ -548,9 +548,10 @@ function setUsesOf(e, acc, n) { if (acc === 'main') e.uses = n; else { e.su = e.
 // onde estão os Moments de cada jogador (lido das carteiras)
 function collectionInfo(id) {
   const c = ((((S.profile || {}).collection) || {}).players || {})[id];
-  if (!c || !c.owners) return { copies: 1, owner: null };
+  if (!c || !c.owners) return { copies: 1, owner: null, hold: null };
   const keys = Object.keys(c.owners).filter(k => c.owners[k] > 0), n = keys.reduce((a, k) => a + c.owners[k], 0);
-  return { copies: Math.max(1, n), owner: n === 1 ? keys[0] : null };
+  const hold = {}; keys.forEach(k => { hold[k] = +c.owners[k]; });
+  return { copies: Math.max(1, n), owner: n === 1 ? keys[0] : null, hold }; // hold: quantos Moments dele há em cada conta
 }
 
 // ---------- gravar ----------
@@ -642,7 +643,7 @@ function engineInputs(acc) {
     const c = S.players.get(String(id)) || {}, pk = acc + '|' + id;
     const uses = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, acc);
     const ci = collectionInfo(id);
-    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: e.status || 'ok', injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, owner: ci.owner };
+    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: e.status || 'ok', injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, owner: ci.owner, hold: ci.hold };
   });
   const odds = { days: {} };
   Object.entries(S.odds).forEach(([d, o]) => { odds.days[d] = { players: o.players || {}, source: o.source, updatedAt: o.updated_at }; });
