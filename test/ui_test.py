@@ -87,7 +87,7 @@ def new_page(b, db):
     def setof(k): return ('Holo Icon', 90, 49) if k % 23 == 0 else ('Metallic Gold LE', 33, 499) if k % 7 == 0 else ('Base Set', 2, 15000)
     def row(k, names):
         nm, sid, _ = setof(k)
-        return {'type': 'Array', 'value': [S(names[k % len(names)]), S(nm), S('8'), S(str(k)), S(str(sid)), S(str(k % 50)), S(''), S('')]}
+        return {'type': 'Array', 'value': [S(names[k % len(names)]), S(nm), S('8'), S(str(k)), S(str(sid)), S(str(k % 50)), S(''), S(''), S(str(1000 + k))]}
     def editions(sets):
         def d(pairs): return {'type': 'Dictionary', 'value': [{'key': {'type': 'UInt32', 'value': str(a)}, 'value': b} for a, b in pairs]}
         cnt = {2: 15000, 33: 499, 90: 49}
@@ -229,6 +229,23 @@ with sync_playwright() as pw:
         pg.select_option('#plSub select[data-tier-set="Holo Icon"]', 'Rare'); pg.wait_for_timeout(800)
         print('B Holo Icon mudado para Rare:', store(pg, '__FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.sets["Holo Icon"]'))
         pg.screenshot(path=str(shots / 'escaloes.png'), full_page=True)
+    # escalão carta a carta: das cartas de um jogador, a melhor (Holo Icon, agora Rare) passa a Common → usos 1
+    name1 = [x['name'] for x in roster['players'].values()][1]; pid1 = list(roster['players'])[1]
+    pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(300)
+    pg.locator('#plBody .pl-card').filter(has_text=name1).first.click(); pg.wait_for_timeout(300)
+    cc = pg.locator('#sheetPanel .card').filter(has_text='As tuas cartas')
+    print('B cartas de', name1 + ':', cc.inner_text().replace('\n', ' | ')[:260] if cc.count() else 'sem cartão', '· seletores:', pg.locator('#sheetPanel select[data-mo-tier]').count())
+    if cc.count():
+        fid = pg.locator('#sheetPanel select[data-mo-tier]').first.get_attribute('data-mo-tier')
+        pg.select_option('#sheetPanel select[data-mo-tier="%s"]' % fid, 'Common'); pg.wait_for_timeout(900)
+        print('B carta', fid, '→ Common:', pg.locator('#toast').inner_text(), '· Luka:', store(pg, '__FAKE_DB.tables.user_runs[0].roster["luka"] && __FAKE_DB.tables.user_runs[0].roster["luka"].uses'), '·', store(pg, '{mt: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.mt, usos: __FAKE_DB.tables.user_runs[0].roster["%s"].uses}' % pid1))
+        print('B depois:', pg.locator('#sheetPanel .card').filter(has_text='As tuas cartas').locator('.row.small').inner_text()[:160])
+        pg.evaluate('document.querySelector("#sheetPanel .mo-row").scrollIntoView()'); pg.wait_for_timeout(100)
+        pg.screenshot(path=str(shots / 'cartas.png'))
+        pg.select_option('#sheetPanel select[data-mo-tier="%s"]' % fid, 'Legendary'); pg.wait_for_timeout(900)
+        print('B carta', fid, '→ Legendary:', store(pg, '{mt: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.mt, usos: __FAKE_DB.tables.user_runs[0].roster["%s"].uses}' % pid1))
+        print('B aprendido (Luka, 2 Holo Icon):', store(pg, '{usos: __FAKE_DB.tables.user_runs[0].roster["luka"] && __FAKE_DB.tables.user_runs[0].roster["luka"].uses, tl: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.tl}'), '·', pg.locator('#toast').inner_text())
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     pg.click('#t-ajustes'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="logout"]'); pg.wait_for_timeout(300)
     print('B depois de sair:', pg.locator('#auSubmit').inner_text())
@@ -488,6 +505,15 @@ with sync_playwright() as pw:
     print('F ao vivo (sozinho):', store(pg, 'Object.values((__FAKE_DB.tables.user_runs[0].plan.live)||{})[0]?.players || null'))
     print('F jogos de hoje (ao vivo):', pg.locator('#tab-hoje .card').filter(has_text='Jogos de hoje').inner_text().replace('\n', ' | ')[:400])
     pg.screenshot(path=str(shots / 'ao-vivo.png'), full_page=True)
+    # Refazer a run agora: com o que já aconteceu, manter / tirar um / poupar os que faltam
+    print('F botão refazer:', pg.locator('#tab-hoje button[data-action="rerun"]').count())
+    pg.click('#tab-hoje button[data-action="rerun"]'); pg.wait_for_timeout(9000)
+    print('F refazer a run:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#sheetPanel .card').all_inner_texts()))
+    print('F lineup submetido:', ' / '.join(pg.locator('#sheetPanel .chips button[aria-pressed="true"]').all_inner_texts()))
+    pg.screenshot(path=str(shots / 'refazer-run.png'))
+    if pg.locator('#sheetPanel button[data-action="rerun-use"]').count() > 1:
+        pg.locator('#sheetPanel button[data-action="rerun-use"]').last.click(); pg.wait_for_timeout(1500)
+        print('F escolha aplicada:', pg.locator('#toast').inner_text(), '· troca:', pg.locator('#tab-hoje .card.swap').inner_text().replace('\n', ' | ')[:200] if pg.locator('#tab-hoje .card.swap').count() else 'sem troca')
     pg.click('#tab-hoje button[data-action="sub"][data-sub="comparar"]'); pg.wait_for_timeout(400)
     print('F comparar (seguidos):', pg.locator('#tab-hoje table.cmp tbody tr').filter(has_text='2.º seguido').count(), 'de', pg.locator('#tab-hoje table.cmp tbody tr').count())
     pg.click('#tab-hoje button[data-action="sub"][data-sub="porque"]'); pg.wait_for_timeout(400)

@@ -471,14 +471,23 @@ async function loadGroup() {
   if (!S.runId) return;
   const run = S.runs.find(r => r.id === S.runId) || {};
   const [profiles, summaries, members, chain] = await Promise.all([
-    q(sb.from('profiles').select('user_id,display_name,topshot_username,flow_address,smurfs,share_plan,updated_at')).catch(() => q(sb.from('profiles').select('*'))), // sem as coleções dos outros (pesadas)
+    q(sb.from('profiles').select('user_id,display_name,topshot_username,flow_address,smurfs,share_plan,updated_at,tl:collection->tl')).catch(() => q(sb.from('profiles').select('*'))), // sem as coleções dos outros (pesadas), só os escalões que marcaram
     q(sb.from('summaries').select('*').eq('run_id', S.runId)),
     q(sb.from('members').select('*')),
     run.chain_run_id ? q(sb.from('chain_results').select('*').eq('chain_run_id', run.chain_run_id)) : Promise.resolve([]),
   ]);
+  groupTierLabels(profiles || []);
   S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [] };
 }
 
+// escalões que os amigos marcaram carta a carta, juntos por set (servem para os sets que tu não marcaste)
+function groupTierLabels(profiles) {
+  const me = S.session.user.id, out = {};
+  profiles.forEach(p => { if (p.user_id === me) return; const tl = p.tl || (p.collection && p.collection.tl); if (!tl || typeof tl !== 'object') return;
+    Object.entries(tl).forEach(([k, L]) => { if (Array.isArray(L)) out[k] = (out[k] || []).concat(L.filter(x => Array.isArray(x) && TIERS.includes(x[1]))); }); });
+  const before = JSON.stringify(S.groupTL || {}); S.groupTL = out;
+  if (before !== JSON.stringify(out) && S.mineLoaded) syncTierUses(); // usos do plantel pelo que o grupo aprendeu
+}
 // Resultados lidos da blockchain entram sozinhos no plano de cada conta (e descontam os usos dessa conta)
 function applyChainResults() {
   const uid = S.session.user.id;
@@ -864,7 +873,7 @@ function renderJornada(el) {
   if (live && d.live && (d.live.out.length || d.live.in.length)) {
     const pSub = lineupP(md, d.live.submitted), pNew = d.P, pairs = [];
     for (let i = 0; i < Math.max(d.live.out.length, d.live.in.length); i++) pairs.push('<li>' + (d.live.out[i] ? 'Out <b>' + esc(nameOf(d.live.out[i])) + '</b>' : '') + (d.live.out[i] && d.live.in[i] ? ' → ' : '') + (d.live.in[i] ? 'in <b>' + esc(nameOf(d.live.in[i])) + '</b>' : '') + '</li>');
-    html.push('<div class="card swap"><h3>Recommended swap</h3><ul>' + pairs.join('') + '</ul><div class="small muted">Win today ' + pct(pSub) + ' → <b>' + pct(pNew) + '</b>' + (pNew + 0.005 < pSub ? ' · loses a little today to save uses for the run' : '') + '</div><button class="btn primary" type="button" data-action="swap-done">I made the swap</button></div>');
+    html.push('<div class="card swap"><h3>Recommended swap</h3><ul>' + pairs.join('') + '</ul><div class="small muted">Win today ' + pct(pSub) + ' → <b>' + pct(pNew) + '</b>' + (pNew + 0.15 < pSub ? ' · gives up on today to save uses for the run' : pNew + 0.005 < pSub ? ' · loses a little today to save uses for the run' : '') + '</div><button class="btn primary" type="button" data-action="swap-done">I made the swap</button></div>');
   }
   const locks = new Set(((curPlan().locks || {})[nd.date]) || []);
   const lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
@@ -890,6 +899,7 @@ function renderJornada(el) {
   html.push('<div class="card"><div class="list-head"><h2>Lineup</h2>' + (isCur ? '<button class="switch" type="button" data-action="live-toggle" aria-pressed="' + live + '"><i></i>Live</button>' : '<span class="small muted">' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>') + '</div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? (isCur ? 'This account doesn\'t play today: the Moments are worth more in the other accounts.' : 'This account doesn\'t play that day: the Moments are worth more in the other accounts.') : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Final total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '') +
+    (isCur && (live || gamesWindow(nd)) && d.lineup.length + ((d.live || {}).submitted || []).length && !d.noObjective ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn primary" type="button" data-action="rerun">Redo the run now</button></div>' : '') +
     (live ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="live-fetch">Update live stats</button></div>'
       : (isCur && d.lineup.length && !d.noObjective ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="alts">See 2 to 3 alternatives for today</button></div>' : '')) +
     (isCur ? '<div class="foot"><button class="btn" type="button" data-action="day" data-date="' + nd.date + '">Adjust</button><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + nd.date + '">Close the day</button></div>'
@@ -1134,6 +1144,87 @@ function altUse(i) {
   const plan = curPlan(); (o.ids ? altMods.fix(nd.date, o.ids) : altMods.ban(nd.date, o.banId))(plan);
   closeSheet(); schedule(); saveMine();
   toast('Today\'s lineup locked. The rest of the run was redone.');
+}
+// ---- Refazer a run agora (a meio do dia) ----
+// Com o que os primeiros jogadores já fizeram (jogo a jogo + pontos ao vivo da ESPN), refaz a run para cada escolha:
+// manter os que faltam, tirar um deles, poupar todos os que faltam, ou o que o plano sugere (pode trocar alguém).
+// Quem sai do lineup antes de o jogo dele começar não gasta o uso: fica para outro dia.
+function chainLineupToday(date) {
+  const uid = S.session.user.id, rows = ((S.group || {}).chain || []).filter(c => c.user_id === uid && c.date === date && (c.account || 'main') === S.acc && (c.lineup || []).length);
+  if (!rows.length) return null;
+  const byName = new Map(Object.keys(S.mine.roster || {}).map(id => [norm(nameOf(id)), id]));
+  const ids = rows[0].lineup.map(n => byName.get(norm(n))).filter(Boolean);
+  return ids.length ? ids : null;
+}
+async function rerunSheet(fetchLive) {
+  const nd = nextDay(); if (!S.result || !nd) return;
+  const date = nd.date;
+  if (!liveOn(date)) { // liga o jogo a jogo com o lineup submetido (da blockchain, se já lá estiver; senão o do plano)
+    const cur = liveDoc(date), fromChain = chainLineupToday(date);
+    planPatch({ live: { [date]: { active: true, lineup: cur && cur.lineup && cur.lineup.length ? cur.lineup : fromChain || view().days[0].lineup.slice(), players: (cur && cur.players) || {} } } });
+  }
+  openSheet('<h3>Redo the run now</h3><div class="small muted" id="rerunProg">Reading the live points…</div>' + closeRow());
+  if (fetchLive !== false && gamesWindow(nd)) { try { await liveFetch(true); } catch (e) { /* sem rede: usa o que há */ } }
+  compute();
+  if (!$('rerunProg')) return;
+  const r = S.result, v = view(), d0 = v.days[0], md = r.model.days[0];
+  if (!d0 || d0.date !== date) { $('rerunProg').textContent = 'This day is already closed.'; return; }
+  const lv = liveDoc(date) || {}, sub = (lv.lineup || []).filter(id => r.model.pIndex.has(id));
+  const started = new Set(((d0.live || {}).locked) || []), rem = sub.filter(id => !started.has(id));
+  const eligIds = md.elig.map(pi => r.model.players[pi].id);
+  // escolhas: cada uma é uma mudança ao plano de hoje, e a run é refeita com ela
+  const keepOnly = keep => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = keep.filter(id => !started.has(id)); plan.bans[date] = eligIds.filter(id => !keep.includes(id) && !started.has(id)); };
+  const opts = [{ title: 'What the plan suggests', note: 'it may swap someone who hasn\'t played yet for another player', mod: () => {} }];
+  if (rem.length) opts.push({ title: rem.length > 1 ? 'Keep the ' + rem.length + ' still to play' : 'Keep ' + nameOf(rem[0]), mod: keepOnly(sub), keep: true });
+  if (rem.length > 1) rem.forEach(x => opts.push({ title: 'Remove ' + nameOf(x), mod: keepOnly(sub.filter(y => y !== x)), out: [x] }));
+  if (rem.length) opts.push({ title: rem.length > 1 ? 'Save the ' + rem.length + ' still to play' : 'Remove ' + nameOf(rem[0]), mod: keepOnly(sub.filter(y => started.has(y))), out: rem.slice() });
+  const res = [];
+  for (let k = 0; k < opts.length; k++) {
+    if (!$('rerunProg')) return;
+    $('rerunProg').textContent = 'Redoing the run for each choice… ' + (k + 1) + ' of ' + opts.length;
+    await new Promise(ok => setTimeout(ok, 20));
+    try { const ev = evalAlt(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); } catch (e) { console.warn(e); }
+  }
+  if (!$('rerunProg')) return;
+  // se o plano sugere o mesmo que outra escolha (p. ex. manter todos), mostra só essa
+  const lkey = x => [...x.a0.lineup].sort().join('|');
+  const plano = res.find(x => x.mod === opts[0].mod);
+  if (plano && res.some(x => x !== plano && lkey(x) === lkey(plano))) res.splice(res.indexOf(plano), 1);
+  res.sort((x, y) => y.ev.total - x.ev.total);
+  S.reruns = res;
+  const best = res[0], runTxt = x => (r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + pct(x.ev.res.prizeProbs[i])).join(' · ') : f1(r.wins + x.ev.res.expected) + ' expected wins');
+  const done = d0.totals.map(t => '<b class="num">' + f0(t.known) + '</b> of ' + t.target + (d0.totals.length > 1 ? ' ' + esc(statShort(t.stat)) : '')).join(' · ');
+  const tip = id => { const team = (r.model.players[r.model.pIndex.get(id)] || {}).team, tt = team ? FB.tipTime(nd, team) : null; return tt ? hm(new Date(tt).toISOString()) : ''; };
+  const chips = '<div class="chips" role="group" aria-label="Submitted lineup">' + eligIds.map(id => '<button type="button" data-action="rerun-pick" data-id="' + esc(id) + '" aria-pressed="' + sub.includes(id) + '">' + (started.has(id) ? icoLock : '') + esc(lastName(id)) + '</button>').join('') + '</div>';
+  const cards = res.map((x, k) => {
+    const ins = x.a0.lineup.filter(id => !sub.includes(id)), outs = sub.filter(id => !x.a0.lineup.includes(id));
+    const later = outs.map(id => { const ds = x.ev.res.days.filter(dd => dd.date !== date && dd.lineup.includes(id)).map(dd => dd.idx + 1); return esc(lastName(id)) + (ds.length ? ' is kept for ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : ' doesn\'t play again in the plan'); });
+    return '<div class="card panel"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + (x === best ? '<span class="small up">best for the run</span>' : '<span class="small muted">' + (x.ev.total >= best.ev.total - 1e-9 ? 'same' : '') + '</span>') + '</div>' +
+      (x.note ? '<div class="small muted">' + esc(x.note) + '</div>' : '') +
+      ((ins.length || outs.length) ? '<div class="small">' + (outs.length ? '<b>Out:</b> ' + outs.map(id => esc(nameOf(id)) + (tip(id) ? ' (game at ' + tip(id) + ')' : '')).join(', ') : '') + (ins.length ? (outs.length ? ' · ' : '') + '<b>In:</b> ' + ins.map(id => esc(nameOf(id))).join(', ') : '') + '</div>' : '<div class="small">The lineup you submitted stays.</div>') +
+      '<div class="small">Today: <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run: ' + runTxt(x) + '</div>' +
+      (later.length ? '<div class="small muted">' + later.join(' · ') + '.</div>' : '') +
+      '<button class="btn' + (x === best ? ' primary' : '') + '" type="button" data-action="rerun-use" data-i="' + k + '">Choose this</button></div>';
+  }).join('');
+  openSheet('<h3>Redo the run now</h3><div class="small muted">Day ' + (nd.idx + 1) + ' · done so far: ' + done + '. The run was redone for each choice with what has already happened; anyone taken out before his game starts doesn\'t spend the use.</div>' +
+    '<div class="label">Your submitted lineup <span class="muted" style="font-weight:400">(tap to fix; ' + icoLock + ' = game already started)</span></div>' + chips +
+    (rem.length ? '' : '<div class="note info">All your players\' games have started: there is nothing left to change today.</div>') +
+    (cards || '<div class="note info">Couldn\'t redo the run.</div>') + closeRow());
+}
+function rerunPick(id) {
+  const nd = nextDay(); if (!nd) return;
+  const cur = (liveDoc(nd.date) || {}).lineup || [], size = (S.result.model.days[0] || {}).size || 5;
+  let next = cur.includes(id) ? cur.filter(x => x !== id) : cur.concat([id]);
+  if (next.length > size) { toast('The lineup has at most ' + size + ' players.'); return; }
+  planPatch({ live: { [nd.date]: { lineup: next } } });
+  rerunSheet(true);
+}
+function rerunUse(i) {
+  const x = (S.reruns || [])[+i], nd = nextDay(); if (!x || !nd) return;
+  const plan = curPlan(); x.mod(plan);
+  const outs = ((liveDoc(nd.date) || {}).lineup || []).filter(id => !x.a0.lineup.includes(id)), ins = x.a0.lineup.filter(id => !((liveDoc(nd.date) || {}).lineup || []).includes(id));
+  closeSheet(); schedule(); saveMine();
+  toast(outs.length || ins.length ? 'On Top Shot: ' + (outs.length ? 'take out ' + outs.map(lastName).join(', ') : '') + (ins.length ? (outs.length ? ' and ' : '') + 'put in ' + ins.map(lastName).join(', ') : '') + ' before their game. Then tap “I made the swap”.' : 'The lineup you submitted stays. The rest of the run was redone.');
 }
 function impactHtml(r) {
   const n0 = r.normal.days[0], a0 = r.allIn ? r.allIn.days[0] : n0;
@@ -1465,7 +1556,7 @@ function collectionCard(compact) {
 }
 // ---- coleção: resumo (Moments, jogadores, usos por run e escalões) ----
 const TIER_CLS = { Common: 'c', Fandom: 'f', Rare: 'r', Legendary: 'l', Ultimate: 'u' };
-function tierCounts(col, c) { const o = {}; Object.entries((c && c.bySet) || {}).forEach(([k, n]) => { const t = setTier(col, k); o[t] = (o[t] || 0) + n; }); return o; }
+function tierCounts(col, c) { const o = {}; momentTiers(col, c).forEach(t => { o[t] = (o[t] || 0) + 1; }); return o; }
 const tierPills = o => TIERS.slice().reverse().filter(t => o[t]).map(t => '<span class="tpill t-' + TIER_CLS[t] + '">' + t + (o[t] > 1 ? ' <b>×' + o[t] + '</b>' : '') + '</span>').join('');
 function colSummary(col) {
   const ps = Object.values(col.players || {}), moments = Object.values(col.accounts || {}).reduce((a, t) => a + (+t.moments || 0), 0);
@@ -2370,7 +2461,7 @@ function openSheet(html, back) {
   if (!p.contains(document.activeElement)) p.focus({ preventScroll: true });
 }
 function closeSheet() {
-  $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; $('app').inert = false;
+  $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; S.sheetPl = null; $('app').inert = false;
   const f = S.sheetFrom; S.sheetFrom = null;
   if (f && f.isConnected && typeof f.focus === 'function') f.focus({ preventScroll: true });
 }
@@ -2488,6 +2579,7 @@ function playerSheet(id, date, back) {
 }
 function rosterSheet(id) {
   const e = S.mine.roster[id]; if (!e) return;
+  S.sheetPl = id;
   const c = S.players.get(String(id)) || {}, v = view();
   const inPlan = v ? v.days.filter(x => x.lineup.includes(id)).map(x => x.idx + 1) : [];
   const team = e.team || c.team || '';
@@ -2506,12 +2598,55 @@ function rosterSheet(id) {
       return '<div class="small muted">In the wallet: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : ci.moments + ' Moment' + (ci.moments > 1 ? 's' : '')) + ((ci.sets || []).length ? ' (' + ci.sets.map(esc).join(', ') + ')' : '') +
         (ci.bySet ? ' · ' + esc(usesWhy(col, ci)) + (e.usesManual ? ' · set by hand' : '') : '') + '</div>' +
         (ci.bySet && (ci.moments || 0) > 1 ? '<div class="small muted">More Moments of the same player don\'t add uses' + (groupMode() ? ': they let you put him in two accounts on the same day' : '') + '.</div>' : ''); })() +
-    injuryBlock(id, null, null) +
+    injuryBlock(id, null, null) + cardsBlock(id) +
     (groupMode() ? '<div class="small muted">Uses left in each account</div>' : '') + usesRows + momentsBlock(id) +
     '<div><div class="label" style="margin-bottom:6px">Status</div><div class="chips" role="group" aria-label="Status">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
     (avg ? '<div><div class="label" style="margin-bottom:6px">Averages per game' + (c.gp ? ' (' + c.gp + ' games)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimated from the other averages</div>' : '') + '</div>' : '<div class="note info">No averages for this player yet. They come in when he plays.</div>') +
     (avg && avg.form ? '<div class="small muted">Last 5 games: ' + ['pts', 'reb', 'ast', 'fg3'].filter(k => avg.form.l5 && avg.form.l5[k] != null).map(k => STATS[k].short + ' ' + f1(avg.form.l5[k])).join(' · ') + ' (last game ' + dShort(avg.form.last) + ')</div>' : '') + gamesTable(avg) +
     '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Remove from roster</button>' + closeRow());
+}
+// as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
+// (p. ex. dos dois Luka, só um é Rare); os usos por run do jogador são os da melhor carta
+function cardsBlock(id) {
+  const col = (S.profile || {}).collection, c = col && (col.players || {})[id];
+  if (!c) return '';
+  if (!c.ids || !col.items) return '<div class="note info">To choose the tier of each card (which of your Moments is Rare), read the wallet again in Players → Collection: from now on the site saves each card with its serial number.</div>';
+  const its = c.ids.map(f => ({ f, it: col.items[f], t: momentTier(col, f) })).filter(x => x.it).sort((a, b) => tierRank(a.t, b.t) || String(a.it.s).localeCompare(String(b.it.s)) || (a.it.n || 0) - (b.it.n || 0));
+  if (!its.length) return '';
+  const best = bestTier(col, c), u = tierUsesOf(col, c), lab = tierLabels(col);
+  const WHY = { 1: 'yours', 2: 'learned', 3: 'set changed', 4: 'from the group' };
+  const rows = its.map(({ f, it, t }) => { const w = momentTierWhy(col, f, lab).why; return '<li class="row mo-row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(it.s) + '</span>' + (WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">for sale</span>' : '') + '</div>' +
+    '<div class="ps">' + [it.n ? '#' + it.n + (it.m ? ' of ' + f0(it.m) : '') : it.m ? 'mint count ' + f0(it.m) : '', it.se != null ? 'series ' + it.se : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).map(esc).join(' · ') + '</div></div>' +
+    '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Tier of this card">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + plural(TIER_USES[z], 'use', 'uses') + '</option>').join('') + '</select></li>'; }).join('');
+  return '<div class="card"><div class="list-head"><h2>Your cards</h2><span class="small muted">' + plural(its.length, 'Moment', 'Moments') + '</span></div><ul class="list">' + rows + '</ul>' +
+    '<div class="row small muted" style="display:block">Choose the tier of each card; the set and mint count are only a guess. Each card you mark teaches the others from the same set (yours and the group\'s). The player gets the uses of the best one: <b>' + esc(best || 'Common') + ' → ' + plural(u || 1, 'use', 'uses') + ' per run</b>.' + (its.length > 1 ? ' The others don\'t add uses' + (groupMode() ? ' (they let you use him in two accounts on the same day)' : '') + '.' : '') + '</div></div>';
+}
+// depois de uma carta mudar: usos por run de todos os jogadores com cartas desse set (o da carta deixa de ter os
+// usos acertados à mão; os outros só mudam se não os acertaste). Devolve os outros jogadores cujos usos mudaram.
+function refreshTierUses(col, id0, setKey) {
+  const others = [];
+  Object.entries(col.players || {}).forEach(([id, c]) => {
+    if (id !== id0 && !(c.ids || []).some(f => (col.items[f] || {}).s === setKey)) return;
+    const before = c.uses; c.uses = tierUsesOf(col, c);
+    const e = (S.mine.roster || {})[id];
+    if (S.runId && e && (id === id0 || !e.usesManual)) { if (id === id0) e.usesManual = false; e.uses = Math.max(0, c.uses - usedCount('main', id)); e.tierUses = c.uses; }
+    if (id !== id0 && before !== c.uses) others.push(id);
+  });
+  return others;
+}
+// muda o escalão de uma carta (e ensina as outras do mesmo set; os usos por run de cada jogador são os da melhor carta)
+async function momentTierChange(fid, tier) {
+  const col = (S.profile || {}).collection, it = col && col.items && col.items[fid]; if (!it || !TIERS.includes(tier)) return;
+  col.mt = col.mt || {}; col.mt[fid] = tier; // fica marcada mesmo que seja igual ao palpite: é o que ensina as outras
+  col.tl = tierLabels(col);
+  const id = it.p, c = (col.players || {})[id];
+  const learned = refreshTierUses(col, id, it.s);
+  if (S.runId) { saveMine(); schedule(); }
+  const panel = $('sheetPanel'), y = panel.scrollTop;
+  if (!$('sheet').hidden && S.sheetPl === id) { rosterSheet(id); panel.scrollTop = y; }
+  if (S.tab === 'plantel') renderPlantel();
+  toast(nameOf(id) + ': ' + plural(c ? c.uses : 1, 'use', 'uses') + ' per run (best card ' + (bestTier(col, c) || tier) + ')' + (learned.length ? ' · learned: ' + learned.slice(0, 3).map(lastName).join(', ') + (learned.length > 3 ? ' and another ' + (learned.length - 3) : '') : ''));
+  try { await q(sb.from('profiles').update({ collection: col }).eq('user_id', S.session.user.id)); } catch (err) { toast('Not saved: ' + errText(err)); }
 }
 // com smurfs: em que noites cada conta o usa e, com um só Moment, se compensa um 2.º
 function momentsBlock(id) {
@@ -2571,7 +2706,7 @@ function pasteSheet() {
 const FLOW_REST = 'https://rest-mainnet.onflow.org/v1';
 const CAD_ROW = `let series: UInt32 = TopShot.getSetSeries(setID: m.data.setID) ?? 0
         let sub = TopShot.getSubeditionByNFTID(id)
-        out.append([TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "FullName") ?? "", TopShot.getSetName(setID: m.data.setID) ?? "", series.toString(), id.toString(), m.data.setID.toString(), m.data.playID.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "Tier") ?? "", sub?.name ?? ""])`;
+        out.append([TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "FullName") ?? "", TopShot.getSetName(setID: m.data.setID) ?? "", series.toString(), id.toString(), m.data.setID.toString(), m.data.playID.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "Tier") ?? "", sub?.name ?? "", m.data.serialNumber.toString()])`;
 const CAD_IDS = `import TopShot from 0x0b2a3299cc857e29
 access(all) fun main(addr: Address): [UInt64] {
   if let col = getAccount(addr).capabilities.borrow<&{TopShot.MomentCollectionPublic}>(/public/MomentCollection) { return col.getIDs() }
@@ -2641,10 +2776,45 @@ function tierAuto(setName, meta, counts) {
 const setTier = (col, k) => { const x = ((col || {}).sets || {})[k] || {}; return x.tier || x.auto || 'Common'; };
 // usos de um jogador numa run: os do seu melhor Moment (uma Rare e três Common dão 2, não 5). Ter mais Moments do
 // mesmo jogador não soma usos; só deixa usá-lo em duas contas no mesmo dia
-const bestTier = (col, c) => Object.keys((c && c.bySet) || {}).map(k => setTier(col, k)).sort((a, b) => (TIER_USES[b] || 1) - (TIER_USES[a] || 1) || TIERS.indexOf(b) - TIERS.indexOf(a))[0] || null;
-const tierUsesOf = (col, c) => (c && c.bySet ? Math.max(1, ...Object.keys(c.bySet).map(k => TIER_USES[setTier(col, k)] || 1)) : null);
+// ---- escalão de cada carta, e o que o site aprende com as tuas escolhas ----
+// Cada carta que marcas (col.mt) ensina o escalão do set dela: as outras cartas desse set passam a ter o mesmo.
+// Se no mesmo set marcaste escalões diferentes, cada carta segue a marcada com a tiragem mais parecida.
+// As tuas marcações vão também para o grupo (col.tl) e ensinam os sets que os amigos ainda não marcaram.
+// Ordem: a tua escolha nessa carta → o que aprendeste das tuas outras cartas → o set que mudaste em Coleção →
+// o que o grupo aprendeu → o palpite pelo set e pela tiragem.
+function tierLabels(col) {
+  const out = {}; Object.entries((col && col.mt) || {}).forEach(([f, t]) => { const it = ((col && col.items) || {})[f]; if (it) (out[it.s] = out[it.s] || []).push([it.m || 0, t]); });
+  return out;
+}
+function learnFrom(L, m) {
+  if (!L || !L.length) return null;
+  if (L.every(x => x[1] === L[0][1])) return L[0][1];
+  let best = null, bd = Infinity;
+  if (m) L.forEach(([mm, t]) => { if (!mm) return; const d = Math.abs(Math.log(m) - Math.log(mm)); if (d < bd) { bd = d; best = t; } });
+  return best;
+}
+// escalão de uma carta e de onde vem: 1 marcada por ti · 2 aprendido das tuas cartas · 3 set mudado · 4 do grupo · 0 palpite
+function momentTierWhy(col, fid, lab) {
+  const it = ((col || {}).items || {})[fid];
+  if (((col || {}).mt || {})[fid]) return { t: col.mt[fid], why: 1 };
+  if (!it) return { t: 'Common', why: 0 };
+  const own = learnFrom((lab || tierLabels(col))[it.s], it.m); if (own) return { t: own, why: 2 };
+  const x = ((col || {}).sets || {})[it.s] || {};
+  if (x.tier) return { t: x.tier, why: 3 };
+  const grp = learnFrom((S.groupTL || {})[it.s], it.m); if (grp) return { t: grp, why: 4 };
+  return { t: x.auto || 'Common', why: 0 };
+}
+const momentTier = (col, fid, lab) => momentTierWhy(col, fid, lab).t;
+// escalões dos Moments de um jogador, um por carta (coleções lidas antes da 22 não têm as cartas: vai pelos sets)
+function momentTiers(col, c) {
+  if (c && c.ids && col && col.items) { const lab = tierLabels(col); return c.ids.filter(f => col.items[f]).map(f => momentTier(col, f, lab)); }
+  const out = []; Object.entries((c && c.bySet) || {}).forEach(([k, n]) => { for (let i = 0; i < n; i++) out.push(setTier(col, k)); }); return out;
+}
+const tierRank = (a, b) => (TIER_USES[b] || 1) - (TIER_USES[a] || 1) || TIERS.indexOf(b) - TIERS.indexOf(a);
+const bestTier = (col, c) => momentTiers(col, c).sort(tierRank)[0] || null;
+const tierUsesOf = (col, c) => { if (!c || !(c.bySet || c.ids)) return null; const ts = momentTiers(col, c); return Math.max(1, ...ts.map(t => TIER_USES[t] || 1)); };
 // texto curto: "Rare · Common ×3 → 2 usos (o da Rare)"
-const usesWhy = (col, c) => { const u = tierUsesOf(col, c), b = bestTier(col, c), n = Object.values((c && c.bySet) || {}).reduce((a, x) => a + x, 0); return tierMix(col, c) + ' → ' + plural(u, 'use', 'uses') + ' per run' + (n > 1 ? ' (the best one counts: ' + b + ')' : ''); };
+const usesWhy = (col, c) => { const u = tierUsesOf(col, c), b = bestTier(col, c), n = momentTiers(col, c).length; return tierMix(col, c) + ' → ' + plural(u, 'use', 'uses') + ' per run' + (n > 1 ? ' (the best one counts: ' + b + ')' : ''); };
 // plantel da run guardado com a regra antiga (somava os usos de todos os Moments): acerta pelo melhor Moment
 function syncTierUses() {
   const col = (S.profile || {}).collection; if (!col || !col.players || !S.runId) return;
@@ -2654,9 +2824,9 @@ function syncTierUses() {
     const tot = tierUsesOf(col, c); if (tot === e.tierUses) return;
     e.uses = Math.max(0, tot - usedCount('main', id)); e.tierUses = tot; c.uses = tot; changed++;
   });
-  if (changed) saveMine();
+  if (changed) { saveMine(); schedule(); }
 }
-const tierMix = (col, c) => { const o = {}; Object.entries((c && c.bySet) || {}).forEach(([k, n]) => { const t = setTier(col, k); o[t] = (o[t] || 0) + n; }); return TIERS.slice().reverse().filter(t => o[t]).map(t => t + (o[t] > 1 ? ' ×' + o[t] : '')).join(' · '); };
+const tierMix = (col, c) => { const o = tierCounts(col, c); return TIERS.slice().reverse().filter(t => o[t]).map(t => t + (o[t] > 1 ? ' ×' + o[t] : '')).join(' · '); };
 const CAD_EDITIONS = `import TopShot from 0x0b2a3299cc857e29
 access(all) fun main(sets: [UInt32]): {UInt32: {UInt32: UInt32}} {
   let out: {UInt32: {UInt32: UInt32}} = {}
@@ -2681,6 +2851,8 @@ async function setTierChange(k, tier) {
   const col = (S.profile || {}).collection; if (!col || !col.sets || !col.sets[k]) return;
   const x = col.sets[k];
   if (tier === x.auto) delete x.tier; else x.tier = tier;
+  Object.keys(col.mt || {}).forEach(f => { if ((col.items[f] || {}).s === k) delete col.mt[f]; });
+  col.tl = tierLabels(col);
   let changed = 0;
   Object.entries(col.players || {}).forEach(([id, c]) => {
     if (!c.bySet || !c.bySet[k]) return;
@@ -2698,7 +2870,8 @@ function tiersCard() {
   if (!col.sets) return '<div class="card panel"><h2>Tiers and uses</h2><div class="small muted">Read the wallet again so the site sees each Moment\'s tier (by set and mint size) and sets the uses automatically from each player\'s best Moment: Common 1, Fandom 1, Rare 2, Legendary 4.</div><button class="btn" type="button" data-action="wallet-sheet">Read again</button></div>';
   const rows = Object.entries(col.sets).map(([k, x]) => ({ k, x, t: setTier(col, k) })).sort((a, b) => (TIERS.indexOf(b.t) - TIERS.indexOf(a.t)) || (b.x.n - a.x.n));
   return '<div class="card"><div class="list-head"><h2>Tiers and uses</h2><span class="small muted">' + plural(rows.length, 'set', 'sets') + '</span></div>' +
-    '<div class="row small muted" style="display:block">Each player has the uses per run of his <b>best</b> Moment: Common 1, Fandom 1, <b>Rare 2</b>, <b>Legendary 4</b>. More Moments of the same player don\'t add up (one Rare and three Commons give 2)' + (groupMode() ? '; they let you use him in two accounts on the same day' : '') + '. The tier comes from the set and the mint size (Top Shot doesn\'t put it on the blockchain): if one is wrong, change it here. A Common with ASP over $10 also gives 2: set those on the player\'s page.</div><ul class="list">' +
+    '<div class="row small muted" style="display:block">Each player has the uses per run of his <b>best</b> Moment: Common 1, Fandom 1, <b>Rare 2</b>, <b>Legendary 4</b>. More Moments of the same player don\'t add up (one Rare and three Commons give 2)' + (groupMode() ? '; they let you use him in two accounts on the same day' : '') + '. The tier comes from the set and the mint size (Top Shot doesn\'t put it on the blockchain): if one is wrong, change it here. A Common with ASP over $10 also gives 2: set those on the player\'s page.</div>' +
+    '<div class="row small muted" style="display:block">This changes the whole set. For a single card (e.g. which of your Luka is Rare), tap the player in Players → Roster: his page shows each card with its serial number.</div><ul class="list">' +
     rows.map(({ k, x, t }) => '<li class="row tier-row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(k) + '</span>' + (x.tier ? '<span class="badge">changed</span>' : '') + '</div><div class="ps">' + plural(x.n, 'Moment', 'Moments') + (x.med ? ' · mint ~/' + f0(x.med) : '') + (x.how === 'tiragem' && !x.tier ? ' · by mint size' : '') + '</div></div>' +
       '<select class="field tier-sel" data-tier-set="' + esc(k) + '" aria-label="Tier of ' + esc(k) + '">' + TIERS.map(z => '<option' + (z === t ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></li>').join('') + '</ul></div>';
 }
@@ -2762,7 +2935,8 @@ async function walletSheet() {
   let editions = {};
   try { editions = await readEditions(reads.flatMap(({ w }) => w.rows.concat(w.extra).map(r => r[4]).filter(x => x != null))); } catch (e) { console.warn('tiragens', e); }
   if (!$('wProg')) return;
-  const prevSets = (((S.profile || {}).collection) || {}).sets || {};
+  const prevCol = ((S.profile || {}).collection) || {}, prevSets = prevCol.sets || {}, prevMt = prevCol.mt || {};
+  const items = {}, mt = {};
   const sets = {};
   const setKey = r => (r[1] || '?') + (r[7] && r[7] !== 'Standard' ? ' · ' + r[7] : '');
   reads.forEach(({ w }) => w.rows.concat(w.extra).forEach(r => {
@@ -2780,7 +2954,9 @@ async function walletSheet() {
       const name = r[0]; if (!name) return;
       const p = find(name);
       if (!p) { outside.set(norm(name), name); return; }
-      const e = by.get(p.id) || { p, n: 0, sale: 0, owners: {}, sets: {}, bySet: {} };
+      const e = by.get(p.id) || { p, n: 0, sale: 0, owners: {}, sets: {}, bySet: {}, ids: [] };
+      const fid = String(r[3]), sub = /\/\s*(\d+)/.exec(r[7] || ''), mint = sub ? +sub[1] : +(((editions[String(r[4])] || {})[String(r[5])]) || 0);
+      if (!items[fid]) { items[fid] = Object.assign({ p: p.id, s: setKey(r), a: a.id }, +r[8] ? { n: +r[8] } : {}, mint ? { m: mint } : {}, r[2] ? { se: +r[2] } : {}, sale ? { v: 1 } : {}); e.ids.push(fid); if (prevMt[fid]) mt[fid] = prevMt[fid]; }
       e.n++; if (sale) e.sale++; e.owners[a.id] = (e.owners[a.id] || 0) + 1; e.sets[r[1] || '?'] = (e.sets[r[1] || '?'] || 0) + 1; e.bySet[setKey(r)] = (e.bySet[setKey(r)] || 0) + 1;
       by.set(p.id, e);
     };
@@ -2788,9 +2964,10 @@ async function walletSheet() {
   });
   const found = [...by.values()].sort((x, y) => ((y.p.avg && +y.p.avg.pts) || 0) - ((x.p.avg && +x.p.avg.pts) || 0));
   // coleção guardada no perfil (serve para todas as runs e para saber onde está cada Moment)
-  const players = {}, colTmp = { sets };
-  found.forEach(e => { players[e.p.id] = { name: e.p.name, moments: e.n, owners: e.owners, sets: Object.keys(e.sets).slice(0, 8), bySet: e.bySet }; players[e.p.id].uses = tierUsesOf(colTmp, players[e.p.id]); });
-  S.walletCol = { read_at: new Date().toISOString(), accounts: accTot, players, sets, outside: [...outside.values()].slice(0, 60) };
+  const players = {}, colTmp = { sets, items, mt };
+  found.forEach(e => { players[e.p.id] = { name: e.p.name, moments: e.n, owners: e.owners, sets: Object.keys(e.sets).slice(0, 8), bySet: e.bySet, ids: e.ids }; players[e.p.id].uses = tierUsesOf(colTmp, players[e.p.id]); });
+  S.walletCol = { read_at: new Date().toISOString(), accounts: accTot, players, sets, items, mt, outside: [...outside.values()].slice(0, 60) };
+  S.walletCol.tl = tierLabels(S.walletCol);
   const hasRun = !!S.runId && S.mineLoaded;
   const inWallet = new Set(found.map(e => String(e.p.id)));
   const gone = hasRun ? Object.keys(S.mine.roster || {}).filter(id => !inWallet.has(String(id)) && S.players.has(String(id))) : [];
@@ -2800,7 +2977,7 @@ async function walletSheet() {
   const setsTxt = e => Object.entries(e.sets).sort((a, b) => b[1] - a[1]).map(([n, c]) => esc(n) + (c > 1 ? ' ×' + c : '')).join(', ') + ' · ' + esc(usesWhy(S.walletCol, players[e.p.id]));
   // usos que mudam no plantel (os que acertaste à mão ficam)
   const ups = hasRun ? found.map(e => { const r0 = S.mine.roster[e.p.id]; if (!r0 || r0.usesManual) return null; const nv = Math.max(0, players[e.p.id].uses - usedCount('main', e.p.id)), cur = +r0.uses || 0; const to = r0.tierUses != null ? nv : Math.max(cur, nv); return to !== cur ? { e, cur, to } : null; }).filter(Boolean) : [];
-  const tierCount = {}; Object.values(sets).forEach(x => { const t = x.tier || x.auto; tierCount[t] = (tierCount[t] || 0) + x.n; });
+  const tierCount = {}; Object.keys(items).forEach(f => { const t = momentTier(S.walletCol, f); tierCount[t] = (tierCount[t] || 0) + 1; });
   const li = e => { const inR = hasRun && S.mine.roster[e.p.id];
     return '<li><b>' + esc(e.p.name) + '</b> <span class="muted">(' + esc(e.p.team || '—') + ')</span> · ' + e.n + ' Moment' + (e.n > 1 ? 's' : '') + (e.sale ? ' (' + e.sale + ' for sale)' : '') + where(e) +
       (hasRun ? ' · ' + (inR ? '<span class="muted">in roster</span>' : '<span class="up">new</span>') : '') + '<div class="small muted">' + setsTxt(e) + '</div></li>'; };
@@ -3183,6 +3360,9 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'alt-use': altUse(b.dataset.i); break;
+    case 'rerun': await rerunSheet(); break;
+    case 'rerun-pick': rerunPick(id); break;
+    case 'rerun-use': rerunUse(b.dataset.i); break;
     case 'inj-ignore': {
       const e = S.mine.roster[id]; if (!e) break;
       if (b.dataset.on === '1') e.injIgnore = true; else delete e.injIgnore;
@@ -3277,6 +3457,7 @@ document.addEventListener('click', async e => {
 document.addEventListener('change', async e => {
   const t = e.target, a = t.dataset.action;
   if (t.dataset && t.dataset.tierSet) { t.blur(); await setTierChange(t.dataset.tierSet, t.value); return; }
+  if (t.dataset && t.dataset.moTier) { await momentTierChange(t.dataset.moTier, t.value); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run linked to the blockchain.' : 'Link removed.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
   if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null, +t.dataset.k || 0);

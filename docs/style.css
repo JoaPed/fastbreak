@@ -532,3 +532,8 @@ p, .note { text-wrap: pretty; }
 .ds-inj { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 0 2px var(--surface); }
 .ds[aria-pressed="true"] .ds-inj { box-shadow: 0 0 0 2px var(--ink); }
 @media (hover: hover) and (pointer: fine) { .ds:not([aria-pressed="true"]):hover { background: var(--surface-2); } }
+
+/* ---- cartas de um jogador (escalão carta a carta) ---- */
+.mo-row { gap: 10px; }
+.mo-row .tier-sel { min-width: 150px; }
+.chips .lock { color: inherit; width: 12px; height: 12px; margin-right: 3px; vertical-align: -1px; display: inline-block; }
