@@ -507,7 +507,9 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'ao-vivo.png'), full_page=True)
     # Refazer a run agora: com o que já aconteceu, manter / tirar um / poupar os que faltam
     print('F botão refazer:', pg.locator('#tab-hoje button[data-action="rerun"]').count())
-    pg.click('#tab-hoje button[data-action="rerun"]'); pg.wait_for_timeout(9000)
+    pg.click('#tab-hoje button[data-action="rerun"]'); pg.wait_for_timeout(600)
+    print('F refazer (logo):', pg.locator('#rerunHead').inner_text().replace('\n', ' | ')[:300], '·', pg.locator('#rerunCards').inner_text().replace('\n', ' ')[:80])
+    pg.wait_for_timeout(9000)
     print('F refazer a run:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#sheetPanel .card').all_inner_texts()))
     print('F lineup submetido:', ' / '.join(pg.locator('#sheetPanel .chips button[aria-pressed="true"]').all_inner_texts()))
     pg.screenshot(path=str(shots / 'refazer-run.png'))

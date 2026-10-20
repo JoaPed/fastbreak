@@ -1155,6 +1155,30 @@ function chainLineupToday(date) {
   const ids = rows[0].lineup.map(n => byName.get(norm(n))).filter(Boolean);
   return ids.length ? ids : null;
 }
+// topo da folha (aparece logo, antes das contas): o que já está feito, a vitória de hoje se ficar tudo como está e o
+// que cada jogador do lineup já fez (ou vai fazer)
+function rerunHead(nd) {
+  const r = S.result, v = view(), d0 = v.days[0], md = r.model.days[0];
+  if (!d0 || d0.date !== nd.date) return { html: '<div class="note info">' + 'Este dia já fechou.' + '</div>', closed: true };
+  const lv = liveDoc(nd.date) || {}, sub = (lv.lineup || []).filter(id => r.model.pIndex.has(id));
+  const started = new Set(((d0.live || {}).locked) || []), rem = sub.filter(id => !started.has(id));
+  const eligIds = md.elig.map(pi => r.model.players[pi].id), pSub = lineupP(md, sub);
+  const tip = id => { const team = (r.model.players[r.model.pIndex.get(id)] || {}).team, tt = team ? FB.tipTime(nd, team) : null; return tt ? hm(new Date(tt).toISOString()) : ''; };
+  const done = d0.totals.map(t => f0(t.known) + '<small> de ' + t.target + (d0.totals.length > 1 ? ' ' + esc(statShort(t.stat)) : '') + '</small>').join(' · ');
+  const rows = sub.map(id => {
+    const pi = r.model.pIndex.get(id), info = (md.info[pi] || [])[0] || {}, st = info.liveState;
+    const ps = st === 'fim' ? '<span class="pill fim">Fim</span>'
+      : st === 'jogo' || st === 'jogo?' ? '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Em jogo') + '</span> ' + md.objs.map((o, k) => f0((md.info[pi][k] || {}).known || 0) + (md.objs.length > 1 ? ' ' + esc(statShort(o.stat)) : '')).join(' · ') + ' até agora'
+      : (tip(id) ? 'jogo às ' + tip(id) : '');
+    return '<li class="row"><div style="min-width:0"><div class="pn">' + (started.has(id) ? icoLock : '') + '<span class="nm">' + esc(nameOf(id)) + '</span></div><div class="ps">' + ps + '</div></div>' + pvHtml(objVals(md, pi, true)) + '</li>';
+  }).join('');
+  const chips = '<div class="chips" role="group" aria-label="Lineup submetido">' + eligIds.map(id => '<button type="button" data-action="rerun-pick" data-id="' + esc(id) + '" aria-pressed="' + sub.includes(id) + '">' + (started.has(id) ? icoLock : '') + esc(lastName(id)) + '</button>').join('') + '</div>';
+  const html = '<div class="kv" style="grid-template-columns:1fr 1fr"><div><div class="label">Feito até agora</div><div class="v num">' + done + '</div></div><div><div class="label">Vitória hoje assim</div><div class="v num c-' + tone(pSub) + '">' + pct(pSub) + '</div></div></div>' +
+    (rows ? '<ul class="list card">' + rows + '</ul>' : '') +
+    '<div class="label">O teu lineup submetido <span class="muted" style="font-weight:400">(toca para corrigir; ' + icoLock + ' = jogo já começou)</span></div>' + chips +
+    (rem.length ? '' : '<div class="note info">Os jogos de todos os teus jogadores já começaram: já não há nada a mudar hoje.</div>');
+  return { html, sub, started, rem, eligIds, closed: false };
+}
 async function rerunSheet(fetchLive) {
   const nd = nextDay(); if (!S.result || !nd) return;
   const date = nd.date;
@@ -1162,53 +1186,51 @@ async function rerunSheet(fetchLive) {
     const cur = liveDoc(date), fromChain = chainLineupToday(date);
     planPatch({ live: { [date]: { active: true, lineup: cur && cur.lineup && cur.lineup.length ? cur.lineup : fromChain || view().days[0].lineup.slice(), players: (cur && cur.players) || {} } } });
   }
-  openSheet('<h3>Refazer a run agora</h3><div class="small muted" id="rerunProg">A ler os pontos ao vivo…</div>' + closeRow());
-  if (fetchLive !== false && gamesWindow(nd)) { try { await liveFetch(true); } catch (e) { /* sem rede: usa o que há */ } }
   compute();
-  if (!$('rerunProg')) return;
-  const r = S.result, v = view(), d0 = v.days[0], md = r.model.days[0];
-  if (!d0 || d0.date !== date) { $('rerunProg').textContent = 'Este dia já fechou.'; return; }
-  const lv = liveDoc(date) || {}, sub = (lv.lineup || []).filter(id => r.model.pIndex.has(id));
-  const started = new Set(((d0.live || {}).locked) || []), rem = sub.filter(id => !started.has(id));
-  const eligIds = md.elig.map(pi => r.model.players[pi].id);
+  // 1) logo: pontos e vitória de hoje com o que já se sabe; 2) pontos ao vivo; 3) a run refeita para cada escolha
+  openSheet('<h3>Refazer a run agora</h3><div id="rerunHead">' + rerunHead(nd).html + '</div><div id="rerunCards"><div class="small muted" id="rerunProg">A ler os pontos ao vivo…</div></div>' + closeRow());
+  if (fetchLive !== false && gamesWindow(nd)) { try { await liveFetch(true); } catch (e) { /* sem rede: usa o que há */ } }
+  if (!$('rerunCards')) return;
+  compute();
+  const h = rerunHead(nd); $('rerunHead').innerHTML = h.html;
+  if (h.closed || !h.rem.length) { $('rerunCards').innerHTML = ''; return; }
+  const r = S.result, { sub, started, rem, eligIds } = h;
   // escolhas: cada uma é uma mudança ao plano de hoje, e a run é refeita com ela
   const keepOnly = keep => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = keep.filter(id => !started.has(id)); plan.bans[date] = eligIds.filter(id => !keep.includes(id) && !started.has(id)); };
   const opts = [{ title: 'O que o plano sugere', note: 'pode trocar quem ainda não jogou por outro', mod: () => {} }];
-  if (rem.length) opts.push({ title: rem.length > 1 ? 'Manter os ' + rem.length + ' que faltam' : 'Manter ' + nameOf(rem[0]), mod: keepOnly(sub), keep: true });
+  opts.push({ title: rem.length > 1 ? 'Manter os ' + rem.length + ' que faltam' : 'Manter ' + nameOf(rem[0]), mod: keepOnly(sub), keep: true });
   if (rem.length > 1) rem.forEach(x => opts.push({ title: 'Tirar ' + nameOf(x), mod: keepOnly(sub.filter(y => y !== x)), out: [x] }));
-  if (rem.length) opts.push({ title: rem.length > 1 ? 'Poupar os ' + rem.length + ' que faltam' : 'Tirar ' + nameOf(rem[0]), mod: keepOnly(sub.filter(y => started.has(y))), out: rem.slice() });
-  const res = [];
-  for (let k = 0; k < opts.length; k++) {
-    if (!$('rerunProg')) return;
-    $('rerunProg').textContent = 'A refazer a run para cada escolha… ' + (k + 1) + ' de ' + opts.length;
-    await new Promise(ok => setTimeout(ok, 20));
-    try { const ev = evalAlt(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); } catch (e) { console.warn(e); }
-  }
-  if (!$('rerunProg')) return;
-  // se o plano sugere o mesmo que outra escolha (p. ex. manter todos), mostra só essa
-  const lkey = x => [...x.a0.lineup].sort().join('|');
-  const plano = res.find(x => x.mod === opts[0].mod);
-  if (plano && res.some(x => x !== plano && lkey(x) === lkey(plano))) res.splice(res.indexOf(plano), 1);
-  res.sort((x, y) => y.ev.total - x.ev.total);
-  S.reruns = res;
-  const best = res[0], runTxt = x => (r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + pct(x.ev.res.prizeProbs[i])).join(' · ') : f1(r.wins + x.ev.res.expected) + ' vitórias esperadas');
-  const done = d0.totals.map(t => '<b class="num">' + f0(t.known) + '</b> de ' + t.target + (d0.totals.length > 1 ? ' ' + esc(statShort(t.stat)) : '')).join(' · ');
+  opts.push({ title: rem.length > 1 ? 'Poupar os ' + rem.length + ' que faltam' : 'Tirar ' + nameOf(rem[0]), mod: keepOnly(sub.filter(y => started.has(y))), out: rem.slice() });
   const tip = id => { const team = (r.model.players[r.model.pIndex.get(id)] || {}).team, tt = team ? FB.tipTime(nd, team) : null; return tt ? hm(new Date(tt).toISOString()) : ''; };
-  const chips = '<div class="chips" role="group" aria-label="Lineup submetido">' + eligIds.map(id => '<button type="button" data-action="rerun-pick" data-id="' + esc(id) + '" aria-pressed="' + sub.includes(id) + '">' + (started.has(id) ? icoLock : '') + esc(lastName(id)) + '</button>').join('') + '</div>';
-  const cards = res.map((x, k) => {
-    const ins = x.a0.lineup.filter(id => !sub.includes(id)), outs = sub.filter(id => !x.a0.lineup.includes(id));
-    const later = outs.map(id => { const ds = x.ev.res.days.filter(dd => dd.date !== date && dd.lineup.includes(id)).map(dd => dd.idx + 1); return esc(lastName(id)) + (ds.length ? ' fica para ' + (ds.length > 1 ? 'os dias ' : 'o dia ') + ds.join(', ') : ' não volta a jogar no plano'); });
-    return '<div class="card panel"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + (x === best ? '<span class="small up">o melhor para a run</span>' : '<span class="small muted">' + (x.ev.total >= best.ev.total - 1e-9 ? 'igual' : '') + '</span>') + '</div>' +
-      (x.note ? '<div class="small muted">' + esc(x.note) + '</div>' : '') +
-      ((ins.length || outs.length) ? '<div class="small">' + (outs.length ? '<b>Saem:</b> ' + outs.map(id => esc(nameOf(id)) + (tip(id) ? ' (jogo às ' + tip(id) + ')' : '')).join(', ') : '') + (ins.length ? (outs.length ? ' · ' : '') + '<b>Entram:</b> ' + ins.map(id => esc(nameOf(id))).join(', ') : '') + '</div>' : '<div class="small">Fica o lineup que submeteste.</div>') +
-      '<div class="small">Hoje: <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run: ' + runTxt(x) + '</div>' +
-      (later.length ? '<div class="small muted">' + later.join(' · ') + '.</div>' : '') +
-      '<button class="btn' + (x === best ? ' primary' : '') + '" type="button" data-action="rerun-use" data-i="' + k + '">Escolher esta</button></div>';
-  }).join('');
-  openSheet('<h3>Refazer a run agora</h3><div class="small muted">Dia ' + (nd.idx + 1) + ' · feito até agora: ' + done + '. A run foi refeita para cada escolha com o que já aconteceu; quem sai antes de o jogo dele começar não gasta o uso.</div>' +
-    '<div class="label">O teu lineup submetido <span class="muted" style="font-weight:400">(toca para corrigir; ' + icoLock + ' = jogo já começou)</span></div>' + chips +
-    (rem.length ? '' : '<div class="note info">Os jogos de todos os teus jogadores já começaram: já não há nada a mudar hoje.</div>') +
-    (cards || '<div class="note info">Não deu para refazer a run.</div>') + closeRow());
+  const runTxt = x => (r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + pct(x.ev.res.prizeProbs[i])).join(' · ') : f1(r.wins + x.ev.res.expected) + ' vitórias esperadas');
+  const lkey = x => [...x.a0.lineup].sort().join('|');
+  const res = [];
+  // desenha as escolhas já feitas (a melhor só se marca no fim)
+  const draw = busy => {
+    let list = res.slice();
+    const plano = list.find(x => x.mod === opts[0].mod);
+    if (plano && list.some(x => x !== plano && lkey(x) === lkey(plano))) list.splice(list.indexOf(plano), 1); // o plano sugere o mesmo que outra escolha: mostra só essa
+    list.sort((x, y) => y.ev.total - x.ev.total);
+    S.reruns = list;
+    const best = busy ? null : list[0];
+    $('rerunCards').innerHTML = (busy ? '<div class="small muted" id="rerunProg">A refazer a run para cada escolha… ' + res.length + ' de ' + opts.length + '</div>' : '') + list.map((x, k) => {
+      const ins = x.a0.lineup.filter(id => !sub.includes(id)), outs = sub.filter(id => !x.a0.lineup.includes(id));
+      const later = outs.map(id => { const ds = x.ev.res.days.filter(dd => dd.date !== date && dd.lineup.includes(id)).map(dd => dd.idx + 1); return esc(lastName(id)) + (ds.length ? ' fica para ' + (ds.length > 1 ? 'os dias ' : 'o dia ') + ds.join(', ') : ' não volta a jogar no plano'); });
+      return '<div class="card panel"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + (x === best ? '<span class="small up">o melhor para a run</span>' : '<span class="small muted">' + (best && x.ev.total >= best.ev.total - 1e-9 ? 'igual' : '') + '</span>') + '</div>' +
+        (x.note ? '<div class="small muted">' + esc(x.note) + '</div>' : '') +
+        ((ins.length || outs.length) ? '<div class="small">' + (outs.length ? '<b>Saem:</b> ' + outs.map(id => esc(nameOf(id)) + (tip(id) ? ' (jogo às ' + tip(id) + ')' : '')).join(', ') : '') + (ins.length ? (outs.length ? ' · ' : '') + '<b>Entram:</b> ' + ins.map(id => esc(nameOf(id))).join(', ') : '') + '</div>' : '<div class="small">Fica o lineup que submeteste.</div>') +
+        '<div class="small">Hoje: <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run: ' + runTxt(x) + '</div>' +
+        (later.length ? '<div class="small muted">' + later.join(' · ') + '.</div>' : '') +
+        '<button class="btn' + (x === best ? ' primary' : '') + '" type="button" data-action="rerun-use" data-i="' + k + '">Escolher esta</button></div>';
+    }).join('') + (busy ? '' : list.length ? '<div class="small muted">Quem sai antes de o jogo dele começar não gasta o uso: fica para outro dia.</div>' : '<div class="note info">Não deu para refazer a run.</div>');
+  };
+  draw(true);
+  for (let k = 0; k < opts.length; k++) {
+    await new Promise(ok => setTimeout(ok, 30));
+    if (!$('rerunCards')) return; // fechou a folha
+    try { const ev = evalAlt(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); } catch (e) { console.warn(e); }
+    draw(k < opts.length - 1);
+  }
 }
 function rerunPick(id) {
   const nd = nextDay(); if (!nd) return;
