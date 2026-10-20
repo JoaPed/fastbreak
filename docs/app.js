@@ -177,7 +177,7 @@ function playBasis(info) {
   if (j) return '<b>Disponibilidade</b>: 100% — está no relatório (' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + '), mas ' + (j.k == null ? 'este jogo já começou ou já passou.' : 'neste jogo já conta normal.');
   return '<b>Disponibilidade</b>: 100% — não está no relatório de lesões' + (S.injOk && S.injAt ? ' (ESPN, ' + esc(ago(S.injAt)) + ')' : S.injOk === false ? ' (o relatório ainda não está ligado)' : '') + '.';
 }
-function basisHtml(p, info, o, md, id) {
+function basisHtml(p, info, o, md, id, many) {
   const g = FB.gameOf(md.day, p.team), opp = g ? (g[0] === p.team ? g[1] : g[0]) : null;
   const u = esc(statShort(o.stat)), parts = info.parts || [], steps = [];
   parts.forEach(part => steps.push((parts.length > 1 && part.sign < 0 ? 'A subtrair. ' : '') + partBasis(p, part, md, id, opp)));
@@ -189,7 +189,7 @@ function basisHtml(p, info, o, md, id) {
     if (h && h.n >= 15 && k0) steps.push('<b>Regularidade</b> (' + h.n + ' jogos da época passada): ' + (k / k0 >= 1.2 ? 'muda muito de jogo para jogo, por isso tanto pode fazer um jogo grande como um vazio' : k / k0 <= 0.85 ? 'é regular, costuma andar perto da média' : 'normal para esta estatística') + '.'); }
   const muIf = info.muIf != null ? info.muIf : info.mu;
   steps.push('<b>No plano</b>: ' + (info.pPlay < 1 ? pct(info.pPlay) + ' × ' + f1(muIf) + ' = ' : '') + '<b class="num">' + f1(info.mu) + '</b> ' + u + ' esperados (± ' + f1(Math.sqrt(info.v || 0)) + ').');
-  return '<div class="card panel basis"><h2>Em que se baseia</h2><ol class="steps">' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol></div>';
+  return '<div class="card panel basis"><h2>Em que se baseia' + (many ? ' · ' + u : '') + '</h2><ol class="steps">' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol></div>';
 }
 const icoLock = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Fixado"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 const todayET = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
@@ -378,15 +378,30 @@ async function loadRun(runId) {
   S.mine = mine ? { roster: mine.roster || {}, plan: mine.plan || {} } : { roster: {}, plan: {} };
   S.mineSeen = mine ? Date.parse(mine.updated_at) : 0;
   S.mineLoaded = true;
-  const dates = S.days.map(d => d.date);
-  if (dates.length) {
-    const odds = await q(sb.from('odds_days').select('*').gte('date', dates[0]).lte('date', dates[dates.length - 1]));
-    (odds || []).forEach(o => { S.odds[o.date] = o; });
-  }
+  syncTierUses();
+  await loadOdds();
   await loadGroup();
   applyChainResults();
   schedule();
   loadPrevGames();
+}
+// odds dos dias da run (chegam à tarde): lidas ao abrir a run, ao voltar ao site e de 10 em 10 minutos.
+// Devolve true se chegaram odds novas.
+async function loadOdds() {
+  if (!S.runId || !S.days.length) return false;
+  const runId = S.runId, dates = S.days.map(d => d.date);
+  const rows = await q(sb.from('odds_days').select('*').gte('date', dates[0]).lte('date', dates[dates.length - 1]));
+  S.oddsAt = Date.now();
+  if (runId !== S.runId) return false;
+  let changed = false;
+  (rows || []).forEach(o => { const cur = S.odds[o.date]; if (!cur || cur.updated_at !== o.updated_at) { S.odds[o.date] = o; changed = true; } });
+  return changed;
+}
+async function refreshOdds() {
+  try {
+    const nd = nextDay && S.result ? nextDay() : null, had = !!(nd && S.odds[nd.date] && Object.keys(S.odds[nd.date].players || {}).length);
+    if (await loadOdds()) { schedule(); if (nd && !had && S.odds[nd.date] && Object.keys(S.odds[nd.date].players || {}).length) toast('Chegaram as odds de hoje: o plano foi refeito com elas.'); }
+  } catch (e) { /* sem rede: fica como está */ }
 }
 async function loadGroup() {
   if (!S.runId) return;
@@ -657,6 +672,31 @@ function guard(el, needRoster) {
   return !!S.result;
 }
 
+// ---- valores por objetivo (num dia de combinação há um por estatística: 3PM e 3PA, AST e STL…) ----
+function objVals(md, pi, live) {
+  return (md.objs || []).map((o, k) => {
+    const info = (md.info[pi] || [])[k] || {}, st = live ? info.liveState : null;
+    const v = st === 'fim' ? info.known : st === 'jogo' ? info.known + info.muLeft : info.mu;
+    return { o, v: v || 0, fin: st === 'fim' };
+  });
+}
+function pvHtml(vals) {
+  const fv = x => (x.fin ? f0(x.v) : f1(x.v));
+  if (vals.length <= 1) { const x = vals[0]; return '<div class="pv"><div class="v num">' + (x ? fv(x) : '–') + '</div><div class="u">' + esc(x ? statShort(x.o.stat) : '') + '</div></div>'; }
+  return '<div class="pv pv-multi">' + vals.map(x => '<div><b class="num">' + fv(x) + '</b><span class="u">' + esc(statShort(x.o.stat)) + '</span></div>').join('') + '</div>';
+}
+// barra de cada objetivo: projeção (ou feito ao vivo), alvo e, com mais de um, a chance de cada um
+function objBars(d, live) {
+  const many = d.totals.length > 1;
+  return d.totals.map(t => {
+    const max = Math.max(t.target * 1.2, t.mu + t.sd, 1);
+    const kw = Math.min(100, t.known / max * 100), fw = Math.min(100 - kw, (t.mu - t.known) / max * 100);
+    const pk = FB.probAtLeast(t.mu, t.sd * t.sd, t.target), lbl = many ? '<b class="bs">' + esc(statShort(t.stat)) + '</b> ' : '';
+    return '<div class="obj-bar"><div class="bar" aria-hidden="true"><i class="k" style="width:' + kw.toFixed(1) + '%"></i><i class="f" style="left:' + kw.toFixed(1) + '%;width:' + Math.max(0, fw).toFixed(1) + '%"></i><i class="t" style="left:' + Math.min(99, t.target / max * 100).toFixed(1) + '%"></i></div>' +
+      '<div class="bar-cap">' + (live && t.known ? '<span>' + lbl + 'Feito <b class="num">' + f0(t.known) + '</b> · faltam <b class="num">' + f0(Math.max(0, t.target - t.known)) + '</b></span><span>final ≈ <b class="num">' + f1(t.mu) + '</b>' + (many ? ' · <b class="num">' + pct(pk) + '</b>' : '') + '</span>'
+        : '<span>' + lbl + (many ? '' : 'Projeção ') + '<b class="num">' + f1(t.mu) + '</b> <span class="num">± ' + f1(t.sd) + '</span></span><span>alvo <b class="num">' + t.target + '</b>' + (many ? ' · <b class="num">' + pct(pk) + '</b>' : '') + '</span>') + '</div></div>';
+  }).join('') + (many ? '<div class="bar-note">Tens de chegar aos ' + d.totals.length + ' alvos. A % de cada um é sozinho; a vitória é a dos ' + d.totals.length + ' juntos.</div>' : '');
+}
 // ---- Hoje ----
 function renderHoje() {
   const el = $('tab-hoje');
@@ -679,14 +719,7 @@ function renderHoje() {
   }
   const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort();
   const right = live ? '<span class="pill jogo">Jogo a jogo</span>' : tips.length ? '<span class="small muted">1.º jogo ' + hm(tips[0]) + '</span>' : '';
-  let barHtml = '';
-  if (t) {
-    const max = Math.max(t.target * 1.2, t.mu + t.sd);
-    const kw = Math.min(100, t.known / max * 100), fw = Math.min(100 - kw, (t.mu - t.known) / max * 100);
-    barHtml = '<div class="bar" aria-hidden="true"><i class="k" style="width:' + kw.toFixed(1) + '%"></i><i class="f" style="left:' + kw.toFixed(1) + '%;width:' + Math.max(0, fw).toFixed(1) + '%"></i><i class="t" style="left:' + Math.min(99, t.target / max * 100).toFixed(1) + '%"></i></div>' +
-      '<div class="bar-cap">' + (live && t.known ? '<span>Feito <b class="num">' + f0(t.known) + '</b> · faltam <b class="num">' + f0(Math.max(0, t.target - t.known)) + '</b></span><span>final ≈ <b class="num">' + f1(t.mu) + '</b></span>'
-        : '<span>Projeção <b class="num">' + f1(t.mu) + '</b> <span class="num">± ' + f1(t.sd) + '</span></span><span>alvo <b class="num">' + t.target + '</b></span>') + '</div>';
-  }
+  const barHtml = t ? objBars(d, live) : '';
   html.push('<div class="card hero"><div class="hero-top"><span class="eyebrow">Dia ' + (nd.idx + 1) + ' · ' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>' + right + '</div>' +
     '<div class="score"><div class="goal">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>').join('<small> e </small>') : '<small>Objetivo por definir</small>') + '</div>' +
     (d.noObjective ? '' : '<div class="pbig num c-' + tone(d.P) + '">' + pct(d.P) + '<span>vitória</span></div>') + '</div>' + barHtml +
@@ -718,11 +751,11 @@ function renderHoje() {
   const lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
   const rows = d.lineup.map(id => {
     const pi = r.model.pIndex.get(id), p = r.model.players[pi], info = md.info[pi][0];
-    let sub, val = f1(info.mu);
+    let sub;
     if (live) {
       const st = info.liveState, sb2 = d.live.submitted.includes(id);
-      if (st === 'fim') { sub = '<span class="pill fim">Fim</span> ' + esc(p.team) + ' ' + esc(opp(p.team, nd)); val = f0(info.known); }
-      else if (st === 'jogo') { sub = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Em jogo') + '</span> ' + f0(info.known) + ' até agora'; val = f1(info.known + info.muLeft); }
+      if (st === 'fim') { sub = '<span class="pill fim">Fim</span> ' + esc(p.team) + ' ' + esc(opp(p.team, nd)); }
+      else if (st === 'jogo') { sub = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Em jogo') + '</span> ' + md.objs.map((o, k) => f0(md.info[pi][k].known) + (md.objs.length > 1 ? ' ' + esc(statShort(o.stat)) : '')).join(' · ') + ' até agora'; }
       else if (st === 'jogo?') sub = '<span class="pill jogo">Em jogo</span> toca para pôr o valor';
       else sub = (sb2 ? '' : '<span class="pill prov">Novo</span> ') + esc(p.team) + ' ' + esc(opp(p.team, nd));
     } else {
@@ -732,12 +765,12 @@ function renderHoje() {
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(t => t.id === id && t.to === S.acc && t.before <= nd.date) : null;
     if (tr) sub = '<span class="pill prov">Mandar de ' + esc(accLabel(tr.from)) + '</span> ' + sub;
     const stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
-    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + sub + '</div></div><div class="pv"><div class="v num">' + val + '</div><div class="u">' + esc(o ? statShort(o.stat) : '') + '</div></div></button></li>';
+    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + sub + '</div></div>' + pvHtml(objVals(md, pi, live)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
   html.push('<div class="card"><div class="list-head"><h2>Lineup</h2><button class="switch" type="button" data-action="live-toggle" aria-pressed="' + live + '"><i></i>Jogo a jogo</button></div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'Hoje esta conta não joga: os Moments rendem mais nas outras contas.' : 'Nenhum jogador do teu plantel joga hoje.') + '</div>') +
-    (allFinal && t ? '<div class="row small">Total final <b class="num" style="margin-left:4px">' + f0(t.known) + '</b> de ' + t.target + ' → ' + (t.known >= t.target ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '') +
+    (allFinal && t ? '<div class="row small" style="display:block">Total final ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '') +
     (live ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="live-fetch">Atualizar estatísticas ao vivo</button></div>'
       : (d.lineup.length && !d.noObjective ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="alts">Ver 2 a 3 alternativas para hoje</button></div>' : '')) +
     '<div class="foot"><button class="btn" type="button" data-action="day" data-date="' + nd.date + '">Ajustar</button><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + nd.date + '">Fechar o dia</button></div></div>');
@@ -760,7 +793,8 @@ async function refreshBoard(date) {
   finally { S.boardBusy = false; }
 }
 // linhas dos jogos de um dia: equipas, hora (ou placar ao vivo) e os teus jogadores em cada jogo (os do lineup a negrito)
-function gameRows(day, r, ids, B, lp, o) {
+function gameRows(day, r, ids, B, lp, objs) {
+  objs = (objs || []).filter(x => x && x.stat);
   const inLine = new Set(ids || []);
   const games = (day.games || []).slice().sort((a, b) => String(a[2] || '').localeCompare(String(b[2] || '')));
   return games.map(g => {
@@ -769,7 +803,7 @@ function gameRows(day, r, ids, B, lp, o) {
     const stat = !bg ? (g[2] ? hm(g[2]) : '') : bg.state === 'pre' ? hm(bg.start || g[2]) : bg.state === 'post' ? 'Final' : bg.detail;
     const sc = bg && bg.state !== 'pre' ? '<b class="num">' + esc(bg.as) + '</b> – <b class="num">' + esc(bg.hs) + '</b>' : '<span class="num">' + esc(g[2] ? hm(g[2]) : '–') + '</span>';
     return '<li class="game-row' + (bg && bg.state === 'in' ? ' on' : '') + (mine.some(id => inLine.has(id)) ? ' mine' : '') + '"><span class="gt">' + teamTag(g[0]) + '</span><span class="gs">' + sc + '</span><span class="gt r">' + teamTag(g[1]) + '</span>' + (bg && bg.state !== 'pre' ? '<span class="gst">' + esc(stat) + '</span>' : '') +
-      (mine.length ? '<span class="gm">' + mine.map(id => { const e = lp && lp[id], on = inLine.has(id); return (on ? '<b>' : '<span class="muted">') + esc(lastName(id)) + (e && e.vals && o && e.vals[o.stat] != null ? ' <b class="num">' + f0(e.vals[o.stat]) + '</b>' : '') + (on ? '</b>' : '</span>'); }).join(' · ') + '</span>' : '') + '</li>';
+      (mine.length ? '<span class="gm">' + mine.map(id => { const e = lp && lp[id], on = inLine.has(id); return (on ? '<b>' : '<span class="muted">') + esc(lastName(id)) + (e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : '') + (on ? '</b>' : '</span>'); }).join(' · ') + '</span>' : '') + '</li>';
   }).join('');
 }
 // Jogos de hoje: durante os jogos fica por cima do lineup, com o placar da ESPN; antes, fica por baixo, com as horas
@@ -778,9 +812,10 @@ function liveGamesCard(r, md, nd, ids, live, above) {
   const inWin = gamesWindow(nd);
   if (inWin !== !!above) return '';
   if (inWin && (!S.board || S.board.date !== nd.date)) { setTimeout(() => refreshBoard(nd.date), 0); return '<div class="card"><div class="list-head"><h2>Jogos de hoje</h2></div><div class="row small muted" style="display:block">A ler o placar…</div></div>'; }
-  const B = inWin ? (S.board.games || []) : null, o = (nd.objectives || [])[0], lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
+  const B = inWin ? (S.board.games || []) : null, o = nd.objectives || [], lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
   const n = (nd.games || []).length;
   return '<div class="card"><div class="list-head"><h2>Jogos de hoje</h2><span class="small muted">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a cada minuto') : plural(n, 'jogo', 'jogos')) + '</span></div><ul class="list">' + gameRows(nd, r, ids, B, lp, o) + '</ul>' +
+    (inWin && live && o.filter(x => x && x.stat).length > 1 ? '<div class="row small muted" style="display:block">Valores: ' + o.filter(x => x && x.stat).map(x => esc(statShort(x.stat))).join('/') + '.</div>' : '') +
     (inWin && !live ? '<div class="row small muted" style="display:block">Liga o <b>Jogo a jogo</b> para veres as estatísticas dos teus jogadores aqui e as trocas sugeridas.</div>' : '') +
     (!inWin ? '<div class="row small muted" style="display:block">Hora de cá. Os teus jogadores em cada jogo; a negrito os do lineup.</div>' : '') + '</div>';
 }
@@ -1192,16 +1227,30 @@ function analiseHtml() {
 // folha de um dia fechado: previsto ao lado do real, jogador a jogador
 function predVsActualHtml(date) {
   const sn = (curPlan().proj || {})[date]; if (!sn || !(sn.o || []).length) return '';
-  const pl = ((curPlan().played || {})[date]) || {}, act = sn.act || {}, o = sn.o[0], u = esc(statShort(o.stat));
+  const pl = ((curPlan().played || {})[date]) || {}, act = sn.act || {}, o = sn.o[0], u = esc(statShort(o.stat)), many = sn.o.length > 1;
   const lineup = (pl.lineup || []).length ? pl.lineup : sn.lineup;
+  const units = sn.o.map(x => esc(statShort(x.stat)));
   const val = a => (a === undefined ? '<div class="v num muted">…</div>' : a === null ? '<div class="small muted" style="font-weight:600">não jogou</div>' : '<div class="v num">' + f1(a[0]) + '</div>');
+  // dia de combinação: um valor por estatística, empilhados
+  const valMany = a => (a === undefined || a === null ? '<div class="pv">' + val(a) + '</div>' : '<div class="pv pv-multi">' + sn.o.map((x, k) => '<div><b class="num">' + f1(a[k] || 0) + '</b><span class="u">' + units[k] + '</span></div>').join('') + '</div>');
   const rows = lineup.map(id => { const x = sn.pl[id], a = act[id], d = x && a ? a[0] - x[0][0] : null;
-    return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span>' + (x && x[3] ? '<span class="badge">2.º seguido</span>' : '') + '</div><div class="ps">previsto ' + (x ? f1(x[0][0]) + (x[4] < 1 ? ' (' + pct(x[4]) + ' de jogar)' : '') + ' · ' + (x[2] === 'o' ? 'odds' : 'médias') : '—') + '</div></div><div class="pv">' + val(a) + '<div class="u">' + (d != null ? '<span class="' + (d >= 0 ? 'good-t' : 'warn-t') + '">' + (d >= 0 ? '+' : '−') + f1(Math.abs(d)) + '</span>' : u) + '</div></div></li>'; }).join('');
+    return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span>' + (x && x[3] ? '<span class="badge">2.º seguido</span>' : '') + '</div><div class="ps">previsto ' + (x ? (many ? sn.o.map((z, k) => f1(x[0][k] || 0) + ' ' + units[k]).join(' · ') : f1(x[0][0])) + (x[4] < 1 ? ' (' + pct(x[4]) + ' de jogar)' : '') + ' · ' + (x[2] === 'o' ? 'odds' : 'médias') : '—') + '</div></div>' +
+      (many ? valMany(a) : '<div class="pv">' + val(a) + '<div class="u">' + (d != null ? '<span class="' + (d >= 0 ? 'good-t' : 'warn-t') + '">' + (d >= 0 ? '+' : '−') + f1(Math.abs(d)) + '</span>' : u) + '</div></div>') + '</li>'; }).join('');
   const others = Object.entries(sn.pl).filter(([id]) => !lineup.includes(id) && act[id]).map(([id, x]) => ({ id, d: act[id][0] - x[0][0], a: act[id][0] })).filter(x => x.d > 0).sort((a, b) => b.d - a.d).slice(0, 3);
   const A = analysisData(S.acc).rows.find(x => x.date === date);
+  let kv;
+  if (many) {
+    // por estatística: previsto para o lineup que jogou, alvo e feito
+    const allKnown = lineup.length && lineup.every(id => sn.pl[id]), allAct = lineup.length && lineup.every(id => act[id] !== undefined);
+    kv = '<div><div class="label">Vitória prevista</div><div class="v num">' + pct(sn.P) + '</div></div>' + sn.o.map((x, k) => {
+      const pred = allKnown ? lineup.reduce((t, id) => t + sn.pl[id][4] * (sn.pl[id][0][k] || 0), 0) : x.mu;
+      const done = allAct ? lineup.reduce((t, id) => t + (act[id] ? act[id][k] || 0 : 0), 0) : null;
+      return '<div><div class="label">' + units[k] + ' · alvo ' + x.T + '</div><div class="v num' + (done != null ? (done >= x.T ? ' up' : ' down') : '') + '">' + (done != null ? f0(done) : '…') + '</div><div class="small muted">previsto ' + f0(pred) + '</div></div>';
+    }).join('');
+  } else kv = '<div><div class="label">Vitória prevista</div><div class="v num">' + pct(sn.P) + '</div></div><div><div class="label">Total previsto</div><div class="v num">' + (A && A.pred != null ? f0(A.pred) : f0(o.mu)) + '</div><div class="small muted">± ' + f0(A && A.sd != null ? A.sd : o.sd) + ' · alvo ' + o.T + '</div></div><div><div class="label">Feito</div><div class="v num">' + (A && A.actual != null ? f0(A.actual) : '…') + '</div></div>';
   return '<div class="card"><div class="list-head"><h2>Previsto vs real</h2><span class="small muted">previsão das ' + esc(hm(sn.at)) + '</span></div>' +
-    '<div class="kv" style="padding:0 14px 10px"><div><div class="label">Vitória prevista</div><div class="v num">' + pct(sn.P) + '</div></div><div><div class="label">Total previsto</div><div class="v num">' + (A && A.pred != null ? f0(A.pred) : f0(o.mu)) + '</div><div class="small muted">± ' + f0(A && A.sd != null ? A.sd : o.sd) + ' · alvo ' + o.T + '</div></div><div><div class="label">Feito</div><div class="v num">' + (A && A.actual != null ? f0(A.actual) : '…') + '</div></div></div>' +
-    '<ul class="list">' + rows + '</ul>' + (others.length ? '<div class="row small muted" style="display:block">Fora do lineup, quem fez mais do que o previsto: ' + others.map(x => esc(lastName(x.id)) + ' ' + f1(x.a) + ' (+' + f1(x.d) + ')').join(' · ') + '.</div>' : '') +
+    '<div class="kv" style="padding:0 14px 10px">' + kv + '</div>' +
+    '<ul class="list">' + rows + '</ul>' + (others.length ? '<div class="row small muted" style="display:block">Fora do lineup, quem fez mais do que o previsto' + (many ? ' em ' + u : '') + ': ' + others.map(x => esc(lastName(x.id)) + ' ' + f1(x.a) + ' (+' + f1(x.d) + ')').join(' · ') + '.</div>' : '') +
     (A && !A.same ? '<div class="row small muted" style="display:block">O lineup jogado não foi o da previsão: o total previsto é o dos jogadores que jogaram.</div>' : '') + '</div>';
 }
 
@@ -1295,7 +1344,8 @@ function colSummary(col) {
   const tt = {}; ps.forEach(c => { const o = tierCounts(col, c); Object.entries(o).forEach(([t, k]) => { tt[t] = (tt[t] || 0) + k; }); });
   const sum = Object.values(tt).reduce((a, b) => a + b, 0);
   const bar = sum ? '<div class="tier-bar" role="img" aria-label="Moments por escalão">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<i class="t-' + TIER_CLS[t] + '" style="flex:' + tt[t] + '"></i>').join('') + '</div>' +
-    '<div class="tier-legend">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<span><i class="t-' + TIER_CLS[t] + '"></i>' + t + ' <b class="num">' + tt[t] + '</b> · ' + TIER_USES[t] + ' uso' + (TIER_USES[t] > 1 ? 's' : '') + '</span>').join('') + '</div>' : '';
+    '<div class="tier-legend">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<span><i class="t-' + TIER_CLS[t] + '"></i>' + t + ' <b class="num">' + tt[t] + '</b></span>').join('') + '</div>' +
+    '<div class="small muted">Usos por run de cada jogador: os do seu melhor Moment (Common 1, Rare 2, Legendary 4). Mais Moments do mesmo jogador não somam: uma Rare e três Common dão 2.</div>' : '';
   const accLine = groupMode() ? '<div class="small muted">' + Object.entries(col.accounts || {}).map(([k, t]) => esc(accLabel(k)) + ' <b>' + t.moments + '</b>' + (t.listed ? ' (' + t.listed + ' à venda)' : '')).join(' · ') + '</div>' : '';
   return '<div class="card panel col-sum"><div class="list-head" style="padding:0"><h2>A tua coleção</h2><span class="small muted">lida ' + esc(ago(col.read_at)) + '</span></div>' +
     '<div class="col-kpis"><div><b class="num">' + f0(moments) + '</b><span>Moments</span></div><div><b class="num">' + ps.length + '</b><span>jogadores na NBA</span></div><div><b class="num">' + (col.sets ? f0(uses) : '–') + '</b><span>usos por run</span></div></div>' +
@@ -1380,9 +1430,97 @@ function renderPlantel() {
   });
   const qq = norm(S.filter);
   const list = r.model.players.filter(p => !qq || norm(p.name).includes(qq) || p.team.toLowerCase().includes(qq));
+  const ctx = { r, v, days, nd, planned, played, elsewhere, list };
+  const PV = S.plView;
+  const view3 = PV.mode === 'plano' ? plMatrixHtml(ctx) : PV.mode === 'valor' ? plHeatHtml(ctx) : plListHtml(ctx);
+  const totalU = r.model.uses.reduce((a, b) => a + b, 0), totalP = Object.values(v.usage).reduce((a, b) => a + b, 0);
+  let usedTot = 0; Object.values(played).forEach(pl => { if (pl && pl.done) usedTot += (pl.lineup || []).length; });
+  const closed = Object.values(played).filter(pl => pl && pl.done).length;
+  body.innerHTML = accSwitch() +
+    '<div class="card"><div class="list-head"><h2>' + esc(run.name || 'Run') + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + '</h2><button class="btn small" type="button" data-action="uses-sheet">Acertar usos</button></div>' +
+    '<div class="kv" style="padding:0 14px 10px"><div><div class="label">Usados</div><div class="v num">' + usedTot + '</div><div class="small muted">' + closed + ' dia' + (closed === 1 ? '' : 's') + ' fechado' + (closed === 1 ? '' : 's') + '</div></div><div><div class="label">Restantes</div><div class="v num">' + totalU + '</div><div class="small muted">' + ids.length + ' jogadores</div></div><div><div class="label">No plano</div><div class="v num">' + totalP + '</div><div class="small muted">até ao fim</div></div></div>' +
+    '<div class="seg pl-seg" role="group" aria-label="Como ver o plantel">' + [['lista', 'Jogadores'], ['plano', 'Plano por dia'], ['valor', 'Valor por dia']].map(([k, l]) => '<button type="button" data-action="pl-view" data-v="' + k + '" aria-pressed="' + (PV.mode === k) + '">' + l + '</button>').join('') + '</div>' +
+    view3 + '</div>' +
+    '<div class="btns"><button class="btn" type="button" data-action="paste-sheet">Colar lista</button><button class="btn" type="button" data-action="add-player">Adicionar jogador</button></div>' +
+    '<p class="small muted" style="margin:0 4px">Toca num jogador para ver quantas vezes já o usaste e mudar os usos' + (groupMode() ? ' de cada conta' : '') + ' ou o estado.</p>';
+}
+// ---- Plantel: três maneiras de ver (lista de jogadores, plano por dia, valor por dia) ----
+S.plView = { mode: 'lista', sort: 'plano', filter: 'todos' };
+try { Object.assign(S.plView, JSON.parse(localStorage.getItem('fb-plv') || '{}')); } catch (e) {}
+function setPlView(patch) { Object.assign(S.plView, patch); try { localStorage.setItem('fb-plv', JSON.stringify(S.plView)); } catch (e) {} renderPlantel(); }
+// estatísticas que ainda saem na run (para as médias de cada jogador), as mais frequentes primeiro
+function runStats(days, from) {
+  const n = {}; days.forEach(d => { if (from && d.date < from) return; (d.objectives || []).forEach(o => { if (o && o.stat) FB.statTerms(o.stat).forEach(t => { if (t.sign > 0) n[t.s] = (n[t.s] || 0) + 1; }); }); });
+  return Object.keys(n).sort((a, b) => n[b] - n[a]);
+}
+// quanto do alvo do dia um jogador faz sozinho (média dos objetivos, 0–1); null se não joga
+function shareOf(md, pi) {
+  if (!md || !md.objs.length || !md.teams.has((S.result.model.players[pi] || {}).team)) return null;
+  return md.objs.reduce((t, o, k) => t + ((md.info[pi][k] || {}).mu || 0) / Math.max(1, md.T[k]), 0) / md.objs.length;
+}
+function plFacts(ctx, p) {
+  const { r, days, nd, planned, played, elsewhere } = ctx, pi = r.model.pIndex.get(p.id), today = nd ? nd.date : '9999';
+  const left = days.filter(d => d.date >= today && FB.teamsOn(d).has(p.team));
+  const mdNext = nd ? r.model.days.find(m => m.day.date === nd.date) : null;
+  const sh = mdNext ? shareOf(mdNext, pi) : null;
+  const usedN = Object.values(played).filter(pl => pl && pl.done && (pl.lineup || []).includes(p.id)).length;
+  const ir = injRec(p.id), col = (S.profile || {}).collection, ci = col && (col.players || {})[p.id];
+  return { pi, left, sh, mdNext, usedN, plan: (planned[p.id] || new Set()).size, uses: p.uses || 0, ir: ir && !p.injIgnore ? ir : null, tier: ci && ci.bySet ? bestTier(col, ci) : null, other: Object.keys(elsewhere[p.id] || {}).length };
+}
+const PL_SORTS = [['plano', 'No plano'], ['proximo', 'Próximo dia'], ['usos', 'Usos'], ['jogos', 'Jogos'], ['nome', 'Nome']];
+const PL_FILTERS = [['todos', 'Todos'], ['proximo', 'Jogam no próximo dia'], ['plano', 'No plano'], ['sobram', 'Sobram usos'], ['semusos', 'Sem usos'], ['lesao', 'Lesionados']];
+function plFilter(ctx) {
+  const PV = S.plView, facts = new Map(ctx.list.map(p => [p.id, plFacts(ctx, p)]));
+  const test = { todos: () => true, proximo: f => f.sh != null, plano: f => f.plan > 0, sobram: f => f.uses > f.plan, semusos: f => f.uses <= 0, lesao: f => !!f.ir };
+  const counts = {}; PL_FILTERS.forEach(([k]) => { counts[k] = ctx.list.filter(p => test[k](facts.get(p.id))).length; });
+  const fk = test[PV.filter] ? PV.filter : 'todos';
+  const by = {
+    plano: (a, b) => (b.f.plan - a.f.plan) || (b.f.uses - a.f.uses) || ((b.f.sh || 0) - (a.f.sh || 0)),
+    proximo: (a, b) => ((b.f.sh == null ? -1 : b.f.sh) - (a.f.sh == null ? -1 : a.f.sh)) || (b.f.plan - a.f.plan),
+    usos: (a, b) => (b.f.uses - a.f.uses) || (b.f.plan - a.f.plan),
+    jogos: (a, b) => (b.f.left.length - a.f.left.length) || (b.f.uses - a.f.uses),
+    nome: (a, b) => String(a.p.name).localeCompare(String(b.p.name)),
+  };
+  const rows = ctx.list.map(p => ({ p, f: facts.get(p.id) })).filter(x => test[fk](x.f)).sort(by[PV.sort] || by.plano);
+  return { rows, counts, fk };
+}
+function plToolbar(counts, fk, withFilter) {
+  const PV = S.plView;
+  return '<div class="pl-tools"><div class="chips scroll" role="group" aria-label="Ordenar"><span class="chips-lbl">Ordenar</span>' + PL_SORTS.map(([k, l]) => '<button type="button" data-action="pl-sort" data-v="' + k + '" aria-pressed="' + (PV.sort === k) + '">' + l + '</button>').join('') + '</div>' +
+    (withFilter ? '<div class="chips scroll" role="group" aria-label="Mostrar">' + PL_FILTERS.filter(([k]) => k === 'todos' || counts[k] || k === fk).map(([k, l]) => '<button type="button" data-action="pl-filter" data-v="' + k + '" aria-pressed="' + (fk === k) + '">' + l + ' <span class="cnt-s">' + counts[k] + '</span></button>').join('') + '</div>' : '') + '</div>';
+}
+// faixa com os dias da run: usado, no plano, na outra conta, tem jogo, não joga
+function plStrip(ctx, p) {
+  const { days, nd, planned, played, elsewhere } = ctx, set = planned[p.id] || new Set();
+  return '<span class="pl-strip" aria-hidden="true">' + days.map(day => {
+    const pl = played[day.date], nx = nd && nd.date === day.date ? ' nx' : '';
+    const k = pl && pl.done ? ((pl.lineup || []).includes(p.id) ? 'u' : 'p') : set.has(day.date) ? 'on' : (elsewhere[p.id] || {})[day.date] ? 'ot' : FB.teamsOn(day).has(p.team) ? 'g' : 'n';
+    return '<i class="s-' + k + nx + '"></i>';
+  }).join('') + '</span>';
+}
+function plListHtml(ctx) {
+  const { rows, counts, fk } = plFilter(ctx), nd = ctx.nd, stats = runStats(ctx.days, nd && nd.date).slice(0, 4);
+  const nxt = nd ? 'Dia ' + (nd.idx + 1) : '';
+  const items = rows.map(({ p, f }) => {
+    const st = (p.status && p.status !== 'ok' ? '<span class="pill ' + p.status + '">' + esc(STATUS[p.status].label) + '</span>' : '') + (f.ir ? '<span class="pill ' + INJ_PILL[f.ir.status] + '">' + esc(INJ_LABEL[f.ir.status]) + '</span>' : '');
+    const nextTxt = !nd ? '' : f.sh == null ? '<span class="muted">não joga no ' + nxt + '</span>' : nxt + ': ' + (f.mdNext.objs.length ? f.mdNext.objs.map((o, k) => '<b class="num">' + f1((f.mdNext.info[f.pi][k] || {}).mu || 0) + '</b> ' + esc(statShort(o.stat))).join(' · ') : 'joga');
+    const avgs = stats.map(s => { const a = FB.avgOf({ avg: p.avg }, s); if (!a) return ''; const fi = FB.formInfo(p, s), d = fi && (fi.n5 || 0) >= 3 && fi.season ? (fi.l5 - fi.season) / Math.max(1, Math.abs(fi.season)) : 0;
+      return '<span>' + esc(statShort(s)) + ' <b class="num">' + f1(a.v) + '</b>' + (d >= 0.08 ? '<i class="up">▲</i>' : d <= -0.08 ? '<i class="down">▼</i>' : '') + '</span>'; }).filter(Boolean).join('');
+    const full = f.uses > 0 && f.plan >= f.uses, none = f.uses <= 0;
+    return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '"><span class="avatar" style="background:' + (TEAM_COLOR[p.team] || colorFor(p.id)) + '" aria-hidden="true">' + esc(initials(p.name)) + '</span>' +
+      '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (f.tier ? '<span class="tpill t-' + TIER_CLS[f.tier] + '">' + f.tier + '</span>' : '') + st + '</div>' +
+      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div>' +
+      plStrip(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</div>' +
+      '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + f.uses + '</b><span>' + (f.uses === 1 ? 'uso' : 'usos') + '</span><small>' + (f.plan ? 'plano ' + f.plan : 'fora do plano') + (f.usedN ? ' · usado ' + f.usedN : '') + '</small></div></button></li>';
+  }).join('');
+  return plToolbar(counts, fk, true) + '<ul class="list">' + (items || '<li class="row small muted">Nenhum jogador com este filtro.</li>') + '</ul>' +
+    '<div class="legend"><span><i class="ls s-u"></i>usado</span><span><i class="ls s-on"></i>no plano</span>' + (S.multi ? '<span><i class="ls s-ot"></i>na outra conta</span>' : '') + '<span><i class="ls s-g"></i>tem jogo</span><span>▲▼ forma nos últimos 5 jogos</span></div>';
+}
+function plMatrixHtml(ctx) {
+  const { days, nd, planned, played, elsewhere } = ctx, { rows, counts, fk } = plFilter(ctx);
   const cols = 'minmax(72px,1fr) repeat(' + days.length + ', 20px) 34px';
   const head = '<div class="mx-row head" style="grid-template-columns:' + cols + '"><span style="text-align:left">Jogador</span>' + days.map((d, i) => '<span class="' + (nd && nd.date === d.date ? 'nx' : '') + '">' + (i + 1) + '</span>').join('') + '<span style="text-align:right">Usos</span></div>';
-  const rows = list.map(p => {
+  const body = rows.map(({ p, f }) => {
     const set = planned[p.id] || new Set();
     const cells = days.map(day => {
       const nx = nd && nd.date === day.date ? ' nx' : '', pl = played[day.date];
@@ -1392,23 +1530,36 @@ function renderPlantel() {
       if (oth) return '<span class="cell' + nx + '" title="Joga pela ' + esc(oth.join(' e ')) + ' nesta noite"><i class="dot other"></i></span>';
       return '<span class="cell' + nx + '">' + (FB.teamsOn(day).has(p.team) ? '<i class="dot off"></i>' : '') + '</span>';
     }).join('');
-    const n = set.size, u = p.uses || 0;
-    const ir = injRec(p.id);
     const st = (p.status && p.status !== 'ok' ? '<span class="pill ' + p.status + '">' + esc(STATUS[p.status].label.slice(0, 3)) + '</span>' : '') +
-      (ir && !p.injIgnore ? '<span class="pill ' + INJ_PILL[ir.status] + '" title="Lesão: ' + esc(INJ_LABEL[ir.status]) + '">' + INJ_SHORT[ir.status] + '</span>' : '');
-    return '<button class="mx-row" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '" style="grid-template-columns:' + cols + '"><span class="mx-name"><span style="overflow:hidden;text-overflow:ellipsis">' + esc(lastName(p.id)) + '</span>' + st + '</span>' + cells + '<span class="mx-uses num' + (n >= u && u > 0 ? ' full' : '') + '">' + n + '/' + u + '</span></button>';
+      (f.ir ? '<span class="pill ' + INJ_PILL[f.ir.status] + '" title="Lesão: ' + esc(INJ_LABEL[f.ir.status]) + '">' + INJ_SHORT[f.ir.status] + '</span>' : '');
+    return '<button class="mx-row" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '" style="grid-template-columns:' + cols + '"><span class="mx-name"><span style="overflow:hidden;text-overflow:ellipsis">' + esc(lastName(p.id)) + '</span>' + st + '</span>' + cells + '<span class="mx-uses num' + (f.plan >= f.uses && f.uses > 0 ? ' full' : '') + '">' + f.plan + '/' + f.uses + '</span></button>';
   }).join('');
-  const totalU = r.model.uses.reduce((a, b) => a + b, 0), totalP = Object.values(v.usage).reduce((a, b) => a + b, 0);
-  let usedTot = 0; Object.values(played).forEach(pl => { if (pl && pl.done) usedTot += (pl.lineup || []).length; });
-  const closed = Object.values(played).filter(pl => pl && pl.done).length;
-  body.innerHTML = accSwitch() +
-    '<div class="card"><div class="list-head"><h2>' + esc(run.name || 'Run') + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + '</h2><button class="btn small" type="button" data-action="uses-sheet">Acertar usos</button></div>' +
-    '<div class="kv" style="padding:0 14px 10px"><div><div class="label">Usados</div><div class="v num">' + usedTot + '</div><div class="small muted">' + closed + ' dia' + (closed === 1 ? '' : 's') + ' fechado' + (closed === 1 ? '' : 's') + '</div></div><div><div class="label">Restantes</div><div class="v num">' + totalU + '</div><div class="small muted">' + ids.length + ' jogadores</div></div><div><div class="label">No plano</div><div class="v num">' + totalP + '</div><div class="small muted">até ao fim</div></div></div>' +
-    '<div class="mx-wrap"><div class="mx">' + head + (rows || '<div class="mx-row muted small">Nenhum jogador encontrado.</div>') + '</div></div>' +
+  return plToolbar(counts, fk, true) + '<div class="mx-wrap"><div class="mx">' + head + (body || '<div class="mx-row muted small">Nenhum jogador encontrado.</div>') + '</div></div>' +
     '<div class="legend"><span><i class="dot used"></i>já usado</span><span><i class="dot on"></i>no plano</span>' + (S.multi ? '<span><i class="dot other"></i>na outra conta</span>' : '') + '<span><i class="dot off"></i>tem jogo</span><span>usos = no plano / restantes' + (S.multi ? ' nesta conta' : '') + '</span></div>' +
-    (S.multi ? '<div class="small muted" style="padding:0 14px 12px">Os usos são de cada conta, mas um Moment só joga por uma conta em cada noite: com um só Moment de um jogador, o plano nunca o põe nas duas no mesmo dia (manda-o de uma para a outra entre noites).</div>' : '') + '</div>' +
-    '<div class="btns"><button class="btn" type="button" data-action="paste-sheet">Colar lista</button><button class="btn" type="button" data-action="add-player">Adicionar jogador</button></div>' +
-    '<p class="small muted" style="margin:0 4px">Toca num jogador para ver quantas vezes já o usaste e mudar os usos' + (groupMode() ? ' de cada conta' : '') + ' ou o estado.</p>';
+    (S.multi ? '<div class="small muted" style="padding:0 14px 12px">Os usos são de cada conta, mas um Moment só joga por uma conta em cada noite: com um só Moment de um jogador, o plano nunca o põe nas duas no mesmo dia (manda-o de uma para a outra entre noites).</div>' : '');
+}
+// valor por dia: quanto do alvo de cada dia o jogador faz sozinho (mapa de calor); contorno = no plano
+function plHeatHtml(ctx) {
+  const { r, days, nd, planned, played } = ctx, { rows, counts, fk } = plFilter(ctx);
+  const mdOf = new Map(r.model.days.map(m => [m.day.date, m]));
+  const size = ((r.model.days[0] || {}).size) || 5, par = 1 / size;
+  const cols = 'minmax(80px,96px) repeat(' + days.length + ', 25px)';
+  const head = '<div class="mx-row head hm-head" style="grid-template-columns:' + cols + '"><span style="text-align:left">Jogador</span>' + days.map((d, i) => { const os = (d.objectives || []).filter(o => o && o.stat);
+    return '<span class="' + (nd && nd.date === d.date ? 'nx' : '') + '">' + (i + 1) + '<small>' + esc(os.length ? statShort(os[0].stat).slice(0, 4) + (os.length > 1 ? '+' : '') : '–') + '</small></span>'; }).join('') + '</div>';
+  const body = rows.map(({ p, f }) => {
+    const set = planned[p.id] || new Set();
+    const cells = days.map(day => {
+      const nx = nd && nd.date === day.date ? ' nx' : '', pl = played[day.date];
+      if (pl && pl.done) return '<span class="cell hm' + nx + '">' + ((pl.lineup || []).includes(p.id) ? '<i class="dot used"></i>' : '') + '</span>';
+      const sh = shareOf(mdOf.get(day.date), f.pi);
+      if (sh == null) return '<span class="cell hm' + nx + '"></span>';
+      const lv = sh >= par * 1.3 ? 4 : sh >= par * 1.05 ? 3 : sh >= par * 0.8 ? 2 : sh >= par * 0.5 ? 1 : 0;
+      return '<span class="cell hm' + nx + '"><b class="hv h' + lv + (set.has(day.date) ? ' inp' : '') + '">' + Math.round(sh * 100) + '</b></span>';
+    }).join('');
+    return '<button class="mx-row" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '" style="grid-template-columns:' + cols + '"><span class="mx-name"><span style="overflow:hidden;text-overflow:ellipsis">' + esc(lastName(p.id)) + '</span><small class="num">' + f.uses + 'u</small></span>' + cells + '</button>';
+  }).join('');
+  return plToolbar(counts, fk, true) + '<div class="mx-wrap"><div class="mx hm-grid">' + head + (body || '<div class="mx-row muted small">Nenhum jogador encontrado.</div>') + '</div></div>' +
+    '<div class="legend"><span>Número = % do alvo do dia que ele faz sozinho (com ' + size + ' jogadores, ' + Math.round(par * 100) + '% cada chega lá)</span><span><b class="hv h4 inp" style="width:auto;padding:0 4px">25</b> no plano</span><span><i class="dot used"></i>já usado</span><span>Nu = usos restantes</span></div>';
 }
 // jogadores do plantel que estão no relatório de lesões
 // ---- cores das equipas (pontinho ao lado da sigla) ----
@@ -1487,10 +1638,10 @@ function rosterInjuries(players) {
 function buyHtml() {
   const r = mainResult(), B = S.buy;
   if (!S.runId || !r || !r.model.days.length) return '<div class="note info">' + (S.runId ? 'A run já terminou.' : 'Quando houver uma run, vês aqui o que compensa comprar para ela.') + '</div>' + specHtml();
-  return '<div class="card panel"><h2>O que compensa comprar</h2><div class="small muted">Refaz o plano da run com cada candidato e mostra quanto sobem os prémios e em que dias ele jogaria. Os preços não entram nas contas: esses vês tu no marketplace.</div>' +
+  return buyTipsCard(6, true) + '<div class="card panel"><h2>O que compensa comprar</h2><div class="small muted">Refaz o plano da run com cada candidato e mostra quanto sobem os prémios e em que dias ele jogaria. Os preços não entram nas contas: esses vês tu no marketplace.</div>' +
     '<div class="seg acc-seg" role="group" aria-label="O que comprar"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">Jogador novo</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Reforçar os teus</button></div>' +
     '<div><div class="label" style="margin-bottom:6px">Escalão do Moment a comprar</div><div class="chips" role="group" aria-label="Escalão do Moment">' + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + (B.uses === n) + '">' + tierName(n) + ' · ' + n + '</button>').join('') + '</div>' +
-    '<div class="small muted" style="margin-top:6px">Usos em cada run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. Para um Common com ASP acima de 10 $, escolhe Rare (também dá 2).</div></div>' +
+    '<div class="small muted" style="margin-top:6px">Usos em cada run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. Para um Common com ASP acima de 10 $, escolhe Rare (também dá 2). Num jogador que já tens, conta só o melhor Moment: não se somam.</div></div>' +
     '<button class="btn primary" type="button" data-action="buy-run">' + (B.mode === 'new' ? 'Procurar as melhores compras' : 'Ver quem vale a pena reforçar') + '</button>' +
     '<label class="small muted">Ou avalia um jogador em especial<input class="field" id="buySearch" type="search" placeholder="Nome (ex.: Curry)" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
     '<div id="buyOut" class="stack">' + (B.results ? buyResultsHtml(B.results) : '') + '</div>' + specHtml();
@@ -1534,7 +1685,7 @@ function renderBuySearch(qs) {
   const box = $('buyFound'); if (!box) return;
   box.hidden = !String(qs || '').trim();
   if (box.hidden) { box.innerHTML = ''; return; }
-  box.innerHTML = searchPlayers(qs, 6).map(p => '<div class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (S.mine.roster[p.id] ? ' · já tens: mais usos' : '') + '</div></div><button class="btn small" type="button" data-action="buy-pick" data-id="' + esc(p.id) + '">Avaliar</button></div>').join('') || '<div class="row muted small">Nenhum jogador com esse nome.</div>';
+  box.innerHTML = searchPlayers(qs, 6).map(p => '<div class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (S.mine.roster[p.id] ? ' · já tens (' + plural(perRunUses(p.id), 'uso', 'usos') + ' por run)' : '') + '</div></div><button class="btn small" type="button" data-action="buy-pick" data-id="' + esc(p.id) + '">Avaliar</button></div>').join('') || '<div class="row muted small">Nenhum jogador com esse nome.</div>';
 }
 // plano refeito com o plantel mudado (mod), da mesma maneira que o plano que vês: conta principal, ou o plano
 // conjunto com as smurf
@@ -1550,6 +1701,16 @@ const planNow = () => (S.multi ? { res: S.multi.byKey.main.normal, total: S.mult
 const tick = ms => new Promise(res => setTimeout(res, ms || 20));
 // Melhores compras para a run: pré-seleção rápida e depois a run refeita com cada candidato.
 // alive() a devolver false pára a meio; kicks (só com smurfs) faz um cálculo mais leve, comparado com uma base igual.
+// usos por run que um jogador do plantel já tem (os do melhor Moment) e quantos ganha com um Moment de U usos:
+// só sobe se o novo for de um escalão acima (uma Rare de quem tem um Common dá +1, não +2)
+function perRunUses(id) {
+  const e = S.mine.roster[id]; if (!e) return 0;
+  if (e.tierUses != null) return +e.tierUses;
+  const c = ((((S.profile || {}).collection) || {}).players || {})[id];
+  const t = c && c.bySet ? tierUsesOf(S.profile.collection, c) : null;
+  return t != null ? t : (+e.uses || 0) + usedCount('main', id);
+}
+const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
 async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
   const r = mainResult(); if (!r || !r.model.days.length) return null;
   const owned = id => !!S.mine.roster[id];
@@ -1560,11 +1721,11 @@ async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
     pool = [...S.players.values()].filter(p => p.team && p.avg && !owned(p.id) && teams.has(p.team)).map(p => String(p.id));
     // com smurfs: também um 2.º Moment de quem só tens um (para as duas contas o usarem na mesma noite)
     if (mode === 'mix') pool = pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && collectionInfo(id).copies === 1));
-  } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null);
+  } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && (usesGain(id, U) > 0 || (S.multi && collectionInfo(id).copies === 1)));
   if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true };
   // compra: jogador novo com U usos (fica na conta principal), ou mais U usos (e mais um Moment) para quem já tens
   const add = id => pl => {
-    if (pl[id]) { pl[id].uses = (+pl[id].uses || 0) + U; pl[id].copies = (pl[id].copies || 1) + 1; pl[id].owner = null; }
+    if (pl[id]) { pl[id].uses = (+pl[id].uses || 0) + usesGain(id, U); pl[id].copies = (pl[id].copies || 1) + 1; pl[id].owner = null; }
     else { const c = S.players.get(String(id)) || {}; pl[id] = { name: c.name || id, team: c.team || '', uses: U, status: 'ok', avg: c.avg || null, copies: 1, owner: 'main' }; }
   };
   let shortlist = pool;
@@ -1603,7 +1764,8 @@ async function buyRun(onlyId) {
   await tick(30);
   const res = await computeBuy({ onlyId, mode, U: B.uses, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog: t => { const el = $('buyProg'); if (el) el.textContent = t; } });
   if (!res || !$('buyOut')) return;
-  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">Não há candidatos com jogos nos dias que faltam.</div>'; return; }
+  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (mode === 'more' ? 'Ninguém do teu plantel ganha usos com um Moment ' + tierName(B.uses) + ': os usos por run são os do melhor Moment de cada jogador, por isso só sobe quem tem um escalão abaixo. Experimenta Rare ou Legendary.' : 'Não há candidatos com jogos nos dias que faltam.') + '</div>'; return; }
+  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, B.uses) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">Já tens ' + esc(nameOf(onlyId)) + ' com ' + plural(perRunUses(onlyId), 'uso', 'usos') + ' por run. Um Moment ' + tierName(B.uses) + ' não lhe dá mais (conta o melhor Moment). Escolhe um escalão acima.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
 }
@@ -1626,9 +1788,9 @@ function scheduleAutoBuy() {
     if (autoBuyKey() !== key || document.visibilityState !== 'visible') return;
     autoBuyBusy = key;
     try {
-      const res = await computeBuy({ mode: S.multi ? 'mix' : 'new', U: 2, topN: S.multi ? 3 : 4, alive: () => autoBuyKey() === key, kicks: S.multi ? 10 : null });
-      if (res && autoBuyKey() === key) { S.autoBuy = Object.assign({ key }, res); if (S.tab === 'hoje' || S.tab === 'run') render(); }
-    } catch (e) { console.warn('sugestões de compra', e); }
+      const res = await computeBuy({ mode: S.multi ? 'mix' : 'new', U: 2, topN: S.multi ? 4 : 6, alive: () => autoBuyKey() === key, kicks: S.multi ? 10 : null });
+      if (res && autoBuyKey() === key) { S.autoBuy = Object.assign({ key }, res); S.autoBuyErr = null; if (S.tab === 'hoje' || S.tab === 'run' || (S.tab === 'plantel' && subOf('plantel') === 'comprar')) render(); }
+    } catch (e) { console.warn('sugestões de compra', e); S.autoBuyErr = key; render(); }
     finally { if (autoBuyBusy === key) autoBuyBusy = null; }
   }, S.multi ? 6000 : 2500);
 }
@@ -1646,15 +1808,19 @@ function buySummary(R, x) {
   return { id, best, e0, e1, byPrize, worth: byPrize || e1 - e0 >= 0.15, days: [...days].sort((a, b) => a - b), multi: keys.length > 1 };
 }
 // lista curta de sugestões (Hoje e Run)
-function buyTipsCard(limit) {
-  const A = S.autoBuy;
-  const head = '<div class="list-head"><h2>Sugestões de compra</h2><span class="small muted">Moment Rare</span></div>';
-  if (!A || A.key !== autoBuyKey()) return autoBuyKey() ? '<div class="card">' + head + '<div class="row small muted" style="display:block">A ver que compras ajudavam mais nesta run…</div></div>' : '';
-  const tips = A.list.map(x => buySummary(A, x)).filter(t => t.worth).slice(0, limit);
-  if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Nenhum Moment Rare muda muito esta run. Em Jogadores → Comprar dá para ver outros usos ou um jogador em especial.</div></div>';
-  return '<div class="card">' + head + '<ul class="list">' + tips.map(t => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' vitórias' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'vitórias esperadas ' + f1(t.e0) + ' → <b class="up">' + f1(t.e1) + '</b>';
-    return '<li><button class="row" type="button" data-action="buy-open"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">2.º Moment</span>' : '') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num up">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : f1(t.e1 - t.e0)) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
-    '</ul><div class="row small muted" style="display:block">Calculado sozinho com Moments Rare (2 usos) de jogadores que ainda não tens' + (S.multi ? ' e um 2.º Moment de quem só tens um (assim as duas contas podem usá-lo no mesmo dia)' : '') + '. Toca para ver os detalhes, outros usos ou reforços.</div></div>';
+function buyTipsCard(limit, inBuy) {
+  const A = S.autoBuy, key = autoBuyKey();
+  if (!key) return '';
+  const head = '<div class="list-head"><h2>' + (inBuy ? 'Os Rare que mais compensam' : 'Sugestões de compra') + '</h2><span class="small muted">' + (A && A.key !== key ? 'a atualizar…' : 'Moment Rare') + '</span></div>';
+  const more = inBuy ? '' : '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="goto" data-tab="plantel" data-sub="comprar">Ver todas as compras</button></div>';
+  if (S.autoBuyErr === key) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Não consegui calcular as sugestões. <button class="btn link small" type="button" data-action="buy-retry">Tentar outra vez</button></div></div>';
+  if (!A) return '<div class="card">' + head + '<div class="row small muted" style="display:block">A refazer a run com cada Moment Rare que podes comprar, para ver qual ajuda mais' + (S.multi ? ' (com as duas contas demora uns segundos)' : '') + '…</div>' + more + '</div>';
+  // os melhores primeiro, mesmo os que mudam pouco (assim vês sempre qual é o Rare que mais compensa)
+  const tips = A.list.map(x => buySummary(A, x)).slice(0, limit);
+  if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'Não há jogadores fora do teu plantel com jogos nos dias que faltam.' : 'Nenhum Moment Rare muda o plano desta run: o teu plantel já cobre bem os dias que faltam.') + ' Em Jogadores → Comprar dá para avaliar um jogador em especial.</div>' + more + '</div>';
+  return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' vitórias' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'vitórias esperadas ' + f1(t.e0) + ' → <b class="' + (t.worth ? 'up' : '') + '">' + f1(t.e1) + '</b>';
+    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">2.º Moment</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? Math.max(0, t.e1 - t.e0).toFixed(2).replace('.', ',') : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
+    '</ul><div class="row small muted" style="display:block">Calculado sozinho: a run refeita com um Moment Rare (2 usos) de cada jogador que ainda não tens' + (S.multi ? ' e com um 2.º Moment de quem só tens um (assim as duas contas podem usá-lo no mesmo dia)' : '') + '. <b>pp</b> = pontos percentuais a mais no prémio que mais sobe. Toca para ver em que dias joga.</div>' + more + '</div>';
 }
 function buyResultsHtml(R) {
   const usesTxt = n => n + ' uso' + (n > 1 ? 's' : '');
@@ -1665,7 +1831,7 @@ function buyResultsHtml(R) {
   const pp = x => Math.round(x * 100);
   const anyMore = R.list.some(x => R.mode === 'more' || !!S.mine.roster[String(x.id)]);
   const intro = '<div class="note info">' + (anyMore
-    ? '<b>+' + R.U + '</b> quer dizer comprar <b>outro Moment ' + tierName(R.U) + '</b> de um jogador que já tens: ficas com mais ' + usesTxt(R.U) + ' dele nesta run' + (multi ? ' em cada conta, e com dois Moments duas contas podem jogá-lo no mesmo dia' : '') + '.'
+    ? 'Reforçar é comprar um <b>Moment ' + tierName(R.U) + '</b> de um jogador que já tens. Os usos por run são os do melhor Moment, por isso só sobem se o novo for de um escalão acima (uma Rare de quem tem um Common dá +1)' + (multi ? '; e com dois Moments duas contas podem jogá-lo no mesmo dia' : '') + '.'
     : 'Cada dica é comprar um Moment ' + tierTxt(R.U) + ' de um jogador que ainda não tens' + (multi ? ' (fica na conta principal; o plano diz quando o mandar para outra)' : '') + '.') +
     ' As percentagens são a probabilidade de chegares a cada número de vitórias no fim da run.</div>';
   return intro + R.list.map((x, n) => {
@@ -1689,12 +1855,12 @@ function buyResultsHtml(R) {
     // só com um Moment dele é que o segundo deixa duas contas jogá-lo na mesma noite; com mais, o ganho são os usos
     const twoSame = multi && more && collectionInfo(id).copies === 1 && days.some(z => z.acc.length > 1);
     const why = !days.length ? 'Não entra em dias novos: o ganho vem de deixar outros jogadores livres para outros dias.'
-      : (twoSame ? 'Com dois Moments dele, duas contas podem jogá-lo no mesmo dia. ' : more ? 'Com mais ' + usesTxt(R.U) + ' dele' + (multi ? ' em cada conta' : '') + ', ' : '') + (more && !twoSame ? 'passa' : 'Passa') + ' a jogar ' + (days.length > 1 ? 'nos dias ' : 'no dia ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (além dos dias em que já jogava)' : '') + ':';
+      : (twoSame ? 'Com dois Moments dele, duas contas podem jogá-lo no mesmo dia. ' : more ? (usesGain(id, R.U) ? 'Com mais ' + usesTxt(usesGain(id, R.U)) + ' dele' + (multi ? ' em cada conta' : '') + ', ' : 'Com um 2.º Moment dele (não dá mais usos, mas as duas contas podem usá-lo na mesma noite), ') : '') + (more && !twoSame ? 'passa' : 'Passa') + ' a jogar ' + (days.length > 1 ? 'nos dias ' : 'no dia ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (além dos dias em que já jogava)' : '') + ':';
     const dayLines = days.map(z => { const day = S.days.find(q => q.date === z.d.date) || {};
       return '<li><b>Dia ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'vitória ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prémios que mudam: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
-    return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'outro Moment ' + tierName(R.U) + ', +' + usesTxt(R.U) : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
+    return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2.º Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
       head + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Vitórias esperadas' + (multi ? ' (todas as contas)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
   }).join('') + '<div class="small muted">Comparado com o plano que tens agora. Diferenças de 1 ponto percentual são ruído do cálculo.</div>';
@@ -2024,10 +2190,14 @@ function adminHtml(run) {
       '<button class="btn" type="button" data-action="pz-add">Adicionar patamar</button>' +
       '<div class="label">Objetivos</div>' +
       S.days.map((day, i) => {
-        const o = (day.objectives || [])[0] || { stat: 'pts', target: '' };
-        return '<div class="objrow"><div><div class="label">Dia ' + (i + 1) + '</div><div class="small">' + dWeek(day.date) + ', ' + dShort(day.date) + '</div></div><select class="field" id="obj-stat-' + i + '" data-action="obj-stat" data-i="' + i + '" aria-label="Estatística do dia ' + (i + 1) + '">' +
-          OBJ_STATS.map(k => '<option value="' + k + '"' + (o.stat === k ? ' selected' : '') + '>' + esc(statLabel(k)) + '</option>').join('') + (OBJ_STATS.includes(o.stat) ? '' : '<option value="' + esc(o.stat) + '" selected>' + esc(statLabel(o.stat)) + '</option>') +
-          '</select><input class="field num" id="obj-target-' + i + '" data-action="obj-target" data-i="' + i + '" type="number" inputmode="numeric" min="1" value="' + esc(o.target) + '" aria-label="Alvo do dia ' + (i + 1) + '"></div>';
+        // um dia pode ter várias estatísticas (dias de combinação): uma linha por cada
+        const os = (day.objectives || []).filter(x => x && x.stat); if (!os.length) os.push({ stat: 'pts', target: '' });
+        return os.map((o, k) => '<div class="objrow">' + (k ? '<div class="small muted" style="text-align:right">e</div>' : '<div><div class="label">Dia ' + (i + 1) + '</div><div class="small">' + dWeek(day.date) + ', ' + dShort(day.date) + '</div></div>') +
+          '<select class="field" id="obj-stat-' + i + '-' + k + '" data-action="obj-stat" data-i="' + i + '" data-k="' + k + '" aria-label="Estatística ' + (k + 1) + ' do dia ' + (i + 1) + '">' +
+          OBJ_STATS.map(x => '<option value="' + x + '"' + (o.stat === x ? ' selected' : '') + '>' + esc(statLabel(x)) + '</option>').join('') + (OBJ_STATS.includes(o.stat) ? '' : '<option value="' + esc(o.stat) + '" selected>' + esc(statLabel(o.stat)) + '</option>') +
+          '</select><div class="obj-tgt"><input class="field num" id="obj-target-' + i + '-' + k + '" data-action="obj-target" data-i="' + i + '" data-k="' + k + '" type="number" inputmode="numeric" min="1" value="' + esc(o.target) + '" aria-label="Alvo ' + (k + 1) + ' do dia ' + (i + 1) + '">' +
+          (k ? '<button class="btn link small" type="button" data-action="obj-del" data-i="' + i + '" data-k="' + k + '" aria-label="Tirar esta estatística">×</button>' : '') + '</div></div>').join('') +
+          (os.length < 3 && os[0].target ? '<div class="objrow"><span></span><button class="btn link small" type="button" data-action="obj-add" data-i="' + i + '" style="justify-self:start">+ outra estatística no dia ' + (i + 1) + '</button><span></span></div>' : '');
       }).join('') +
       '<div class="label">Blockchain</div><div class="small muted">Liga esta run à run do Top Shot para os objetivos e os resultados de todos entrarem sozinhos.</div>' +
       '<select class="field" id="chainPick" aria-label="Run na blockchain"><option value="">Não ligada</option>' + S.chainRuns.map(c => '<option value="' + esc(c.id) + '"' + (c.id === run.chain_run_id ? ' selected' : '') + '>' + esc(c.name || c.id) + (c.run_start ? ' · ' + new Date(c.run_start * 1000).toISOString().slice(0, 10) : '') + '</option>').join('') + '</select>' +
@@ -2062,12 +2232,13 @@ const ratio = (a, b) => (nn(a) != null && nn(b) > 0 ? 100 * a / b : null);
 // "Shai Gilgeous-Alexander" → "S. Gilgeous-Alexander" (para colunas estreitas)
 const shortName = n => { const t = String(n || '').trim().split(/\s+/); return t.length > 1 ? t[0][0] + '. ' + t.slice(1).join(' ') : t[0] || ''; };
 function compareCard(md, d, date, inTab) {
-  const r = S.result, o = (md.day.objectives || [])[0], v = view();
+  const r = S.result, objs = md.objs || [], kq = Math.min(S.cmpObj || 0, Math.max(0, objs.length - 1)), o = objs[kq], v = view();
   if (!o || !md.elig.length) return '';
-  const terms = FB.statTerms(o.stat).map(t => t.s), has = list => terms.some(t => list.includes(t));
+  // colunas de todas as estatísticas do dia; projeção e forma da escolhida
+  const terms = objs.flatMap(x => FB.statTerms(x.stat).map(t => t.s)), has = list => terms.some(t => list.includes(t));
   const locks = new Set(((curPlan().locks || {})[date]) || []);
   const rows = md.elig.map(pi => {
-    const p = r.model.players[pi], info = md.info[pi][0], a = p.avg || {}, f = a.form || null, l5 = (f && f.l5) || {}, fi = FB.formInfo(p, o.stat) || {};
+    const p = r.model.players[pi], info = md.info[pi][kq], a = p.avg || {}, f = a.form || null, l5 = (f && f.l5) || {}, fi = FB.formInfo(p, o.stat) || {};
     const g = FB.gameOf(md.day, p.team), opp = g ? (g[0] === p.team ? g[1] : g[0]) : null, home = g ? g[1] === p.team : false, m = FB.matchup(S.teams, opp, o.stat);
     return { p, info, a, f, l5, fi, g, opp, home, m, inL: d.lineup.includes(p.id), locked: locks.has(p.id), planned: (v.usage || {})[p.id] || 0 };
   });
@@ -2105,9 +2276,10 @@ function compareCard(md, d, date, inTab) {
   const head = '<tr><th class="sticky">Jogador</th>' + cols.map(c => '<th><button type="button" data-action="cmp-sort" data-col="' + c[0] + '" data-date="' + date + '"' + (inTab ? ' data-in="tab"' : '') + ' title="' + esc(c[4]) + '" aria-sort="' + (sort.col === c[0] ? (sort.dir < 0 ? 'descending' : 'ascending') : 'none') + '">' + c[1] + (sort.col === c[0] ? (sort.dir < 0 ? ' ↓' : ' ↑') : '') + '</button></th>').join('') + '</tr>';
   const body = rows.map(x => '<tr class="' + (x.inL ? 'inl' : '') + '" data-action="player" data-id="' + esc(x.p.id) + '" data-date="' + date + '"' + (inTab ? '' : ' data-back="day"') + ' tabindex="0"><th class="sticky"><span class="cn" title="' + esc(x.p.name) + '">' + (x.locked ? icoLock : x.inL ? '<i class="dot on" title="no lineup do plano"></i>' : '') + esc(shortName(x.p.name)) + '</span><small>' + esc(x.p.team) + (x.opp ? (x.home ? ' vs ' : ' @ ') + esc(x.opp) : '') + (x.info.status !== 'ok' ? ' · ' + esc(STATUS[x.info.status].label) : '') + (x.info.b2b ? ' · 2.º seguido' : '') + '</small></th>' + cols.map(c => '<td>' + c[3](x) + '</td>').join('') + '</tr>').join('');
   const noForm = !rows.some(x => x.f);
-  return '<div class="card"><div class="list-head"><h2>Comparar jogadores</h2><span class="small muted">' + rows.length + ' jogam · toca para ver</span></div>' +
+  const objChips = objs.length > 1 ? '<div class="chips" role="group" aria-label="Estatística do dia" style="padding:0 14px 8px">' + objs.map((x, k) => '<button type="button" data-action="cmp-obj" data-k="' + k + '" data-date="' + date + '"' + (inTab ? ' data-in="tab"' : '') + ' aria-pressed="' + (k === kq) + '">' + esc(statShort(x.stat)) + ' · alvo ' + x.target + '</button>').join('') + '</div>' : '';
+  return '<div class="card"><div class="list-head"><h2>Comparar jogadores</h2><span class="small muted">' + rows.length + ' jogam · toca para ver</span></div>' + objChips +
     '<div class="cmp-wrap" id="cmpWrap"><table class="cmp"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
-    '<div class="row small muted" style="display:block">Números grandes: últimos 5 jogos; pequenos: época. <i class="dot on" style="display:inline-block;vertical-align:-1px"></i> no lineup do plano. Toca num título para ordenar.' + (noForm ? ' A forma aparece depois dos primeiros jogos da época; até lá vês as médias da época.' : '') + '</div></div>';
+    '<div class="row small muted" style="display:block">' + (objs.length > 1 ? 'Proj., Últ. 5, Últ. 10 e Época são de ' + esc(statShort(o.stat)) + ': muda nos botões em cima. ' : '') + 'Números grandes: últimos 5 jogos; pequenos: época. <i class="dot on" style="display:inline-block;vertical-align:-1px"></i> no lineup do plano. Toca num título para ordenar.' + (noForm ? ' A forma aparece depois dos primeiros jogos da época; até lá vês as médias da época.' : '') + '</div></div>';
 }
 // últimos jogos de um jogador (guardados pela tarefa diária)
 function gamesTable(a) {
@@ -2131,11 +2303,11 @@ function daySheet(date) {
   const { md, d } = dayInfo(date); if (!md || !d) return;
   const r = S.result, v = view();
   const locks = new Set(((curPlan().locks || {})[date]) || []), bans = ((curPlan().bans || {})[date]) || [];
-  const inLine = d.lineup.map(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], p = r.model.players[pi]; return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '" data-back="day"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + injTag(info) + b2bTag(info) + ' · ' + srcShort(info) + formTag(p, o) + '</div></div><div class="pv"><div class="v num">' + f1(info.mu) + '</div><div class="u">' + esc(o ? statShort(o.stat) : '') + '</div></div></button></li>'; }).join('');
+  const inLine = d.lineup.map(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], p = r.model.players[pi]; return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '" data-back="day"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + injTag(info) + b2bTag(info) + ' · ' + srcShort(info) + formTag(p, o) + '</div></div>' + pvHtml(objVals(md, pi, false)) + '</button></li>'; }).join('');
   openSheet('<h3>Dia ' + (i + 1) + ' · ' + esc(objsText(day)) + '</h3>' + (d.perPlayer ? '<div class="note">Objetivo por jogador: o plano calcula-o como total. Confirma o lineup à mão.</div>' : '') +
-    '<div class="kv"><div><div class="label">Vitória</div><div class="v num c-' + tone(d.P) + '">' + (d.noObjective ? '—' : pct(d.P)) + '</div></div><div><div class="label">Projeção</div><div class="v num">' + (d.totals[0] ? f0(d.totals[0].mu) : '–') + '</div></div><div><div class="label">Jogos</div><div class="v num">' + (day.games || []).length + '</div></div></div>' +
+    '<div class="kv"><div><div class="label">Vitória</div><div class="v num c-' + tone(d.P) + '">' + (d.noObjective ? '—' : pct(d.P)) + '</div></div><div><div class="label">Projeção</div><div class="v num">' + (d.totals.length ? d.totals.map(x => f0(x.mu)).join('<small> / </small>') : '–') + '</div>' + (d.totals.length > 1 ? '<div class="small muted">' + d.totals.map(x => esc(statShort(x.stat))).join(' / ') + '</div>' : '') + '</div><div><div class="label">Jogos</div><div class="v num">' + (day.games || []).length + '</div></div></div>' +
     '<div class="card"><div class="list-head"><h2>Lineup do plano</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div><ul class="list">' + (inLine || '<li class="row muted small">Nenhum jogador do plantel joga neste dia.</li>') + '</ul></div>' +
-    ((day.games || []).length ? '<div class="card"><div class="list-head"><h2>Jogos</h2><span class="small muted">' + plural(day.games.length, 'jogo', 'jogos') + ' · hora de cá</span></div><ul class="list">' + gameRows(day, r, d.lineup, null, null, o) + '</ul></div>' : '<div class="note info">Os jogos deste dia ainda não foram carregados do calendário NBA.</div>') +
+    ((day.games || []).length ? '<div class="card"><div class="list-head"><h2>Jogos</h2><span class="small muted">' + plural(day.games.length, 'jogo', 'jogos') + ' · hora de cá</span></div><ul class="list">' + gameRows(day, r, d.lineup, null, null, day.objectives) + '</ul></div>' : '<div class="note info">Os jogos deste dia ainda não foram carregados do calendário NBA.</div>') +
     (locks.size ? '<div class="small">Fixados: ' + [...locks].map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">soltar</button>').join(' · ') + '</div>' : '') +
     (bans.length ? '<div class="small">Tirados: ' + bans.map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + date + '">repor</button>').join(' · ') + '</div>' : '') +
     compareCard(md, d, date) + closeRow());
@@ -2149,14 +2321,16 @@ function playerSheet(id, date, back) {
   const live = date === (nextDay() || {}).date && liveOn(date), sub = live && d.live && d.live.submitted.includes(id);
   let liveHtml = '';
   if (live && sub) {
-    const e = (((liveDoc(date) || {}).players || {})[id]) || {}, state = e.state || 'por', val = Math.round(FB.statValue(e.vals || {}, o.stat, p.avg) * 10) / 10;
+    const e = (((liveDoc(date) || {}).players || {})[id]) || {}, state = e.state || 'por';
+    const objs = md.objs.length ? md.objs : [o];
     liveHtml = '<div class="card panel" style="gap:10px"><div class="label">Jogo a jogo</div><div class="chips" role="group" aria-label="Estado do jogo">' + [['por', 'Por jogar'], ['jogo', 'Em jogo'], ['fim', 'Terminado']].map(([k, l]) => '<button type="button" data-action="live-state" data-id="' + esc(id) + '" data-state="' + k + '" aria-pressed="' + (state === k) + '">' + l + '</button>').join('') + '</div>' +
-      (state !== 'por' ? '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="stepper"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um">−</button><input class="num" id="liveVal" type="number" inputmode="decimal"' + (/-/.test(o.stat) ? '' : ' min="0"') + ' value="' + val + '" data-action="live-input" data-id="' + esc(id) + '" aria-label="Valor até agora"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um">+</button></div><span class="small muted">' + esc(statShort(o.stat)) + (state === 'fim' ? ' no final' : ' até agora') + '</span></div>' : '') +
+      (state !== 'por' ? objs.map((ob, k) => { const val = Math.round(FB.statValue(e.vals || {}, ob.stat, p.avg) * 10) / 10;
+        return '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="stepper"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-k="' + k + '" data-d="-1" aria-label="Menos um">−</button><input class="num" id="liveVal-' + k + '" type="number" inputmode="decimal"' + (/-/.test(ob.stat) ? '' : ' min="0"') + ' value="' + val + '" data-action="live-input" data-id="' + esc(id) + '" data-k="' + k + '" aria-label="' + esc(statShort(ob.stat)) + ' até agora"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-k="' + k + '" data-d="1" aria-label="Mais um">+</button></div><span class="small muted">' + esc(statShort(ob.stat)) + (state === 'fim' ? ' no final' : ' até agora') + '</span></div>'; }).join('') : '') +
       (state === 'jogo' ? '<div class="chips" role="group" aria-label="Período">' + [1, 2, 3, 4].map(qn => '<button type="button" data-action="live-q" data-id="' + esc(id) + '" data-q="' + qn + '" aria-pressed="' + (+e.q === qn) + '">' + qn + '.º</button>').join('') + '</div>' : '') + '</div>';
   } else if (live) liveHtml = '<div class="note info">Ainda não está no lineup que submeteste. Se fizeres a troca no Top Shot, carrega em <b>Fiz a troca</b> no ecrã Hoje.</div>';
   openSheet('<h3>' + esc(p.name) + '</h3><div class="small muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · Dia ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
-    '<div class="kv"><div><div class="label">Esperado</div><div class="v num">' + f1(info.mu) + '</div><div class="small muted">' + esc(statShort(o.stat)) + '</div></div><div><div class="label">Usos</div><div class="v num">' + (p.uses || 0) + '</div><div class="small muted">restantes</div></div><div><div class="label">No plano</div><div class="v num">' + inPlan.length + '</div><div class="small muted">' + (inPlan.length ? 'dias ' + inPlan.join(', ') : '—') + '</div></div></div>' +
-    liveHtml + injuryBlock(id, info.injury, date) + basisHtml(p, info, o, md, id) + gamesTable(p.avg) +
+    '<div class="kv"><div><div class="label">Esperado</div><div class="v num">' + (md.objs.length > 1 ? md.objs.map((x, k) => f1((md.info[pi][k] || {}).mu || 0)).join('<small> / </small>') : f1(info.mu)) + '</div><div class="small muted">' + (md.objs.length > 1 ? md.objs.map(x => esc(statShort(x.stat))).join(' / ') : esc(statShort(o.stat))) + '</div></div><div><div class="label">Usos</div><div class="v num">' + (p.uses || 0) + '</div><div class="small muted">restantes</div></div><div><div class="label">No plano</div><div class="v num">' + inPlan.length + '</div><div class="small muted">' + (inPlan.length ? 'dias ' + inPlan.join(', ') : '—') + '</div></div></div>' +
+    liveHtml + injuryBlock(id, info.injury, date) + (md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + gamesTable(p.avg) +
     '<div class="stack">' + (locked ? '<button class="btn" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">Deixar de fixar neste dia</button>' : '<button class="btn primary" type="button" data-action="lock" data-id="' + esc(id) + '" data-date="' + date + '">Fixar neste dia</button>') +
     '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Tirar deste dia</button></div>' + closeRow(back), back);
 }
@@ -2178,7 +2352,8 @@ function rosterSheet(id) {
     (() => { const ci = ((((S.profile || {}).collection) || {}).players || {})[id] || (e.moments ? { moments: e.moments, sets: e.sets } : null); if (!ci) return '';
       const col = (S.profile || {}).collection;
       return '<div class="small muted">Na carteira: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : ci.moments + ' Moment' + (ci.moments > 1 ? 's' : '')) + ((ci.sets || []).length ? ' (' + ci.sets.map(esc).join(', ') + ')' : '') +
-        (ci.bySet ? ' · ' + esc(tierMix(col, ci)) + ' → ' + plural(tierUsesOf(col, ci), 'uso', 'usos') + ' por run' + (e.usesManual ? ' (acertaste à mão)' : '') : '') + '</div>'; })() +
+        (ci.bySet ? ' · ' + esc(usesWhy(col, ci)) + (e.usesManual ? ' · acertaste à mão' : '') : '') + '</div>' +
+        (ci.bySet && (ci.moments || 0) > 1 ? '<div class="small muted">Mais Moments do mesmo jogador não somam usos' + (groupMode() ? ': servem para o pores em duas contas no mesmo dia' : '') + '.</div>' : ''); })() +
     injuryBlock(id, null, null) +
     (groupMode() ? '<div class="small muted">Usos restantes em cada conta</div>' : '') + usesRows + momentsBlock(id) +
     '<div><div class="label" style="margin-bottom:6px">Estado</div><div class="chips" role="group" aria-label="Estado">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
@@ -2312,8 +2487,23 @@ function tierAuto(setName, meta, counts) {
   return { tier: med <= 5 ? 'Ultimate' : med <= 149 ? 'Legendary' : med <= 1499 ? 'Rare' : 'Common', how: 'tiragem' };
 }
 const setTier = (col, k) => { const x = ((col || {}).sets || {})[k] || {}; return x.tier || x.auto || 'Common'; };
-// usos de um jogador numa run pelo escalão dos seus Moments (todas as contas: um Moment pode mudar de conta)
-const tierUsesOf = (col, c) => (c && c.bySet ? Object.entries(c.bySet).reduce((t, [k, n]) => t + n * (TIER_USES[setTier(col, k)] || 1), 0) : null);
+// usos de um jogador numa run: os do seu melhor Moment (uma Rare e três Common dão 2, não 5). Ter mais Moments do
+// mesmo jogador não soma usos; só deixa usá-lo em duas contas no mesmo dia
+const bestTier = (col, c) => Object.keys((c && c.bySet) || {}).map(k => setTier(col, k)).sort((a, b) => (TIER_USES[b] || 1) - (TIER_USES[a] || 1) || TIERS.indexOf(b) - TIERS.indexOf(a))[0] || null;
+const tierUsesOf = (col, c) => (c && c.bySet ? Math.max(1, ...Object.keys(c.bySet).map(k => TIER_USES[setTier(col, k)] || 1)) : null);
+// texto curto: "Rare · Common ×3 → 2 usos (o da Rare)"
+const usesWhy = (col, c) => { const u = tierUsesOf(col, c), b = bestTier(col, c), n = Object.values((c && c.bySet) || {}).reduce((a, x) => a + x, 0); return tierMix(col, c) + ' → ' + plural(u, 'uso', 'usos') + ' por run' + (n > 1 ? ' (conta o melhor: ' + b + ')' : ''); };
+// plantel da run guardado com a regra antiga (somava os usos de todos os Moments): acerta pelo melhor Moment
+function syncTierUses() {
+  const col = (S.profile || {}).collection; if (!col || !col.players || !S.runId) return;
+  let changed = 0;
+  Object.entries(S.mine.roster || {}).forEach(([id, e]) => {
+    const c = col.players[id]; if (!c || !c.bySet || e.usesManual || e.tierUses == null) return;
+    const tot = tierUsesOf(col, c); if (tot === e.tierUses) return;
+    e.uses = Math.max(0, tot - usedCount('main', id)); e.tierUses = tot; c.uses = tot; changed++;
+  });
+  if (changed) saveMine();
+}
 const tierMix = (col, c) => { const o = {}; Object.entries((c && c.bySet) || {}).forEach(([k, n]) => { const t = setTier(col, k); o[t] = (o[t] || 0) + n; }); return TIERS.slice().reverse().filter(t => o[t]).map(t => t + (o[t] > 1 ? ' ×' + o[t] : '')).join(' · '); };
 const CAD_EDITIONS = `import TopShot from 0x0b2a3299cc857e29
 access(all) fun main(sets: [UInt32]): {UInt32: {UInt32: UInt32}} {
@@ -2353,10 +2543,10 @@ async function setTierChange(k, tier) {
 }
 function tiersCard() {
   const col = (S.profile || {}).collection; if (!col) return '';
-  if (!col.sets) return '<div class="card panel"><h2>Escalões e usos</h2><div class="small muted">Lê a carteira outra vez para o site ver o escalão de cada Moment (pelo set e pela tiragem) e pôr os usos sozinho: Common 1, Fandom 1, Rare 2, Legendary 4.</div><button class="btn" type="button" data-action="wallet-sheet">Ler de novo</button></div>';
+  if (!col.sets) return '<div class="card panel"><h2>Escalões e usos</h2><div class="small muted">Lê a carteira outra vez para o site ver o escalão de cada Moment (pelo set e pela tiragem) e pôr os usos sozinho pelo melhor Moment de cada jogador: Common 1, Fandom 1, Rare 2, Legendary 4.</div><button class="btn" type="button" data-action="wallet-sheet">Ler de novo</button></div>';
   const rows = Object.entries(col.sets).map(([k, x]) => ({ k, x, t: setTier(col, k) })).sort((a, b) => (TIERS.indexOf(b.t) - TIERS.indexOf(a.t)) || (b.x.n - a.x.n));
   return '<div class="card"><div class="list-head"><h2>Escalões e usos</h2><span class="small muted">' + plural(rows.length, 'set', 'sets') + '</span></div>' +
-    '<div class="row small muted" style="display:block">Usos por Moment em cada run: Common 1, Fandom 1, <b>Rare 2</b>, <b>Legendary 4</b>. O escalão vem do set e da tiragem (o Top Shot não o põe na blockchain): se algum estiver mal, muda-o aqui. Um Common com ASP acima de 10 $ também dá 2: esses acertas na ficha do jogador.</div><ul class="list">' +
+    '<div class="row small muted" style="display:block">Cada jogador tem os usos por run do seu <b>melhor</b> Moment: Common 1, Fandom 1, <b>Rare 2</b>, <b>Legendary 4</b>. Mais Moments do mesmo jogador não somam (uma Rare e três Common dão 2)' + (groupMode() ? '; servem para o usares em duas contas no mesmo dia' : '') + '. O escalão vem do set e da tiragem (o Top Shot não o põe na blockchain): se algum estiver mal, muda-o aqui. Um Common com ASP acima de 10 $ também dá 2: esses acertas na ficha do jogador.</div><ul class="list">' +
     rows.map(({ k, x, t }) => '<li class="row tier-row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(k) + '</span>' + (x.tier ? '<span class="badge">mudado</span>' : '') + '</div><div class="ps">' + plural(x.n, 'Moment', 'Moments') + (x.med ? ' · tiragem ~/' + f0(x.med) : '') + (x.how === 'tiragem' && !x.tier ? ' · pela tiragem' : '') + '</div></div>' +
       '<select class="field tier-sel" data-tier-set="' + esc(k) + '" aria-label="Escalão de ' + esc(k) + '">' + TIERS.map(z => '<option' + (z === t ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></li>').join('') + '</ul></div>';
 }
@@ -2452,7 +2642,7 @@ async function walletSheet() {
   const fresh = hasRun ? found.filter(e => !S.mine.roster[e.p.id]) : [];
   S.walletGone = gone;
   const where = e => groupMode() ? ' · ' + Object.entries(e.owners).map(([k, n]) => esc(accLabel(k)) + (n > 1 ? ' ×' + n : '')).join(', ') : '';
-  const setsTxt = e => Object.entries(e.sets).sort((a, b) => b[1] - a[1]).map(([n, c]) => esc(n) + (c > 1 ? ' ×' + c : '')).join(', ') + ' · ' + esc(tierMix(S.walletCol, players[e.p.id])) + ' → ' + plural(players[e.p.id].uses, 'uso', 'usos');
+  const setsTxt = e => Object.entries(e.sets).sort((a, b) => b[1] - a[1]).map(([n, c]) => esc(n) + (c > 1 ? ' ×' + c : '')).join(', ') + ' · ' + esc(usesWhy(S.walletCol, players[e.p.id]));
   // usos que mudam no plantel (os que acertaste à mão ficam)
   const ups = hasRun ? found.map(e => { const r0 = S.mine.roster[e.p.id]; if (!r0 || r0.usesManual) return null; const nv = Math.max(0, players[e.p.id].uses - usedCount('main', e.p.id)), cur = +r0.uses || 0; const to = r0.tierUses != null ? nv : Math.max(cur, nv); return to !== cur ? { e, cur, to } : null; }).filter(Boolean) : [];
   const tierCount = {}; Object.values(sets).forEach(x => { const t = x.tier || x.auto; tierCount[t] = (tierCount[t] || 0) + x.n; });
@@ -2463,7 +2653,7 @@ async function walletSheet() {
   openSheet('<h3>A tua coleção</h3><div class="small muted">' + tot + ' · ' + found.length + ' jogadores na NBA esta época</div>' +
     (failed.length ? '<div class="note">Não consegui ler: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' tem o mesmo endereço Flow de outra conta: só li essa carteira uma vez. Confirma os endereços em Ajustes → Perfil.</div>' : '') +
-    '<div class="note info">Escalões (pelo set e pela tiragem): ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '. Usos por Moment: Common 1, Fandom 1, Rare 2, Legendary 4' + (hasRun ? ', menos os que já gastaste nesta run' : '') + '. Se algum set estiver mal, muda-o em Jogadores → Coleção → Escalões. Um Common com ASP acima de 10 $ (2 usos) acertas à mão.</div>' +
+    '<div class="note info">Escalões (pelo set e pela tiragem): ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '. Usos por run de cada jogador: os do seu <b>melhor</b> Moment (Common 1, Rare 2, Legendary 4)' + (hasRun ? ', menos os que já gastaste' : '') + '. Uma Rare e três Common do mesmo jogador dão 2 usos, não 5. Se algum set estiver mal, muda-o em Jogadores → Coleção → Escalões. Um Common com ASP acima de 10 $ (2 usos) acertas à mão.</div>' +
     (ups.length ? '<div class="note">Usos que mudam no plantel: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' e mais ' + (ups.length - 12) : '') + '. Os que acertaste à mão não mudam.</div>' : '') +
     (found.length ? '<ul class="ops">' + found.map(li).join('') + '</ul>' : '<div class="small muted">Nenhum Moment de um jogador com equipa NBA esta época.</div>') +
     (outside.size ? '<div class="small muted">Fora do catálogo (WNBA, retirados ou sem equipa), não entram: ' + [...outside.values()].slice(0, 25).map(esc).join(', ') + (outside.size > 25 ? ' e mais ' + (outside.size - 25) : '') + '.</div>' : '') +
@@ -2478,7 +2668,7 @@ async function walletApply() {
   let added = 0, removed = 0;
   if (S.runId && S.mineLoaded) {
     Object.entries(col.players).forEach(([id, c]) => {
-      const info = { moments: c.moments, sets: c.sets }, tot = c.uses != null ? c.uses : 1, left = Math.max(0, tot - usedCount('main', id));
+      const info = { moments: c.moments, sets: c.sets }, tot = tierUsesOf(col, c) || 1, left = Math.max(0, tot - usedCount('main', id));
       const e = S.mine.roster[id];
       if (e) {
         Object.assign(e, info);
@@ -2498,7 +2688,7 @@ async function walletApply() {
 function collectionToRoster() {
   const col = (S.profile || {}).collection; if (!col || !S.runId) return;
   let added = 0;
-  Object.entries(col.players || {}).forEach(([id, c]) => { if (!S.mine.roster[id] && S.players.has(String(id))) { const tot = c.uses != null ? c.uses : 1; S.mine.roster[id] = { uses: Math.max(0, tot - usedCount('main', id)), tierUses: tot, status: 'ok', moments: c.moments, sets: c.sets }; added++; } });
+  Object.entries(col.players || {}).forEach(([id, c]) => { if (!S.mine.roster[id] && S.players.has(String(id))) { const tot = tierUsesOf(col, c) || 1; S.mine.roster[id] = { uses: Math.max(0, tot - usedCount('main', id)), tierUses: tot, status: 'ok', moments: c.moments, sets: c.sets }; added++; } });
   applyChainResults(); schedule(); saveMine();
   toast(added + ' jogador' + (added === 1 ? '' : 'es') + ' da coleção no plantel, com os usos pelo escalão (Rare 2, Legendary 4). Acerta as exceções.');
 }
@@ -2668,12 +2858,15 @@ async function liveFetch(quiet) {
   if (!quiet) toast('Estatísticas ao vivo atualizadas.');
 }
 async function adminWrite(promise, okMsg) { try { await q(promise); if (okMsg) toast(okMsg); return true; } catch (e) { toast(errText(e)); return false; } }
-async function setObjective(i, stat, target) {
+// muda a estatística k do dia i sem mexer nas outras (dias de combinação)
+async function setObjective(i, stat, target, k) {
   const day = S.days[i]; if (!day) return;
-  const o = Object.assign({ stat: 'pts', target: 0 }, (day.objectives || [])[0]);
+  k = k || 0;
+  const list = (day.objectives || []).filter(x => x && x.stat).map(x => Object.assign({}, x));
+  const o = Object.assign({ stat: 'pts', target: 0 }, list[k]);
   if (stat != null) o.stat = stat; if (target != null) o.target = target;
   if (!(+o.target > 0)) return;
-  day.objectives = [o]; schedule();
+  list[k] = o; day.objectives = list.filter(x => x && +x.target > 0); schedule();
   await adminWrite(sb.from('run_days').update({ objectives: day.objectives }).eq('run_id', S.runId).eq('date', day.date));
 }
 async function setPrizes(prizes) {
@@ -2750,7 +2943,7 @@ document.addEventListener('click', async e => {
     case 'live-state': liveSet(id, { state: b.dataset.state }); playerSheet(id, nd.date, S.sheetBack); break;
     case 'live-q': liveSet(id, { q: +b.dataset.q }); playerSheet(id, nd.date, S.sheetBack); break;
     case 'live-val': {
-      const inp = $('liveVal'), stat = ((nd.objectives || [])[0] || {}).stat || 'pts';
+      const k = +b.dataset.k || 0, inp = $('liveVal-' + k), stat = (((nd.objectives || []).filter(x => x && x.stat && +x.target > 0))[k] || {}).stat || 'pts';
       let nv = Math.round(((parseFloat(inp.value) || 0) + (+b.dataset.d)) * 10) / 10; if (!/-/.test(stat)) nv = Math.max(0, nv); inp.value = nv;
       clearTimeout(liveInputTimer); liveInputTimer = setTimeout(() => liveSet(id, { vals: { [stat]: nv } }), 400); break;
     }
@@ -2769,9 +2962,13 @@ document.addEventListener('click', async e => {
     case 'col-to-roster': collectionToRoster(); break;
     case 'col-sheet': closeSheet(); setSub('plantel', 'colecao'); setTab('plantel'); break;
     case 'alts': await altSheet(); break;
+    case 'pl-view': setPlView({ mode: b.dataset.v }); break;
+    case 'pl-sort': setPlView({ sort: b.dataset.v }); break;
+    case 'pl-filter': setPlView({ filter: b.dataset.v }); break;
+    case 'cmp-obj':
     case 'cmp-sort': {
-      const c = b.dataset.col, cur = S.cmpSort || {};
-      S.cmpSort = { col: c, dir: cur.col === c ? -cur.dir : -1 };
+      if (a === 'cmp-obj') S.cmpObj = +b.dataset.k || 0;
+      else { const c = b.dataset.col, cur = S.cmpSort || {}; S.cmpSort = { col: c, dir: cur.col === c ? -cur.dir : -1 }; }
       const left = ($('cmpWrap') || {}).scrollLeft || 0;
       if (b.dataset.in === 'tab') { const y = window.scrollY; renderHoje(); window.scrollTo(0, y); }
       else { const top = $('sheetPanel').scrollTop; daySheet(date); $('sheetPanel').scrollTop = top; }
@@ -2793,7 +2990,8 @@ document.addEventListener('click', async e => {
     case 'alerts-test': b.disabled = true; await testNtfy(); b.disabled = false; break;
     case 'copy-topic': try { await navigator.clipboard.writeText((S.alerts || {}).ntfy || ''); toast('Tópico copiado.'); } catch (err) { toast('Não deu para copiar: seleciona o texto.'); } break;
     case 'buy-sheet': closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
-    case 'buy-open': if (S.autoBuy && S.autoBuy.key === autoBuyKey()) { S.buy.uses = S.autoBuy.U; S.buy.mode = 'new'; S.buy.results = S.autoBuy; } closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
+    case 'buy-retry': S.autoBuyErr = null; S.autoBuy = null; autoBuyBusy = null; render(); scheduleAutoBuy(); break;
+    case 'buy-open': if (S.autoBuy) { S.buy.uses = S.autoBuy.U; S.buy.mode = 'new'; S.buy.results = S.autoBuy; } closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
     case 'buy-eval': closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); await buyRun(id); break;
     case 'buy-mode': S.buy.mode = b.dataset.mode; S.buy.results = null; renderPlantel(); break;
     case 'buy-uses': S.buy.uses = +b.dataset.n; S.buy.results = null; renderPlantel(); break;
@@ -2858,6 +3056,12 @@ document.addEventListener('click', async e => {
       if (await adminWrite(sb.from('runs').update({ active: true }).eq('id', S.runId), 'Run ativa para todos.')) { S.runs.forEach(r => { r.active = r.id === S.runId; }); renderAjustes(); }
       break;
     }
+    case 'obj-add': { const day = S.days[+b.dataset.i]; if (!day) break; day.objectives = (day.objectives || []).concat([{ stat: 'reb', target: '' }]); renderAjustes(); toast('Escolhe a estatística e o alvo: guarda quando puseres o alvo.'); break; }
+    case 'obj-del': {
+      const i = +b.dataset.i, day = S.days[i]; if (!day) break;
+      day.objectives = (day.objectives || []).filter(x => x && x.stat).filter((x, k) => k !== +b.dataset.k); schedule();
+      await adminWrite(sb.from('run_days').update({ objectives: day.objectives.filter(x => +x.target > 0) }).eq('run_id', S.runId).eq('date', day.date), 'Estatística tirada do dia ' + (i + 1) + '.'); renderAjustes(); break;
+    }
     case 'pz-add': { const run = curRun(); const pz = clone(run.prizes || []); const last = pz.length ? pz[pz.length - 1].wins : 3; pz.push({ wins: Math.min(31, last + 2), value: 1 }); await setPrizes(pz); renderAjustes(); break; }
     case 'pz-del': { const run = curRun(); const pz = clone(run.prizes || []); pz.splice(+b.dataset.i, 1); await setPrizes(pz); renderAjustes(); break; }
   }
@@ -2867,15 +3071,15 @@ document.addEventListener('change', async e => {
   if (t.dataset && t.dataset.tierSet) { t.blur(); await setTierChange(t.dataset.tierSet, t.value); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run ligada à blockchain.' : 'Ligação removida.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
-  if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null);
-  if (a === 'obj-target') { const n = parseInt(t.value, 10); if (n > 0) setObjective(+t.dataset.i, null, n); }
+  if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null, +t.dataset.k || 0);
+  if (a === 'obj-target') { const n = parseInt(t.value, 10); if (n > 0) setObjective(+t.dataset.i, null, n, +t.dataset.k || 0); }
   if (a === 'pz-w' || a === 'pz-v') {
     const run = curRun(), pz = clone(run.prizes || []), i = +t.dataset.i; if (!pz[i]) return;
     const n = parseFloat(t.value); if (!(n >= 0)) return;
     if (a === 'pz-w') pz[i].wins = Math.max(1, Math.round(n)); else pz[i].value = n;
     setPrizes(pz);
   }
-  if (a === 'live-input') { const nd = nextDay(), stat = ((nd.objectives || [])[0] || {}).stat || 'pts'; const x = parseFloat(t.value) || 0; liveSet(t.dataset.id, { vals: { [stat]: /-/.test(stat) ? x : Math.max(0, x) } }); }
+  if (a === 'live-input') { const nd = nextDay(), stat = (((nd.objectives || []).filter(x => x && x.stat && +x.target > 0))[+t.dataset.k || 0] || {}).stat || 'pts'; const x = parseFloat(t.value) || 0; liveSet(t.dataset.id, { vals: { [stat]: /-/.test(stat) ? x : Math.max(0, x) } }); }
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'rosterFilter') { S.filter = e.target.value; renderPlantel(); }
@@ -2893,6 +3097,7 @@ document.addEventListener('visibilitychange', async () => {
     const mine = await q(sb.from('user_runs').select('*').eq('run_id', S.runId).eq('user_id', S.session.user.id).maybeSingle());
     if (mine && Date.parse(mine.updated_at) > (S.mineSeen || 0)) { S.mine = { roster: mine.roster || {}, plan: mine.plan || {} }; S.mineSeen = Date.parse(mine.updated_at); }
     await Promise.all([loadGroup(), loadInjuries()]); applyChainResults(); schedule();
+    refreshOdds();
   } catch (err) { /* sem rede: fica como está */ }
 });
 function setTabUI() { TABS.forEach(t => { $('tab-' + t).hidden = t !== S.tab; $('t-' + t).setAttribute('aria-selected', String(t === S.tab)); }); }
@@ -2908,6 +3113,7 @@ setInterval(() => {
   const nd = nextDay(); if (!nd) return;
   if (liveOn(nd.date)) { schedule(); if (Date.now() - (S.liveAt || 0) > 115e3) { S.liveAt = Date.now(); liveFetch(true); } }
   if (S.tab === 'hoje' && gamesWindow(nd)) refreshBoard(nd.date);
+  if (Date.now() - (S.oddsAt || 0) > 10 * 60e3) refreshOdds();
 }, 60000);
 
 // ---------- arranque ----------

@@ -82,6 +82,11 @@ section[role="tabpanel"] > *, .stack > * { min-width: 0; }
 .bar .t { position: absolute; top: -5px; bottom: -5px; width: 2px; border-radius: 2px; background: var(--ball); }
 .bar-cap { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
 .bar-cap b { color: var(--ink); font-weight: 600; }
+.obj-bar { display: grid; gap: 6px; }
+.obj-bar + .obj-bar { margin-top: 4px; }
+.bar-cap .bs { font-family: var(--font-display); font-weight: 800; letter-spacing: .02em; margin-right: 4px; }
+.bar-note { font-size: 12px; color: var(--muted); }
+.hero .bar-note { color: var(--board-muted); }
 .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 3px; }
 .seg button { border: 0; background: transparent; border-radius: 9px; padding: 8px 6px; font-weight: 600; font-size: 13px; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
@@ -102,6 +107,11 @@ section[role="tabpanel"] > *, .stack > * { min-width: 0; }
 .pv { text-align: right; line-height: 1; }
 .pv .v { font-family: var(--font-display); font-weight: 700; font-size: 24px; }
 .pv .u { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+/* dia de combinação: um valor por estatística, empilhados */
+.pv-multi { display: grid; gap: 3px; justify-items: end; }
+.pv-multi > div { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.pv-multi b { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.pv-multi .u { margin: 0; min-width: 28px; text-align: left; }
 .lock { width: 13px; height: 13px; color: var(--accent); flex: none; }
 .pill { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px; letter-spacing: .02em; white-space: nowrap; }
 .pill.duv { background: var(--warn-bg); color: var(--warn); } .pill.prov { background: var(--accent-soft); color: var(--accent); } .pill.fora { background: var(--bad-bg); color: var(--bad); } .pill.ok { background: var(--good-bg); color: var(--good); }
@@ -166,7 +176,9 @@ section[role="tabpanel"] > *, .stack > * { min-width: 0; }
 /* Ajustes */
 .panel { padding: 16px; display: grid; gap: 12px; }
 .panel h2 { margin: 0; font-size: 17px; font-weight: 600; }
-.objrow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 76px; gap: 8px; align-items: center; }
+.objrow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 100px; gap: 8px; align-items: center; }
+.obj-tgt { display: flex; gap: 2px; align-items: center; }
+.obj-tgt input { min-width: 0; flex: 1; }
 .prow-edit { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 8px; align-items: end; }
 .prow-edit label { font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -437,3 +449,45 @@ table.cmp { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 .col-row .avatar { width: 38px; height: 38px; font-size: 13.5px; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px color-mix(in srgb, var(--ink) 10%, transparent); }
 .col-uses { text-align: right; }
 .col-uses .v { font-size: 24px; }
+
+/* ---- Plantel: lista de jogadores, plano por dia e valor por dia ---- */
+.pl-seg { margin: 0 14px 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pl-seg button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-tools { display: grid; gap: 6px; padding: 0 14px 10px; }
+.chips-lbl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; align-self: center; flex: none; margin-right: 2px; }
+.cnt-s { font-weight: 700; opacity: .55; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.pl-card { grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.pl-card .ps { white-space: normal; }
+.pl-card .avatar { width: 38px; height: 38px; margin-top: 2px; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px color-mix(in srgb, var(--ink) 10%, transparent); }
+.pl-strip { display: flex; gap: 3px; margin-top: 7px; }
+:where(.pl-strip) i, .ls { width: 12px; height: 12px; border-radius: 3px; display: block; flex: none; box-sizing: border-box; }
+.s-n { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.s-p { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.s-g { border: 1.5px solid var(--faint); }
+.s-on { background: var(--accent); }
+.s-u { background: var(--faint); }
+.s-ot { border: 2px solid var(--ball); }
+.pl-strip i.nx { outline: 2px solid color-mix(in srgb, var(--ball) 55%, transparent); outline-offset: 1px; }
+.legend .ls { display: inline-block; }
+.pl-avgs { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.pl-avgs b { color: var(--ink); font-weight: 600; }
+.pl-avgs i { font-style: normal; font-size: 9px; margin-left: 2px; }
+.pl-uses { text-align: right; display: grid; justify-items: end; line-height: 1.05; min-width: 58px; }
+.pl-uses b { font-family: var(--font-display); font-weight: 800; font-size: 26px; }
+.pl-uses span { font-size: 11px; font-weight: 700; color: var(--muted); }
+.pl-uses small { font-size: 11px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+.pl-uses.full b { color: var(--accent); }
+.pl-uses.none b { color: var(--faint); }
+/* nome fixo ao deslizar o plano e o valor por dia */
+.mx-wrap .mx.hm-grid { width: max-content; min-width: 100%; }
+.mx-wrap .mx-name { position: sticky; left: 0; z-index: 1; background: var(--surface); align-self: stretch; }
+.mx-name small.num { margin-left: auto; font-size: 10.5px; }
+.hm-head span small { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: -.02em; color: var(--faint); margin-top: 1px; }
+.cell.hm { height: 34px; }
+.hv { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 6px; font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hv.h0 { color: var(--faint); }
+.hv.h1 { background: color-mix(in srgb, var(--good) 12%, transparent); color: var(--muted); }
+.hv.h2 { background: color-mix(in srgb, var(--good) 26%, transparent); color: var(--ink); }
+.hv.h3 { background: color-mix(in srgb, var(--good) 48%, transparent); color: var(--ink); }
+.hv.h4 { background: var(--good); color: #fff; }
+.hv.inp { box-shadow: 0 0 0 2px var(--accent); }

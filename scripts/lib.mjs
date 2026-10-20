@@ -330,12 +330,16 @@ export function matchPlayers(byName, catalog) {
   const index = new Map(), byLast = new Map();
   for (const p of catalog) {
     const n = norm(p.name); index.set(n, String(p.id));
-    const last = n.split(' ').slice(-1)[0]; byLast.set(last, byLast.has(last) ? null : String(p.id));
+    const w = n.split(' '), last = w.slice(-1)[0];
+    (byLast.get(last) || byLast.set(last, []).get(last)).push({ first: w[0], id: String(p.id) });
   }
   const players = {}, unmatched = [];
   for (const [who, stats] of Object.entries(byName)) {
     let id = index.get(who);
     if (!id) { const parts = who.split(' '); const alt = parts.length > 2 ? parts[0] + ' ' + parts.slice(-1)[0] : null; id = alt && index.get(alt); }
+    // diminutivos ("Herb Jones" = Herbert Jones): mesmo apelido e um nome começa pelo outro, se só houver um
+    if (!id) { const parts = who.split(' '), first = parts[0], c = (byLast.get(parts.slice(-1)[0]) || []).filter(x => first.length >= 3 && (x.first.startsWith(first) || first.startsWith(x.first)));
+      if (c.length === 1) id = c[0].id; }
     if (!id) { unmatched.push(who); continue; }
     players[id] = Object.assign(players[id] || {}, stats);
   }

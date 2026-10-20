@@ -139,6 +139,8 @@ ok('preço de consenso favorece o mais', c['nikola jokic'].pts.over < c['nikola 
 const m = matchPlayers(c, [{ id: 'nikola-jokic', name: 'Nikola Jokić' }, { id: 'shai-gilgeous-alexander', name: 'Shai Gilgeous-Alexander' }]);
 ok('nomes com e sem acentos ligam ao catálogo', m.players['nikola-jokic'] && m.players['shai-gilgeous-alexander'] && !m.unmatched.length, m);
 ok('normalização de nomes', norm("De'Aaron Fox Jr.") === 'deaaron fox' && norm('Luka Dončić') === 'luka doncic');
+{ const m2 = matchPlayers({ 'herb jones': { pts: {} }, 'tre jones': { pts: {} } }, [{ id: 'hj', name: 'Herbert Jones' }, { id: 'tj', name: 'Tre Jones' }, { id: 'cj', name: 'Colby Jones' }]);
+  ok('diminutivo liga ao nome completo (Herb = Herbert)', m2.players.hj && m2.players.tj && !m2.unmatched.length, m2); }
 
 // blockchain (JSON-Cadence)
 const jc = { type: 'Array', value: [{ type: 'Dictionary', value: [
