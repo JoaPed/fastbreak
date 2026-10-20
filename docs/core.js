@@ -763,8 +763,9 @@
     }
     const playedDays = model.allDays.filter(d => model.played[d.date] && model.played[d.date].done);
     const wins = playedDays.filter(d => model.played[d.date].result === 'win').length;
-    const losses = playedDays.length - wins;
-    return { model, normal, allIn, wins, losses, playedCount: playedDays.length, prizes: model.prizes };
+    // dias que passaram sem resultado (result 'none') não contam como derrota
+    const losses = playedDays.filter(d => model.played[d.date].result === 'loss').length;
+    return { model, normal, allIn, wins, losses, playedCount: wins + losses, prizes: model.prizes };
   }
 
   // ---------- várias contas (smurf) ----------
@@ -1052,7 +1053,8 @@
     models.forEach((model, a) => {
       const playedDays = model.allDays.filter(d => model.played[d.date] && model.played[d.date].done);
       const wins = playedDays.filter(d => model.played[d.date].result === 'win').length;
-      byKey[keys[a]] = { model, normal: res[a], allIn: null, group: true, wins, losses: playedDays.length - wins, playedCount: playedDays.length, prizes: model.prizes };
+      const losses = playedDays.filter(d => model.played[d.date].result === 'loss').length;
+      byKey[keys[a]] = { model, normal: res[a], allIn: null, group: true, wins, losses, playedCount: wins + losses, prizes: model.prizes };
     });
     const ownerById = {}, cp = {};
     players.forEach((p, i) => { cp[p.id] = copies[i]; if (p.owner) ownerById[p.id] = p.owner; });

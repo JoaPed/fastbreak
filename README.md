@@ -20,7 +20,7 @@ Cada separador tem partes no topo (ficam lembradas neste aparelho):
 - **Hoje**: *Lineup* (placar do dia; **A fazer**: Moments a mandar entre contas, lesões no lineup, dia por fechar, ligar o jogo a jogo; o lineup; **Quem joga hoje** com lesões e forma; **Sugestões de compra**), *Porquê* (em que se baseia e o que cada jogador acrescenta), *Comparar* (tabela dos jogadores com jogo hoje).
 - **Run**: *Prémios* (vitórias e derrotas, um aro por prémio com a probabilidade em palavras e quantas vitórias faltam, o gráfico de quantas vitórias deves ter no fim, sugestões de compra e as lesões do plantel com os dias que afetam), *Dias* (com aviso nos dias com lesões no lineup), *Contas*, que só aparece a quem tem contas smurf no perfil (prémios de cada conta e as transferências), *Análise* (previsto vs real) e *Histórico* (todas as runs lidas da blockchain).
 - As **sugestões de compra** calculam-se sozinhas em segundo plano (Moments de 2 usos de jogadores que ainda não tens) e atualizam quando o plano muda.
-- **Jogadores**: *Plantel* (usos e plano; **Acertar usos** abre uma lista com pesquisa e botões − / + para mudar vários jogadores depressa), *Forma* (últimos 5 jogos face à época, teus ou de toda a NBA), *Lesões*, *Comprar* (o que compensa comprar e os **Especialistas** de cada estatística) e *Coleção* (carteiras).
+- **Jogadores**: *Plantel* (usos e plano; **Acertar usos** abre uma lista com pesquisa e botões − / + para mudar vários jogadores depressa), *Forma* (últimos 5 jogos face à época, teus ou de toda a NBA), *Lesões*, *Comprar* (o que compensa comprar e os **Especialistas** de cada estatística) e *Coleção* (carteiras e **Escalões e usos**).
 - **Grupo**: *Classificação* (aros de cada um), *Lineups* (o lineup que o plano de cada amigo sugere para cada dia) e *Empréstimos* (Moments dos amigos que compensa pedir, só nos dias em que eles não os usam).
 - **No telemóvel como app**: no iPhone, abre o site no Safari → Partilhar → **Adicionar ao ecrã principal**. Abre em ecrã inteiro, com ícone próprio.
 - **Ajustes**: *Perfil*, *Preferências* (run a ver, **Aspeto** automático/claro/escuro, jogos seguidos, forma), *Admin* (só o admin) e *Dados*.
@@ -51,8 +51,17 @@ Os aros: cada patamar de prémio (por exemplo 5, 7 e 9 vitórias) é um aro que 
 2. Em **Ajustes → Admin**: escolhe o código de convite, cria a run (nome, primeiro dia, número de dias), define os prémios por vitórias e os objetivos.
 3. Quando a run aparecer na blockchain, liga-a em **Ajustes → Admin → Blockchain**: os objetivos e os resultados de todos passam a entrar sozinhos.
 4. Manda aos amigos o link do site e o código de convite.
-5. Cada um põe o endereço Flow da carteira Dapper no perfil e, em **Jogadores → Coleção**, carrega em **Ler carteira**: o site lê os Moments diretamente da blockchain (no browser) e guarda a coleção no perfil, mesmo sem haver run. Numa run, os jogadores da coleção passam para o plantel. Os usos não estão na blockchain (dependem do escalão de cada Moment): os novos entram com 1 uso e acertam-se à mão.
-6. **Run de teste** (admin, em Ajustes → Admin): 11 dias a começar hoje, jogos inventados e objetivos com as estatísticas reais do Fast Break, para o grupo experimentar. Não gasta créditos de odds e apaga-se com um botão.
+5. Cada um põe o endereço Flow da carteira Dapper no perfil e, em **Jogadores → Coleção**, carrega em **Ler carteira**: o site lê os Moments diretamente da blockchain (no browser) e guarda a coleção no perfil, mesmo sem haver run. Numa run, os jogadores da coleção passam para o plantel. Os usos entram pelo escalão de cada Moment (Common 1, Rare 2, Legendary 4) e acertam-se à mão as exceções.
+
+## Escalões e usos
+- O Top Shot não põe o escalão nem o ASP na blockchain (e a API dele recusa pedidos de outros sites). Ao ler a carteira, o site deduz o escalão de cada Moment pelo set e pela tiragem da edição (Base Set = Common, Metallic Gold LE = Rare; nos outros, pela tiragem: até /5 Ultimate, até /149 Legendary, até /1499 Rare, mais Common).
+- Usos por Moment em cada run: **Common 1, Fandom 1, Rare 2, Legendary 4**. Os usos de cada jogador são a soma dos seus Moments (menos os já gastos na run). Um Common com ASP acima de 10 $ também dá 2: esse acerta-se à mão.
+- Em **Jogadores → Coleção → Escalões e usos** vês cada set com a tiragem e o escalão; se algum estiver mal, muda-o aí e os usos de quem tem Moments desse set mudam sozinhos. Os usos que acertaste à mão nunca são mexidos.
+
+## A run do dia
+- Quando aparece uma run nova ativa (lida da blockchain), o site passa a mostrá-la sozinho, mesmo que estivesses a ver outra. Runs de teste que ainda existam apagam-se de uma vez em Ajustes → Admin → **Apagar as runs de teste**.
+- Um dia que já acabou sem resultado registado sai do plano (não gasta usos nem aparece como "hoje"); em Run → Dias fica "sem resultado" e dá para o registar. Não conta como derrota.
+- O Hoje mostra sempre os **jogos do dia** com as horas e os teus jogadores em cada jogo (durante os jogos, com o placar); a folha de cada dia em Run → Dias também.
 
 ## Contas smurf
 Em **Ajustes → Perfil**, cada pessoa pode juntar até 2 contas extra suas (utilizador do Top Shot e endereço Flow).
@@ -91,7 +100,7 @@ Em **Ajustes → Perfil**, cada pessoa pode juntar até 2 contas extra suas (uti
 
 ## Dicas de compra
 - Em **Jogadores → Comprar** refaz o plano da run com cada candidato e mostra quanto sobe a probabilidade de cada prémio, as vitórias esperadas e em que dias ele jogaria (com a vitória desse dia antes e depois). Exemplo: "Se comprares Stephen Curry com 2 usos, a probabilidade de chegares às 7 vitórias sobe de 22% para 30%: joga nos dias 3 (45% → 61%) e 7 (38% → 52%)."
-- **Jogador novo** (do catálogo, com jogos nos dias que faltam) ou **Reforçar os teus** ("+1 uso" = comprar outro Moment desse jogador com 1 uso; com contas smurf, dois Moments deixam duas contas jogá-lo no mesmo dia). Escolhe os usos do Moment (1 a 4): dependem do escalão, da edição e do preço médio (em geral Common 1, Rare 1 a 3, Legendary 3 ou mais), por isso confirma no Top Shot. Também dá para avaliar um jogador em especial.
+- **Jogador novo** (do catálogo, com jogos nos dias que faltam) ou **Reforçar os teus** (outro Moment desse jogador; com contas smurf, dois Moments deixam duas contas jogá-lo no mesmo dia). Escolhe o escalão do Moment a comprar: **Common** (1 uso), **Rare** (2) ou **Legendary** (4); um Common com ASP acima de 10 $ conta como Rare. Também dá para avaliar um jogador em especial.
 - Uma pré-seleção rápida escolhe os 8 melhores candidatos (5 com contas smurf) e só esses têm a run refeita. Os preços não entram nas contas.
 
 ## Forma e alternativas

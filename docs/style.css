@@ -412,3 +412,5 @@ table.cmp { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 .lu-row .ps { white-space: normal; line-height: 1.45; }
 .lu-same { text-decoration: underline; text-decoration-color: var(--ball); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .an-kpis .small { font-size: 12px; }
+.tier-row { gap: 10px; }
+.tier-sel { width: auto; min-width: 118px; padding: 6px 10px; font-size: 13.5px; }
