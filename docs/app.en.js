@@ -37,7 +37,7 @@ const INJ_LABEL = FB.INJ_LABEL;
 // sub-separadores de cada secção (o escolhido fica guardado neste aparelho)
 const SUBS = {
   hoje: () => [['lineup', 'Lineup'], ['porque', 'Why'], ['comparar', 'Compare']],
-  run: () => [['premios', 'Prizes'], ['dias', 'Days']].concat(S.multi ? [['contas', 'Accounts']] : []).concat([['analise', 'Analysis'], ['historico', 'History']]),
+  run: () => [['premios', 'Prizes']].concat(S.multi ? [['contas', 'Accounts']] : []).concat([['analise', 'Analysis'], ['historico', 'History']]),
   plantel: () => [['plantel', 'Roster'], ['forma', 'Form'], ['lesoes', 'Injuries'], ['comprar', 'Buy'], ['colecao', 'Collection']],
   grupo: () => [['classif', 'Standings'], ['lineups', 'Lineups'], ['emprestimos', 'Loans']],
   ajustes: () => [['perfil', 'Profile'], ['prefs', 'Preferences']].concat(S.role === 'admin' ? [['admin', 'Admin']] : []).concat([['dados', 'Data']]),
@@ -119,7 +119,6 @@ const ago = iso => { if (!iso) return 'never'; const m = Math.round((Date.now() 
 const statShort = st => FB.statTerms(st).map((t, i) => (i ? (t.sign < 0 ? '−' : '+') : t.sign < 0 ? '−' : '') + ((STATS[t.s] || {}).short || t.s.toUpperCase())).join('');
 const statLabel = st => FB.statTerms(st).map((t, i) => (i ? (t.sign < 0 ? ' − ' : ' + ') : t.sign < 0 ? '− ' : '') + ((STATS[t.s] || {}).label || t.s)).join('');
 const objOne = o => o.target + '+ ' + statShort(o.stat) + (o.each ? ' each' : '');
-const objText = o => o ? objOne(o) : 'Goal not set';
 const objsText = day => { const list = ((day || {}).objectives || []).filter(o => o && o.stat); return list.length ? list.map(objOne).join(' and ') : 'Goal not set'; };
 // de onde vem o valor esperado de um jogador (texto curto para as listas)
 // seta de forma: últimos 5 jogos acima/abaixo da média da época na estatística do dia
@@ -166,7 +165,7 @@ function injuryBlock(id, j, date) {
   if (j && !ign && j.k != null) how = (j.k === 0 ? 'This is his next game' : 'This is his game no. ' + (j.k + 1) + ' from now') + ': ' + (j.status ? 'the plan assumes a ' + Math.round(STATUS[j.status].play * 100) + '% chance he plays.' : 'the plan already counts him as normal.');
   return '<div class="note' + (rec.status === 'probable' ? ' info' : '') + ' stack" style="gap:6px"><div><b>Injury report:</b> ' + injLine(rec) + '. <span class="small">(ESPN, ' + esc(ago(rec.updated_at)) + ')</span></div>' +
     (rec.comment ? '<div class="small">' + esc(rec.comment) + '</div>' : '') + (how ? '<div class="small">' + how + '</div>' : '') +
-    (ign ? '<div class="small"><b>You are ignoring the report</b> for this player: the plan counts him as available.</div>' : '') +
+    (ign ? '<div class="small"><b>Report ignored</b>: the plan counts on him.</div>' : '') +
     ((S.mine.roster || {})[id] ? '<button class="btn small" type="button" data-action="inj-ignore" data-id="' + esc(id) + '"' + (date ? ' data-date="' + date + '"' : '') + ' data-on="' + (ign ? '0' : '1') + '">' + (ign ? 'Use the report again' : 'Ignore the report (I know he plays)') + '</button>' : '') + '</div>';
 }
 // ---------- em que se baseia cada valor ----------
@@ -208,12 +207,57 @@ function basisHtml(p, info, o, md, id, many) {
     steps.push('<b>Back-to-back</b>: played yesterday. ' + (info.src === 'odds' ? 'The odds already account for that.' : 'Without odds, counts ' + (pc > 0 ? pc + '% less' : pc < 0 ? Math.abs(pc) + '% more' : 'the same') + (b && b.n >= 6 ? ' (last season he played ' + plural(b.n, 'back-to-back game', 'back-to-back games') + ' and produced ' + Math.round(((b.r || {})[FB.statTerms(o.stat)[0].s] || 1) * 100) + '% of normal)' : ' (the usual in these games)') + '.')); }
   steps.push(playBasis(info));
   { const t0 = FB.statTerms(o.stat)[0].s, k = FB.kOf(p, t0), k0 = (STATS[t0] || {}).k, h = (p.avg || {}).hist;
-    if (h && h.n >= 15 && k0) steps.push('<b>Consistency</b> (' + h.n + ' games last season): ' + (k / k0 >= 1.2 ? 'varies a lot from game to game, so he can have a big game or an empty one' : k / k0 <= 0.85 ? 'is consistent, usually close to his average' : 'normal for this stat') + '.'); }
+    if (h && h.n >= 15 && k0) steps.push('<b>Consistency</b> (' + h.n + ' games last season): ' + (k / k0 >= 1.2 ? 'varies a lot from game to game' : k / k0 <= 0.85 ? 'is consistent, usually close to his average' : 'normal for this stat') + '.'); }
   const muIf = info.muIf != null ? info.muIf : info.mu;
   steps.push('<b>In the plan</b>: ' + (info.pPlay < 1 ? pct(info.pPlay) + ' × ' + f1(muIf) + ' = ' : '') + '<b class="num">' + f1(info.mu) + '</b> ' + u + ' expected (± ' + f1(Math.sqrt(info.v || 0)) + ').');
   return '<div class="card panel basis"><h2>What it is based on' + (many ? ' · ' + u : '') + '</h2><ol class="steps">' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol></div>';
 }
 const icoLock = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Locked"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+// ---------- ajuda: as explicações ficam atrás de um (?) ao lado dos títulos ----------
+const HELP = {
+  lineup: ['Lineup', 'The lineup the plan suggests for this day, with the whole run in mind: it may save players for days when they are worth more. The number on the right is what each one should score. Tap a player to see what it is based on, lock him or remove him from the day.'],
+  aovivo: ['Live', 'When the first game starts, the app locks in whoever has played, reads the points from ESPN every 2 minutes and redoes the rest of the run. If the lineup you submitted on Top Shot is different, fix it in Options for today. If ESPN fails, tap a player to enter the numbers by hand.'],
+  opcoes: ['Options for today', '<b>Before the games</b>: compares the plan with going all in today or saving a player for another day.<br><b>During the games</b>: with the points already in, compares keeping, removing or saving whoever hasn’t played yet.<br>Each option redoes the whole run with the uses left; “the best” is the one that raises your prize chances the most. Removing a player before his game starts doesn’t spend the use.'],
+  jogosdia: ['Games that day', 'Local time. Under each game, your players (the lineup in bold). During the games: live score and the numbers of the players in the lineup.'],
+  lesoesforma: ['Injuries and form', '<b>Injuries</b>: ESPN report for whoever plays this day, with the chance the plan counts on. <b>In the run</b>: the remaining days where the injury still matters (out, or % to play). <b>Form</b>: average of the last 5 games vs the season, in the day’s stat.'],
+  porque: ['What it’s based on', 'Bookmaker odds when there are any; otherwise season averages with form and opponent. Each player’s number (pp) is how much he adds to the day’s win: without him, the best one left would come in. “Saves others”: he’s here so someone better can be kept for another day. The ones left out are saved for other days or are worth less.'],
+  comparar: ['Compare', 'All your players with a game this day. Big numbers: last 5 games; small: season. Opp.: how much the opponent allows of this stat. Tap a header to sort and a player to open his card.'],
+  transf: ['Transfers', 'A Moment only plays for one account each night. Before the night shown, gift the Moment to the other account on Top Shot, then read the wallets again (Players → Collection).'],
+  premios: ['Prizes', 'Each ring is the chance of finishing the run with at least that many wins: full means certain. Green likely, yellow a toss-up, red hard. The plan picks the lineups to raise these chances.'],
+  dist: ['Wins at the end', 'The chance of each win total at the end of the run. The colours mark the prize tiers; the outline is the most likely total.'],
+  contas: ['Accounts', 'The plan pools your accounts’ collections as if they were one and picks each account’s lineup. Tap an account to see its prizes.'],
+  analise: ['Analysis', 'Each day’s prediction is saved until the first game. Then you see the prediction next to what happened: wins, totals and each player (100% = did as predicted). With few days, luck weighs a lot.'],
+  historico: ['History', 'Your Fast Break days read from the blockchain, from every run. Older days come in little by little.'],
+  plantel: ['Roster', 'Your players in this run. Uses: how many days they can still play (those of the best card: Common 1, Rare 2, Legendary 4; more cards of the same player don’t add up). The strip is the run’s days: used, in the plan, on the other account, has a game. Tap a player to change his uses, cards or status.'],
+  cartas: ['Your cards', 'The tier of each Moment: the site guesses it from the set and the mint size. If it’s wrong, pick the right one: the other cards of the same set learn from it (yours and the group’s). The player gets the uses of his best card.'],
+  colecao: ['Collection', 'Your Moments read from the blockchain (all accounts), saved in your profile for every run. Uses per run of each player: those of the best card. Moments of players outside this NBA season don’t count.'],
+  comprar: ['Buy', 'The run is redone with each candidate: you see how much the prizes go up and on which days he would play. Uses per run: Common 1 (2 if the ASP is over $10), Rare 2, Legendary 4. For a player you already have, it only helps if the new one is a tier higher. Prices aren’t included: check those on the marketplace.'],
+  especialistas: ['Specialists', 'The NBA’s best in each stat (this season mixed with last). % = how often the stat comes up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.'],
+  forma: ['Form', 'Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.'],
+  lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).'],
+  classif: ['Standings', 'Wins and losses come from the blockchain (with your Top Shot username in the profile); otherwise from what each one records. The rings are each one’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
+  lineups: ['Group lineups', 'The lineup each one’s plan suggests for each day (it changes until the game). Lock: already locked or already playing. Underlined: a player you also have.'],
+  emprestimos: ['Loans', 'Redoes your run with your friends’ Moments, only on days their plan doesn’t use them. It counts the uses of one of their Moments in a run. On Top Shot they gift you the Moment and you give it back after you play that day.'],
+  partilha: ['Sharing', 'The group sees the lineup your plan suggests and your players’ uses, and can ask you for Moments on days you don’t use them. Your roster and plan stay yours.'],
+  smurf: ['Smurf accounts', 'Up to 2 extra accounts of yours. The plan pools the collections and tells you which Moments to send to which account before each night (a Moment only plays for one account each night).'],
+  flow: ['Flow address', 'Your Dapper wallet address: 0x and 16 letters or numbers (it’s in Dapper and in your Top Shot profile). It’s used to read your Moments and your results from the blockchain.'],
+  avancado: ['Calculation', '<b>Back-to-backs</b>: in the 2nd of two games on consecutive days, without odds, the plan takes off ~3% (or what that player did in those games last season). <b>Form</b>: without odds, it mixes the season with the last 10 and 5 games (normal: 50/30/20%). The odds already account for both.'],
+  dados: ['Data', 'Updated automatically: schedule and averages in the morning, odds in the afternoon and early evening (Lisbon time), blockchain and injuries every 30 minutes.'],
+};
+const helpBtn = k => '<button class="help-btn" type="button" data-action="help" data-k="' + k + '" aria-label="' + esc('Help: ' + (HELP[k] || ['?'])[0]) + '">?</button>';
+// ajuda: numa folha aberta aparece ali mesmo, por baixo do título (toca outra vez para fechar); fora delas abre uma folha
+function helpSheet(k, btn) {
+  const h = HELP[k]; if (!h) return;
+  if (btn && !$('sheet').hidden && $('sheetPanel').contains(btn)) {
+    const id = 'help-' + k, cur = $(id);
+    if (cur) { cur.remove(); btn.setAttribute('aria-expanded', 'false'); return; }
+    const box = document.createElement('div'); box.id = id; box.className = 'note info help-text'; box.innerHTML = h[1];
+    (btn.closest('.list-head') || btn.closest('h2, h3, .field-lbl') || btn).after(box);
+    btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', id);
+    return;
+  }
+  openSheet('<h3>' + h[0] + '</h3><div class="help-text">' + h[1] + '</div>' + closeRow());
+}
 const todayET = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
 function norm(name) {
   return String(name || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -582,8 +626,7 @@ let sumTimer = null;
 function publishSummary() {
   if (!S.session) return;
   const r = mainResult(); if (!r || !S.runId) return;
-  const nd0 = r.model.days.length ? r.model.days[0].day : null;
-  const v = nd0 && (((planOf('main').mode || {})[nd0.date]) === 'allin') && r.allIn ? r.allIn : r.normal; // o grupo vê a conta principal
+  const v = r.normal; // o grupo vê a conta principal
   const days = {};
   Object.entries(planOf('main').played || {}).forEach(([d, p]) => { if (p && p.done) days[d] = p.result; });
   const row = {
@@ -609,7 +652,7 @@ function publishSummary() {
 
 // ---------- cálculo ----------
 let scheduled = false;
-function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); }, 16); }
+function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); ensureLive(); }, 16); }
 function recalcNow() { if (!S.session) return; compute(); render(); publishSummary(); publishNext(); }
 // Lineups dos próximos 3 dias de cada conta, guardados no plano: a tarefa dos avisos usa-os quando ainda não há
 // lineup submetido no Top Shot (só runs a sério)
@@ -620,9 +663,7 @@ function publishNext() {
   const out = {};
   accounts().forEach(a => {
     const r = S.multi ? S.multi.byKey[a.id] : (a.id === 'main' ? S.result : null); if (!r) return;
-    const nd = r.model.days.length ? r.model.days[0].day : null, pa = planOf(a.id);
-    const v = nd && ((pa.mode || {})[nd.date]) === 'allin' && r.allIn ? r.allIn : r.normal;
-    const m = {}; v.days.slice(0, 3).forEach(d => { if (d.lineup.length) m[d.date] = d.lineup.slice(); });
+    const v = r.normal, m = {}; v.days.slice(0, 3).forEach(d => { if (d.lineup.length) m[d.date] = d.lineup.slice(); });
     out[a.id] = m;
   });
   if (JSON.stringify(S.mine.plan.next || {}) === JSON.stringify(out)) return;
@@ -680,10 +721,9 @@ function compute() {
 const mainResult = () => S.multi ? S.multi.byKey.main : S.result;
 const curRun = () => S.runs.find(r => r.id === S.runId) || null;
 const nextDay = () => { const r = S.result; return r && r.model.days.length ? r.model.days[0].day : null; };
-const modeFor = date => ((curPlan().mode || {})[date]) || 'run';
 const liveDoc = date => ((curPlan().live || {})[date]) || null;
 const liveOn = date => { const l = liveDoc(date); return !!(l && l.active); };
-function view() { const r = S.result; if (!r) return null; const nd = nextDay(); return nd && modeFor(nd.date) === 'allin' && r.allIn ? r.allIn : r.normal; }
+function view() { const r = S.result; return r ? r.normal : null; }
 function opp(team, day) {
   const g = FB.gameOf(day, team);
   if (!g) return 'no game';
@@ -742,7 +782,7 @@ function guard(el, needRoster) {
   }
   if (S.calcError) { el.innerHTML = empty('Error', S.calcError); return false; }
   if (needRoster && !Object.keys(S.mine.roster || {}).length) {
-    el.innerHTML = empty('Your roster is missing', 'Add the players you own and how many uses each one has in this run. The plan shows up right after.', '<button class="btn primary" type="button" data-action="goto" data-tab="plantel">Build roster</button>');
+    el.innerHTML = empty('Your roster is missing', 'Add your players and the plan appears.', '<button class="btn primary" type="button" data-action="goto" data-tab="plantel">Build roster</button>');
     return false;
   }
   return !!S.result;
@@ -771,7 +811,7 @@ function objBars(d, live) {
     return '<div class="obj-bar"><div class="bar" aria-hidden="true"><i class="k" style="width:' + kw.toFixed(1) + '%"></i><i class="f" style="left:' + kw.toFixed(1) + '%;width:' + Math.max(0, fw).toFixed(1) + '%"></i><i class="t" style="left:' + Math.min(99, t.target / max * 100).toFixed(1) + '%"></i></div>' +
       '<div class="bar-cap">' + (live && t.known ? '<span>' + lbl + 'Done <b class="num">' + f0(t.known) + '</b> · left <b class="num">' + f0(Math.max(0, t.target - t.known)) + '</b></span><span>final ≈ <b class="num">' + f1(t.mu) + '</b>' + (many ? ' · <b class="num">' + pct(pk) + '</b>' : '') + '</span>'
         : '<span>' + lbl + (many ? '' : 'Projection ') + '<b class="num">' + f1(t.mu) + '</b> <span class="num">± ' + f1(t.sd) + '</span></span><span>target <b class="num">' + t.target + '</b>' + (many ? ' · <b class="num">' + pct(pk) + '</b>' : '') + '</span>') + '</div></div>';
-  }).join('') + (many ? '<div class="bar-note">You need to hit all ' + d.totals.length + ' targets. Each % is on its own; the win needs all ' + d.totals.length + ' at once.</div>' : '');
+  }).join('') + (many ? '<div class="bar-note">Win: every target at once.</div>' : '');
 }
 // ---- Jornada (antigo "Hoje"): o dia escolhido na faixa dos dias; por defeito o próximo dia por jogar ----
 // S.hd = data escolhida (null = o próximo dia). Dias que já passaram mostram o resultado e o previsto vs real.
@@ -828,87 +868,97 @@ function renderJornada(el) {
   if (!J) { el.innerHTML = empty('Run finished', 'You finished with ' + r.wins + ' wins in ' + r.playedCount + ' days.'); return; }
   const sub = subOf('hoje'), html = [subBar('hoje'), dayStrip(J.date)];
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
-  if (run.fictitious) html.push('<div class="note">You are looking at a <b>test run</b>: the games and goals are made up. ' + (real ? '<button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Open ' + esc(real.name) + '</button>' : 'The real run is chosen in Settings → Preferences.') + '</div>');
+  if (run.fictitious) html.push('<div class="note">Test run: made-up games and goals.' + (real ? ' <button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Open ' + esc(real.name) + '</button>' : '') + '</div>');
   if (groupMode()) html.push(accSwitch());
   if (J.past) {
-    html.push(sub === 'lineup' ? pastDayHtml(J) : '<div class="note info">This day is over: the result and what the plan expected are under Lineup.</div>');
+    html.push(sub === 'lineup' ? pastDayHtml(J) : '<div class="note info">Day already played: the result is under Lineup.</div>');
     el.innerHTML = html.join(''); return;
   }
   const { md, d } = J, nd = md.day, o = (nd.objectives || [])[0], isCur = J.cur;
-  const live = isCur && liveOn(nd.date), t = d.totals[0];
-  const noneTxt = isCur ? 'Nobody in your roster plays today.' : 'None of your roster plays that day.';
-  if (sub === 'porque') {
-    html.push(basisDayCard(r, v, d, md, nd) || '<div class="note info">' + (d.noObjective ? 'This day has no goal yet.' : noneTxt) + '</div>');
-    el.innerHTML = html.join(''); return;
-  }
-  if (sub === 'comparar') {
-    html.push(compareCard(md, d, nd.date, true) || '<div class="note info">' + (d.noObjective ? 'This day has no goal yet.' : noneTxt) + '</div>');
+  const live = isCur && liveOn(nd.date) && !!d.live, t = d.totals[0]; // d.live só existe depois de recalcular
+  const noneTxt = isCur ? 'None of your players plays today.' : 'None of your players plays this day.';
+  if (sub === 'porque' || sub === 'comparar') {
+    html.push((sub === 'porque' ? basisDayCard(r, v, d, md, nd) : compareCard(md, d, nd.date, true)) || '<div class="note info">' + (d.noObjective ? 'This day has no goal yet.' : noneTxt) + '</div>');
     el.innerHTML = html.join(''); return;
   }
   const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort();
   const right = live ? '<span class="pill jogo">Live</span>' : tips.length ? '<span class="small muted">1st game ' + hm(tips[0]) + '</span>' : '';
-  const barHtml = t ? objBars(d, live) : '';
+  // placar do dia: objetivo, vitória, barra(s); no dia em curso, o botão das opções
   html.push('<div class="card hero"><div class="hero-top"><span class="eyebrow">Day ' + (nd.idx + 1) + ' · ' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>' + right + '</div>' +
     '<div class="score"><div class="goal">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' each' : '') + '</small>').join('<small> and </small>') : '<small>Goal not set</small>') + '</div>' +
-    (d.noObjective ? '' : '<div class="pbig num c-' + tone(d.P) + '">' + pct(d.P) + '<span>win</span></div>') + '</div>' + barHtml +
-    (S.multi ? groupLine(nd, isCur) : !isCur ? '<div class="impact"><div>The run plan\'s forecast for this day. It keeps changing until then with the odds, injuries and the results of the days before.</div></div>' : '<div class="seg" role="group" aria-label="Strategy for today"><button type="button" data-action="mode" data-mode="run" aria-pressed="' + (modeFor(nd.date) !== 'allin') + '">Run plan</button><button type="button" data-action="mode" data-mode="allin" aria-pressed="' + (modeFor(nd.date) === 'allin') + '">All in on today</button></div>' +
-    impactHtml(r)) + '</div>');
+    (d.noObjective ? '' : '<div class="pbig num c-' + tone(d.P) + '">' + pct(d.P) + '<span>win</span></div>') + '</div>' + (t ? objBars(d, live) : '') +
+    (S.multi ? groupLine(nd) : '') +
+    (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Options for today</button>' : !isCur ? '<div class="impact"><div>Forecast: it changes with the odds and injuries until then.</div></div>' : '') + '</div>');
   if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
-  html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, true));
-  if (S.multi) {
-    const cl = S.multi.clashes.filter(c => c.date === nd.date);
-    if (cl.length) html.push('<div class="note">' + (isCur ? 'The same Moment is locked in two accounts today: ' : 'The same Moment is locked in two accounts that day: ') + cl.map(c => esc(nameOf(c.id)) + ' (' + c.accounts.map(accLabel).map(esc).join(', ') + ')').join(' · ') + '. It can only play for one.</div>');
+  // ao vivo: o plano sugere mudar quem ainda não jogou
+  if (live && d.live && (d.live.out.length || d.live.in.length)) {
+    const pSub = lineupP(md, d.live.submitted);
+    html.push('<div class="note sug"><div><b>Suggestion:</b> ' + [d.live.out.length ? 'remove ' + d.live.out.map(id => esc(lastName(id))).join(', ') : '', d.live.in.length ? 'add ' + d.live.in.map(id => esc(lastName(id))).join(', ') : ''].filter(Boolean).join(' and ') +
+      ' · today ' + pct(pSub) + ' → <b>' + pct(d.P) + '</b>' + (d.P + 0.15 < pSub ? ' (saves uses for the run)' : '') + '</div><div class="btns"><button class="btn" type="button" data-action="opcoes">Options</button><button class="btn primary" type="button" data-action="swap-done">Done it</button></div></div>');
   }
-  if (d.noObjective) html.push('<div class="note info">' + (S.role === 'admin' ? 'This day has no goal yet. Set it in Settings → Admin.' : 'This day has no goal yet. The group admin hasn\'t set it.') + '</div>');
-  if (d.perPlayer) html.push('<div class="note">' + (isCur ? 'Today' : 'That day') + ' the goal is per player: each one has to reach the value alone. The plan still calculates it as a team total, so check the lineup by hand (you can also submit fewer players).</div>');
-  if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) html.push('<div class="note info">Points in the paint: ESPN doesn\'t give them per player, so the averages and live values are estimated from 2-pointers. The final result comes from the blockchain.</div>');
-  else if (!(nd.games || []).length) html.push('<div class="note info">This day\'s games haven\'t been loaded from the NBA schedule yet.</div>');
-  if (r.normal.conflicts.length) html.push('<div class="note">You locked players more times than the uses they have: ' + r.normal.conflicts.map(c => esc(nameOf(c.player)) + ' (' + c.used + ' of ' + c.uses + ')').join(', ') + '.</div>');
+  html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, true));
+  // avisos curtos
+  const note = (txt, info) => html.push('<div class="note' + (info ? ' info' : '') + '">' + txt + '</div>');
+  if (S.multi) { const cl = S.multi.clashes.filter(c => c.date === nd.date); if (cl.length) note('Locked in two accounts: ' + cl.map(c => esc(nameOf(c.id)) + ' (' + c.accounts.map(accLabel).map(esc).join(', ') + ')').join(' · ') + '. He only plays for one.'); }
+  if (d.noObjective) note(S.role === 'admin' ? 'No goal: set it in Settings → Admin.' : 'This day has no goal yet.', true);
+  if (d.perPlayer) note('Per-player goal: each one has to get there alone. Check the lineup by hand.');
+  if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) note('Points in the paint: estimated from made 2-pointers.', true);
+  else if (!(nd.games || []).length) note('This day’s games haven’t arrived yet.', true);
+  if (r.normal.conflicts.length) note('Locked more times than uses: ' + r.normal.conflicts.map(c => esc(nameOf(c.player)) + ' (' + c.used + ' of ' + c.uses + ')').join(', ') + '.');
   if (d.badLocks && d.badLocks.length) {
     const plays = FB.teamsOn(nd), teamOf = id => (r.model.players[r.model.pIndex.get(id)] || {}).team;
     const noGame = d.badLocks.filter(id => !plays.has(teamOf(id))), outNow = d.badLocks.filter(id => plays.has(teamOf(id)));
-    if (noGame.length) html.push('<div class="note">' + (isCur ? 'No game today, so they don\'t play: ' : 'No game that day, so they don\'t play: ') + noGame.map(id => esc(nameOf(id))).join(', ') + '.</div>');
-    if (outNow.length) html.push('<div class="note">' + (isCur ? 'You locked someone who is out today (injury or status), so he doesn\'t play: ' : 'You locked someone who is out that day (injury or status), so he doesn\'t play: ') + outNow.map(id => esc(nameOf(id)) + (injRec(id) ? ' (' + esc((INJ_LABEL[injRec(id).status] || '').toLowerCase()) + ')' : '')).join(', ') + '. Unlock him or, if you know he plays, ignore the report on his page.</div>');
+    if (noGame.length) note('Locked with no game this day: ' + noGame.map(id => esc(nameOf(id))).join(', ') + '.');
+    if (outNow.length) note('Locked but out: ' + outNow.map(id => esc(nameOf(id)) + (injRec(id) ? ' (' + esc((INJ_LABEL[injRec(id).status] || '').toLowerCase()) + ')' : '')).join(', ') + '. Unlock him or ignore the report in his card.');
   }
-  if (live && d.live && (d.live.out.length || d.live.in.length)) {
-    const pSub = lineupP(md, d.live.submitted), pNew = d.P, pairs = [];
-    for (let i = 0; i < Math.max(d.live.out.length, d.live.in.length); i++) pairs.push('<li>' + (d.live.out[i] ? 'Out <b>' + esc(nameOf(d.live.out[i])) + '</b>' : '') + (d.live.out[i] && d.live.in[i] ? ' → ' : '') + (d.live.in[i] ? 'in <b>' + esc(nameOf(d.live.in[i])) + '</b>' : '') + '</li>');
-    html.push('<div class="card swap"><h3>Recommended swap</h3><ul>' + pairs.join('') + '</ul><div class="small muted">Win today ' + pct(pSub) + ' → <b>' + pct(pNew) + '</b>' + (pNew + 0.15 < pSub ? ' · gives up on today to save uses for the run' : pNew + 0.005 < pSub ? ' · loses a little today to save uses for the run' : '') + '</div><button class="btn primary" type="button" data-action="swap-done">I made the swap</button></div>');
-  }
-  const locks = new Set(((curPlan().locks || {})[nd.date]) || []);
+  // lineup
+  const locks = new Set(((curPlan().locks || {})[nd.date]) || []), bans = ((curPlan().bans || {})[nd.date]) || [];
   const lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
   const rows = d.lineup.map(id => {
     const pi = r.model.pIndex.get(id), p = r.model.players[pi], info = md.info[pi][0];
-    let sub;
+    let ps;
     if (live) {
       const st = info.liveState, sb2 = d.live.submitted.includes(id);
-      if (st === 'fim') { sub = '<span class="pill fim">Final</span> ' + esc(p.team) + ' ' + esc(opp(p.team, nd)); }
-      else if (st === 'jogo') { sub = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Playing') + '</span> ' + md.objs.map((o, k) => f0(md.info[pi][k].known) + (md.objs.length > 1 ? ' ' + esc(statShort(o.stat)) : '')).join(' · ') + ' so far'; }
-      else if (st === 'jogo?') sub = '<span class="pill jogo">Playing</span> tap to enter the value';
-      else sub = (sb2 ? '' : '<span class="pill prov">New</span> ') + esc(p.team) + ' ' + esc(opp(p.team, nd));
-    } else {
-      sub = esc(p.team) + ' ' + esc(opp(p.team, nd)) + injTag(info) + b2bTag(info) + ' · ' + srcShort(info) + formTag(p, o);
-    }
-    // Moment que ainda está noutra conta: tem de ser mandado antes de este jogo fechar
-    const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(t => t.id === id && t.to === S.acc && t.before <= nd.date) : null;
-    if (tr) sub = '<span class="pill prov">Send from ' + esc(accLabel(tr.from)) + '</span> ' + sub;
+      if (st === 'fim') ps = '<span class="pill fim">Final</span> ' + esc(p.team) + ' ' + esc(opp(p.team, nd));
+      else if (st === 'jogo') ps = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Playing') + '</span> ' + md.objs.map((ob, k) => f0(md.info[pi][k].known) + (md.objs.length > 1 ? ' ' + esc(statShort(ob.stat)) : '')).join(' · ') + ' so far';
+      else if (st === 'jogo?') ps = '<span class="pill jogo">Playing</span> tap to enter the value';
+      else ps = (sb2 ? '' : '<span class="pill prov">New</span> ') + esc(p.team) + ' ' + esc(opp(p.team, nd));
+    } else ps = esc(p.team) + ' ' + esc(opp(p.team, nd)) + injTag(info) + b2bTag(info) + ' · ' + srcShort(info) + formTag(p, o);
+    // Moment que ainda está noutra conta: tem de ser mandado antes deste jogo
+    const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
+    if (tr) ps = '<span class="pill prov">Send from ' + esc(accLabel(tr.from)) + '</span> ' + ps;
     const stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
-    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + sub + '</div></div>' + pvHtml(objVals(md, pi, live)) + '</button></li>';
+    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div></div>' + pvHtml(objVals(md, pi, live)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
-  html.push('<div class="card"><div class="list-head"><h2>Lineup</h2>' + (isCur ? '<button class="switch" type="button" data-action="live-toggle" aria-pressed="' + live + '"><i></i>Live</button>' : '<span class="small muted">' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>') + '</div>' +
-    (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? (isCur ? 'This account doesn\'t play today: the Moments are worth more in the other accounts.' : 'This account doesn\'t play that day: the Moments are worth more in the other accounts.') : noneTxt) + '</div>') +
-    (allFinal && t ? '<div class="row small" style="display:block">Final total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '') +
-    (isCur && (live || gamesWindow(nd)) && d.lineup.length + ((d.live || {}).submitted || []).length && !d.noObjective ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn primary" type="button" data-action="rerun">Redo the run now</button></div>' : '') +
-    (live ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="live-fetch">Update live stats</button></div>'
-      : (isCur && d.lineup.length && !d.noObjective ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="alts">See 2 to 3 alternatives for today</button></div>' : '')) +
-    (isCur ? '<div class="foot"><button class="btn" type="button" data-action="day" data-date="' + nd.date + '">Adjust</button><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + nd.date + '">Close the day</button></div>'
-      : '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="day" data-date="' + nd.date + '">Adjust</button></div>') + '</div>');
+  html.push('<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2><span class="small muted">' + (live ? 'live points' : d.lineup.length ? d.lineup.length + ' of ' + md.size : '') + '</span></div>' +
+    (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') +
+    (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '') +
+    (bans.length ? '<div class="row small muted" style="display:block">Removed from this day: ' + bans.map(id => esc(lastName(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + nd.date + '">restore</button>').join(' · ') + '</div>' : '') + '</div>');
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
-  html.push(todayPlayersCard(r, md, nd, isCur), isCur ? buyTipsCard(2) : '');
-  if (isCur && d.lineup.length && !d.noObjective) html.push('<div class="card"><button class="cta-row row" type="button" data-action="sub" data-stab="hoje" data-sub="porque"><span><span class="t">Why this lineup?</span><span class="s" style="display:block">Odds, injuries, form and what each player adds today</span></span><span class="muted" aria-hidden="true">›</span></button></div>');
-  if (isCur && !live && tips.length) html.push('<p class="small muted" style="margin:0 4px">The lineup locks game by game. Turn on <b>Live</b> when the first game starts: the app locks whoever already played and suggests swaps for the remaining games.</p>');
+  html.push(todayPlayersCard(r, md, nd, isCur));
+  if (isCur) html.push(buyLine());
   el.innerHTML = html.join('');
+}
+// Ao vivo: liga-se sozinho quando o 1.º jogo do dia começa, com o lineup submetido (lido da blockchain, se já lá
+// estiver; senão o do plano). Prende quem já jogou, lê os pontos da ESPN de 2 em 2 minutos e refaz o resto da run.
+function ensureLive() {
+  const nd = S.result ? nextDay() : null; if (!nd || liveOn(nd.date)) return false;
+  const tip = firstTipOf(nd), d0 = view().days[0];
+  if (tip == null || Date.now() < tip || !d0 || d0.date !== nd.date) return false;
+  const cur = liveDoc(nd.date);
+  const lineup = cur && cur.lineup && cur.lineup.length ? cur.lineup : chainLineupToday(nd.date) || d0.lineup.slice();
+  if (!lineup.length) return false;
+  planPatch({ live: { [nd.date]: { active: true, lineup, players: (cur && cur.players) || {} } } });
+  S.liveAt = Date.now(); setTimeout(() => liveFetch(true), 300);
+  return true;
+}
+// a melhor compra, numa linha (as outras em Jogadores → Comprar)
+function buyLine() {
+  const A = S.autoBuy, key = autoBuyKey(); if (!key || !A || A.key !== key || !A.list.length) return '';
+  const t = buySummary(A, A.list[0]); if (!t.worth) return '';
+  const c = S.players.get(t.id) || {}, gain = t.byPrize ? '+' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + ' pp at ' + t.best.p.wins + ' wins' : '+' + f1(t.e1 - t.e0) + ' expected wins';
+  return '<div class="card"><button class="cta-row row" type="button" data-action="goto" data-tab="plantel" data-sub="comprar"><span><span class="t">Best buy: ' + esc(c.name || t.id) + '</span><span class="s" style="display:block">Moment Rare · ' + gain + '</span></span><span class="muted" aria-hidden="true">›</span></button></div>';
 }
 // ---- jogos de hoje ao vivo (placar da ESPN) ----
 function gamesWindow(nd) {
@@ -936,50 +986,45 @@ function gameRows(day, r, ids, B, lp, objs) {
       (mine.length ? '<span class="gm">' + mine.map(id => { const e = lp && lp[id], on = inLine.has(id); return (on ? '<b>' : '<span class="muted">') + esc(lastName(id)) + (e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : '') + (on ? '</b>' : '</span>'); }).join(' · ') + '</span>' : '') + '</li>';
   }).join('');
 }
-// Jogos de hoje: durante os jogos fica por cima do lineup, com o placar da ESPN; antes, fica por baixo, com as horas
+// Jogos do dia: durante os jogos ficam por cima do lineup, com o placar da ESPN; antes, por baixo, com as horas
 function liveGamesCard(r, md, nd, ids, live, above) {
   if (!(nd.games || []).length) return '';
   const inWin = gamesWindow(nd);
   if (inWin !== !!above) return '';
-  if (inWin && (!S.board || S.board.date !== nd.date)) { setTimeout(() => refreshBoard(nd.date), 0); return '<div class="card"><div class="list-head"><h2>Today\'s games</h2></div><div class="row small muted" style="display:block">Reading the scoreboard…</div></div>'; }
+  const ttl = (nd.date === (nextDay() || {}).date ? 'Today\'s games' : 'Games that day') + ' ' + helpBtn('jogosdia');
+  if (inWin && (!S.board || S.board.date !== nd.date)) { setTimeout(() => refreshBoard(nd.date), 0); return '<div class="card"><div class="list-head"><h2>' + ttl + '</h2></div><div class="row small muted" style="display:block">Reading the scoreboard…</div></div>'; }
   const B = inWin ? (S.board.games || []) : null, o = nd.objectives || [], lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
-  const n = (nd.games || []).length, ttl = nd.date === (nextDay() || {}).date ? 'Today\'s games' : 'Games that day';
-  return '<div class="card"><div class="list-head"><h2>' + ttl + '</h2><span class="small muted">' + (inWin ? (S.board.err ? 'no connection to ESPN' : 'updates every minute') : plural(n, 'game', 'games')) + '</span></div><ul class="list">' + gameRows(nd, r, ids, B, lp, o) + '</ul>' +
-    (inWin && live && o.filter(x => x && x.stat).length > 1 ? '<div class="row small muted" style="display:block">Values: ' + o.filter(x => x && x.stat).map(x => esc(statShort(x.stat))).join('/') + '.</div>' : '') +
-    (inWin && !live ? '<div class="row small muted" style="display:block">Turn on <b>Live</b> to see your players\' stats here and the suggested swaps.</div>' : '') +
-    (!inWin ? '<div class="row small muted" style="display:block">Local time. Your players in each game; the lineup ones in bold.</div>' : '') + '</div>';
+  const many = o.filter(x => x && x.stat).length > 1;
+  return '<div class="card"><div class="list-head"><h2>' + ttl + '</h2><span class="small muted">' + (inWin ? (S.board.err ? 'no connection to ESPN' : 'live') : plural(nd.games.length, 'game', 'games')) + (inWin && live && many ? ' · ' + o.filter(x => x && x.stat).map(x => esc(statShort(x.stat))).join('/') : '') + '</span></div><ul class="list">' + gameRows(nd, r, ids, B, lp, o) + '</ul></div>';
 }
-// O que há para fazer hoje: Moments a mandar entre contas, lesões no lineup, dia por fechar, jogo a jogo
+// O que há para fazer hoje: Moments a mandar entre contas, lesões no lineup, resultados por registar
 function todoCard(r, v, d, md, nd, live, tips) {
   const items = [], btn = (attrs, html, sub) => '<li><button class="row" type="button" ' + attrs + '><div style="min-width:0"><div class="todo-t">' + html + '</div>' + (sub ? '<div class="ps">' + sub + '</div>' : '') + '</div><span class="muted" aria-hidden="true">›</span></button></li>';
-  const today = todayET();
-  if (nd.date < today) items.push(btn('data-action="result-sheet" data-date="' + nd.date + '"', 'Record the result of day ' + (nd.idx + 1), dWeek(nd.date) + ', ' + dShort(nd.date) + ' is over. With your Top Shot username in the profile and the run linked, it comes in by itself from the blockchain.'));
+  const today = todayET(), at = (day, team) => { const tt = team ? FB.tipTime(day, team) : null; return tt ? 'by ' + hm(new Date(tt).toISOString()) : 'before his game'; };
+  if (nd.date < today) items.push(btn('data-action="result-sheet" data-date="' + nd.date + '"', 'Record the result of day ' + (nd.idx + 1), 'Comes in automatically from the blockchain if your Top Shot username is in your profile.'));
   if (S.multi) {
-    if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Read the wallets of your accounts', 'So the plan knows which account holds each Moment and tells you what to send where.'));
+    if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Read the wallets of your accounts', 'To know what to send to each account.'));
     else {
       const due = S.multi.transfers.filter(t => t.before <= nd.date), later = S.multi.transfers.filter(t => t.before > nd.date);
-      due.forEach(t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team, tt = team ? FB.tipTime(day, team) : null;
-        items.push(btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', 'Send <b>' + esc(nameOf(t.id)) + '</b> from ' + esc(accLabel(t.from)) + ' to <b>' + esc(accLabel(t.to)) + '</b>', 'Before ' + (tt ? '' + hm(new Date(tt).toISOString()) : 'his game') + '. In Top Shot, gift the Moment to the other account; then read the wallets again.')); });
-      if (later.length) items.push('<li class="row small muted" style="display:block">Later: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' to ' + esc(accLabel(t.to)) + ' by ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' and another ' + (later.length - 3) : '') + '.</li>');
+      due.forEach(t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team;
+        items.push(btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', 'Send <b>' + esc(nameOf(t.id)) + '</b> to <b>' + esc(accLabel(t.to)) + '</b>', 'From ' + esc(accLabel(t.from)) + ', ' + at(day, team) + '. On Top Shot: gift the Moment to the other account.')); });
+      if (later.length) items.push('<li class="row small muted" style="display:block">Later: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' → ' + esc(accLabel(t.to)) + ' by ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' and another ' + (later.length - 3) : '') + '.</li>');
     }
   }
   d.lineup.forEach(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], j = info.injury;
-    if (j && !j.ignored && j.status && !info.liveState) { const tt = FB.tipTime(nd, r.model.players[pi].team);
-      items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b> is ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ': ' + pct(info.pPlay) + ' to play', 'Confirm before the game' + (tt ? ' at ' + hm(new Date(tt).toISOString()) : '') + '. If he won\'t play, take him out of the lineup in Top Shot.')); } });
-  if (!live && tips.length && Date.now() >= Date.parse(tips[0]) && nd.date >= today) items.push(btn('data-action="live-toggle"', 'Turn on Live', 'The first game has started: the app locks whoever already played and suggests swaps for the remaining games.'));
+    if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(info.pPlay) + ' to play', 'Check ' + at(nd, r.model.players[pi].team) + '; if he’s not playing, remove him on Top Shot.')); });
   // run a sério: dia que acabou há mais de 12 h e continua sem resultado (a blockchain já o devia ter trazido)
   const run = curRun();
   if (run && !run.fictitious) {
     const lim = new Date(Date.parse(today + 'T12:00:00Z') - 3 * 864e5).toISOString().slice(0, 10);
     skippedDays(S.acc).filter(x => x.date >= lim && (x.objectives || []).some(o => o && o.stat) && Date.now() > dayEnd(x) + 12 * 3600e3).forEach(x => {
-      const i = S.days.indexOf(x);
-      items.push(btn('data-action="result-sheet" data-date="' + x.date + '"', 'Day ' + (i + 1) + ' without a result', dWeek(x.date) + ', ' + dShort(x.date) + ' is over and the result didn\'t come from the blockchain. If you played, record it; the plan no longer counts on that day.'));
+      items.push(btn('data-action="result-sheet" data-date="' + x.date + '"', 'Day ' + (S.days.indexOf(x) + 1) + ' without a result', 'It didn’t come from the blockchain. If you played, record it.'));
     });
   }
   if (!items.length) return '';
   return '<div class="card todo"><div class="list-head"><h2>To do</h2><span class="small muted">' + items.filter(x => x.indexOf('<button') >= 0).length + '</span></div><ul class="list">' + items.join('') + '</ul></div>';
 }
-// Lesões e forma de quem joga neste dia, e as lesões do plantel na run toda (o resumo; o resto em Jogadores)
+// Lesões e forma de quem joga neste dia, e as lesões do plantel na run toda (o resto em Jogadores)
 function todayPlayersCard(r, md, nd, isCur) {
   const o = (nd.objectives || [])[0]; if (!o || !md.teams.size) return '';
   const mine = r.model.players.map((p, pi) => ({ p, pi, info: md.info[pi] && md.info[pi][0] })).filter(x => x.info && md.teams.has(x.p.team));
@@ -990,14 +1035,14 @@ function todayPlayersCard(r, md, nd, isCur) {
   const fm = mine.map(x => ({ x, fi: FB.formInfo(x.p, o.stat) })).filter(z => z.fi && (z.fi.n5 || 0) >= 3 && z.fi.season && z.fi.l5 != null).map(z => Object.assign(z, { d: (z.fi.l5 - z.fi.season) / Math.max(1, Math.abs(z.fi.season)) }));
   const hot = fm.filter(z => z.d >= 0.08).sort((a, b) => b.d - a.d).slice(0, 3), cold = fm.filter(z => z.d <= -0.08).sort((a, b) => a.d - b.d).slice(0, 3);
   const pcs = z => ' <span class="' + (z.d > 0 ? 'up' : 'down') + '">' + (z.d > 0 ? '+' : '−') + Math.abs(Math.round(z.d * 100)) + '%</span>';
-  const lines = [['Injuries', inj.length ? inj.map(x => link(x) + ' ' + esc((INJ_LABEL[x.info.injury.rec.status] || '').toLowerCase()) + (x.info.injury.status === 'fora' ? '' : ' (' + pct(x.info.pPlay) + ')')).join(' · ') : (S.injOk ? (isCur === false ? 'nobody from your roster who plays that day' : 'nobody in your roster who plays today') : 'report not connected yet')]];
+  const lines = [['Injuries', inj.length ? inj.map(x => link(x) + ' ' + esc((INJ_LABEL[x.info.injury.rec.status] || '').toLowerCase()) + (x.info.injury.status === 'fora' ? '' : ' (' + pct(x.info.pPlay) + ')')).join(' · ') : (S.injOk ? 'nobody' : 'report not connected yet')]];
   // na run toda: quem do plantel está no relatório e em que dias que faltam isso pesa
-  if (S.injOk) lines.push(['In the run', runInj.length ? runInj.map(x => '<button class="lnk" type="button" data-action="pl-sheet" data-id="' + esc(x.p.id) + '">' + esc(lastName(x.p.id)) + '</button> ' + esc((INJ_LABEL[x.rec.status] || '').toLowerCase()) +
-    (x.hits.length ? ': ' + (x.hits.length > 1 ? 'days ' : 'day ') + x.hits.map(h => h.n + (h.out ? '' : ' (' + pct(h.p) + ')')).join(', ') : ': no longer affects the days left') + (x.p.injIgnore ? ' (ignored)' : '')).join(' · ') : 'nobody from your roster in the report']);
-  if (fm.length) { lines.push(['In form', hot.length ? hot.map(z => link(z.x) + pcs(z)).join(' · ') : 'nobody above their season']); lines.push(['Out of form', cold.length ? cold.map(z => link(z.x) + pcs(z)).join(' · ') : 'nobody below their season']); }
-  return '<div class="card"><div class="list-head"><h2>Injuries and form</h2><span class="small muted">' + plural(mine.length, 'of your players plays', 'of your players play') + '</span></div>' +
-    lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') +
-    (fm.length ? '<div class="row small muted" style="display:block">Form: last 5 games versus the season, in ' + esc(statShort(o.stat)) + '. Everything in <button class="lnk" type="button" data-action="goto" data-tab="plantel" data-sub="forma">Players → Form</button>.</div>' : '') + '</div>';
+  if (S.injOk && runInj.length) lines.push(['In the run', runInj.map(x => '<button class="lnk" type="button" data-action="pl-sheet" data-id="' + esc(x.p.id) + '">' + esc(lastName(x.p.id)) + '</button> ' + esc((INJ_LABEL[x.rec.status] || '').toLowerCase()) +
+    (x.hits.length ? ': ' + (x.hits.length > 1 ? 'days ' : 'day ') + x.hits.map(h => h.n + (h.out ? '' : ' (' + pct(h.p) + ')')).join(', ') : ': no longer matters') + (x.p.injIgnore ? ' (ignored)' : '')).join(' · ')]);
+  if (hot.length) lines.push(['In form', hot.map(z => link(z.x) + pcs(z)).join(' · ')]);
+  if (cold.length) lines.push(['Out of form', cold.map(z => link(z.x) + pcs(z)).join(' · ')]);
+  return '<div class="card"><div class="list-head"><h2>Injuries and form ' + helpBtn('lesoesforma') + '</h2><span class="small muted">' + plural(mine.length, 'of your players plays', 'of your players play') + '</span></div>' +
+    lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') + '</div>';
 }
 // lesões do plantel na run toda: para cada jogador no relatório, os dias que faltam em que conta (fora ou com X% de jogar)
 function injuryHits(r) {
@@ -1007,34 +1052,22 @@ function injuryHits(r) {
     return { p, rec, hits };
   });
 }
-// Run: lesões do plantel e os dias que afetam
-function runInjuriesCard(r) {
-  const rows = injuryHits(r).map(x => Object.assign(x, { hits: x.p.injIgnore ? [] : x.hits.map(h => h.n + (h.out ? ' (out)' : ' (' + pct(h.p) + ')')) }));
-  if (!rows.length) return '';
-  return '<div class="card inj-list"><div class="list-head"><h2>Injuries in your roster</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div><ul class="list">' + rows.map(x =>
-    '<li><button class="row" type="button" data-action="pl-sheet" data-id="' + esc(x.p.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(x.p.name) + '</span><span class="pill ' + INJ_PILL[x.rec.status] + '">' + esc(INJ_LABEL[x.rec.status]) + '</span>' + (x.p.injIgnore ? '<span class="badge">ignored</span>' : '') + '</div><div class="ps">' + (x.rec.detail ? esc(x.rec.detail) + ' · ' : '') + (x.rec.return_date ? 'expected back ' + dShort(x.rec.return_date) + ' · ' : '') + (x.hits.length ? 'in the plan it counts on days ' + x.hits.join(', ') : 'no longer affects the remaining days') + '</div></div></button></li>').join('') + '</ul></div>';
-}
-// De onde vem o lineup de hoje: odds, lesões, médias, run; e quanto pesa cada jogador (e porque ficam outros de fora)
+// De onde vem o lineup do dia (odds, lesões, médias, run) e quanto pesa cada jogador (e porque ficam outros de fora)
 function basisDayCard(r, v, d, md, nd) {
   if (!d.lineup.length || d.noObjective) return '';
-  const date = nd.date, od = S.odds[date], cur = date === (nextDay() || {}).date;
+  const date = nd.date, od = S.odds[date];
   const rows = d.lineup.map(id => { const pi = r.model.pIndex.get(id); return { id, pi, info: md.info[pi][0] }; });
   const withOdds = rows.filter(x => ['odds', 'proxy', 'misto'].includes(x.info.src)).length;
   const hasOdds = od && Object.keys(od.players || {}).length;
   const injured = rows.filter(x => x.info.injury && !x.info.injury.ignored && x.info.injury.status);
+  const bb = rows.filter(x => x.info.b2b);
   const lines = [
-    ['Odds', hasOdds ? 'lines for <b>' + withOdds + ' of ' + rows.length + '</b> of the lineup · ' + esc(od.source || 'bookmakers') + ', ' + esc(ago(od.updated_at)) + (withOdds < rows.length ? '. Whoever has no line uses the averages.' : '.') : 'no odds for this day yet: uses the averages. When they arrive (in the afternoon, Lisbon time), the plan is redone with them.'],
-    ['Injuries', S.injOk ? (injured.length ? injured.map(x => '<b>' + esc(lastName(x.id)) + '</b> ' + esc((INJ_LABEL[x.info.injury.rec.status] || '').toLowerCase()) + ' → ' + pct(x.info.pPlay) + ' to play').join(' · ') : 'nobody in the lineup is on the report') + (S.injAt ? ' · ESPN, ' + esc(ago(S.injAt)) : '') : 'the report is not connected yet (the new SQL or the "Lesões" task is missing).'],
-    ['Averages', 'season blended with the last 10 and 5 games (form ' + esc(formName().toLowerCase()) + ') and adjusted to the opponent (at most ±10%); only for those without odds.'],
-    ['Back-to-back', (() => {
-      const bb = rows.filter(x => x.info.b2b); if (!bb.length) return 'nobody in the lineup played yesterday.';
-      const noOdds = bb.filter(x => !['odds', 'proxy', 'misto'].includes(x.info.src));
-      return bb.map(x => '<b>' + esc(lastName(x.id)) + '</b>').join(', ') + (bb.length > 1 ? ' played' : ' played') + ' yesterday' +
-        (!b2bOn ? ' (adjustment turned off in Preferences).' : !noOdds.length ? ': the odds already account for fatigue.' : ': ' + (noOdds.length < bb.length ? noOdds.map(x => esc(lastName(x.id))).join(', ') + ' ' + (noOdds.length > 1 ? 'don\'t have' : 'doesn\'t have') + ' odds and ' : 'without odds, ') + 'the plan counts them' + (noOdds.length > 1 ? '' : '') + ' a bit less (−3%, or what ' + (noOdds.length > 1 ? 'they did' : 'they did') + ' last season in those games).');
-    })()],
-    ['Run', r.prizes.length ? 'the lineup is chosen with the prizes in mind (' + r.prizes.map((p, i) => p.wins + 'V ' + pct(v.prizeProbs[i])).join(' · ') + '), so it can save players for days when they are worth more.' : 'the lineup is chosen to get the most wins in the whole run, not just today.'],
+    ['Odds', hasOdds ? withOdds + ' of ' + rows.length + ' in the lineup · ' + esc(ago(od.updated_at)) : 'none yet (they arrive in the afternoon): using averages'],
+    ['Injuries', S.injOk ? (injured.length ? injured.map(x => '<b>' + esc(lastName(x.id)) + '</b> ' + pct(x.info.pPlay) + ' to play').join(' · ') : 'nobody in the lineup') : 'report not connected yet'],
+    ['Back-to-back', bb.length ? bb.map(x => '<b>' + esc(lastName(x.id)) + '</b>').join(', ') + ' played yesterday' + (!b2bOn ? ' (no adjustment)' : '') : 'nobody played yesterday'],
+    ['Run', r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + pct(v.prizeProbs[i])).join(' · ') : 'the most wins over the whole run'],
   ];
-  // sem cada jogador do lineup, quanto cai a vitória de hoje (entra o melhor que sobra com usos)
+  // sem cada jogador do lineup, quanto cai a vitória do dia (entra o melhor que sobra com usos)
   const inSet = new Set(d.lineup), bench = md.elig.filter(pi => !inSet.has(r.model.players[pi].id));
   const withUses = bench.filter(pi => (r.model.uses[pi] || 0) > 0), P = d.P;
   const why = rows.map(x => {
@@ -1049,43 +1082,36 @@ function basisDayCard(r, v, d, md, nd) {
     const id = r.model.players[pi].id, info = md.info[pi][0], later = v.days.filter(x => x.date !== date && x.lineup.includes(id));
     let swapP = P, swapOut = null;
     d.lineup.forEach(y => { const q2 = lineupP(md, d.lineup.filter(z => z !== y).concat([id])); if (q2 > swapP + 1e-12) { swapP = q2; swapOut = y; } });
-    const reason = !(r.model.uses[pi] > 0) ? 'has no uses left' : later.length ? 'saved for ' + (later.length > 1 ? 'days ' : 'day ') + later.map(x => x.idx + 1).join(', ') : info.pPlay < 1 ? 'only ' + pct(info.pPlay) + ' to play' : cur ? 'produces less today than those in the lineup' : 'is worth less that day than the ones in the lineup';
+    const reason = !(r.model.uses[pi] > 0) ? 'no uses' : later.length ? 'saved for ' + (later.length > 1 ? 'days ' : 'day ') + later.map(x => x.idx + 1).join(', ') : info.pPlay < 1 ? pct(info.pPlay) + ' to play' : 'worth less';
     return { id, info, reason, swapP, swapOut };
   });
   const pp = x => Math.round(x * 100), signed = n => (n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0');
-  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div><div class="pv"><div class="v num">' + val + '</div><div class="u">' + (cur ? 'pp today' : 'pp that day') + '</div></div></button></li>';
-  return '<div class="card basis-day"><div class="list-head"><h2>What it is based on</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div>' +
+  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div><div class="pv"><div class="v num">' + val + '</div><div class="u">pp</div></div></button></li>';
+  return '<div class="card basis-day"><div class="list-head"><h2>What it’s based on ' + helpBtn('porque') + '</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div>' +
     lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') +
-    '<div class="list-head sub-head"><h3>Why these players</h3></div><ul class="list">' +
-    why.map(w => row(w.id, esc(nameOf(w.id)), esc(srcShort(w.info)) + (w.info.pPlay < 1 ? ' · ' + pct(w.info.pPlay) + ' to play' : '') + ' · without him: ' + pct(P) + ' → ' + pct(w.without) + (w.sub ? ' (in would come ' + esc(lastName(w.sub)) + ')' : '') + (pp(w.without) > pp(P) ? (cur ? ' · plays today to save others for days when they produce more' : ' · plays that day to save others for days when they are worth more') : ''), signed(pp(P) - pp(w.without)))).join('') +
-    outs.map(x => row(x.id, '<span class="muted">Left out:</span> ' + esc(nameOf(x.id)), esc(x.reason) + (x.swapOut ? ' · instead of ' + esc(lastName(x.swapOut)) + ': ' + pct(P) + ' → ' + pct(x.swapP) : ''), signed(x.swapOut ? pp(x.swapP) - pp(P) : 0))).join('') +
-    '</ul><div class="row small muted" style="display:block">' + (cur ? 'The number is how much each player adds to today\'s win, in percentage points (pp). Anyone left out even though he would raise today is being saved because he is worth more on another day of the run. Tap a player to see his numbers.'
-      : 'The number is how much each player adds to this day\'s win, in percentage points (pp). Anyone left out even though he would raise this day is being saved because he is worth more on another day of the run. It is a forecast: it changes with the odds and injuries until then.') + '</div></div>';
+    '<div class="list-head sub-head"><h3>What each one is worth</h3></div><ul class="list">' +
+    why.map(w => row(w.id, esc(nameOf(w.id)), esc(srcShort(w.info)) + (w.info.pPlay < 1 ? ' · ' + pct(w.info.pPlay) + ' to play' : '') + ' · without him ' + pct(w.without) + (w.sub ? ' (in: ' + esc(lastName(w.sub)) + ')' : '') + (pp(w.without) > pp(P) ? ' · saves others' : ''), signed(pp(P) - pp(w.without)))).join('') +
+    outs.map(x => row(x.id, '<span class="muted">Out:</span> ' + esc(nameOf(x.id)), esc(x.reason) + (x.swapOut ? ' · for ' + esc(lastName(x.swapOut)) + ': ' + pct(x.swapP) : ''), signed(x.swapOut ? pp(x.swapP) - pp(P) : 0))).join('') + '</ul></div>';
 }
-// várias contas: probabilidade de vitória de cada conta hoje
-function groupLine(nd, isCur) {
+// várias contas: vitória de cada conta neste dia
+function groupLine(nd) {
   const g = S.multi;
-  return '<div class="impact"><div><b>Joint plan for the ' + g.keys.length + ' accounts.</b></div><div>' + (isCur === false ? 'That day: ' : 'Today: ') + g.keys.map(k => { const dd = g.byKey[k].normal.days.find(x => x.date === nd.date); return esc(accLabel(k)) + ' ' + (dd ? (dd.lineup.length ? '<b class="num">' + pct(dd.P) + '</b>' : 'doesn\'t play') : 'day closed'); }).join(' · ') + '</div></div>';
+  return '<div class="impact"><div>' + g.keys.map(k => { const dd = g.byKey[k].normal.days.find(x => x.date === nd.date); return esc(accLabel(k)) + ' ' + (dd ? (dd.lineup.length ? '<b class="num">' + pct(dd.P) + '</b>' : 'doesn\'t play') : 'closed'); }).join(' · ') + '</div></div>';
 }
-// Moments a mandar de uma conta para outra (onlyNow: só os que têm de mudar antes do próximo dia)
-function transfersCard(onlyNow) {
+// Moments a mandar de uma conta para outra (Run → Contas)
+function transfersCard() {
   const g = S.multi; if (!g) return '';
-  if (!(S.profile || {}).collection) return '<div class="note info">Read the wallets (Players → Collection) so the plan knows which account holds each Moment and tells you what to send where.</div>';
-  const nd = nextDay(), today = nd ? nd.date : null, list = g.transfers;
-  const now = list.filter(t => !today || t.before <= today), later = list.filter(t => today && t.before > today);
+  if (!(S.profile || {}).collection) return '<div class="note info">Read the wallets (Players → Collection) to know what to send to each account.</div>';
+  const list = g.transfers;
   const row = t => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(t.id)) + '</span></div><div class="ps">' + esc(accLabel(t.from)) + ' → <b>' + esc(accLabel(t.to)) + '</b> · before ' + dWeek(t.before) + ', ' + dShort(t.before) + '</div></div></li>';
-  const how = '<div class="row small muted">In Top Shot, gift the Moment to the other account. Then read the wallets again (Players → Collection) so the plan knows.</div>';
-  if (onlyNow) {
-    if (!now.length) return later.length ? '<p class="small muted" style="margin:0 4px">No Moments need to change account today. Next: ' + esc(nameOf(later[0].id)) + ' to ' + esc(accLabel(later[0].to)) + ' before ' + dShort(later[0].before) + '.</p>' : '';
-    return '<div class="card"><div class="list-head"><h2>Send before today</h2><span class="small muted">' + now.length + '</span></div><ul class="list">' + now.map(row).join('') + '</ul>' + how + '</div>';
-  }
-  return '<div class="card"><div class="list-head"><h2>Transfers</h2><span class="small muted">' + (list.length ? list.length + ' in the run' : 'none') + '</span></div>' + (list.length ? '<ul class="list">' + list.map(row).join('') + '</ul>' + how : '<div class="row small muted">Each account plays with the Moments it already has.</div>') + '</div>';
+  return '<div class="card"><div class="list-head"><h2>Transfers ' + helpBtn('transf') + '</h2><span class="small muted">' + (list.length ? list.length + ' in the run' : 'none') + '</span></div>' + (list.length ? '<ul class="list">' + list.map(row).join('') + '</ul>' : '<div class="row small muted">Each account plays with the Moments it has.</div>') + '</div>';
 }
-// ---- alternativas ao lineup de hoje (cada uma com o resto da run refeito) ----
+// ---- a run refeita com uma mudança ao plano (para as opções do dia e para fixar/tirar um jogador) ----
 function evalAlt(mod) {
   if (!S.multi) {
+    // como o plano que se vê (planRun: também experimenta tudo pelo dia e fica com o melhor), para as contas baterem certo
     const x = engineInputs('main'), plan = clone(x.plan); mod(plan);
-    const model = FB.buildModel(x.run, x.roster, x.odds, plan, engOpts()), res = FB.optimize(model);
+    const res = FB.planRun(x.run, x.roster, x.odds, plan, engOpts()).normal;
     return { res, total: res.objective };
   }
   const base = engineInputs('main');
@@ -1096,59 +1122,11 @@ function evalAlt(mod) {
 const altMods = {
   fix: (date, ids) => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = ids.slice(); plan.bans[date] = (plan.bans[date] || []).filter(x => !ids.includes(x)); },
   ban: (date, id) => plan => { plan.bans = plan.bans || {}; plan.bans[date] = (plan.bans[date] || []).concat([id]); if (plan.locks && plan.locks[date]) plan.locks[date] = plan.locks[date].filter(x => x !== id); },
+  clear: date => plan => { if (plan.locks) plan.locks[date] = []; if (plan.bans) plan.bans[date] = []; },
 };
-async function altSheet() {
-  const r = S.result, nd = nextDay(); if (!r || !nd) return;
-  const cur = view(), d0 = cur.days[0], baseTotal = S.multi ? S.multi.objective : cur.objective;
-  const lockedToday = ((curPlan().locks || {})[nd.date]) || [];
-  openSheet('<h3>Alternatives for today</h3><div class="small muted" id="altProg">Redoing the run plan for each alternative…</div>' + closeRow());
-  await new Promise(res => setTimeout(res, 30));
-  const seeds = FB.alternativeSeeds(r.model, cur), out = [], seen = new Set([[...d0.lineup].sort().join('|')]);
-  for (let k = 0; k < seeds.length; k++) {
-    if (!$('altProg')) return; // fechou a folha
-    $('altProg').textContent = 'Redoing the run plan for each alternative… ' + (k + 1) + ' of ' + seeds.length;
-    await new Promise(res => setTimeout(res, 20));
-    const sd = seeds[k];
-    const ids = sd.kind === 'allin' ? sd.lineupIdx.map(i => r.model.players[i].id) : null, banId = sd.kind === 'save' ? r.model.players[sd.player].id : null;
-    const mod = ids ? altMods.fix(nd.date, ids) : altMods.ban(nd.date, banId);
-    let ev; try { ev = evalAlt(mod); } catch (e) { console.warn(e); continue; }
-    const a0 = ev.res.days[0]; if (!a0 || a0.date !== nd.date) continue;
-    const key = [...a0.lineup].sort().join('|'); if (seen.has(key)) continue; seen.add(key);
-    out.push({ sd, ids: a0.lineup.slice(), banId, ev });
-  }
-  if (!$('altProg')) return;
-  out.sort((x, y) => y.ev.total - x.ev.total);
-  const top = out.slice(0, 3);
-  const arrow = (x, y, f) => { const a = f(x), c = f(y); return a + ' → <span class="' + (a === c ? '' : y > x ? 'up' : 'down') + '">' + c + '</span>'; };
-  const runLine = res => r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + arrow(cur.prizeProbs[i], res.prizeProbs[i], pct)).join(' · ') : arrow(r.wins + cur.expected, r.wins + res.expected, f1) + ' expected wins';
-  S.alts = top;
-  const cards = top.map((o, k) => {
-    const res = o.ev.res, a0 = res.days[0];
-    const title = o.sd.kind === 'allin' ? 'All in on today' : 'Save ' + esc(nameOf(o.banId)) + ' for later';
-    const later = o.banId ? res.days.filter(x => x.lineup.includes(o.banId)).map(x => x.idx + 1) : [];
-    const ins = a0.lineup.filter(id => !d0.lineup.includes(id)), outs = d0.lineup.filter(id => !a0.lineup.includes(id));
-    const why = o.sd.kind === 'allin' ? 'The strongest lineup for today, without thinking about the rest of the run.' : (later.length ? 'Kept for ' + (later.length > 1 ? 'days ' : 'day ') + later.join(', ') + '.' : 'He won\'t play again for this account in this run: his spot today is worth more to others.');
-    return '<div class="card panel"><div class="list-head" style="padding:0"><h2>' + (k + 1) + '. ' + title + '</h2>' + (o.ev.total >= baseTotal - 1e-9 ? '<span class="small up">worth the same or more</span>' : '') + '</div>' +
-      '<div class="small muted">' + why + '</div>' +
-      '<div class="small"><b>In:</b> ' + (ins.map(id => esc(nameOf(id))).join(', ') || '—') + ' · <b>Out:</b> ' + (outs.map(id => esc(nameOf(id))).join(', ') || '—') + '</div>' +
-      '<div class="small">Today: ' + arrow(d0.P, a0.P, pct) + '</div><div class="small">Run: ' + runLine(res) + '</div>' +
-      (o.ev.group ? '<div class="small muted">Accounts: ' + o.ev.group.keys.map(kk => esc(accLabel(kk)) + ' ' + (r.prizes.length ? r.prizes[0].wins + 'V ' + pct(o.ev.group.byKey[kk].normal.prizeProbs[0]) : '≈ ' + f1(o.ev.group.byKey[kk].wins + o.ev.group.byKey[kk].normal.expected))).join(' · ') + '</div>' : '') +
-      '<button class="btn primary" type="button" data-action="alt-use" data-i="' + k + '">Use this one and redo the rest of the run</button></div>';
-  }).join('');
-  openSheet('<h3>Alternatives for today</h3><div class="small muted">Suggested plan: win today <b>' + pct(d0.P) + '</b>' + (r.prizes.length ? ' · ' + r.prizes.map((p, i) => p.wins + 'V ' + pct(cur.prizeProbs[i])).join(' · ') : '') + '. Each alternative redoes the other days of the run with the uses that are left.</div>' +
-    (lockedToday.length ? '<button class="btn" type="button" data-action="alt-reset">Back to the suggested lineup (unlock today\'s locked players)</button>' : '') +
-    (cards || '<div class="note info">There are no different alternatives that make sense today: the suggested plan is already the best and strongest lineup.</div>') + closeRow());
-}
-function altUse(i) {
-  const o = (S.alts || [])[+i], nd = nextDay(); if (!o || !nd) return;
-  const plan = curPlan(); (o.ids ? altMods.fix(nd.date, o.ids) : altMods.ban(nd.date, o.banId))(plan);
-  closeSheet(); schedule(); saveMine();
-  toast('Today\'s lineup locked. The rest of the run was redone.');
-}
-// ---- Refazer a run agora (a meio do dia) ----
-// Com o que os primeiros jogadores já fizeram (jogo a jogo + pontos ao vivo da ESPN), refaz a run para cada escolha:
-// manter os que faltam, tirar um deles, poupar todos os que faltam, ou o que o plano sugere (pode trocar alguém).
-// Quem sai do lineup antes de o jogo dele começar não gasta o uso: fica para outro dia.
+// ---- Opções para hoje: o plano comparado com as alternativas, cada uma com a run toda refeita ----
+// Antes dos jogos: ir com tudo hoje ou guardar um dos que mais pesam. Durante os jogos (com os pontos que já
+// entraram): manter, tirar um ou poupar os que ainda não jogaram. Quem sai antes de o jogo começar não gasta o uso.
 function chainLineupToday(date) {
   const uid = S.session.user.id, rows = ((S.group || {}).chain || []).filter(c => c.user_id === uid && c.date === date && (c.account || 'main') === S.acc && (c.lineup || []).length);
   if (!rows.length) return null;
@@ -1156,152 +1134,135 @@ function chainLineupToday(date) {
   const ids = rows[0].lineup.map(n => byName.get(norm(n))).filter(Boolean);
   return ids.length ? ids : null;
 }
-// topo da folha (aparece logo, antes das contas): o que já está feito, a vitória de hoje se ficar tudo como está e o
-// que cada jogador do lineup já fez (ou vai fazer)
-function rerunHead(nd) {
+// topo das opções durante os jogos: feito até agora, vitória se ficar tudo como está, cada jogador do lineup submetido
+function liveHead(nd) {
   const r = S.result, v = view(), d0 = v.days[0], md = r.model.days[0];
   if (!d0 || d0.date !== nd.date) return { html: '<div class="note info">' + 'This day is already closed.' + '</div>', closed: true };
   const lv = liveDoc(nd.date) || {}, sub = (lv.lineup || []).filter(id => r.model.pIndex.has(id));
   const started = new Set(((d0.live || {}).locked) || []), rem = sub.filter(id => !started.has(id));
   const eligIds = md.elig.map(pi => r.model.players[pi].id), pSub = lineupP(md, sub);
-  const tip = id => { const team = (r.model.players[r.model.pIndex.get(id)] || {}).team, tt = team ? FB.tipTime(nd, team) : null; return tt ? hm(new Date(tt).toISOString()) : ''; };
   const done = d0.totals.map(t => f0(t.known) + '<small> of ' + t.target + (d0.totals.length > 1 ? ' ' + esc(statShort(t.stat)) : '') + '</small>').join(' · ');
   const rows = sub.map(id => {
     const pi = r.model.pIndex.get(id), info = (md.info[pi] || [])[0] || {}, st = info.liveState;
     const ps = st === 'fim' ? '<span class="pill fim">Final</span>'
       : st === 'jogo' || st === 'jogo?' ? '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Playing') + '</span> ' + md.objs.map((o, k) => f0((md.info[pi][k] || {}).known || 0) + (md.objs.length > 1 ? ' ' + esc(statShort(o.stat)) : '')).join(' · ') + ' so far'
-      : (tip(id) ? 'game at ' + tip(id) : '');
+      : (tipOf(nd, id) ? 'game at ' + tipOf(nd, id) : '');
     return '<li class="row"><div style="min-width:0"><div class="pn">' + (started.has(id) ? icoLock : '') + '<span class="nm">' + esc(nameOf(id)) + '</span></div><div class="ps">' + ps + '</div></div>' + pvHtml(objVals(md, pi, true)) + '</li>';
   }).join('');
-  const chips = '<div class="chips" role="group" aria-label="Submitted lineup">' + eligIds.map(id => '<button type="button" data-action="rerun-pick" data-id="' + esc(id) + '" aria-pressed="' + sub.includes(id) + '">' + (started.has(id) ? icoLock : '') + esc(lastName(id)) + '</button>').join('') + '</div>';
+  const chips = '<div class="chips" role="group" aria-label="Submitted lineup">' + eligIds.map(id => '<button type="button" data-action="op-pick" data-id="' + esc(id) + '" aria-pressed="' + sub.includes(id) + '">' + (started.has(id) ? icoLock : '') + esc(lastName(id)) + '</button>').join('') + '</div>';
   const html = '<div class="kv" style="grid-template-columns:1fr 1fr"><div><div class="label">Done so far</div><div class="v num">' + done + '</div></div><div><div class="label">Win today as it is</div><div class="v num c-' + tone(pSub) + '">' + pct(pSub) + '</div></div></div>' +
     (rows ? '<ul class="list card">' + rows + '</ul>' : '') +
-    '<div class="label">Your submitted lineup <span class="muted" style="font-weight:400">(tap to fix; ' + icoLock + ' = game already started)</span></div>' + chips +
-    (rem.length ? '' : '<div class="note info">All your players\' games have started: there is nothing left to change today.</div>');
+    '<div class="stack" style="gap:8px"><div class="label">Submitted lineup <span class="muted" style="font-weight:400">· tap to fix</span></div>' + chips + '</div>' +
+    (rem.length ? '' : '<div class="note info">All your players have started: nothing left to change today.</div>');
   return { html, sub, started, rem, eligIds, closed: false };
 }
-async function rerunSheet(fetchLive) {
+const tipOf = (day, id) => { const r = S.result, team = (r.model.players[r.model.pIndex.get(id)] || {}).team, tt = team ? FB.tipTime(day, team) : null; return tt ? hm(new Date(tt).toISOString()) : ''; };
+async function opcoesSheet(fetchLive) {
   const nd = nextDay(); if (!S.result || !nd) return;
-  const date = nd.date;
-  if (!liveOn(date)) { // liga o jogo a jogo com o lineup submetido (da blockchain, se já lá estiver; senão o do plano)
-    const cur = liveDoc(date), fromChain = chainLineupToday(date);
-    planPatch({ live: { [date]: { active: true, lineup: cur && cur.lineup && cur.lineup.length ? cur.lineup : fromChain || view().days[0].lineup.slice(), players: (cur && cur.players) || {} } } });
+  const date = nd.date, tip = firstTipOf(nd), during = tip != null && Date.now() >= tip;
+  if (during) ensureLive();
+  compute();
+  const r0 = S.result;
+  openSheet('<h3>Options for today ' + helpBtn('opcoes') + '</h3><div id="opHead" class="stack">' + (during ? liveHead(nd).html : '') + '</div><div id="opCards" class="stack"><div class="small muted" id="opProg">' + (during ? 'Reading the live points…' : 'Redoing the run…') + '</div></div>' + closeRow());
+  if (during && fetchLive !== false && gamesWindow(nd)) { try { await liveFetch(true); } catch (e) { /* sem rede: usa o que há */ } if (!$('opCards')) return; compute(); }
+  const r = S.result || r0, cur = view(), d0 = cur.days[0];
+  let opts = [];
+  if (during) {
+    const h = liveHead(nd); $('opHead').innerHTML = h.html;
+    if (h.closed || !h.rem.length) { $('opCards').innerHTML = ''; return; }
+    const { sub, started, rem, eligIds } = h;
+    // só os escolhidos jogam hoje (os outros ficam de fora, para ninguém entrar no lugar)
+    const keepOnly = keep => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = keep.filter(id => !started.has(id)); plan.bans[date] = eligIds.filter(id => !keep.includes(id) && !started.has(id)); };
+    opts.push({ title: 'What the plan suggests', mod: () => {}, plan: true });
+    opts.push({ title: rem.length > 1 ? 'Keep the ' + rem.length + ' still to play' : 'Keep ' + nameOf(rem[0]), mod: keepOnly(sub) });
+    if (rem.length > 1) rem.forEach(x => opts.push({ title: 'Remove ' + nameOf(x), mod: keepOnly(sub.filter(y => y !== x)) }));
+    opts.push({ title: rem.length > 1 ? 'Save the ' + rem.length + ' still to play' : 'Remove ' + nameOf(rem[0]), mod: keepOnly(sub.filter(y => started.has(y))) });
+  } else {
+    if (!d0 || d0.date !== date) { $('opCards').innerHTML = '<div class="note info">' + 'This day is already closed.' + '</div>'; return; }
+    const fixed = (((curPlan().locks || {})[date]) || []).length + (((curPlan().bans || {})[date]) || []).length;
+    opts.push({ title: 'The plan' + (fixed ? ' (with your choices)' : ''), mod: () => {}, plan: true, now: true });
+    if (fixed) opts.push({ title: 'The plan without your choices', mod: altMods.clear(date) });
+    FB.alternativeSeeds(r.model, cur).forEach(sd => {
+      if (sd.kind === 'allin') opts.push({ title: 'All in on today', mod: altMods.fix(date, sd.lineupIdx.map(i => r.model.players[i].id)) });
+      else { const id = r.model.players[sd.player].id; opts.push({ title: 'Save ' + nameOf(id), mod: altMods.ban(date, id) }); }
+    });
   }
-  compute();
-  // 1) logo: pontos e vitória de hoje com o que já se sabe; 2) pontos ao vivo; 3) a run refeita para cada escolha
-  openSheet('<h3>Redo the run now</h3><div id="rerunHead">' + rerunHead(nd).html + '</div><div id="rerunCards"><div class="small muted" id="rerunProg">Reading the live points…</div></div>' + closeRow());
-  if (fetchLive !== false && gamesWindow(nd)) { try { await liveFetch(true); } catch (e) { /* sem rede: usa o que há */ } }
-  if (!$('rerunCards')) return;
-  compute();
-  const h = rerunHead(nd); $('rerunHead').innerHTML = h.html;
-  if (h.closed || !h.rem.length) { $('rerunCards').innerHTML = ''; return; }
-  const r = S.result, { sub, started, rem, eligIds } = h;
-  // escolhas: cada uma é uma mudança ao plano de hoje, e a run é refeita com ela
-  const keepOnly = keep => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = keep.filter(id => !started.has(id)); plan.bans[date] = eligIds.filter(id => !keep.includes(id) && !started.has(id)); };
-  const opts = [{ title: 'What the plan suggests', note: 'it may swap someone who hasn\'t played yet for another player', mod: () => {} }];
-  opts.push({ title: rem.length > 1 ? 'Keep the ' + rem.length + ' still to play' : 'Keep ' + nameOf(rem[0]), mod: keepOnly(sub), keep: true });
-  if (rem.length > 1) rem.forEach(x => opts.push({ title: 'Remove ' + nameOf(x), mod: keepOnly(sub.filter(y => y !== x)), out: [x] }));
-  opts.push({ title: rem.length > 1 ? 'Save the ' + rem.length + ' still to play' : 'Remove ' + nameOf(rem[0]), mod: keepOnly(sub.filter(y => started.has(y))), out: rem.slice() });
-  const tip = id => { const team = (r.model.players[r.model.pIndex.get(id)] || {}).team, tt = team ? FB.tipTime(nd, team) : null; return tt ? hm(new Date(tt).toISOString()) : ''; };
-  const runTxt = x => (r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + pct(x.ev.res.prizeProbs[i])).join(' · ') : f1(r.wins + x.ev.res.expected) + ' expected wins');
-  const lkey = x => [...x.a0.lineup].sort().join('|');
+  // a run: vitórias esperadas no fim (é o que separa as escolhas quando os prémios estão longe) e os prémios
+  const prizeTxt = res => r.prizes.map((p, i) => p.wins + 'V ' + pct(res.prizeProbs[i])).join(' · ');
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const base = during ? ((liveDoc(date) || {}).lineup || []) : d0.lineup;
+  const lkey = x => [...x.a0.lineup].sort().join('|'), baseKey = [...base].sort().join('|');
+  const isNow = x => x.now || lkey(x) === baseKey; // é o que já tens (nada a mudar)
   const res = [];
-  // desenha as escolhas já feitas (a melhor só se marca no fim)
   const draw = busy => {
-    let list = res.slice();
-    const plano = list.find(x => x.mod === opts[0].mod);
-    if (plano && list.some(x => x !== plano && lkey(x) === lkey(plano))) list.splice(list.indexOf(plano), 1); // o plano sugere o mesmo que outra escolha: mostra só essa
-    list.sort((x, y) => y.ev.total - x.ev.total);
-    S.reruns = list;
+    // escolhas com o mesmo lineup hoje: fica a primeira (o plano antes das outras)
+    const list = []; const seen = new Set(); res.forEach(x => { const k = lkey(x); if (!seen.has(k)) { seen.add(k); list.push(x); } });
+    if (!busy) list.sort((x, y) => (y.ev.total - x.ev.total) || ((y.plan ? 1 : 0) - (x.plan ? 1 : 0)));
+    S.opcoes = list;
     const best = busy ? null : list[0];
-    $('rerunCards').innerHTML = (busy ? '<div class="small muted" id="rerunProg">Redoing the run for each choice… ' + res.length + ' of ' + opts.length + '</div>' : '') + list.map((x, k) => {
-      const ins = x.a0.lineup.filter(id => !sub.includes(id)), outs = sub.filter(id => !x.a0.lineup.includes(id));
-      const later = outs.map(id => { const ds = x.ev.res.days.filter(dd => dd.date !== date && dd.lineup.includes(id)).map(dd => dd.idx + 1); return esc(lastName(id)) + (ds.length ? ' is kept for ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : ' doesn\'t play again in the plan'); });
-      return '<div class="card panel"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + (x === best ? '<span class="small up">best for the run</span>' : '<span class="small muted">' + (best && x.ev.total >= best.ev.total - 1e-9 ? 'same' : '') + '</span>') + '</div>' +
-        (x.note ? '<div class="small muted">' + esc(x.note) + '</div>' : '') +
-        ((ins.length || outs.length) ? '<div class="small">' + (outs.length ? '<b>Out:</b> ' + outs.map(id => esc(nameOf(id)) + (tip(id) ? ' (game at ' + tip(id) + ')' : '')).join(', ') : '') + (ins.length ? (outs.length ? ' · ' : '') + '<b>In:</b> ' + ins.map(id => esc(nameOf(id))).join(', ') : '') + '</div>' : '<div class="small">The lineup you submitted stays.</div>') +
-        '<div class="small">Today: <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run: ' + runTxt(x) + '</div>' +
-        (later.length ? '<div class="small muted">' + later.join(' · ') + '.</div>' : '') +
-        '<button class="btn' + (x === best ? ' primary' : '') + '" type="button" data-action="rerun-use" data-i="' + k + '">Choose this</button></div>';
-    }).join('') + (busy ? '' : list.length ? '<div class="small muted">Anyone taken out before his game starts doesn\'t spend the use: it stays for another day.</div>' : '<div class="note info">Couldn\'t redo the run.</div>');
+    $('opCards').innerHTML = (busy ? '<div class="small muted" id="opProg">Redoing the run… ' + res.length + ' of ' + opts.length + '</div>' : '') + list.map((x, k) => {
+      const ins = x.a0.lineup.filter(id => !base.includes(id)), outs = base.filter(id => !x.a0.lineup.includes(id));
+      const later = outs.map(id => { const ds = x.ev.res.days.filter(dd => dd.date !== date && dd.lineup.includes(id)).map(dd => dd.idx + 1); return ds.length ? esc(lastName(id)) + ' is kept for ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : ''; }).filter(Boolean);
+      const tag = x === best ? '<span class="small up">the best</span>' : isNow(x) ? '<span class="small muted">what you have</span>' : '';
+      return '<div class="card panel op-card' + (x === best ? ' best' : '') + '"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + tag + '</div>' +
+        '<div class="small">Today <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run ≈ <b class="num">' + f1(r.wins + x.ev.res.expected) + '</b> wins</div>' +
+        (r.prizes.length ? '<div class="small muted">Prizes: ' + prizeTxt(x.ev.res) + '</div>' : '') +
+        ((ins.length || outs.length) ? '<div class="small muted">' + cap([outs.length ? 'out: ' + outs.map(id => esc(lastName(id)) + (during && tipOf(nd, id) ? ' (' + tipOf(nd, id) + ')' : '')).join(', ') : '', ins.length ? 'in: ' + ins.map(id => esc(lastName(id))).join(', ') : ''].filter(Boolean).join(' · ')) + (later.length ? '. ' + later.join(' · ') : '') + '.</div>' : '') +
+        (isNow(x) ? '' : '<button class="btn' + (x === best ? ' primary' : '') + '" type="button" data-action="op-use" data-i="' + k + '">Choose</button>') + '</div>';
+    }).join('') + (busy || list.length ? '' : '<div class="note info">Couldn\'t redo the run.</div>');
   };
   draw(true);
   for (let k = 0; k < opts.length; k++) {
     await new Promise(ok => setTimeout(ok, 30));
-    if (!$('rerunCards')) return; // fechou a folha
+    if (!$('opCards')) return; // fechou a folha
     try { const ev = evalAlt(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); } catch (e) { console.warn(e); }
     draw(k < opts.length - 1);
   }
 }
-function rerunPick(id) {
+// corrigir o lineup submetido (durante os jogos)
+function opPick(id) {
   const nd = nextDay(); if (!nd) return;
   const cur = (liveDoc(nd.date) || {}).lineup || [], size = (S.result.model.days[0] || {}).size || 5;
-  let next = cur.includes(id) ? cur.filter(x => x !== id) : cur.concat([id]);
-  if (next.length > size) { toast('The lineup has at most ' + size + ' players.'); return; }
+  const next = cur.includes(id) ? cur.filter(x => x !== id) : cur.concat([id]);
+  if (next.length > size) { toast('At most ' + size + ' players.'); return; }
   planPatch({ live: { [nd.date]: { lineup: next } } });
-  rerunSheet(true);
+  opcoesSheet(true);
 }
-function rerunUse(i) {
-  const x = (S.reruns || [])[+i], nd = nextDay(); if (!x || !nd) return;
+function opUse(i) {
+  const x = (S.opcoes || [])[+i], nd = nextDay(); if (!x || !nd) return;
+  const during = liveOn(nd.date), base = during ? ((liveDoc(nd.date) || {}).lineup || []) : view().days[0].lineup;
+  const outs = base.filter(id => !x.a0.lineup.includes(id)), ins = x.a0.lineup.filter(id => !base.includes(id));
   const plan = curPlan(); x.mod(plan);
-  const outs = ((liveDoc(nd.date) || {}).lineup || []).filter(id => !x.a0.lineup.includes(id)), ins = x.a0.lineup.filter(id => !((liveDoc(nd.date) || {}).lineup || []).includes(id));
+  // durante os jogos, a escolha passa a ser o lineup submetido (faz a mesma mudança no Top Shot)
+  if (during) { plan.live = plan.live || {}; plan.live[nd.date] = Object.assign({}, plan.live[nd.date], { lineup: x.a0.lineup.slice() }); }
   closeSheet(); schedule(); saveMine();
-  toast(outs.length || ins.length ? 'On Top Shot: ' + (outs.length ? 'take out ' + outs.map(lastName).join(', ') : '') + (ins.length ? (outs.length ? ' and ' : '') + 'put in ' + ins.map(lastName).join(', ') : '') + ' before their game. Then tap “I made the swap”.' : 'The lineup you submitted stays. The rest of the run was redone.');
-}
-function impactHtml(r) {
-  const n0 = r.normal.days[0], a0 = r.allIn ? r.allIn.days[0] : n0;
-  const same = JSON.stringify([...n0.lineup].sort()) === JSON.stringify([...a0.lineup].sort());
-  if (same) return '<div class="impact">The run plan already uses the strongest lineup today. Going all in costs nothing.</div>';
-  const arrow = (x, y, f) => { const up = y > x + 1e-9; return f(x) + ' → <span class="' + (up ? 'up' : y < x - 1e-9 ? 'down' : '') + '">' + f(y) + '</span>'; };
-  const lines = ['<div><b>All in on today:</b> win today ' + arrow(n0.P, a0.P, pct) + '</div>'];
-  if (r.prizes.length) lines.push('<div>Run: ' + r.prizes.map((p, i) => p.wins + ' wins ' + arrow(r.normal.prizeProbs[i], r.allIn.prizeProbs[i], pct)).join(' · ') + '</div>');
-  else lines.push('<div>Run: ' + arrow(r.normal.expected - n0.P, r.allIn.expected - a0.P, f1) + ' expected wins on the other days</div>');
-  return '<div class="impact">' + lines.join('') + '</div>';
+  toast(during && (outs.length || ins.length) ? 'On Top Shot: ' + [outs.length ? 'take out ' + outs.map(lastName).join(', ') : '', ins.length ? 'put in ' + ins.map(lastName).join(', ') : ''].filter(Boolean).join(' and ') + ' before the game.' : 'Done. The rest of the run was redone.');
 }
 
 // ---- Run ----
 function renderRun() {
   const el = $('tab-run');
   if (!guard(el, true)) return;
-  const r = S.result, v = view(), days = S.days, sub = subOf('run'), html = [subBar('run')];
+  const r = S.result, v = view(), sub = subOf('run'), html = [subBar('run')];
   if (sub === 'contas' && S.multi) {
     const g = S.multi, P = mainResult().prizes;
-    html.push('<div class="card"><div class="list-head"><h2>Your accounts</h2><span class="small muted">joint plan</span></div><ul class="list">' + g.keys.map(k => { const rk = g.byKey[k], vk = rk.normal;
-      return '<li><button class="row" type="button" data-action="acc-run" data-acc="' + esc(k) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(accLabel(k)) + '</span></div><div class="ps">' + recordTxt(rk.wins, rk.losses) + ' · expected ' + f1(rk.wins + vk.expected) + '</div></div>' + (P.length ? miniAros(P, vk.prizeProbs) : '') + '</button></li>'; }).join('') + '</ul>' +
-      '<div class="row small muted" style="display:block">Each ring is the chance of reaching that number of wins (full = certain). Tap an account to see its prizes.</div></div>');
-    html.push(transfersCard(false));
+    html.push('<div class="card"><div class="list-head"><h2>Your accounts ' + helpBtn('contas') + '</h2><span class="small muted">joint plan</span></div><ul class="list">' + g.keys.map(k => { const rk = g.byKey[k], vk = rk.normal;
+      return '<li><button class="row" type="button" data-action="acc-run" data-acc="' + esc(k) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(accLabel(k)) + '</span></div><div class="ps">' + recordTxt(rk.wins, rk.losses) + ' · expected ' + f1(rk.wins + vk.expected) + '</div></div>' + (P.length ? miniAros(P, vk.prizeProbs) : '') + '</button></li>'; }).join('') + '</ul></div>');
+    html.push(transfersCard());
     el.innerHTML = html.join(''); return;
   }
   if (sub === 'historico') { html.push(historicoHtml()); el.innerHTML = html.join(''); return; }
   if (S.multi) html.push(accSwitch());
   if (sub === 'analise') { html.push(analiseHtml()); el.innerHTML = html.join(''); return; }
-  if (sub === 'dias') {
-    const byDate = new Map(v.days.map(d => [d.date, d])), nd = nextDay();
-    const rows = days.map((day, i) => {
-      const pl = ((curPlan().played || {})[day.date]) || null;
-      if (pl && pl.done) return '<li><button class="drow" type="button" data-action="day" data-date="' + day.date + '"><span class="dn">' + (i + 1) + '<small>' + dWeek(day.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objsText(day)) + '</b><span class="small muted">' + dShort(day.date) + (pl.chain ? ' · blockchain' : '') + '</span></span><span class="d2" style="display:block">' + ((pl.lineup || []).map(id => esc(lastName(id))).join(' · ') || '—') + '</span></span><span class="pchip ' + (pl.result === 'win' ? 'p-good' : 'p-bad') + '">' + (pl.result === 'win' ? 'W' : 'L') + '</span></button></li>';
-      const d = byDate.get(day.date);
-      if (!d) { const noObj = !(day.objectives || []).some(o => o && o.stat);
-        return '<li><button class="drow" type="button" data-action="' + (noObj ? 'day' : 'result-sheet') + '" data-date="' + day.date + '"><span class="dn">' + (i + 1) + '<small>' + dWeek(day.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objsText(day)) + '</b><span class="small muted">' + dShort(day.date) + '</span></span><span class="d2" style="display:block">' + (noObj ? 'no goal' : 'ended without a recorded result · tap to record') + '</span></span><span class="pchip p-done">—</span></button></li>'; }
-      const mdd = r.model.days.find(m => m.day.date === day.date), hurt = mdd ? d.lineup.filter(id => { const inf = (mdd.info[r.model.pIndex.get(id)] || [])[0]; return inf && inf.injury && !inf.injury.ignored && inf.injury.status; }) : [];
-      return '<li class="' + (nd && nd.date === day.date ? 'is-next' : '') + '"><button class="drow" type="button" data-action="day" data-date="' + day.date + '"><span class="dn">' + (i + 1) + '<small>' + dWeek(day.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objsText(day)) + '</b><span class="small muted">' + dShort(day.date) + ' · ' + (day.games || []).length + ' games' + (d.hasOdds ? ' · odds' : '') + '</span>' + (hurt.length ? '<span class="pill duv" title="Injury in the lineup: ' + esc(hurt.map(lastName).join(', ')) + '">injury</span>' : '') + '</span><span class="d2" style="display:block">' + (d.lineup.length ? d.lineup.map(id => esc(lastName(id))).join(' · ') : 'no players') + '</span></span>' +
-        (d.noObjective ? '<span class="pchip p-done">—</span>' : '<span class="pchip p-' + tone(d.P) + ' num">' + pct(d.P) + '</span>') + '</button></li>';
-    }).join('');
-    html.push('<div class="card"><div class="list-head"><h2>Days</h2><span class="small muted">predicted win each day</span></div><ul class="list">' + rows + '</ul></div>');
-    const hard = v.days.filter(d => !d.noObjective && d.P < 0.15 && d.lineup.length);
-    if (hard.length) html.push('<p class="small muted" style="margin:0 4px">Day' + (hard.length > 1 ? 's ' : ' ') + hard.map(d => d.idx + 1).join(', ') + ': very hard with your roster. The plan puts players with spare uses there and saves the stars for where they make a difference.</p>');
-    el.innerHTML = html.join(''); return;
-  }
   html.push(runBoard(r, v), distCard(r, v));
-  if (r.model.days.length) html.push(buyTipsCard(3), runInjuriesCard(r), '<div class="card"><button class="cta-row row" type="button" data-action="sub" data-stab="run" data-sub="dias"><span><span class="t">Day by day</span><span class="s" style="display:block">Goal, lineup and predicted win for each day</span></span><span class="muted" aria-hidden="true">›</span></button></div>');
   el.innerHTML = html.join('');
 }
 // Placar da run: vitórias e derrotas, e um aro por patamar de prémio com a probabilidade em palavras
 function runBoard(r, v) {
   const left = r.model.days.length, P = r.prizes;
-  const head = '<div class="hero-top"><span class="eyebrow">' + (S.multi ? esc(accLabel(S.acc)) : 'Your run') + '</span><span class="small">' + (left ? plural(left, 'day to play', 'days to play') : 'run finished') + '</span></div>';
+  const head = '<div class="hero-top"><span class="eyebrow">' + (S.multi ? esc(accLabel(S.acc)) : 'Your run') + ' ' + helpBtn('premios') + '</span><span class="small">' + (left ? plural(left, 'day to play', 'days to play') : 'run finished') + '</span></div>';
   const rec = '<div class="rec-big num">' + r.wins + '<small>' + (r.wins === 1 ? 'win' : 'wins') + '</small>' + r.losses + '<small>' + (r.losses === 1 ? 'loss' : 'losses') + '</small></div>';
-  if (!P.length) return '<div class="card hero run-board">' + head + rec + '<div class="small">Expected wins at the end: <b>' + f1(r.wins + v.expected) + '</b> of ' + S.days.length + '. ' + (S.role === 'admin' ? 'Set in Settings → Admin how many wins give a prize' : 'When the admin sets the prizes') + ' and the plan starts going for them.</div></div>';
+  if (!P.length) return '<div class="card hero run-board">' + head + rec + '<div class="small">Expected at the end: <b>' + f1(r.wins + v.expected) + '</b> of ' + S.days.length + '.' + (S.role === 'admin' ? ' Set the prizes in Settings → Admin.' : '') + '</div></div>';
   const cols = P.map((p, i) => { const x = v.prizeProbs[i], need = p.wins - r.wins;
     return '<div class="aro-col">' + aro(x, p.wins, 64, likely(x)) + '<div><div class="pc num">' + pct(x) + '</div><div class="lk">' + likely(x) + '</div><div class="nd small">' + (need <= 0 ? 'secured' : need > left ? 'out of reach' : 'need ' + need + ' in ' + left) + '</div></div></div>'; }).join('');
   const withP = P.map((p, i) => [p, v.prizeProbs[i]]), sure = withP.filter(([, x]) => x >= 0.5).pop(), up = withP.find(([, x]) => x < 0.5);
@@ -1319,7 +1280,7 @@ function distCard(r, v) {
   const xs = dist.map((x, k) => { const w = base + k; return '<span class="' + (P.some(p => p.wins === w) ? 'tier' : '') + '">' + w + '</span>'; }).join('');
   const legend = P.map((p, i) => '<span><i class="' + cls(i) + '" style="background:var(--ball);opacity:' + [0.45, 0.72, 1][n === 1 ? 2 : n === 2 ? i + 1 : Math.min(2, i)] + '"></i>' + p.wins + ' or more' + (p.label ? ' · ' + esc(p.label) : '') + '</span>').join('') +
     '<span><i style="outline:2px solid var(--ink);background:transparent"></i>most likely: ' + (base + modeK) + ' (' + pct(max) + ')</span>';
-  return '<div class="card"><div class="list-head"><h2>Wins at the end</h2><span class="small muted">expected ' + f1(base + v.expected) + '</span></div>' +
+  return '<div class="card"><div class="list-head"><h2>Wins at the end ' + helpBtn('dist') + '</h2><span class="small muted">expected ' + f1(base + v.expected) + '</span></div>' +
     '<div class="dist" role="img" aria-label="Chance of each number of wins at the end of the run; the most likely is ' + (base + modeK) + '">' + bars + '</div><div class="dist-x" aria-hidden="true">' + xs + '</div><div class="dist-legend">' + legend + '</div></div>';
 }
 
@@ -1339,7 +1300,7 @@ function snapshotProj() {
     r.model.days.forEach((md, di) => {
       const day = md.day, tip = firstTipOf(day);
       if (!md.objs.length || tip == null || now >= tip) return; // depois do 1.º jogo fica a que estava
-      const v = di === 0 && ((pa.mode || {})[day.date]) === 'allin' && r.allIn ? r.allIn : r.normal, d = v.days[di];
+      const d = r.normal.days[di];
       if (!d || !d.lineup.length) return;
       const pl = {};
       md.elig.forEach(pi => {
@@ -1429,19 +1390,19 @@ const signPct = x => (x > 0.005 ? '+' : x < -0.005 ? '−' : '') + Math.abs(Math
 function analiseHtml() {
   const A = analysisData(S.acc), rows = A.rows, html = [];
   const wn = A.waiting.map(d => S.days.findIndex(x => x.date === d) + 1).filter(n => n > 0);
-  const waitTxt = wn.length ? ' Predictions saved waiting for the games: ' + (wn.length === 1 ? 'day ' : 'days ') + spans(wn) + '.' : '';
-  if (!rows.length && !A.obs.length) return '<div class="card panel"><h2>Prediction analysis</h2><div class="small muted">Each day\'s prediction is saved automatically until the first game (just open the site before). After the games you see here the prediction next to what happened: wins, totals and each player, with and without odds and in back-to-backs.' + esc(waitTxt) + '</div></div>';
+  const waitTxt = wn.length ? 'Predictions waiting for the games: ' + (wn.length === 1 ? 'day ' : 'days ') + spans(wn) + '.' : '';
+  if (!rows.length && !A.obs.length) return '<div class="card panel"><h2>Analysis ' + helpBtn('analise') + '</h2><div class="small muted">Shows up after the first days are played. ' + esc(waitTxt) + '</div></div>';
   if (rows.length) {
     const exp = rows.reduce((s, x) => s + x.P, 0), wins = rows.filter(x => x.win).length, fav = rows.filter(x => (x.P >= 0.5) === x.win).length;
     const tot = rows.filter(x => x.pred != null && x.actual != null), inside = tot.filter(x => x.sd > 0 && Math.abs(x.actual - x.pred) <= x.sd).length;
     const bias = tot.length ? tot.reduce((s, x) => s + (x.actual - x.pred) / Math.max(1, x.pred), 0) / tot.length : null;
     const buckets = [[0, 0.35, 'Under 35%'], [0.35, 0.65, '35% to 65%'], [0.65, 1.01, 'Over 65%']].map(([lo, hi, l]) => { const b = rows.filter(x => x.P >= lo && x.P < hi); return b.length ? { l, n: b.length, p: b.reduce((s, x) => s + x.P, 0) / b.length, w: b.filter(x => x.win).length } : null; }).filter(Boolean);
-    html.push('<div class="card hero an-board"><div class="hero-top"><span class="eyebrow">' + (S.multi ? esc(accLabel(S.acc)) + ' · ' : '') + 'Predicted vs actual</span><span class="small">' + plural(rows.length, 'day closed', 'closed days') + '</span></div>' +
+    html.push('<div class="card hero an-board"><div class="hero-top"><span class="eyebrow">' + (S.multi ? esc(accLabel(S.acc)) + ' · ' : '') + 'Predicted vs actual ' + helpBtn('analise') + '</span><span class="small">' + plural(rows.length, 'day closed', 'closed days') + '</span></div>' +
       '<div class="an-kpis"><div><div class="label">Wins</div><div class="v num">' + wins + '<small> of ' + rows.length + '</small></div><div class="small">predicted ' + f1(exp) + '</div></div>' +
       '<div><div class="label">Favourite</div><div class="v num">' + fav + '<small> of ' + rows.length + '</small></div><div class="small">called who would win</div></div>' +
       (tot.length ? '<div><div class="label">Total</div><div class="v num">' + inside + '<small> of ' + tot.length + '</small></div><div class="small">close to the prediction (normal: 7 in 10)</div></div>' : '') + '</div>' +
-      '<div class="small">' + (bias != null ? 'The totals came out on average <b>' + signPct(bias) + '</b> versus the prediction. ' : '') + (rows.length >= 4 ? (Math.abs(wins - exp) <= Math.max(1, Math.sqrt(rows.reduce((s, x) => s + x.P * (1 - x.P), 0))) ? 'The wins are within what the prediction expected.' : wins > exp ? 'You won more than the prediction gave: it may be too cautious.' : 'You won less than the prediction gave: it may be too optimistic (or bad luck).') : 'With few days it\'s too early to draw conclusions.') + '</div></div>');
-    if (buckets.length > 1) html.push('<div class="card"><div class="list-head"><h2>Is the prediction right?</h2><span class="small muted">days grouped by predicted win</span></div><ul class="list">' + buckets.map(b => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + b.l + '</span></div><div class="ps">' + plural(b.n, 'day', 'days') + ' · predicted on average ' + pct(b.p) + '</div></div><div class="pv"><div class="v num">' + Math.round(b.w / b.n * 100) + '%</div><div class="u">' + b.w + ' of ' + b.n + ' won</div></div></li>').join('') + '</ul><div class="row small muted" style="display:block">With a good prediction, the “over 65%” days are almost always won and the “under 35%” ones rarely. With few days, luck weighs a lot.</div></div>');
+      '<div class="small">' + (bias != null ? 'Totals: <b>' + signPct(bias) + '</b> vs predicted. ' : '') + (rows.length >= 4 ? (Math.abs(wins - exp) <= Math.max(1, Math.sqrt(rows.reduce((s, x) => s + x.P * (1 - x.P), 0))) ? 'Wins as expected.' : wins > exp ? 'More wins than predicted.' : 'Fewer wins than predicted.') : 'Still too few days to draw conclusions.') + '</div></div>');
+    if (buckets.length > 1) html.push('<div class="card"><div class="list-head"><h2>Is the prediction right?</h2><span class="small muted">days grouped by predicted win</span></div><ul class="list">' + buckets.map(b => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + b.l + '</span></div><div class="ps">' + plural(b.n, 'day', 'days') + ' · predicted on average ' + pct(b.p) + '</div></div><div class="pv"><div class="v num">' + Math.round(b.w / b.n * 100) + '%</div><div class="u">' + b.w + ' of ' + b.n + ' won</div></div></li>').join('') + '</ul></div>');
     html.push('<div class="card"><div class="list-head"><h2>Day by day</h2><span class="small muted">predicted · actual</span></div><ul class="list">' + rows.map(x => {
       const diff = x.pred != null && x.actual != null ? x.actual - x.pred : null;
       return '<li><button class="drow" type="button" data-action="day" data-date="' + x.date + '"><span class="dn">' + (x.i + 1) + '<small>' + dWeek(x.date) + '</small></span><span style="min-width:0"><span class="d1"><b>' + esc(objsText(S.days[x.i])) + '</b><span class="small muted">predicted ' + pct(x.P) + (x.same ? '' : ' · lineup changed') + '</span></span><span class="d2" style="display:block">' +
@@ -1454,16 +1415,16 @@ function analiseHtml() {
     const pr = [...byP.entries()].map(([id, l]) => ({ id, R: ratioOf(l), dnp: l.filter(x => x.act == null).length, n: l.length })).filter(x => x.R && x.R.n >= 2);
     const up = pr.filter(x => x.R.r >= 1.12).sort((a, b) => b.R.r - a.R.r).slice(0, 6), down = pr.filter(x => x.R.r <= 0.88).sort((a, b) => a.R.r - b.R.r).slice(0, 6);
     const prow = x => '<li><button class="row" type="button" data-action="pform" data-id="' + esc(x.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span></div><div class="ps">' + plural(x.R.n, 'game', 'games') + (x.dnp ? ' · missed ' + x.dnp : '') + '</div></div><span class="delta ' + (x.R.r >= 1 ? 'up' : 'down') + ' num">' + signPct(x.R.r - 1) + '<small>vs predicted</small></span></button></li>';
-    if (up.length || down.length) html.push('<div class="card"><div class="list-head"><h2>Players</h2><span class="small muted">what they did versus the prediction</span></div><ul class="list">' + up.map(prow).join('') + down.map(prow).join('') + '</ul><div class="row small muted" style="display:block">Everyone in your roster who played each day (not only the lineup), in that day\'s stat. Only those with 2 or more games and 12% or more above or below.</div></div>');
+    if (up.length || down.length) html.push('<div class="card"><div class="list-head"><h2>Players</h2><span class="small muted">what they did versus the prediction</span></div><ul class="list">' + up.map(prow).join('') + down.map(prow).join('') + '</ul></div>');
     const odds = ratioOf(obs.filter(x => x.src === 'o')), avgs = ratioOf(obs.filter(x => x.src === 'a')), b2b = ratioOf(obs.filter(x => x.b2b)), rest = ratioOf(obs.filter(x => !x.b2b));
     const miss = obs.filter(x => x.act == null), missQ = miss.length ? miss.reduce((s, x) => s + x.q, 0) / miss.length : null;
     const line = (l, R, note) => R ? '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + l + '</span></div><div class="ps">' + plural(R.n, 'game', 'games') + ' · average error ' + Math.round(R.err * 100) + '%' + (note ? ' · ' + note : '') + '</div></div><div class="pv"><div class="v num">' + Math.round(R.r * 100) + '%</div><div class="u">of predicted</div></div></li>' : '';
     html.push('<div class="card"><div class="list-head"><h2>Where the prediction came from</h2><span class="small muted">' + plural(obs.length, 'game', 'games') + '</span></div><ul class="list">' +
       line('With odds', odds, 'bookmaker lines') + line('Averages only', avgs, 'no line for that player') + line('Back-to-back (2nd day)', b2b, b2bOn ? 'the plan takes ~3% off without odds' : 'adjustment turned off') + line('With rest', rest) +
       (miss.length ? '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">Didn\'t play</span></div><div class="ps">' + plural(miss.length, 'time', 'times') + ' · the plan gave them on average ' + pct(missQ) + ' to play</div></div></li>' : '') +
-      '</ul><div class="row small muted" style="display:block">100% = did exactly the prediction. The average error is the typical difference per game (basketball varies a lot: 25 to 40% is normal for a single player). If back-to-backs come out well below the others, the adjustment in Preferences compensates.</div></div>');
+      '</ul></div>');
   }
-  if (waitTxt) html.push('<p class="small muted" style="margin:0 4px">' + esc(waitTxt.trim()) + '</p>');
+  if (waitTxt) html.push('<p class="small muted" style="margin:0 4px">' + esc(waitTxt) + '</p>');
   return html.join('');
 }
 // folha de um dia fechado: previsto ao lado do real, jogador a jogador
@@ -1531,10 +1492,10 @@ function historicoHtml() {
   if (H.err) return '<div class="note">Couldn\'t read the history: ' + esc(H.err) + '</div>';
   const res = H.res.filter(x => x.win != null), html = [];
   const F = statFrequency();
-  if (!res.length && !(F && F.days)) return '<div class="card panel"><h2>History</h2><div class="small muted">No days read from the blockchain yet. The “Fast Break on the blockchain” task gradually fetches every day you played (all runs, past ones too) with each account\'s Top Shot username. Come back in a few hours.</div></div>';
+  if (!res.length && !(F && F.days)) return '<div class="card panel"><h2>History ' + helpBtn('historico') + '</h2><div class="small muted">No days read from the blockchain yet. Come back in a few hours.</div></div>';
   const W = res.filter(x => x.win).length, runsSeen = new Set(res.map(x => x.chain_run_id));
   const accN = new Set(res.map(x => x.account || 'main')).size;
-  html.push('<div class="card hero an-board"><div class="hero-top"><span class="eyebrow">Your Fast Break</span><span class="small">' + plural(runsSeen.size, 'run', 'runs') + (accN > 1 ? ' · ' + accN + ' accounts' : '') + '</span></div>' +
+  html.push('<div class="card hero an-board"><div class="hero-top"><span class="eyebrow">Your Fast Break ' + helpBtn('historico') + '</span><span class="small">' + plural(runsSeen.size, 'run', 'runs') + (accN > 1 ? ' · ' + accN + ' accounts' : '') + '</span></div>' +
     '<div class="an-kpis"><div><div class="label">Days played</div><div class="v num">' + res.length + '</div></div><div><div class="label">Wins</div><div class="v num">' + W + '</div><div class="small">' + (res.length ? Math.round(W / res.length * 100) + '% of days' : '') + '</div></div></div></div>');
   // estatísticas: quantas vezes saem, alvo típico e como te corre cada uma
   if (F && F.stats.length) {
@@ -1543,7 +1504,7 @@ function historicoHtml() {
     html.push('<div class="card"><div class="list-head"><h2>Most common stats</h2><span class="small muted">' + F.days + ' days' + (F.classic ? ' Classic' : '') + ' · ' + plural(F.runs, 'run', 'runs') + '</span></div><ul class="list">' + F.stats.slice(0, 12).map(e => { const m = mine[e.stat];
       return '<li class="row hist-stat"><div style="min-width:0;flex:1"><div class="pn"><span class="nm">' + esc(statLabel(e.stat)) + '</span><span class="small muted">' + Math.round(e.n / F.days * 100) + '% of days</span></div><div class="hbar" aria-hidden="true"><i style="width:' + Math.max(3, e.n / max * 100).toFixed(1) + '%"></i></div>' +
         '<div class="ps">' + (e.med != null ? 'typical target <b class="num">' + f0(e.med) + '</b>' + (e.lo !== e.hi ? ' (' + f0(e.lo) + '–' + f0(e.hi) + ')' : '') : '') + (e.each ? (e.med != null ? ' · ' : '') + e.each + '× per player' : '') + (m ? ' · you: ' + m.w + ' of ' + m.n + ' won' : '') + '</div></div><div class="pv"><div class="v num">' + e.n + '</div><div class="u">days</div></div></li>'; }).join('') + '</ul>' +
-      '<div class="row small muted" style="display:block">To choose Moments: players strong in the most common stats play more often. See who they are in Players → Buy → Specialists.</div></div>');
+      '</div>');
   }
   if (res.length) {
     // jogadores que mais usaste
@@ -1555,7 +1516,6 @@ function historicoHtml() {
     const runs = Object.values(byRun).map(e => Object.assign(e, { r: H.runs.get(e.id) || {} })).sort((a, b) => (+b.r.run_start || 0) - (+a.r.run_start || 0));
     html.push('<div class="card"><div class="list-head"><h2>Runs</h2><span class="small muted">wins – losses</span></div><ul class="list">' + runs.map(e => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(e.r.name || 'Run ' + String(e.id).slice(0, 8)) + '</span></div><div class="ps">' + (e.r.run_start ? dShort(new Date(e.r.run_start * 1000).toISOString().slice(0, 10)) + (e.r.run_end ? ' – ' + dShort(new Date((e.r.run_end - 12 * 3600) * 1000).toISOString().slice(0, 10)) : '') : '') + '</div></div><div class="pv" style="text-align:right">' + Object.entries(e.acc).map(([k, a]) => '<div class="small"><span class="muted">' + (accN > 1 ? esc(accLabel(k)) + ' ' : '') + '</span><b class="num">' + a.w + '–' + a.l + '</b></div>').join('') + '</div></li>').join('') + '</ul></div>');
   }
-  html.push('<p class="small muted" style="margin:0 4px">From the blockchain, read by the “Fast Break on the blockchain” task. Old days come in gradually (a few hundred at a time).</p>');
   return html.join('');
 }
 
@@ -1568,13 +1528,13 @@ function accSwitch() {
 // coleção (lida das carteiras; não depende de haver run)
 function collectionCard(compact) {
   const col = (S.profile || {}).collection, accs = accounts(), withFlow = accs.filter(a => /^0x[0-9a-fA-F]{16}$/.test((a.flow || '').trim()));
-  if (!col) return '<div class="card panel"><h2>Your collection</h2><div class="small muted">' + (withFlow.length ? 'Read your Moments from the blockchain: they are saved and used for every run.' : 'Put the Flow address of your Dapper wallet in Settings → Profile (and the smurf accounts\' ones) to read your Moments.') + '</div>' +
+  if (!col) return '<div class="card panel"><h2>Your collection ' + helpBtn('colecao') + '</h2><div class="small muted">' + (withFlow.length ? 'Read your Moments from the blockchain.' : 'Add your Flow address in Settings → Profile to read your Moments.') + '</div>' +
     (withFlow.length ? '<button class="btn primary" type="button" data-action="wallet-sheet">Read wallet' + (withFlow.length > 1 ? 's' : '') + '</button>' : '<button class="btn" type="button" data-action="goto" data-tab="ajustes" data-sub="perfil">Go to Settings</button>') + '</div>';
   const n = Object.keys(col.players || {}).length;
   const tot = Object.entries(col.accounts || {}).map(([k, t]) => (groupMode() ? esc(accLabel(k)) + ' ' : '') + t.moments + ' Moments').join(' · ');
   if (compact) return '<div class="card panel"><div class="list-head"><h2>Your collection</h2><span class="small muted">read ' + esc(ago(col.read_at)) + '</span></div><div class="small muted">' + tot + ' · ' + n + ' NBA players</div><div class="btns"><button class="btn" type="button" data-action="wallet-sheet">Read again</button><button class="btn" type="button" data-action="col-sheet">See collection</button></div></div>';
   const rows = colRows();
-  return colSummary(col) + '<div class="card"><div class="list-head"><h2>Players</h2><span class="small muted" id="colCount">' + S.colN + ' players</span></div>' + colToolbar() + '<ul class="list" id="colList">' + rows + '</ul></div>' + tiersCard();
+  return colSummary(col) + '<div class="card"><div class="list-head"><h2>Players</h2><span class="small muted" id="colCount">' + S.colN + ' players</span></div>' + colToolbar() + '<ul class="list" id="colList">' + rows + '</ul></div>';
 }
 // ---- coleção: resumo (Moments, jogadores, usos por run e escalões) ----
 const TIER_CLS = { Common: 'c', Fandom: 'f', Rare: 'r', Legendary: 'l', Ultimate: 'u' };
@@ -1586,14 +1546,12 @@ function colSummary(col) {
   const tt = {}; ps.forEach(c => { const o = tierCounts(col, c); Object.entries(o).forEach(([t, k]) => { tt[t] = (tt[t] || 0) + k; }); });
   const sum = Object.values(tt).reduce((a, b) => a + b, 0);
   const bar = sum ? '<div class="tier-bar" role="img" aria-label="Moments by tier">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<i class="t-' + TIER_CLS[t] + '" style="flex:' + tt[t] + '"></i>').join('') + '</div>' +
-    '<div class="tier-legend">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<span><i class="t-' + TIER_CLS[t] + '"></i>' + t + ' <b class="num">' + tt[t] + '</b></span>').join('') + '</div>' +
-    '<div class="small muted">Uses per run for each player: those of his best Moment (Common 1, Rare 2, Legendary 4). More Moments of the same player don\'t add up: one Rare and three Commons give 2.</div>' : '';
+    '<div class="tier-legend">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<span><i class="t-' + TIER_CLS[t] + '"></i>' + t + ' <b class="num">' + tt[t] + '</b></span>').join('') + '</div>' : '';
   const accLine = groupMode() ? '<div class="small muted">' + Object.entries(col.accounts || {}).map(([k, t]) => esc(accLabel(k)) + ' <b>' + t.moments + '</b>' + (t.listed ? ' (' + t.listed + ' for sale)' : '')).join(' · ') + '</div>' : '';
-  return '<div class="card panel col-sum"><div class="list-head" style="padding:0"><h2>Your collection</h2><span class="small muted">read ' + esc(ago(col.read_at)) + '</span></div>' +
+  return '<div class="card panel col-sum"><div class="list-head" style="padding:0"><h2>Your collection ' + helpBtn('colecao') + '</h2><span class="small muted">read ' + esc(ago(col.read_at)) + '</span></div>' +
     '<div class="col-kpis"><div><b class="num">' + f0(moments) + '</b><span>Moments</span></div><div><b class="num">' + ps.length + '</b><span>NBA players</span></div><div><b class="num">' + (col.sets ? f0(uses) : '–') + '</b><span>uses per run</span></div></div>' +
-    bar + accLine + (moments > inNba ? '<div class="small muted">' + f0(moments - inNba) + ' Moments of players outside this season\'s NBA (retired, WNBA) don\'t count.</div>' : '') +
-    (col.sets ? '' : '<div class="note info">Read the wallet again to see the tier and uses of each Moment.</div>') +
-    '<button class="btn" type="button" data-action="wallet-sheet">Read the wallet again</button></div>';
+    bar + accLine + (col.sets ? '' : '<div class="note info">Read the wallet again to see each Moment’s tier.</div>') +
+    '<button class="btn" type="button" data-action="wallet-sheet">Read again</button></div>';
 }
 // ---- coleção: lista de jogadores com procura, ordem e filtro por escalão ----
 S.colView = { q: '', sort: 'uses', tier: '' };
@@ -1641,7 +1599,7 @@ function renderPlantel() {
   if (sub === 'comprar') { box.innerHTML = buyHtml(); return; }
   if (sub === 'colecao') { box.innerHTML = collectionCard(false); return; }
   if (!S.runId || S.calcError) {
-    box.innerHTML = collectionCard(false) + (S.calcError ? empty('Error', S.calcError) : '<p class="small muted" style="margin:0 4px">When there is a run, the players in your collection go into that run\'s roster, where you set the uses and see the plan.</p>');
+    box.innerHTML = collectionCard(false) + (S.calcError ? empty('Error', S.calcError) : '');
     return;
   }
   const ids = Object.keys(S.mine.roster || {});
@@ -1651,9 +1609,9 @@ function renderPlantel() {
   const body = $('plBody'), run = curRun() || {};
   if (!ids.length) {
     const prev = S.runs.filter(x => x.id !== S.runId), col = (S.profile || {}).collection, nCol = col ? Object.keys(col.players || {}).length : 0;
-    body.innerHTML = collectionCard(true) + empty('' + (run.name || 'run') + ' roster is empty', nCol ? 'Add the players from your collection and then set each one\'s uses in this run.' : 'Read your Moments\' players from the blockchain, or add them by hand. Then set each one\'s uses in this run.',
-      (nCol ? '<button class="btn primary" type="button" data-action="col-to-roster" style="width:100%;max-width:340px">Add the ' + nCol + ' players from the collection</button>' : '<button class="btn primary" type="button" data-action="wallet-sheet" style="width:100%;max-width:340px">Read from my wallet</button>') +
-      '<div class="btns" style="width:100%;max-width:340px"><button class="btn" type="button" data-action="add-player">Add</button><button class="btn" type="button" data-action="paste-sheet">Paste list</button></div>' +
+    body.innerHTML = collectionCard(true) + empty('Empty roster', nCol ? 'Add the players from your collection.' : 'Read your Moments from the wallet or add them by hand.',
+      (nCol ? '<button class="btn primary" type="button" data-action="col-to-roster" style="width:100%;max-width:340px">Add the ' + nCol + ' players from the collection</button>' : '<button class="btn primary" type="button" data-action="wallet-sheet" style="width:100%;max-width:340px">Read the wallet</button>') +
+      '<button class="btn" type="button" data-action="add-player" style="width:100%;max-width:340px">Add by hand</button>' +
       (prev.length ? '<button class="btn link" type="button" data-action="copy-roster">Copy the roster from another run</button>' : ''));
     return;
   }
@@ -1679,12 +1637,10 @@ function renderPlantel() {
   let usedTot = 0; Object.values(played).forEach(pl => { if (pl && pl.done) usedTot += (pl.lineup || []).length; });
   const closed = Object.values(played).filter(pl => pl && pl.done).length;
   body.innerHTML = accSwitch() +
-    '<div class="card"><div class="list-head"><h2>' + esc(run.name || 'Run') + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + '</h2><button class="btn small" type="button" data-action="uses-sheet">Set uses</button></div>' +
+    '<div class="card"><div class="list-head"><h2>' + esc(run.name || 'Run') + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + ' ' + helpBtn('plantel') + '</h2></div>' +
     '<div class="kv" style="padding:0 14px 10px"><div><div class="label">Used</div><div class="v num">' + usedTot + '</div><div class="small muted">' + closed + ' day' + (closed === 1 ? '' : 's') + ' closed' + (closed === 1 ? '' : '') + '</div></div><div><div class="label">Left</div><div class="v num">' + totalU + '</div><div class="small muted">' + ids.length + ' players</div></div><div><div class="label">In the plan</div><div class="v num">' + totalP + '</div><div class="small muted">until the end</div></div></div>' +
     '<div class="seg pl-seg" role="group" aria-label="How to view the roster">' + [['lista', 'Players'], ['plano', 'Plan by day'], ['valor', 'Value by day']].map(([k, l]) => '<button type="button" data-action="pl-view" data-v="' + k + '" aria-pressed="' + (PV.mode === k) + '">' + l + '</button>').join('') + '</div>' +
-    view3 + '</div>' +
-    '<div class="btns"><button class="btn" type="button" data-action="paste-sheet">Paste list</button><button class="btn" type="button" data-action="add-player">Add player</button></div>' +
-    '<p class="small muted" style="margin:0 4px">Tap a player to see how many times you\'ve used him and change the uses' + (groupMode() ? ' of each account' : '') + ' or the status.</p>';
+    view3 + '</div>';
 }
 // ---- Plantel: três maneiras de ver (lista de jogadores, plano por dia, valor por dia) ----
 S.plView = { mode: 'lista', sort: 'plano', filter: 'todos' };
@@ -1778,7 +1734,7 @@ function plMatrixHtml(ctx) {
   }).join('');
   return plToolbar(counts, fk, true) + '<div class="mx-wrap"><div class="mx">' + head + (body || '<div class="mx-row muted small">No player found.</div>') + '</div></div>' +
     '<div class="legend"><span><i class="dot used"></i>already used</span><span><i class="dot on"></i>in the plan</span>' + (S.multi ? '<span><i class="dot other"></i>in the other account</span>' : '') + '<span><i class="dot off"></i>has a game</span><span>uses = in the plan / left' + (S.multi ? ' in this account' : '') + '</span></div>' +
-    (S.multi ? '<div class="small muted" style="padding:0 14px 12px">Uses belong to each account, but a Moment only plays for one account each night: with a single Moment of a player, the plan never puts him in both on the same day (it sends it from one to the other between nights).</div>' : '');
+''; 
 }
 // valor por dia: quanto do alvo de cada dia o jogador faz sozinho (mapa de calor); contorno = no plano
 function plHeatHtml(ctx) {
@@ -1801,7 +1757,7 @@ function plHeatHtml(ctx) {
     return '<button class="mx-row" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '" style="grid-template-columns:' + cols + '"><span class="mx-name"><span style="overflow:hidden;text-overflow:ellipsis">' + esc(lastName(p.id)) + '</span><small class="num">' + f.uses + 'u</small></span>' + cells + '</button>';
   }).join('');
   return plToolbar(counts, fk, true) + '<div class="mx-wrap"><div class="mx hm-grid">' + head + (body || '<div class="mx-row muted small">No player found.</div>') + '</div></div>' +
-    '<div class="legend"><span>Number = % of the day\'s target he makes alone (with ' + size + ' players, ' + Math.round(par * 100) + '% each gets there)</span><span><b class="hv h4 inp" style="width:auto;padding:0 4px">25</b> in the plan</span><span><i class="dot used"></i>already used</span><span>Nu = uses left</span></div>';
+    '<div class="legend"><span>% of the day’s target he makes alone (' + Math.round(par * 100) + '% = one player’s share)</span><span><b class="hv h4 inp" style="width:auto;padding:0 4px">25</b> in the plan</span><span><i class="dot used"></i>already used</span><span>Nu = uses left</span></div>';
 }
 // jogadores do plantel que estão no relatório de lesões
 // ---- cores das equipas (pontinho ao lado da sigla) ----
@@ -1829,10 +1785,10 @@ function formaHtml() {
   const mineIds = S.runId && Object.keys(S.mine.roster || {}).length ? Object.keys(S.mine.roster) : Object.keys((((S.profile || {}).collection) || {}).players || {});
   const pool = F.scope === 'mine' ? mineIds.map(playerObj) : [...S.players.values()].filter(p => p.avg && p.avg.form && (+p.avg.min || 0) >= 18).map(p => playerObj(p.id));
   const rows = pool.map(p => { const fi = FB.formInfo(p, stat); if (!fi || fi.l5 == null || fi.season == null || (fi.n5 || 0) < 3) return null; return { p, fi, d: (fi.l5 - fi.season) / Math.max(1, Math.abs(fi.season)) }; }).filter(Boolean).sort((a, b) => b.d - a.d);
-  const head = '<div class="card panel filters"><h2>Form</h2><div class="small muted">Average of the last 5 games compared with the season\'s. The bars are the last 5 games (the most recent on the right); the line is the season average.</div>' +
+  const head = '<div class="card panel filters"><h2>Form ' + helpBtn('forma') + '</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Which players"><button type="button" data-action="forma-scope" data-v="mine" aria-pressed="' + (F.scope === 'mine') + '">Mine</button><button type="button" data-action="forma-scope" data-v="all" aria-pressed="' + (F.scope === 'all') + '">Whole NBA</button></div>' +
     '<div class="chips scroll" role="group" aria-label="Stat">' + stats.map(k => '<button type="button" data-action="forma-stat" data-v="' + esc(k) + '" aria-pressed="' + (k === stat) + '">' + esc(statName(k)) + (o && k === o.stat ? ' · today' : '') + '</button>').join('') + '</div></div>';
-  if (!rows.length) return head + '<div class="note info">' + (pool.length ? 'Form shows up after each player has 3 games this season (it comes from the NBA schedule and averages task).' : F.scope === 'mine' ? 'You don\'t have players in your roster or a collection read yet.' : 'No games this season yet.') + '</div>';
+  if (!rows.length) return head + '<div class="note info">' + (pool.length ? 'Form shows up after 3 games this season.' : F.scope === 'mine' ? 'You have no players yet.' : 'No games this season yet.') + '</div>';
   const u = esc(statName(stat));
   const row = x => { const pc = Math.round(x.d * 100), cls = pc >= 8 ? 'up' : pc <= -8 ? 'down' : '', ir = injRec(x.p.id);
     return '<li><button class="frow" type="button" data-action="pform" data-id="' + esc(x.p.id) + '"><span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.p.name) + '</span>' + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + (F.scope === 'all' && S.mine.roster[x.p.id] ? '<span class="badge">yours</span>' : '') + '</span>' +
@@ -1851,14 +1807,13 @@ function injRow(rec, action) {
     '<div class="ps">' + teamTag(c.team || rec.team) + (rec.detail ? ' · ' + esc(rec.detail) : '') + (rec.return_date ? ' · expected back ' + dShort(rec.return_date) : '') + (rec.comment ? ' · ' + esc(rec.comment) : '') + '</div></div></button></li>';
 }
 function lesoesHtml() {
-  if (!S.injOk) return '<div class="note info">The injury report is not connected yet: the admin has to run the new supabase/schema.sql in Supabase and the "Lesões" task on GitHub.</div>';
+  if (!S.injOk) return '<div class="note info">The injury report isn’t connected yet (admin: new supabase/schema.sql and the "Lesões" job).</div>';
   const all = Object.values(S.injuries || {}).sort((a, b) => (INJ_ORDER[a.status] - INJ_ORDER[b.status]) || String(a.name).localeCompare(String(b.name)));
   const mine = all.filter(x => (S.mine.roster || {})[x.id]);
   const imp = x => { const c = S.players.get(x.id); return c && c.avg && ((+c.avg.min || 0) >= 20 || (+c.avg.pts || 0) >= 12); };
   const others = all.filter(x => !(S.mine.roster || {})[x.id] && imp(x));
-  return '<div class="card inj-list"><div class="list-head"><h2>In your roster</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div>' + (mine.length ? '<ul class="list">' + mine.map(x => injRow(x, 'pl-sheet')).join('') + '</ul>' : '<div class="row small muted" style="display:block">Nobody in your roster is on the injury report.</div>') + '</div>' +
-    '<div class="card inj-list"><div class="list-head"><h2>Rest of the NBA</h2><span class="small muted">' + others.length + ' important out of ' + all.length + '</span></div>' + (others.length ? '<ul class="list">' + others.map(x => injRow(x, 'pform')).join('') + '</ul>' : '<div class="row small muted" style="display:block">No important player on the report.</div>') +
-    '<div class="row small muted" style="display:block">Only players with 20 or more minutes or 12 or more points per game. In the plan: out → doesn\'t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game).</div></div>';
+  return '<div class="card inj-list"><div class="list-head"><h2>In your roster ' + helpBtn('lesoes') + '</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div>' + (mine.length ? '<ul class="list">' + mine.map(x => injRow(x, 'pl-sheet')).join('') + '</ul>' : '<div class="row small muted" style="display:block">Nobody injured.</div>') + '</div>' +
+    '<div class="card inj-list"><div class="list-head"><h2>Rest of the NBA</h2><span class="small muted">' + others.length + ' important</span></div>' + (others.length ? '<ul class="list">' + others.map(x => injRow(x, 'pform')).join('') + '</ul>' : '<div class="row small muted" style="display:block">No important players.</div>') + '</div>';
 }
 // ficha de um jogador que não está no plantel (forma, lesões, compras)
 function catalogSheet(id) {
@@ -1866,26 +1821,19 @@ function catalogSheet(id) {
   if ((S.mine.roster || {})[id]) { rosterSheet(id); return; }
   const avg = c.avg, fi = avg ? FB.formInfo({ avg }, 'pts') : null;
   openSheet('<h3>' + esc(c.name) + '</h3><div class="small muted">' + teamTag(c.team) + (c.gp ? ' · ' + c.gp + ' games this season' : '') + '</div>' + injuryBlock(String(id), null, null) +
-    (avg ? '<div><div class="label" style="margin-bottom:6px">Averages per game</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div></div>' : '<div class="note info">No averages for this player yet.</div>') +
-    (fi && fi.n5 ? '<div class="small muted">Last 5 games: ' + ['pts', 'reb', 'ast', 'fg3'].filter(k => avg.form.l5 && avg.form.l5[k] != null).map(k => STATS[k].short + ' ' + f1(avg.form.l5[k])).join(' · ') + '</div>' : '') + gamesTable(avg) +
+    (avg ? '<div><div class="label" style="margin-bottom:6px">Averages per game</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div></div>' : '<div class="note info">No averages yet.</div>') +
+    gamesTable(avg) +
     '<div class="btns">' + (S.runId ? '<button class="btn primary" type="button" data-action="buy-eval" data-id="' + esc(id) + '">See if it\'s worth buying</button>' : '<span></span>') + '<button class="btn" type="button" data-action="add-id" data-id="' + esc(id) + '">Add to roster</button></div>' + closeRow());
-}
-function rosterInjuries(players) {
-  const list = players.filter(p => injRec(p.id));
-  if (!list.length) return S.injOk && S.injAt ? '<p class="small muted" style="margin:0 4px">Nobody in your roster on the injury report (ESPN, ' + esc(ago(S.injAt)) + ').</p>' : '';
-  return '<div class="card inj-list"><div class="list-head"><h2>On the injury report</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div><ul class="list">' + list.map(p => { const rec = injRec(p.id);
-    return '<li><button class="row" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span><span class="pill ' + INJ_PILL[rec.status] + '">' + esc(INJ_LABEL[rec.status]) + '</span>' + (p.injIgnore ? '<span class="badge">ignored</span>' : '') + '</div><div class="ps">' + esc(p.team) + (rec.detail ? ' · ' + esc(rec.detail) : '') + (rec.return_date ? ' · expected back ' + dShort(rec.return_date) : '') + (rec.comment ? ' · ' + esc(rec.comment) : '') + '</div></div></button></li>'; }).join('') + '</ul></div>';
 }
 // ---- dicas de compra: refaz a run com cada candidato ----
 function buyHtml() {
   const r = mainResult(), B = S.buy;
-  if (!S.runId || !r || !r.model.days.length) return '<div class="note info">' + (S.runId ? 'The run has already finished.' : 'When there is a run, you\'ll see here what\'s worth buying for it.') + '</div>' + specHtml();
-  return buyTipsCard(6, true) + '<div class="card panel"><h2>What\'s worth buying</h2><div class="small muted">Redoes the run plan with each candidate and shows how much the prizes go up and on which days he would play. Prices are not part of the math: you check those on the marketplace.</div>' +
+  if (!S.runId || !r || !r.model.days.length) return '<div class="note info">' + (S.runId ? 'The run has already finished.' : 'No runs yet.') + '</div>' + specHtml();
+  return buyTipsCard(6) + '<div class="card panel"><h2>Look for buys ' + helpBtn('comprar') + '</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="What to buy"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">New player</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Upgrade yours</button></div>' +
-    '<div><div class="label" style="margin-bottom:6px">Tier of the Moment to buy</div><div class="chips" role="group" aria-label="Moment tier">' + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + (B.uses === n) + '">' + tierName(n) + ' · ' + n + '</button>').join('') + '</div>' +
-    '<div class="small muted" style="margin-top:6px">Uses per run: Common 1 (2 if the ASP is over $10), Rare 2, Legendary 4. For a Common with ASP over $10, pick Rare (it also gives 2). For a player you already own, only the best Moment counts: they don\'t add up.</div></div>' +
+    '<div><div class="label" style="margin-bottom:6px">Moment tier</div><div class="chips" role="group" aria-label="Moment tier">' + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + (B.uses === n) + '">' + tierName(n) + ' · ' + plural(n, 'use', 'uses') + '</button>').join('') + '</div></div>' +
     '<button class="btn primary" type="button" data-action="buy-run">' + (B.mode === 'new' ? 'Find the best buys' : 'See who is worth upgrading') + '</button>' +
-    '<label class="small muted">Or evaluate a specific player<input class="field" id="buySearch" type="search" placeholder="Name, e.g. Curry…" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
+    '<label class="small muted">Check a player<input class="field" id="buySearch" type="search" placeholder="Name, e.g. Curry…" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
     '<div id="buyOut" class="stack">' + (B.results ? buyResultsHtml(B.results) : '') + '</div>' + specHtml();
 }
 // ---- Especialistas: os melhores da NBA em cada estatística (época atual misturada com a passada) ----
@@ -1916,12 +1864,11 @@ function specHtml() {
       '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' in PTS' : '') + (p.gp ? ' · ' + p.gp + ' games this season' : ' · last season') + '</div></div><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
   }).join('');
   const rd = runDays[stat];
-  return '<div class="card"><div class="list-head"><h2>Specialists</h2><span class="small muted">per game</span></div>' +
+  return '<div class="card"><div class="list-head"><h2>Specialists ' + helpBtn('especialistas') + '</h2><span class="small muted">per game</span></div>' +
     '<div class="chips scroll" role="group" aria-label="Stat" style="padding:0 14px 8px">' + order.map(k => '<button type="button" data-action="spec-stat" data-v="' + k + '" aria-pressed="' + (k === stat) + '">' + esc(statShort(k)) + (total && freq[k] ? ' · ' + Math.round(freq[k] / total * 100) + '%' : '') + (runDays[k] ? ' ●' : '') + '</button>').join('') + '</div>' +
     '<div class="seg acc-seg" role="group" aria-label="Which players" style="margin:0 14px 8px"><button type="button" data-action="spec-scope" data-v="all" aria-pressed="' + (S.spec.scope !== 'new') + '">All</button><button type="button" data-action="spec-scope" data-v="new" aria-pressed="' + (S.spec.scope === 'new') + '">The ones you don\'t have</button></div>' +
-    '<div class="row small muted" style="display:block">' + (rd ? '<b>In this run:</b> ' + u + (rd.length === 1 ? ' on day ' : ' on days ') + spans(rd) + '. ' : '') + (total ? 'The % is how often the stat came up in the Fast Break days read; ● = comes up in the rest of this run.' : '● = comes up in the rest of this run.') + '</div>' +
-    (rows ? '<ul class="list">' + rows + '</ul>' : '<div class="row small muted" style="display:block">No averages yet.</div>') +
-    '<div class="row small muted" style="display:block">This season\'s averages blended with last season\'s (at the start of the season it\'s almost only last season). <b>Specialist</b>: at the top of this stat but outside the 75 best scorers, usually cheaper and rarely picked. <b>Consistent</b> or <b>streaky</b>: how much he varied from game to game last season. Tap a player to see his page and whether he\'s worth buying.</div></div>';
+    (rd ? '<div class="row small muted" style="display:block"><b>In this run:</b> ' + u + (rd.length === 1 ? ' on day ' : ' on days ') + spans(rd) + '</div>' : '') +
+    (rows ? '<ul class="list">' + rows + '</ul>' : '<div class="row small muted" style="display:block">No averages yet.</div>') + '</div>';
 }
 function renderBuySearch(qs) {
   const box = $('buyFound'); if (!box) return;
@@ -2006,8 +1953,8 @@ async function buyRun(onlyId) {
   await tick(30);
   const res = await computeBuy({ onlyId, mode, U: B.uses, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog: t => { const el = $('buyProg'); if (el) el.textContent = t; } });
   if (!res || !$('buyOut')) return;
-  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (mode === 'more' ? 'Nobody in your roster gains uses with a ' + tierName(B.uses) + ' Moment: uses per run are those of each player\'s best Moment, so only someone a tier below goes up. Try Rare or Legendary.' : 'There are no candidates with games in the remaining days.') + '</div>'; return; }
-  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, B.uses) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run. A ' + tierName(B.uses) + ' Moment doesn\'t give him more (the best Moment counts). Pick a higher tier.</div>'; return; }
+  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (mode === 'more' ? 'Nobody in your roster gains uses with a ' + tierName(B.uses) + '. Try a tier higher.' : 'There are no candidates with games in the remaining days.') + '</div>'; return; }
+  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, B.uses) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
 }
@@ -2050,33 +1997,27 @@ function buySummary(R, x) {
   return { id, best, e0, e1, byPrize, worth: byPrize || e1 - e0 >= 0.15, days: [...days].sort((a, b) => a - b), multi: keys.length > 1 };
 }
 // lista curta de sugestões (Hoje e Run)
-function buyTipsCard(limit, inBuy) {
+function buyTipsCard(limit) {
   const A = S.autoBuy, key = autoBuyKey();
   if (!key) return '';
-  const head = '<div class="list-head"><h2>' + (inBuy ? 'The Rares worth the most' : 'Buy suggestions') + '</h2><span class="small muted">' + (A && A.key !== key ? 'updating…' : 'Rare Moment') + '</span></div>';
-  const more = inBuy ? '' : '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="goto" data-tab="plantel" data-sub="comprar">See all buys</button></div>';
-  if (S.autoBuyErr === key) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Couldn\'t calculate the suggestions. <button class="btn link small" type="button" data-action="buy-retry">Try again</button></div></div>';
-  if (!A) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Redoing the run with each Rare Moment you can buy, to see which helps the most' + (S.multi ? ' (with two accounts it takes a few seconds)' : '') + '…</div>' + more + '</div>';
+  const head = '<div class="list-head"><h2>The Rares worth the most</h2><span class="small muted">' + (A && A.key !== key ? 'updating…' : 'Rare Moment') + '</span></div>';
+  if (S.autoBuyErr === key) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Couldn’t calculate. <button class="btn link small" type="button" data-action="buy-retry">Try again</button></div></div>';
+  if (!A) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Testing each Rare in your run…</div></div>';
   // os melhores primeiro, mesmo os que mudam pouco (assim vês sempre qual é o Rare que mais compensa)
   const tips = A.list.map(x => buySummary(A, x)).slice(0, limit);
-  if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'There are no players outside your roster with games in the remaining days.' : 'No Rare Moment changes this run\'s plan: your roster already covers the remaining days well.') + ' In Players → Buy you can evaluate a specific player.</div>' + more + '</div>';
+  if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'No new players with games on the remaining days.' : 'No Rare changes your run.') + '</div></div>';
   return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' wins' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'expected wins ' + f1(t.e0) + ' → <b class="' + (t.worth ? 'up' : '') + '">' + f1(t.e1) + '</b>';
     return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">2nd Moment</span>' : '') + (t.worth ? '' : '<span class="badge">small change</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · plays ' + (t.days.length > 1 ? 'days ' : 'day ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'wins') + '</div></div></button></li>'; }).join('') +
-    '</ul><div class="row small muted" style="display:block">Calculated automatically: the run redone with a Rare Moment (2 uses) of each player you don\'t have yet' + (S.multi ? ' and with a 2nd Moment of anyone you only have one of (so both accounts can use him on the same day)' : '') + '. <b>pp</b> = extra percentage points on the prize that goes up the most. Tap to see which days he plays.</div>' + more + '</div>';
+    '</ul></div>';
 }
 function buyResultsHtml(R) {
   const usesTxt = n => n + ' use' + (n > 1 ? 's' : '');
-  if (!R.list.length) return '<div class="note info">' + (R.single ? 'This player doesn\'t play in the remaining days (or has no averages).' : 'No ' + tierTxt(R.U) + ' Moment changes this run\'s plan: your roster already covers the remaining days well.') + '</div>';
+  if (!R.list.length) return '<div class="note info">' + (R.single ? 'He doesn’t play on the remaining days (or has no averages).' : 'No ' + tierTxt(R.U) + ' changes your run.') + '</div>';
   const prizes = mainResult().prizes, keys = R.base.group ? R.base.group.keys : ['main'], multi = keys.length > 1;
   const resOf = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res);
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
-  const anyMore = R.list.some(x => R.mode === 'more' || !!S.mine.roster[String(x.id)]);
-  const intro = '<div class="note info">' + (anyMore
-    ? 'Upgrading means buying a <b>' + tierName(R.U) + '</b> Moment of a player you already have. Uses per run are those of the best Moment, so they only go up if the new one is a higher tier (a Rare for someone with a Common gives +1)' + (multi ? '; and with two Moments both accounts can play him on the same day' : '') + '.'
-    : 'Each tip is buying a ' + tierTxt(R.U) + ' Moment of a player you don\'t have yet' + (multi ? ' (it goes to the main account; the plan says when to send it to another)' : '') + '.') +
-    ' The percentages are the chance of reaching each number of wins at the end of the run.</div>';
-  return intro + R.list.map((x, n) => {
+  return R.list.map((x, n) => {
     const id = String(x.id), c = S.players.get(id) || {}, more = R.mode === 'more' || !!S.mine.roster[id];
     // dias em que passa a jogar (que antes não jogava), com a vitória desse dia antes → depois, por conta
     const byDay = new Map();
@@ -2096,8 +2037,8 @@ function buyResultsHtml(R) {
       : '<div class="buy-gain">Expected wins: ' + f1(e0) + ' → <span class="up">' + f1(e1) + '</span></div>';
     // só com um Moment dele é que o segundo deixa duas contas jogá-lo na mesma noite; com mais, o ganho são os usos
     const twoSame = multi && more && collectionInfo(id).copies === 1 && days.some(z => z.acc.length > 1);
-    const why = !days.length ? 'He doesn\'t play new days: the gain comes from freeing other players for other days.'
-      : (twoSame ? 'With two of his Moments, two accounts can play him on the same day. ' : more ? (usesGain(id, R.U) ? 'With ' + usesTxt(usesGain(id, R.U)) + ' more' + (multi ? ' in each account' : '') + ', ' : 'With a 2nd Moment of his (no extra uses, but both accounts can use him on the same night), ') : '') + (more && !twoSame ? 'he starts' : 'He starts') + ' playing ' + (days.length > 1 ? 'on days ' : 'on day ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (besides the days he already played)' : '') + ':';
+    const why = !days.length ? 'Doesn’t play new days: frees up other players.'
+      : (twoSame ? 'Two accounts can play him on the same day. ' : more ? (usesGain(id, R.U) ? 'With ' + usesTxt(usesGain(id, R.U)) + (multi ? ' in each account' : '') + ', ' : 'With a 2nd Moment (both accounts on the same night), ') : '') + (more && !twoSame ? 'he plays' : 'Plays') + (days.length > 1 ? ' on days ' : ' on day ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (on top of the ones he already played)' : '') + ':';
     const dayLines = days.map(z => { const day = S.days.find(q => q.date === z.d.date) || {};
       return '<li><b>Day ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'win ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
@@ -2105,9 +2046,8 @@ function buyResultsHtml(R) {
     return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2nd Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
       head + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Expected wins' + (multi ? ' (all accounts)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
-  }).join('') + '<div class="small muted">Compared with the plan you have now. Differences of 1 percentage point are calculation noise.</div>';
+  }).join('');
 }
-function colSheet() { closeSheet(); setSub('plantel', 'colecao'); setTab('plantel'); }
 
 // ---- Grupo ----
 // ---------- partilha com o grupo: plano, lineups e empréstimos ----------
@@ -2118,9 +2058,7 @@ function shareDoc() {
   const roster = {}, use = {}, lineups = {};
   accounts().forEach(a => {
     const r = S.multi ? S.multi.byKey[a.id] : (a.id === 'main' ? S.result : null); if (!r) return;
-    const nd0 = r.model.days.length ? r.model.days[0].day : null, pa = planOf(a.id);
-    const v = nd0 && ((pa.mode || {})[nd0.date]) === 'allin' && r.allIn ? r.allIn : r.normal;
-    v.days.forEach(d => {
+    r.normal.days.forEach(d => {
       d.lineup.forEach(id => { const u = (use[id] = use[id] || []); if (!u.includes(d.date)) u.push(d.date); });
       if (a.id === 'main' && d.lineup.length) lineups[d.date] = d.lineup.slice();
     });
@@ -2152,8 +2090,9 @@ function lineupsHtml() {
     const rows = [row(me, mine, null, myLocks)].concat(shared.map(s => row(s.user_id, ((s.share.lineups || {})[day.date]) || [], s.updated_at, (s.share.locks || {})[day.date])));
     return '<div class="card"><div class="list-head"><h2>Day ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div><ul class="list">' + rows.join('') + '</ul></div>';
   });
-  return (shared.length ? '' : '<div class="note info">Nobody in the group has shared their plan yet. It shows up here when your friends open the site with this version (sharing is on by default; turn it off in Settings → Profile).</div>') + cards.join('') +
-    '<p class="small muted" style="margin:0 4px">The lineup each person\'s plan suggests today for each day (it can change until the game). ' + icoLock + ' <b>locked</b>: player that person already locked for the day (or who already started playing), won\'t change. <span class="lu-same">Underlined</span>: player you also have.' + (hidden.length ? ' No shared plan: ' + hidden.map(m => esc(groupName(m.user_id))).join(', ') + '.' : '') + '</p>';
+  return '<div class="sec-head"><span class="small muted">' + icoLock + ' locked · <span class="lu-same">underlined</span>: you have him too</span>' + helpBtn('lineups') + '</div>' +
+    (shared.length ? '' : '<div class="note info">Nobody in the group has shared their plan yet.</div>') + cards.join('') +
+    (hidden.length ? '<p class="small muted" style="margin:0 4px">No shared plan: ' + hidden.map(m => esc(groupName(m.user_id))).join(', ') + '.</p>' : '');
 }
 // Empréstimos: Moments dos amigos que podes pedir nos dias em que eles não os usam
 S.borrow = { results: null, busy: false };
@@ -2221,7 +2160,7 @@ function borrowCard(z, base, i) {
   return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><h2>' + (i + 1) + '. ' + esc(nameOf(o.id)) + '</h2><span class="small muted">' + teamTag((S.players.get(o.id) || {}).team) + ' · from ' + esc(o.from) + '</span></div>' +
     '<div>' + msg + '</div><div class="buy-gain">' + gain + (pp != null && pp > 0 ? ' <small>+' + pp + ' pp</small>' : '') + '</div>' +
     (days ? '<ul class="small buy-days">' + days + '</ul>' : '') +
-    '<div class="small muted">Expected wins in the run: ' + f1(mainResult().wins + base.res.expected) + ' → ' + f1(mainResult().wins + ev.res.expected) + '. ' + safe + ' Counts on ' + plural(o.U, 'use', 'uses') + ' (those of his Moment in one run)' + (o.others.length ? '; also owned by: ' + o.others.map(esc).join(', ') : '') + '. In Top Shot he gifts you the Moment and you give it back.</div></div>';
+    '<div class="small muted">Expected wins: ' + f1(mainResult().wins + base.res.expected) + ' → ' + f1(mainResult().wins + ev.res.expected) + '. ' + safe + (o.others.length ? ' Also has him: ' + o.others.map(esc).join(', ') + '.' : '') + '</div></div>';
 }
 function emprestimosHtml() {
   const r = mainResult(), B = S.borrow.results;
@@ -2230,13 +2169,12 @@ function emprestimosHtml() {
   let out = '';
   if (S.borrow.busy) out = '<div class="small muted" id="borrowProg">Calculating…</div>';
   else if (B && B.err) out = '<div class="note">Error: ' + esc(B.err) + '</div>';
-  else if (B && B.none) out = '<div class="note info">None of your friends\' Moments help: either they haven\'t shared their plan yet, or what they have is already yours, or they use it themselves on every day he plays.</div>';
+  else if (B && B.none) out = '<div class="note info">None of your friends’ Moments helps right now.</div>';
   else if (B) out = B.list.length ? B.list.map((z, i) => borrowCard(z, B.base, i)).join('') : '<div class="note info">None of the ' + B.n + ' available Moments improves your run.</div>';
-  return '<div class="card panel"><h2>Borrow</h2><div class="small muted">Redoes your run with your friends\' Moments, only on the days their plan doesn\'t use them, so nobody\'s run gets spoiled. Counts on the uses of one of his Moments in a run.</div>' +
-    '<div class="small"><b>' + plural(n, 'Moment', 'Moments') + '</b> of ' + plural(new Set(borrowOffers().map(o => o.uid)).size, 'friend', 'friends') + ' you don\'t have and that play on free days.</div>' +
+  return '<div class="card panel"><h2>Borrow ' + helpBtn('emprestimos') + '</h2>' +
+    '<div class="small"><b>' + plural(n, 'Moment', 'Moments') + '</b> of ' + plural(new Set(borrowOffers().map(o => o.uid)).size, 'friend', 'friends') + ', on days they don’t use them.</div>' +
     '<button class="btn primary" type="button" data-action="borrow-run"' + (n && !S.borrow.busy ? '' : ' disabled') + '>See what\'s worth asking for</button></div>' +
-    '<div id="borrowOut" class="stack">' + out + '</div>' +
-    '<p class="small muted" style="margin:0 4px">The free days come from the plan each friend shared (it changes when they open the site). Before giving it back, make sure you\'ve already played that day.</p>';
+    '<div id="borrowOut" class="stack">' + out + '</div>';
 }
 function renderGrupo() {
   const el = $('tab-grupo');
@@ -2270,9 +2208,7 @@ function renderGrupo() {
       '<span class="grp-side">' + side + '</span></button></li>';
   }).join('');
   const tiersTxt = P.map(p => p.wins);
-  el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Standings</h2><span class="small muted">' + esc(run.name || '') + '</span></div><ul class="list">' + (rows || '<li class="row muted small">There is nobody in the group yet.</li>') + '</ul>' +
-    (P.length ? '<div class="row small muted" style="display:block">The rings are each person\'s chance of reaching ' + (tiersTxt.length > 1 ? tiersTxt.slice(0, -1).join(', ') + ' and ' + tiersTxt[tiersTxt.length - 1] : tiersTxt[0]) + ' wins at the end of the run: the fuller, the closer. Green is likely, yellow a toss-up, red hard.</div>' : '') + '</div>' +
-    '<p class="small muted" style="margin:0 4px">Wins and losses come from the blockchain when the Top Shot username is in the profile and the run is linked; otherwise, from what each person records.' + (S.role === 'admin' ? ' Invite friends in Settings → Admin.' : '') + '</p>' +
+  el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Standings ' + helpBtn('classif') + '</h2><span class="small muted">' + esc(run.name || '') + (P.length ? ' · rings: ' + tiersTxt.join(', ') + ' W' : '') + '</span></div><ul class="list">' + (rows || '<li class="row muted small">There is nobody in the group yet.</li>') + '</ul></div>' +
     '<button class="btn" type="button" data-action="group-refresh">Refresh</button>';
 }
 function friendSheet(uid) {
@@ -2295,22 +2231,21 @@ function renderAjustes() {
   if (sub === 'perfil') html.push('<div class="card panel"><h2>Profile</h2><form id="pfForm" class="stack">' +
     '<label class="small muted">Name the group sees<input class="field" id="pfName2" maxlength="40" value="' + esc(me.display_name || '') + '"></label>' +
     '<label class="small muted">Top Shot username<input class="field" id="pfTs2" maxlength="40" autocapitalize="none" autocomplete="off" spellcheck="false" value="' + esc(me.topshot_username || '') + '"></label>' +
-    '<label class="small muted">Flow address of your Dapper wallet (0x followed by 16 letters/numbers; it links your blockchain results)<input class="field" id="pfFlow2" maxlength="18" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="0x…" value="' + esc(me.flow_address || '') + '"></label>' +
+    '<div class="field-lbl"><label class="small muted" for="pfFlow2">Flow address (Dapper wallet)</label>' + helpBtn('flow') + '</div><input class="field" id="pfFlow2" maxlength="18" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="0x…" value="' + esc(me.flow_address || '') + '">' +
     smurfFormHtml() +
     '<div class="btns"><button class="btn quiet" type="button" data-action="logout">Sign out</button><button class="btn primary" type="submit">Save profile</button></div></form></div>' +
-    '<div class="card panel"><h2>Share with the group</h2><div class="small muted">The group sees the lineup your plan suggests for each day and your players\' uses, and the site suggests they borrow Moments from you only on days your plan doesn\'t use them. Your roster and plan stay yours.</div>' +
+    '<div class="card panel"><h2>Share with the group ' + helpBtn('partilha') + '</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Share the plan"><button type="button" data-action="share-plan" data-v="1" aria-pressed="' + (me.share_plan !== false) + '">Share</button><button type="button" data-action="share-plan" data-v="0" aria-pressed="' + (me.share_plan === false) + '">Don\'t share</button></div></div>');
   if (sub === 'prefs' && S.runs.length) {
     html.push('<div class="card panel"><h2>Run shown</h2><select class="field" id="runPick" aria-label="Choose run">' + S.runs.map(x => '<option value="' + esc(x.id) + '"' + (x.id === S.runId ? ' selected' : '') + '>' + esc(x.name) + ' · ' + dShort(x.start_date) + (x.active ? ' (active)' : '') + '</option>').join('') + '</select></div>');
   }
-  if (sub === 'prefs') html.push('<div class="card panel"><h2>Language · Língua</h2><div class="small muted">Changes the language of the whole site. Saved on this device.</div>' +
+  if (sub === 'prefs') html.push('<div class="card panel"><h2>Language · Língua</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Language · Língua">' + [['pt', 'Português'], ['en', 'English']].map(([k, l]) => '<button type="button" data-action="lang" data-v="' + k + '" aria-pressed="' + (LANG === k) + '">' + l + '</button>').join('') + '</div></div>');
-  if (sub === 'prefs') html.push('<div class="card panel"><h2>Appearance</h2><div class="small muted">Automatic follows your phone\'s light or dark mode. Saved on this device.</div>' +
+  if (sub === 'prefs') html.push('<div class="card panel"><h2>Appearance</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Appearance">' + [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
-  if (sub === 'prefs') html.push('<div class="card panel"><h2>Back-to-backs</h2><div class="small muted">In the 2nd of two games on consecutive days (back-to-back) players tend to produce a bit less. Without odds, the plan takes off 3%, or what that player did in those games last season (some show no difference). The odds already account for this. Saved on this device.</div>' +
-    '<div class="seg acc-seg" role="group" aria-label="Back-to-backs"><button type="button" data-action="b2b" data-v="1" aria-pressed="' + b2bOn + '">Adjust</button><button type="button" data-action="b2b" data-v="0" aria-pressed="' + !b2bOn + '">Don\'t adjust</button></div></div>');
-  if (sub === 'prefs') html.push('<div class="card panel"><h2>Recent form</h2><div class="small muted">Without odds for a day, the plan uses the averages. With form, the season averages are blended with the last 10 and 5 games (normal: season 50%, last 10 30%, last 5 20%). The bookmakers\' odds already include form. Saved on this device.</div>' +
-    '<div class="seg acc-seg" role="group" aria-label="Weight of form">' + FORM_LEVELS.map(([k, l]) => '<button type="button" data-action="form-level" data-level="' + k + '" aria-pressed="' + (formLevel === k) + '">' + l + '</button>').join('') + '</div></div>');
+  if (sub === 'prefs') html.push('<div class="card panel"><h2>Calculation without odds ' + helpBtn('avancado') + '</h2>' +
+    '<div class="label">Back-to-backs</div><div class="seg acc-seg" role="group" aria-label="Back-to-backs"><button type="button" data-action="b2b" data-v="1" aria-pressed="' + b2bOn + '">Adjust</button><button type="button" data-action="b2b" data-v="0" aria-pressed="' + !b2bOn + '">Don’t adjust</button></div>' +
+    '<div class="label">Weight of recent form</div><div class="seg acc-seg" role="group" aria-label="Form weight">' + FORM_LEVELS.map(([k, l]) => '<button type="button" data-action="form-level" data-level="' + k + '" aria-pressed="' + (formLevel === k) + '">' + l + '</button>').join('') + '</div></div>');
   // (avisos por email/telemóvel: prontos em alertsHtml(), desligados por agora)
   if (sub === 'admin') html.push(adminHtml(run));
   if (sub === 'dados') html.push(dataHtml());
@@ -2350,7 +2285,7 @@ async function testNtfy() {
 // contas smurf no perfil (até 2): o plano junta as coleções e diz que Moments mandar para que conta
 function smurfFormHtml() {
   const sms = S.smDraft || (S.smDraft = smurfList().map(x => Object.assign({}, x)));
-  return '<div class="label">Smurf accounts</div><div class="small muted">Up to 2 extra accounts of yours. The plan joins the collections as if they were one and tells you which Moments to send to which account before each night (a Moment only plays for one account each night).</div>' +
+  return '<div class="field-lbl"><span class="label">Smurf accounts</span>' + helpBtn('smurf') + '</div>' +
     sms.map((x, i) => '<div class="smurf-row stack"><div class="label">Smurf ' + (i + 1) + '</div>' +
       '<label class="small muted">Top Shot username<input class="field" id="smTs' + i + '" maxlength="40" autocapitalize="none" autocomplete="off" spellcheck="false" value="' + esc(x.topshot_username || '') + '"></label>' +
       '<label class="small muted">Flow address<input class="field" id="smFlow' + i + '" maxlength="18" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="0x…" value="' + esc(x.flow_address || '') + '"></label>' +
@@ -2400,7 +2335,7 @@ function chainImportCard() {
   if (!list.length) return '';
   return '<div class="card"><div class="list-head"><h2>Blockchain runs to import</h2><span class="small muted">' + list.length + '</span></div><ul class="list">' +
     list.map(c => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || c.id) + '</span></div><div class="ps">' + dShort(etDay(c.run_start * 1000)) + ' – ' + dShort(etDay((c.run_end - 12 * 3600) * 1000)) + '</div></div><button class="btn small primary" type="button" data-action="chain-import" data-id="' + esc(c.id) + '">Import</button></li>').join('') +
-    '</ul><div class="row small muted" style="display:block">Creates the run on the site already linked to the blockchain and active. The goals arrive with the “Fast Break na blockchain” task and the games with “Calendário e médias NBA” (run both in Actions to get them now).</div></div>';
+    '</ul><div class="row small muted" style="display:block">It’s linked and active right away. Goals and games arrive with the GitHub jobs (run them in Actions to get them now).</div></div>';
 }
 async function chainImport(cid) {
   const c = (S.chainRuns || []).find(x => x.id === cid); if (!c) return;
@@ -2420,7 +2355,7 @@ function adminHtml(run) {
   const out = [];
   const site = location.origin + location.pathname;
   const imp = chainImportCard(); if (imp) out.push(imp);
-  out.push('<div class="card panel"><h2>Invite friends</h2><div class="small muted">Send them the site link and the code. They create an account with email and password and join with the code.</div>' +
+  out.push('<div class="card panel"><h2>Invite friends</h2><div class="small muted">Send them the link and the code.</div>' +
     '<div class="status-line"><span>Site</span><span class="kbd">' + esc(site) + '</span></div>' +
     '<div class="status-line"><span>Current code</span><span class="kbd">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'none') + '</span></div>' +
     '<form id="inviteForm" class="toolbar"><input class="field" id="invCode" placeholder="New code (min. 4)" autocomplete="off" autocapitalize="none" spellcheck="false"><button class="btn" type="submit">Change</button></form></div>');
@@ -2428,14 +2363,14 @@ function adminHtml(run) {
   if (members.length) out.push('<div class="card"><div class="list-head"><h2>Members</h2><span class="small muted">' + members.length + '</span></div><ul class="list">' + members.map(({ m, p }) => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.display_name || 'No name') + '</span>' + (m.role === 'admin' ? '<span class="badge">admin</span>' : '') + '</div><div class="ps">' + esc(p.topshot_username || 'no Top Shot username') + '</div></div>' + (m.user_id !== S.session.user.id ? '<button class="btn small quiet" type="button" data-action="kick" data-id="' + esc(m.user_id) + '">Remove</button>' : '<span></span>') + '</li>').join('') + '</ul></div>');
   out.push('<div class="card panel"><h2>New run</h2><form id="newRunForm" class="stack"><input class="field" id="nrName" placeholder="Name (e.g. Run 1 · Classic)" maxlength="60" required>' +
     '<div class="grid2"><label class="small muted">First day<input class="field" id="nrStart" type="date" required></label><label class="small muted">Number of days<input class="field num" id="nrDays" type="number" min="1" max="31" value="11" required></label></div>' +
-    '<button class="btn" type="submit">Create run</button></form><div class="small muted">Each day\'s games come from the NBA schedule automatically. Dates in US time, like in Top Shot. Classic runs from the blockchain are created automatically.</div>' +
+    '<button class="btn" type="submit">Create run</button></form><div class="small muted">Dates in US time. Classic runs from the blockchain are created automatically.</div>' +
     (S.runs.some(r => r.fictitious) ? '<button class="btn quiet" type="button" data-action="del-tests">Delete the test runs (' + S.runs.filter(r => r.fictitious).length + ')</button>' : '') + '</div>');
   if (run) {
     const prizes = run.prizes || [];
     out.push('<div class="card panel"><h2>' + esc(run.name) + '</h2>' +
-      (run.active ? '<div class="small">This is the active run: it\'s the one that opens by default for everyone.</div>' : '<button class="btn" type="button" data-action="set-active">Make the run active</button>') +
+      (run.active ? '<div class="small">Active run (opens by default for everyone).</div>' : '<button class="btn" type="button" data-action="set-active">Make the run active</button>') +
       (run.fictitious ? '<button class="btn quiet" type="button" data-action="del-run">Delete this test run</button>' : '') +
-      '<div class="label">Prizes by wins</div><div class="small muted">How many wins give a prize and how much each is worth (only the proportion matters).</div>' +
+      '<div class="label">Prizes by wins</div><div class="small muted">Only the ratio between values counts.</div>' +
       prizes.map((p, i) => '<div class="prow-edit"><label>Wins<input class="field num" id="pz-w-' + i + '" type="number" min="1" max="31" inputmode="numeric" value="' + esc(p.wins) + '" data-action="pz-w" data-i="' + i + '"></label><label>Value<input class="field num" id="pz-v-' + i + '" type="number" min="0" inputmode="decimal" value="' + esc(p.value) + '" data-action="pz-v" data-i="' + i + '"></label><button class="btn small quiet" type="button" data-action="pz-del" data-i="' + i + '" aria-label="Delete tier" style="height:42px">×</button></div>').join('') +
       '<button class="btn" type="button" data-action="pz-add">Add tier</button>' +
       '<div class="label">Goals</div>' +
@@ -2449,9 +2384,9 @@ function adminHtml(run) {
           (k ? '<button class="btn link small" type="button" data-action="obj-del" data-i="' + i + '" data-k="' + k + '" aria-label="Remove this stat">×</button>' : '') + '</div></div>').join('') +
           (os.length < 3 && os[0].target ? '<div class="objrow"><span></span><button class="btn link small" type="button" data-action="obj-add" data-i="' + i + '" style="justify-self:start">+ another stat on day ' + (i + 1) + '</button><span></span></div>' : '');
       }).join('') +
-      '<div class="label">Blockchain</div><div class="small muted">Link this run to the Top Shot run so everyone\'s goals and results come in automatically.</div>' +
+      '<div class="label">Blockchain</div><div class="small muted">When linked, goals and results come in automatically.</div>' +
       '<select class="field" id="chainPick" aria-label="Run on the blockchain"><option value="">Not linked</option>' + S.chainRuns.map(c => '<option value="' + esc(c.id) + '"' + (c.id === run.chain_run_id ? ' selected' : '') + '>' + esc(c.name || c.id) + (c.run_start ? ' · ' + new Date(c.run_start * 1000).toISOString().slice(0, 10) : '') + '</option>').join('') + '</select>' +
-      (S.chainRuns.length ? '' : '<div class="small muted">No runs read from the blockchain yet. They show up after the automatic task runs.</div>') + '</div>');
+      (S.chainRuns.length ? '' : '<div class="small muted">No runs read from the blockchain yet.</div>') + '</div>');
   }
   return out.join('');
 }
@@ -2465,8 +2400,7 @@ function dataHtml() {
   lines.push(['Schedule', S.days.length ? withGames + ' of ' + S.days.length + ' days with games' : '—']);
   lines.push(['Injuries', S.injOk ? Object.keys(S.injuries).length + ' on the report · ' + ago(S.injAt) : 'the new supabase/schema.sql still has to be run']);
   lines.push(['Blockchain', S.chainRuns.length ? S.chainRuns.length + ' runs read' : 'waiting for the first read']);
-  return '<div class="card panel"><h2>Data</h2>' + lines.map(([a, b]) => '<div class="status-line"><span>' + esc(a) + '</span><span class="muted">' + esc(b) + '</span></div>').join('') +
-    '<div class="small muted">Updated automatically: schedule and averages in the morning, odds in the afternoon and early evening (Lisbon time), blockchain and injuries every 30 minutes. Without odds, the plan uses the averages with form.</div></div>';
+  return '<div class="card panel"><h2>Data ' + helpBtn('dados') + '</h2>' + lines.map(([a, b]) => '<div class="status-line"><span>' + esc(a) + '</span><span class="muted">' + esc(b) + '</span></div>').join('') + '</div>';
 }
 
 // ---------- folhas ----------
@@ -2539,12 +2473,10 @@ function compareCard(md, d, date, inTab) {
   const sort = S.cmpSort || { col: 'proj', dir: -1 }, col = cols.find(c => c[0] === sort.col) || cols[0];
   rows.sort((x, y) => { const a = col[2](x), b = col[2](y); if (a == null && b == null) return 0; if (a == null) return 1; if (b == null) return -1; return (a - b) * sort.dir; });
   const head = '<tr><th class="sticky">Player</th>' + cols.map(c => '<th><button type="button" data-action="cmp-sort" data-col="' + c[0] + '" data-date="' + date + '"' + (inTab ? ' data-in="tab"' : '') + ' title="' + esc(c[4]) + '" aria-sort="' + (sort.col === c[0] ? (sort.dir < 0 ? 'descending' : 'ascending') : 'none') + '">' + c[1] + (sort.col === c[0] ? (sort.dir < 0 ? ' ↓' : ' ↑') : '') + '</button></th>').join('') + '</tr>';
-  const body = rows.map(x => '<tr class="' + (x.inL ? 'inl' : '') + '" data-action="player" data-id="' + esc(x.p.id) + '" data-date="' + date + '"' + (inTab ? '' : ' data-back="day"') + ' tabindex="0"><th class="sticky"><span class="cn" title="' + esc(x.p.name) + '">' + (x.locked ? icoLock : x.inL ? '<i class="dot on" title="in the plan\'s lineup"></i>' : '') + esc(shortName(x.p.name)) + '</span><small>' + esc(x.p.team) + (x.opp ? (x.home ? ' vs ' : ' @ ') + esc(x.opp) : '') + (x.info.status !== 'ok' ? ' · ' + esc(STATUS[x.info.status].label) : '') + (x.info.b2b ? ' · back-to-back' : '') + '</small></th>' + cols.map(c => '<td>' + c[3](x) + '</td>').join('') + '</tr>').join('');
-  const noForm = !rows.some(x => x.f);
+  const body = rows.map(x => '<tr class="' + (x.inL ? 'inl' : '') + '" data-action="player" data-id="' + esc(x.p.id) + '" data-date="' + date + '" tabindex="0"><th class="sticky"><span class="cn" title="' + esc(x.p.name) + '">' + (x.locked ? icoLock : x.inL ? '<i class="dot on" title="in the plan\'s lineup"></i>' : '') + esc(shortName(x.p.name)) + '</span><small>' + esc(x.p.team) + (x.opp ? (x.home ? ' vs ' : ' @ ') + esc(x.opp) : '') + (x.info.status !== 'ok' ? ' · ' + esc(STATUS[x.info.status].label) : '') + (x.info.b2b ? ' · back-to-back' : '') + '</small></th>' + cols.map(c => '<td>' + c[3](x) + '</td>').join('') + '</tr>').join('');
   const objChips = objs.length > 1 ? '<div class="chips" role="group" aria-label="Stat of the day" style="padding:0 14px 8px">' + objs.map((x, k) => '<button type="button" data-action="cmp-obj" data-k="' + k + '" data-date="' + date + '"' + (inTab ? ' data-in="tab"' : '') + ' aria-pressed="' + (k === kq) + '">' + esc(statShort(x.stat)) + ' · target ' + x.target + '</button>').join('') + '</div>' : '';
-  return '<div class="card"><div class="list-head"><h2>Compare players</h2><span class="small muted">' + rows.length + ' play · tap to see</span></div>' + objChips +
-    '<div class="cmp-wrap" id="cmpWrap"><table class="cmp"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
-    '<div class="row small muted" style="display:block">' + (objs.length > 1 ? 'Proj., Last 5, Last 10 and Season are for ' + esc(statShort(o.stat)) + ': switch with the buttons above. ' : '') + 'Big numbers: last 5 games; small: season. <i class="dot on" style="display:inline-block;vertical-align:-1px"></i> in the plan\'s lineup. Tap a header to sort.' + (noForm ? ' Form shows up after the first games of the season; until then you see the season averages.' : '') + '</div></div>';
+  return '<div class="card"><div class="list-head"><h2>Compare ' + helpBtn('comparar') + '</h2><span class="small muted">' + rows.length + ' play</span></div>' + objChips +
+    '<div class="cmp-wrap" id="cmpWrap"><table class="cmp"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div></div>';
 }
 // últimos jogos de um jogador (guardados pela tarefa diária)
 function gamesTable(a) {
@@ -2556,34 +2488,13 @@ function gamesTable(a) {
     games.map(g => '<tr><th class="sticky"><span class="cn">' + dShort(g[0]) + '</span><small>' + (g[1] ? esc(g[1]) : '') + '</small></th>' + ['min', 'pts', 'reb', 'ast', 'fg3'].map(k => '<td>' + (val(g, k) != null ? val(g, k) : '–') + '</td>').join('') +
       '<td>' + pair(g, 'fgm', 'fga') + '</td><td>' + pair(g, 'fg3', 'fg3a') + '</td><td>' + pair(g, 'ftm', 'fta') + '</td>' + ['tov', 'stl', 'blk'].map(k => '<td>' + (val(g, k) != null ? val(g, k) : '–') + '</td>').join('') + '</tr>').join('') + '</tbody></table></div></div>';
 }
-function daySheet(date) {
-  const i = S.days.findIndex(x => x.date === date); if (i < 0) return;
-  const day = S.days[i], o = (day.objectives || [])[0];
-  const pl = ((curPlan().played || {})[date]) || null;
-  if (pl && pl.done) {
-    openSheet('<h3>Day ' + (i + 1) + ' · ' + esc(objsText(day)) + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + (pl.result === 'win' ? 'Win' : 'Loss') + (pl.points != null ? ' · ' + f0(pl.points) + ' scored' : '') + (pl.chain ? ' · read from the blockchain' : '') + '</div>' +
-      (predVsActualHtml(date) || '<ul class="list card">' + ((pl.lineup || []).map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">No players recorded.</li>') + '</ul>') + '<div class="small muted">These players\' uses were already deducted.</div>' + (pl.chain ? '' : '<button class="btn" type="button" data-action="undo-result" data-date="' + date + '">Undo result</button>') + closeRow());
-    return;
-  }
-  const { md, d } = dayInfo(date); if (!md || !d) return;
-  const r = S.result, v = view();
-  const locks = new Set(((curPlan().locks || {})[date]) || []), bans = ((curPlan().bans || {})[date]) || [];
-  const inLine = d.lineup.map(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], p = r.model.players[pi]; return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '" data-back="day"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + injTag(info) + b2bTag(info) + ' · ' + srcShort(info) + formTag(p, o) + '</div></div>' + pvHtml(objVals(md, pi, false)) + '</button></li>'; }).join('');
-  openSheet('<h3>Day ' + (i + 1) + ' · ' + esc(objsText(day)) + '</h3>' + (d.perPlayer ? '<div class="note">Goal per player: the plan calculates it as a total. Check the lineup by hand.</div>' : '') +
-    '<div class="kv"><div><div class="label">Win</div><div class="v num c-' + tone(d.P) + '">' + (d.noObjective ? '—' : pct(d.P)) + '</div></div><div><div class="label">Projection</div><div class="v num">' + (d.totals.length ? d.totals.map(x => f0(x.mu)).join('<small> / </small>') : '–') + '</div>' + (d.totals.length > 1 ? '<div class="small muted">' + d.totals.map(x => esc(statShort(x.stat))).join(' / ') + '</div>' : '') + '</div><div><div class="label">Games</div><div class="v num">' + (day.games || []).length + '</div></div></div>' +
-    '<div class="card"><div class="list-head"><h2>Plan lineup</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div><ul class="list">' + (inLine || '<li class="row muted small">Nobody in the roster plays on this day.</li>') + '</ul></div>' +
-    ((day.games || []).length ? '<div class="card"><div class="list-head"><h2>Games</h2><span class="small muted">' + plural(day.games.length, 'game', 'games') + ' · local time</span></div><ul class="list">' + gameRows(day, r, d.lineup, null, null, day.objectives) + '</ul></div>' : '<div class="note info">This day\'s games haven\'t been loaded from the NBA schedule yet.</div>') +
-    (locks.size ? '<div class="small">Locked: ' + [...locks].map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">unlock</button>').join(' · ') + '</div>' : '') +
-    (bans.length ? '<div class="small">Removed: ' + bans.map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + date + '">restore</button>').join(' · ') + '</div>' : '') +
-    compareCard(md, d, date) + closeRow());
-}
 function playerSheet(id, date, back) {
   const r = S.result, pi = r.model.pIndex.get(id), p = r.model.players[pi];
   const { md, d } = dayInfo(date); if (!md) return;
   const day = md.day, o = (day.objectives || [])[0] || { stat: 'pts' }, info = md.info[pi][0] || { mu: 0, src: 'sem', status: 'ok', pPlay: 1 };
   const locked = (((curPlan().locks || {})[date]) || []).includes(id);
   const inPlan = view().days.filter(x => x.lineup.includes(id)).map(x => x.idx + 1);
-  const live = date === (nextDay() || {}).date && liveOn(date), sub = live && d.live && d.live.submitted.includes(id);
+  const live = date === (nextDay() || {}).date && liveOn(date) && !!d.live, sub = live && d.live.submitted.includes(id);
   let liveHtml = '';
   if (live && sub) {
     const e = (((liveDoc(date) || {}).players || {})[id]) || {}, state = e.state || 'por';
@@ -2592,7 +2503,7 @@ function playerSheet(id, date, back) {
       (state !== 'por' ? objs.map((ob, k) => { const val = Math.round(FB.statValue(e.vals || {}, ob.stat, p.avg) * 10) / 10;
         return '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="stepper"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-k="' + k + '" data-d="-1" aria-label="One less">−</button><input class="num" id="liveVal-' + k + '" type="number" inputmode="decimal"' + (/-/.test(ob.stat) ? '' : ' min="0"') + ' value="' + val + '" data-action="live-input" data-id="' + esc(id) + '" data-k="' + k + '" aria-label="' + esc(statShort(ob.stat)) + ' so far"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-k="' + k + '" data-d="1" aria-label="One more">+</button></div><span class="small muted">' + esc(statShort(ob.stat)) + (state === 'fim' ? ' at the end' : ' so far') + '</span></div>'; }).join('') : '') +
       (state === 'jogo' ? '<div class="chips" role="group" aria-label="Quarter">' + [1, 2, 3, 4].map(qn => '<button type="button" data-action="live-q" data-id="' + esc(id) + '" data-q="' + qn + '" aria-pressed="' + (+e.q === qn) + '">' + qn + '.º</button>').join('') + '</div>' : '') + '</div>';
-  } else if (live) liveHtml = '<div class="note info">He isn\'t in the lineup you submitted yet. If you make the swap on Top Shot, tap <b>I made the swap</b> on Matchday.</div>';
+  } else if (live) liveHtml = '<div class="note info">Not in the submitted lineup.</div>';
   openSheet('<h3>' + esc(p.name) + '</h3><div class="small muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · Day ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
     '<div class="kv"><div><div class="label">Expected</div><div class="v num">' + (md.objs.length > 1 ? md.objs.map((x, k) => f1((md.info[pi][k] || {}).mu || 0)).join('<small> / </small>') : f1(info.mu)) + '</div><div class="small muted">' + (md.objs.length > 1 ? md.objs.map(x => esc(statShort(x.stat))).join(' / ') : esc(statShort(o.stat))) + '</div></div><div><div class="label">Uses</div><div class="v num">' + (p.uses || 0) + '</div><div class="small muted">left</div></div><div><div class="label">In the plan</div><div class="v num">' + inPlan.length + '</div><div class="small muted">' + (inPlan.length ? 'days ' + inPlan.join(', ') : '—') + '</div></div></div>' +
     liveHtml + injuryBlock(id, info.injury, date) + (md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + gamesTable(p.avg) +
@@ -2617,14 +2528,12 @@ function rosterSheet(id) {
   openSheet('<h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + esc(team || 'no team') + ' · ' + games + ' games in the run · in the plan: ' + (inPlan.length ? 'days ' + inPlan.join(', ') : 'no day') + '</div>' +
     (() => { const ci = ((((S.profile || {}).collection) || {}).players || {})[id] || (e.moments ? { moments: e.moments, sets: e.sets } : null); if (!ci) return '';
       const col = (S.profile || {}).collection;
-      return '<div class="small muted">In the wallet: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : ci.moments + ' Moment' + (ci.moments > 1 ? 's' : '')) + ((ci.sets || []).length ? ' (' + ci.sets.map(esc).join(', ') + ')' : '') +
-        (ci.bySet ? ' · ' + esc(usesWhy(col, ci)) + (e.usesManual ? ' · set by hand' : '') : '') + '</div>' +
-        (ci.bySet && (ci.moments || 0) > 1 ? '<div class="small muted">More Moments of the same player don\'t add uses' + (groupMode() ? ': they let you put him in two accounts on the same day' : '') + '.</div>' : ''); })() +
+      return ci.ids && col && col.items ? '' : '<div class="small muted">In the wallet: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : plural(ci.moments || 1, 'Moment', 'Moments')) + (ci.bySet ? ' · ' + esc(usesWhy(col, ci)) : '') + '</div>'; })() +
     injuryBlock(id, null, null) + cardsBlock(id) +
     (groupMode() ? '<div class="small muted">Uses left in each account</div>' : '') + usesRows + momentsBlock(id) +
     '<div><div class="label" style="margin-bottom:6px">Status</div><div class="chips" role="group" aria-label="Status">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
-    (avg ? '<div><div class="label" style="margin-bottom:6px">Averages per game' + (c.gp ? ' (' + c.gp + ' games)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimated from the other averages</div>' : '') + '</div>' : '<div class="note info">No averages for this player yet. They come in when he plays.</div>') +
-    (avg && avg.form ? '<div class="small muted">Last 5 games: ' + ['pts', 'reb', 'ast', 'fg3'].filter(k => avg.form.l5 && avg.form.l5[k] != null).map(k => STATS[k].short + ' ' + f1(avg.form.l5[k])).join(' · ') + ' (last game ' + dShort(avg.form.last) + ')</div>' : '') + gamesTable(avg) +
+    (avg ? '<div><div class="label" style="margin-bottom:6px">Averages per game' + (c.gp ? ' (' + c.gp + ' games)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimated from the other averages</div>' : '') + '</div>' : '<div class="note info">No averages yet.</div>') +
+    gamesTable(avg) +
     '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Remove from roster</button>' + closeRow());
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
@@ -2632,7 +2541,7 @@ function rosterSheet(id) {
 function cardsBlock(id) {
   const col = (S.profile || {}).collection, c = col && (col.players || {})[id];
   if (!c) return '';
-  if (!c.ids || !col.items) return '<div class="note info">To choose the tier of each card (which of your Moments is Rare), read the wallet again in Players → Collection: from now on the site saves each card with its serial number.</div>';
+  if (!c.ids || !col.items) return '<div class="note info">To pick each card’s tier, read the wallet again (Players → Collection).</div>';
   const its = c.ids.map(f => ({ f, it: col.items[f], t: momentTier(col, f) })).filter(x => x.it).sort((a, b) => tierRank(a.t, b.t) || String(a.it.s).localeCompare(String(b.it.s)) || (a.it.n || 0) - (b.it.n || 0));
   if (!its.length) return '';
   const best = bestTier(col, c), u = tierUsesOf(col, c), lab = tierLabels(col);
@@ -2640,8 +2549,7 @@ function cardsBlock(id) {
   const rows = its.map(({ f, it, t }) => { const w = momentTierWhy(col, f, lab).why; return '<li class="row mo-row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(it.s) + '</span>' + (WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">for sale</span>' : '') + '</div>' +
     '<div class="ps">' + [it.n ? '#' + it.n + (it.m ? ' of ' + f0(it.m) : '') : it.m ? 'mint count ' + f0(it.m) : '', it.se != null ? 'series ' + it.se : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).map(esc).join(' · ') + '</div></div>' +
     '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Tier of this card">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + plural(TIER_USES[z], 'use', 'uses') + '</option>').join('') + '</select></li>'; }).join('');
-  return '<div class="card"><div class="list-head"><h2>Your cards</h2><span class="small muted">' + plural(its.length, 'Moment', 'Moments') + '</span></div><ul class="list">' + rows + '</ul>' +
-    '<div class="row small muted" style="display:block">Choose the tier of each card; the set and mint count are only a guess. Each card you mark teaches the others from the same set (yours and the group\'s). The player gets the uses of the best one: <b>' + esc(best || 'Common') + ' → ' + plural(u || 1, 'use', 'uses') + ' per run</b>.' + (its.length > 1 ? ' The others don\'t add uses' + (groupMode() ? ' (they let you use him in two accounts on the same day)' : '') + '.' : '') + '</div></div>';
+  return '<div class="card"><div class="list-head"><h2>Your cards ' + helpBtn('cartas') + '</h2><span class="small muted">' + plural(u || 1, 'use', 'uses') + ' per run · ' + esc(best || 'Common') + '</span></div><ul class="list">' + rows + '</ul></div>';
 }
 // depois de uma carta mudar: usos por run de todos os jogadores com cartas desse set (o da carta deixa de ter os
 // usos acertados à mão; os outros só mudam se não os acertaste). Devolve os outros jogadores cujos usos mudaram.
@@ -2680,13 +2588,13 @@ function momentsBlock(id) {
   const nights = per.length ? per.map(x => esc(x.a.label) + ': ' + (x.ds.length === 1 ? 'day ' : 'days ') + spans(x.ds)).join(' · ') : 'no account uses him in the plan';
   const inWallet = !!((((S.profile || {}).collection) || {}).players || {})[id], nAcc = accounts().length;
   return '<div class="note' + (copies === 1 ? ' info' : '') + '" style="display:grid;gap:8px"><div>' + (copies === 1
-    ? '<b>' + (inWallet ? 'You have 1 Moment of his' : 'Counts on 1 Moment of his') + ':</b> each night he only plays for one account' + (inWallet ? '' : ' (doesn\'t show up in the wallets read)') + '. ' + nights + '. The accounts never use him on the same day; if the plan wants him in more than one, it moves him between accounts between nights (it shows up in To do).'
-    : '<b>You have ' + copies + ' Moments of his:</b> ' + (copies >= nAcc ? 'all accounts can use him on the same night' : 'up to ' + copies + ' accounts can use him on the same night') + '. ' + nights + '.') + '</div>' +
+    ? '<b>1 Moment' + (inWallet ? '' : ' (not in the wallets read)') + ':</b> plays for one account at a time. ' + nights + '.'
+    : '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'every account can use him on the same night' : 'up to ' + copies + ' accounts on the same night') + '. ' + nights + '.') + '</div>' +
     (copies === 1 && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">See if a 2nd Moment is worth it</button>' : '') + '</div>';
 }
 function addPlayerSheet() {
   openSheet('<h3>Add player</h3><input class="field" id="apSearch" type="search" placeholder="Player name…" autocomplete="off" aria-label="Search player"><div id="apResults" class="search-list"></div>' +
-    '<div class="small muted">Not showing up? <button class="btn link small" type="button" data-action="custom-player">Add by hand</button></div>' + closeRow());
+    '<div class="small muted"><button class="btn link small" type="button" data-action="paste-sheet">Paste a list</button> · <button class="btn link small" type="button" data-action="custom-player">Player not listed</button></div>' + closeRow());
   renderSearch(''); setTimeout(() => { const f = $('apSearch'); if (f) f.focus(); }, 50);
 }
 function searchPlayers(qs, limit) {
@@ -2697,13 +2605,13 @@ function searchPlayers(qs, limit) {
 }
 function renderSearch(qs) {
   const box = $('apResults'); if (!box) return;
-  if (!S.players.size) { box.innerHTML = '<div class="row muted small">The player catalog is still empty. Use “Add by hand” or wait for the first automatic update.</div>'; return; }
+  if (!S.players.size) { box.innerHTML = '<div class="row muted small">The player catalogue is still empty.</div>'; return; }
   const res = searchPlayers(qs, 30);
   box.innerHTML = res.map(p => { const inR = !!S.mine.roster[p.id]; return '<div class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS · ' + f1(+p.avg.reb || 0) + ' REB · ' + f1(+p.avg.ast || 0) + ' AST' : '') + '</div></div>' + (inR ? '<span class="small muted">in roster</span>' : '<button class="btn small" type="button" data-action="add-id" data-id="' + esc(p.id) + '">Add</button>') + '</div>'; }).join('') || '<div class="row muted small">No player with that name.</div>';
 }
 function customPlayerSheet() {
   openSheet('<h3>Add by hand</h3><input class="field" id="cpName" placeholder="Name" aria-label="Player name"><div class="grid2"><select class="field" id="cpTeam" aria-label="Team">' + TEAMS.map(t => '<option>' + t + '</option>').join('') + '</select><input class="field num" id="cpUses" type="number" min="0" max="20" value="1" aria-label="Uses"></div>' +
-    '<div class="small muted">Without averages, this player only enters the plan on days with odds.</div><div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Cancel</button><button class="btn primary" type="button" data-action="save-custom">Add</button></div>');
+    '<div class="small muted">Without averages, he only enters the plan on days with odds.</div><div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Cancel</button><button class="btn primary" type="button" data-action="save-custom">Add</button></div>');
 }
 // "Jokic 2, Tatum 3" → [{text, uses, match}]
 function parseList(text) {
@@ -2719,7 +2627,7 @@ function parseList(text) {
   });
 }
 function pasteSheet() {
-  openSheet('<h3>Paste list</h3><div class="small muted">One player per line (or separated by commas) with the number of uses. E.g.: <span class="kbd">Jokic 2</span>, <span class="kbd">Wembanyama 3</span>, <span class="kbd">Curry 1</span>.</div>' +
+  openSheet('<h3>Paste list</h3><div class="small muted">One per line, with the uses. E.g. <span class="kbd">Jokic 2</span> <span class="kbd">Curry 1</span></div>' +
     '<textarea class="field" id="pasteText" rows="6" aria-label="List of players"></textarea><button class="btn" type="button" data-action="paste-preview">See matches</button><div id="pasteOut"></div>' + closeRow());
 }
 
@@ -2868,35 +2776,6 @@ async function readEditions(setIds) {
   for (let i = 0; i < ids.length; i += 12) await batch(ids.slice(i, i + 12));
   return out;
 }
-// muda o escalão de um set (e os usos de quem tem Moments desse set, menos os que acertaste à mão)
-async function setTierChange(k, tier) {
-  const col = (S.profile || {}).collection; if (!col || !col.sets || !col.sets[k]) return;
-  const x = col.sets[k];
-  if (tier === x.auto) delete x.tier; else x.tier = tier;
-  Object.keys(col.mt || {}).forEach(f => { if ((col.items[f] || {}).s === k) delete col.mt[f]; });
-  col.tl = tierLabels(col);
-  let changed = 0;
-  Object.entries(col.players || {}).forEach(([id, c]) => {
-    if (!c.bySet || !c.bySet[k]) return;
-    c.uses = tierUsesOf(col, c);
-    const e = (S.mine.roster || {})[id];
-    if (S.runId && e && !e.usesManual) { e.uses = Math.max(0, c.uses - usedCount('main', id)); e.tierUses = c.uses; changed++; }
-  });
-  try { await q(sb.from('profiles').update({ collection: col }).eq('user_id', S.session.user.id)); } catch (e) { toast('Not saved: ' + errText(e)); }
-  if (changed) { saveMine(); schedule(); }
-  toast(k + ': ' + tier + (changed ? ' · uses of ' + plural(changed, 'player', 'players') + ' updated' : ''));
-  renderPlantel();
-}
-function tiersCard() {
-  const col = (S.profile || {}).collection; if (!col) return '';
-  if (!col.sets) return '<div class="card panel"><h2>Tiers and uses</h2><div class="small muted">Read the wallet again so the site sees each Moment\'s tier (by set and mint size) and sets the uses automatically from each player\'s best Moment: Common 1, Fandom 1, Rare 2, Legendary 4.</div><button class="btn" type="button" data-action="wallet-sheet">Read again</button></div>';
-  const rows = Object.entries(col.sets).map(([k, x]) => ({ k, x, t: setTier(col, k) })).sort((a, b) => (TIERS.indexOf(b.t) - TIERS.indexOf(a.t)) || (b.x.n - a.x.n));
-  return '<div class="card"><div class="list-head"><h2>Tiers and uses</h2><span class="small muted">' + plural(rows.length, 'set', 'sets') + '</span></div>' +
-    '<div class="row small muted" style="display:block">Each player has the uses per run of his <b>best</b> Moment: Common 1, Fandom 1, <b>Rare 2</b>, <b>Legendary 4</b>. More Moments of the same player don\'t add up (one Rare and three Commons give 2)' + (groupMode() ? '; they let you use him in two accounts on the same day' : '') + '. The tier comes from the set and the mint size (Top Shot doesn\'t put it on the blockchain): if one is wrong, change it here. A Common with ASP over $10 also gives 2: set those on the player\'s page.</div>' +
-    '<div class="row small muted" style="display:block">This changes the whole set. For a single card (e.g. which of your Luka is Rare), tap the player in Players → Roster: his page shows each card with its serial number.</div><ul class="list">' +
-    rows.map(({ k, x, t }) => '<li class="row tier-row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(k) + '</span>' + (x.tier ? '<span class="badge">changed</span>' : '') + '</div><div class="ps">' + plural(x.n, 'Moment', 'Moments') + (x.med ? ' · mint ~/' + f0(x.med) : '') + (x.how === 'tiragem' && !x.tier ? ' · by mint size' : '') + '</div></div>' +
-      '<select class="field tier-sel" data-tier-set="' + esc(k) + '" aria-label="Tier of ' + esc(k) + '">' + TIERS.map(z => '<option' + (z === t ? ' selected' : '') + '>' + z + '</option>').join('') + '</select></li>').join('') + '</ul></div>';
-}
 async function readWallet(addr, progress) {
   const A = { type: 'Address', value: addr };
   const ids = await flowRun(CAD_IDS, [A]) || [];
@@ -2941,7 +2820,7 @@ async function walletSheet() {
   const seenAddr = new Set(), dupAddr = [];
   const accs = accounts().filter(a => /^0x[0-9a-fA-F]{16}$/.test((a.flow || '').trim())).filter(a => { const k = a.flow.trim().toLowerCase(); if (seenAddr.has(k)) { dupAddr.push(a.label); return false; } seenAddr.add(k); return true; });
   if (!accs.length) {
-    openSheet('<h3>Read wallet</h3><div class="small muted">To read your Moments I need the Flow address of your Dapper wallet (0x followed by 16 letters and numbers). Put it in your profile, in Settings (and the smurf accounts\' ones, if you have them).</div><div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Cancel</button><button class="btn primary" type="button" data-action="goto" data-tab="ajustes" data-sub="perfil">Go to Settings</button></div>');
+    openSheet('<h3>Read wallet</h3><div class="small muted">Your profile is missing the Flow address (Dapper wallet).</div><div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Cancel</button><button class="btn primary" type="button" data-action="goto" data-tab="ajustes" data-sub="perfil">Go to Settings</button></div>');
     return;
   }
   openSheet('<h3>Read wallet' + (accs.length > 1 ? 's' : '') + '</h3><div class="small muted" id="wProg">Reading your Moments on the blockchain…</div>' + closeRow());
@@ -3007,10 +2886,10 @@ async function walletSheet() {
   openSheet('<h3>Your collection</h3><div class="small muted">' + tot + ' · ' + found.length + ' NBA players this season</div>' +
     (failed.length ? '<div class="note">Couldn\'t read: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' has the same Flow address as another account: I only read that wallet once. Check the addresses in Settings → Profile.</div>' : '') +
-    '<div class="note info">Tiers (by set and mint size): ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '. Uses per run for each player: those of his <b>best</b> Moment (Common 1, Rare 2, Legendary 4)' + (hasRun ? ', minus the ones you already spent' : '') + '. One Rare and three Commons of the same player give 2 uses, not 5. If a set is wrong, change it in Players → Collection → Tiers. A Common with ASP over $10 (2 uses) you set by hand.</div>' +
-    (ups.length ? '<div class="note">Uses that change in the roster: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' and another ' + (ups.length - 12) : '') + '. The ones you set by hand don\'t change.</div>' : '') +
+    '<div class="note info">Tiers: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '. Each player gets the uses of his best card. If a card is wrong, fix it in the player’s card.</div>' +
+    (ups.length ? '<div class="note">Uses that change: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' and another ' + (ups.length - 12) : '') + '.</div>' : '') +
     (found.length ? '<ul class="ops">' + found.map(li).join('') + '</ul>' : '<div class="small muted">No Moment of a player with an NBA team this season.</div>') +
-    (outside.size ? '<div class="small muted">Outside the catalog (WNBA, retired or without a team), not included: ' + [...outside.values()].slice(0, 25).map(esc).join(', ') + (outside.size > 25 ? ' and another ' + (outside.size - 25) : '') + '.</div>' : '') +
+    (outside.size ? '<div class="small muted">Not included (WNBA, retired): ' + [...outside.values()].slice(0, 25).map(esc).join(', ') + (outside.size > 25 ? ' and another ' + (outside.size - 25) : '') + '.</div>' : '') +
     (gone.length ? '<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wGone"> <span>Remove from the roster whoever is no longer in the wallet: ' + gone.map(id => esc(nameOf(id))).join(', ') + '</span></label>' : '') +
     '<button class="btn primary" type="button" data-action="wallet-apply" style="width:100%">' + (hasRun ? (fresh.length ? 'Save and add ' + fresh.length + ' player' + (fresh.length > 1 ? 's' : '') + ' to the roster' : 'Save and update the roster') : 'Save the collection') + '</button>' + closeRow());
 }
@@ -3036,7 +2915,7 @@ async function walletApply() {
   }
   S.walletCol = null; S.walletGone = null;
   closeSheet(); schedule();
-  toast(S.runId ? (added ? added + ' new player' + (added > 1 ? 's' : '') + '' + (added > 1 ? '' : '') + ' in the roster' : 'Roster updated') + (removed ? ', ' + removed + ' removed' + (removed > 1 ? '' : '') : '') + '. Set the uses.' : 'Collection saved.');
+  toast(S.runId ? (added ? added + ' new player' + (added > 1 ? 's' : '') + '' + (added > 1 ? '' : '') + ' in the roster' : 'Roster updated') + (removed ? ', ' + removed + ' removed' + (removed > 1 ? '' : '') : '') + '.' : 'Collection saved.');
 }
 // junta ao plantel da run os jogadores da coleção guardada (1 uso cada; acertam-se depois)
 function collectionToRoster() {
@@ -3044,7 +2923,7 @@ function collectionToRoster() {
   let added = 0;
   Object.entries(col.players || {}).forEach(([id, c]) => { if (!S.mine.roster[id] && S.players.has(String(id))) { const tot = tierUsesOf(col, c) || 1; S.mine.roster[id] = { uses: Math.max(0, tot - usedCount('main', id)), tierUses: tot, status: 'ok', moments: c.moments, sets: c.sets }; added++; } });
   applyChainResults(); schedule(); saveMine();
-  toast(added + ' player' + (added === 1 ? '' : 's') + ' from the collection in the roster, with uses by tier (Rare 2, Legendary 4). Fix the exceptions.');
+  toast(added + ' player' + (added === 1 ? '' : 's') + ' from the collection added to the roster.');
 }
 
 // ---------- ações ----------
@@ -3065,7 +2944,7 @@ async function choiceSheet(id, date, kind) {
   if (kind === 'ban' && !inPlan) { banToggle(id, date, true); closeSheet(); return; }
   const day = S.days.find(x => x.date === date) || {}, dn = S.days.indexOf(day) + 1, name = esc(nameOf(id));
   const title = kind === 'lock' ? 'Lock ' + name + ' on day ' + dn + '?' : 'Remove ' + name + ' of day ' + dn + '?';
-  openSheet('<h3>' + title + '</h3><div class="small muted" id="choiceProg">Redoing the run with your choice…</div>' + closeRow());
+  openSheet('<h3>' + title + '</h3><div class="small muted" id="choiceProg">Redoing the run…</div>' + closeRow());
   await new Promise(res => setTimeout(res, 30));
   let ev;
   try {
@@ -3098,11 +2977,10 @@ async function choiceSheet(id, date, kind) {
   }
   const loss = ew1 < ew0 - 0.05 || r.prizes.some((p, i) => pp(res.prizeProbs[i]) < pp(cur.prizeProbs[i]));
   const gain = !loss && (ew1 > ew0 + 0.05 || r.prizes.some((p, i) => pp(res.prizeProbs[i]) > pp(cur.prizeProbs[i])));
-  const verdict = loss ? '<div class="note">' + (kind === 'lock' ? 'The plan didn\'t put him on this day: locking him' : 'The plan put him on this day: removing him') + ' <b>costs</b> your run. You can still do it, for example if you know something the plan doesn\'t (minutes, injury, a key game).</div>'
-    : gain ? '<div class="note info">This raises your chances: the plan hadn\'t found this combination yet. Worth it.</div>'
-    : '<div class="note info">Almost nothing changes: the plan is worth the same with your choice.</div>';
+  const verdict = loss ? '<div class="note">It <b>costs</b> your run. Do it anyway if you know something the plan doesn’t (minutes, injury).</div>'
+    : gain ? '<div class="note info">It <b>raises</b> your chances. Worth it.</div>'
+    : '<div class="note info">Barely changes anything.</div>';
   openSheet('<h3>' + title + '</h3>' + verdict + '<div class="card">' + lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') + '</div>' +
-    '<div class="small muted">Compared with the plan you have now. The rest of the run is redone with your choice.</div>' +
     '<div class="btns"><button class="btn quiet" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '">Cancel</button><button class="btn ' + (loss ? '' : 'primary') + '" type="button" data-action="' + (kind === 'lock' ? 'lock-yes' : 'ban-yes') + '" data-id="' + esc(id) + '" data-date="' + date + '">' + (kind === 'lock' ? 'Lock anyway' : 'Remove anyway') + '</button></div>');
 }
 function lockToggle(id, date, on) {
@@ -3135,24 +3013,6 @@ function changeUses(id, delta, acc) {
   clearTimeout(useTimers[pk]);
   useTimers[pk] = setTimeout(() => { const e2 = S.mine.roster[id]; if (e2 && S.pendingUses[pk] != null) { setUsesOf(e2, acc, S.pendingUses[pk]); if (acc === 'main') e2.usesManual = true; } delete S.pendingUses[pk]; saveMine(); schedule(); }, 400);
 }
-// Acertar os usos de todos de uma vez: procura por nome e − / + em cada um (em cada conta, com smurfs)
-function usesSheet() {
-  openSheet('<h3>Set uses</h3><div class="small muted">Type part of the name and set the uses each one has left in this run' + (groupMode() ? ', in each account' : '') + '. Saves automatically.</div>' +
-    '<input class="field" id="usesSearch" type="search" placeholder="Search, e.g. james…" autocomplete="off" aria-label="Search the roster"><div id="usesList" class="card"></div>' + closeRow());
-  renderUsesList('');
-  setTimeout(() => { const f = $('usesSearch'); if (f) f.focus(); }, 60);
-}
-function renderUsesList(qs) {
-  const box = $('usesList'); if (!box) return;
-  const qn = norm(qs), accs = accounts();
-  const ids = Object.keys(S.mine.roster || {}).filter(id => !qn || norm(nameOf(id)).includes(qn)).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
-  box.innerHTML = ids.length ? '<ul class="list">' + ids.map(id => {
-    const e = S.mine.roster[id], team = e.team || (S.players.get(String(id)) || {}).team || '', games = S.days.filter(d => FB.teamsOn(d).has(team)).length;
-    return '<li class="uses-row' + (accs.length > 1 ? ' multi' : '') + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></div><div class="ps">' + teamTag(team) + ' · ' + plural(games, 'game', 'games') + ' in the run</div></div><div class="uses-steps">' +
-      accs.map(a => { const pk = a.id + '|' + id, left = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, a.id);
-        return '<div class="us">' + (accs.length > 1 ? '<span class="small muted">' + esc(a.label) + '</span>' : '') + '<div class="stepper sm"><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="-1" aria-label="One use less for ' + esc(nameOf(id)) + '">−</button><output class="num" data-uses-out="' + esc(pk) + '">' + left + '</output><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="1" aria-label="One use more for ' + esc(nameOf(id)) + '">+</button></div></div>'; }).join('') +
-      '</div></li>'; }).join('') + '</ul>' : '<div class="row muted small">No player in the roster with that name.</div>';
-}
 function addToRoster(id, uses, extra) {
   S.mine.roster[id] = Object.assign({ uses: uses == null ? 1 : uses, status: 'ok' }, extra || {});
   applyChainResults(); schedule(); saveMine();
@@ -3171,14 +3031,6 @@ function undoResult(date) {
   (pl.lineup || []).forEach(id => { const e = S.mine.roster[id]; if (e) setUsesOf(e, S.acc, usesEff(e, id, S.acc) + 1); });
   planPatch({ played: { [date]: { done: false, result: null, lineup: pl.lineup || [] } } });
   toast('Result undone. Uses restored.');
-}
-function liveToggle() {
-  const nd = nextDay(); if (!nd) return;
-  if (liveOn(nd.date)) { planPatch({ live: { [nd.date]: { active: false } } }); return; }
-  const cur = liveDoc(nd.date), lineup = view().days[0].lineup.slice();
-  planPatch({ live: { [nd.date]: { active: true, lineup: cur && cur.lineup && cur.lineup.length ? cur.lineup : lineup, players: (cur && cur.players) || {} } } });
-  toast('Live turned on with the current lineup.');
-  if (gamesWindow(nd)) { S.liveAt = Date.now(); setTimeout(() => liveFetch(true), 300); } // já há jogos: lê as estatísticas logo
 }
 function liveSet(id, patch) { const nd = nextDay(); if (nd) planPatch({ live: { [nd.date]: { players: { [id]: patch } } } }); }
 function swapDone() { const nd = nextDay(), d = view().days[0]; planPatch({ live: { [nd.date]: { lineup: d.lineup.slice() } } }); toast('Lineup updated.'); }
@@ -3255,7 +3107,7 @@ async function liveFetch(quiet) {
       }));
     } catch (e) { /* bloqueado ou sem rede */ }
   }));
-  if (!ok) { if (!quiet) toast('No live stats yet (game not started?) or I couldn\'t read them. Enter the values by hand or try again in a bit.'); return; }
+  if (!ok) { if (!quiet) toast('No live stats yet. Try again shortly or enter the numbers by hand.'); return; }
   if (Object.keys(players).length) planPatch({ live: { [nd.date]: { players } } });
   S.liveAt = Date.now();
   if (!quiet) toast('Live stats updated.');
@@ -3317,9 +3169,12 @@ document.addEventListener('click', async e => {
     case 'acc-run': S.acc = b.dataset.acc; if (S.multi && S.multi.byKey[S.acc]) S.result = S.multi.byKey[S.acc]; setSub('run', 'premios'); render(); window.scrollTo(0, 0); break;
     case 'close-sheet': closeSheet(); break;
     case 'sheet-back': { const fn = S.sheetBack; fn ? fn() : closeSheet(); break; }
-    case 'mode': planPatch({ mode: { [nd.date]: b.dataset.mode } }); break;
-    case 'player': playerSheet(id, date, b.dataset.back === 'day' ? () => daySheet(date) : null); break;
-    case 'day': daySheet(date); break;
+    case 'player': playerSheet(id, date); break;
+    case 'day': S.hd = date; S.hdCenter = true; closeSheet(); setSub('hoje', 'lineup'); setTab('hoje'); break;
+    case 'help': helpSheet(b.dataset.k, b); break;
+    case 'opcoes': await opcoesSheet(); break;
+    case 'op-pick': opPick(id); break;
+    case 'op-use': opUse(b.dataset.i); break;
     case 'hd': S.hd = date; S.hdCenter = true; renderHoje(); break;
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id); break;
@@ -3337,14 +3192,12 @@ document.addEventListener('click', async e => {
       const day = S.days.find(x => x.date === date), d = view().days.find(x => x.date === date);
       const sn = (curPlan().proj || {})[date];
       const lineup = d ? (liveOn(date) && d.live ? d.live.submitted : d.lineup) : liveOn(date) ? ((liveDoc(date) || {}).lineup || []) : sn ? sn.lineup : [];
-      openSheet('<h3>Close day ' + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">' + (lineup.length ? 'Records the result with the lineup ' + (liveOn(date) ? 'you submitted' : d ? 'from the plan' : 'predicted before the game') + '. These players\' uses are deducted and the plan is redone.' : 'This day\'s lineup wasn\'t saved: record only the result and then set the uses of whoever played in Players → Set uses.') + ' If you have your Top Shot username in the profile, this happens by itself when the blockchain closes the day.</div>' +
+      openSheet('<h3>Close day ' + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">' + (lineup.length ? 'With the lineup ' + (liveOn(date) ? 'you submitted' : d ? 'from the plan' : 'as predicted') + ': these players’ uses are deducted.' : 'No saved lineup: then fix the uses of whoever played (tap the player in Players).') + ' With your Top Shot username in the profile, this comes in automatically from the blockchain.</div>' +
         (lineup.length ? '<ul class="list card">' + lineup.map(x => '<li class="row"><span>' + esc(nameOf(x)) + '</span></li>').join('') + '</ul>' : '') + '<div class="btns"><button class="btn" type="button" data-action="result" data-date="' + date + '" data-res="loss">I lost</button><button class="btn primary" type="button" data-action="result" data-date="' + date + '" data-res="win">I won</button></div>' + closeRow());
       break;
     }
     case 'result': recordResult(date, b.dataset.res); closeSheet(); break;
     case 'undo-result': undoResult(date); closeSheet(); break;
-    case 'live-toggle': liveToggle(); break;
-    case 'live-fetch': b.disabled = true; await liveFetch(); b.disabled = false; break;
     case 'swap-done': swapDone(); break;
     case 'live-state': liveSet(id, { state: b.dataset.state }); playerSheet(id, nd.date, S.sheetBack); break;
     case 'live-q': liveSet(id, { q: +b.dataset.q }); playerSheet(id, nd.date, S.sheetBack); break;
@@ -3354,8 +3207,7 @@ document.addEventListener('click', async e => {
       clearTimeout(liveInputTimer); liveInputTimer = setTimeout(() => liveSet(id, { vals: { [stat]: nv } }), 400); break;
     }
     case 'add-player': addPlayerSheet(); break;
-    case 'uses-sheet': usesSheet(); break;
-    case 'add-id': addToRoster(id, 1); toast(nameOf(id) + ' added with 1 use. Tap him in the roster to change it.'); renderSearch(($('apSearch') || {}).value || ''); break;
+    case 'add-id': addToRoster(id, 1); toast(nameOf(id) + ' added with 1 use.'); renderSearch(($('apSearch') || {}).value || ''); break;
     case 'custom-player': customPlayerSheet(); break;
     case 'save-custom': {
       const name = ($('cpName').value || '').trim(); if (!name) { toast('Write the name.'); return; }
@@ -3367,7 +3219,6 @@ document.addEventListener('click', async e => {
     case 'wallet-apply': b.disabled = true; await walletApply(); break;
     case 'col-to-roster': collectionToRoster(); break;
     case 'col-sheet': closeSheet(); setSub('plantel', 'colecao'); setTab('plantel'); break;
-    case 'alts': await altSheet(); break;
     case 'pl-view': setPlView({ mode: b.dataset.v }); break;
     case 'pl-sort': setPlView({ sort: b.dataset.v }); break;
     case 'pl-filter': setPlView({ filter: b.dataset.v }); break;
@@ -3376,15 +3227,10 @@ document.addEventListener('click', async e => {
       if (a === 'cmp-obj') S.cmpObj = +b.dataset.k || 0;
       else { const c = b.dataset.col, cur = S.cmpSort || {}; S.cmpSort = { col: c, dir: cur.col === c ? -cur.dir : -1 }; }
       const left = ($('cmpWrap') || {}).scrollLeft || 0;
-      if (b.dataset.in === 'tab') { const y = window.scrollY; renderHoje(); window.scrollTo(0, y); }
-      else { const top = $('sheetPanel').scrollTop; daySheet(date); $('sheetPanel').scrollTop = top; }
+      { const y = window.scrollY; renderHoje(); window.scrollTo(0, y); }
       if ($('cmpWrap')) $('cmpWrap').scrollLeft = left;
       break;
     }
-    case 'alt-use': altUse(b.dataset.i); break;
-    case 'rerun': await rerunSheet(); break;
-    case 'rerun-pick': rerunPick(id); break;
-    case 'rerun-use': rerunUse(b.dataset.i); break;
     case 'inj-ignore': {
       const e = S.mine.roster[id]; if (!e) break;
       if (b.dataset.on === '1') e.injIgnore = true; else delete e.injIgnore;
@@ -3423,7 +3269,6 @@ document.addEventListener('click', async e => {
     case 'spec-scope': S.spec.scope = b.dataset.v; renderPlantel(); break;
     case 'buy-run': b.disabled = true; await buyRun(null); if (b.isConnected) b.disabled = false; break;
     case 'buy-pick': await buyRun(id); break;
-    case 'alt-reset': { const nd = nextDay(); if (nd) { planPatch({ locks: { [nd.date]: [] } }); closeSheet(); toast('Back to the suggested lineup.'); } break; }
     case 'b2b': b2bOn = b.dataset.v === '1'; try { localStorage.setItem('fb-b2b', b2bOn ? '1' : '0'); } catch (e) {} schedule(); renderAjustes(); toast(b2bOn ? 'Back-to-backs: the plan adjusts.' : 'Back-to-backs: no adjustment.'); break;
     case 'form-level': formLevel = b.dataset.level; try { localStorage.setItem('fb-form', formLevel); } catch (e) {} FB.setForm(+formLevel); schedule(); renderAjustes(); toast('Weight of form: ' + FORM_LEVELS.find(x => x[0] === formLevel)[1] + '.'); break;
     case 'sm-add': smurfReadInputs(); S.smDraft.push({}); renderAjustes(); break;
@@ -3478,7 +3323,6 @@ document.addEventListener('click', async e => {
 });
 document.addEventListener('change', async e => {
   const t = e.target, a = t.dataset.action;
-  if (t.dataset && t.dataset.tierSet) { t.blur(); await setTierChange(t.dataset.tierSet, t.value); return; }
   if (t.dataset && t.dataset.moTier) { await momentTierChange(t.dataset.moTier, t.value); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run linked to the blockchain.' : 'Link removed.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
@@ -3496,7 +3340,6 @@ document.addEventListener('input', e => {
   if (e.target.id === 'rosterFilter') { S.filter = e.target.value; renderPlantel(); }
   if (e.target.id === 'apSearch') renderSearch(e.target.value);
   if (e.target.id === 'buySearch') renderBuySearch(e.target.value);
-  if (e.target.id === 'usesSearch') renderUsesList(e.target.value);
   if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
 });
 // (sem redesenhar Ajustes ao sair de um campo: isso apagava o formulário a meio de um clique em Guardar)
@@ -3517,11 +3360,12 @@ function setTab(tab) {
   try { localStorage.setItem('fb-tab3', tab); } catch (e) {}
   render(); window.scrollTo(0, 0);
 }
-// a cada minuto: com jogo a jogo ligado, o relógio decide que jogos já começaram e as estatísticas ao vivo
-// atualizam sozinhas de 2 em 2 minutos; o placar dos jogos de hoje atualiza enquanto há jogos
+// a cada minuto: quando o 1.º jogo começa passa sozinho a ao vivo; o relógio decide que jogos já começaram, as
+// estatísticas ao vivo atualizam de 2 em 2 minutos e o placar dos jogos de hoje enquanto há jogos
 setInterval(() => {
   if (!S.session || document.visibilityState !== 'visible') return;
   const nd = nextDay(); if (!nd) return;
+  if (!liveOn(nd.date)) ensureLive();
   if (liveOn(nd.date)) { schedule(); if (Date.now() - (S.liveAt || 0) > 115e3) { S.liveAt = Date.now(); liveFetch(true); } }
   if (S.tab === 'hoje' && gamesWindow(nd)) refreshBoard(nd.date);
   if (Date.now() - (S.oddsAt || 0) > 10 * 60e3) refreshOdds();
