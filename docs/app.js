@@ -1937,9 +1937,34 @@ async function deleteRun(run) {
   await loadShared(); await loadRun(pickRun());
   renderAjustes();
 }
+// runs da blockchain a decorrer ou a começar que ainda não estão no site: importam-se com um toque
+const etDay = ms => new Date(ms - 4 * 3600e3).toISOString().slice(0, 10);
+function chainImportCard() {
+  const now = Date.now() / 1000, linked = new Set(S.runs.map(r => r.chain_run_id).filter(Boolean));
+  const list = (S.chainRuns || []).filter(c => c.run_end && c.run_end > now && c.run_start && c.run_start < now + 30 * 86400 && !linked.has(c.id));
+  if (!list.length) return '';
+  return '<div class="card"><div class="list-head"><h2>Runs na blockchain por importar</h2><span class="small muted">' + list.length + '</span></div><ul class="list">' +
+    list.map(c => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || c.id) + '</span></div><div class="ps">' + dShort(etDay(c.run_start * 1000)) + ' – ' + dShort(etDay((c.run_end - 12 * 3600) * 1000)) + '</div></div><button class="btn small primary" type="button" data-action="chain-import" data-id="' + esc(c.id) + '">Importar</button></li>').join('') +
+    '</ul><div class="row small muted" style="display:block">Cria a run no site já ligada à blockchain e ativa. Os objetivos chegam com a tarefa “Fast Break na blockchain” e os jogos com “Calendário e médias NBA” (corre as duas em Actions para ser já).</div></div>';
+}
+async function chainImport(cid) {
+  const c = (S.chainRuns || []).find(x => x.id === cid); if (!c) return;
+  const start = etDay(c.run_start * 1000), endD = etDay((c.run_end - 12 * 3600) * 1000), end = endD < start ? start : endD;
+  const n = (c.name || '').match(/run\s*(\d+)/i);
+  const name = n ? 'Run ' + n[1] + (/classic/i.test(c.name || '') ? ' · Classic' : '') : (c.name || 'Run');
+  const id = ((c.name || 'run').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)) || 'run-' + start.replace(/-/g, '');
+  if (S.runs.some(r => r.id === id)) { toast('Já existe uma run com esse nome no site.'); return; }
+  const dates = []; for (let d = start; d <= end && dates.length < 40;) { dates.push(d); const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 1); d = x.toISOString().slice(0, 10); }
+  if (S.runs.some(r => r.active)) await adminWrite(sb.from('runs').update({ active: false }).eq('active', true));
+  if (!(await adminWrite(sb.from('runs').insert({ id, name, mode: 'classic', start_date: start, end_date: end, prizes: [], active: true, chain_run_id: c.id, fictitious: false })))) return;
+  await adminWrite(sb.from('run_days').insert(dates.map(date => ({ run_id: id, date }))), name + ' importada: ' + dates.length + ' dias. Corre as tarefas em Actions para os objetivos e os jogos chegarem já.');
+  try { localStorage.removeItem('fb-run'); } catch (e) {}
+  await loadShared(); await loadRun(id); compute(); render(); renderAjustes();
+}
 function adminHtml(run) {
   const out = [];
   const site = location.origin + location.pathname;
+  const imp = chainImportCard(); if (imp) out.push(imp);
   out.push('<div class="card panel"><h2>Convidar amigos</h2><div class="small muted">Manda-lhes o link do site e o código. Criam conta com email e palavra-passe e entram com o código.</div>' +
     '<div class="status-line"><span>Site</span><span class="kbd">' + esc(site) + '</span></div>' +
     '<div class="status-line"><span>Código atual</span><span class="kbd">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'nenhum') + '</span></div>' +
@@ -2755,6 +2780,7 @@ document.addEventListener('click', async e => {
     case 'sm-add': smurfReadInputs(); S.smDraft.push({}); renderAjustes(); break;
     case 'sm-del': smurfReadInputs(); S.smDraft.splice(+b.dataset.i, 1); renderAjustes(); break;
     case 'del-tests': b.disabled = true; await deleteTestRuns(); break;
+    case 'chain-import': b.disabled = true; await chainImport(id); break;
     case 'del-run': await deleteRun(curRun()); break;
     case 'paste-preview': {
       const items = parseList($('pasteText').value); S.pasteItems = items;

@@ -59,6 +59,7 @@ Os aros: cada patamar de prémio (por exemplo 5, 7 e 9 vitórias) é um aro que 
 - Em **Jogadores → Coleção → Escalões e usos** vês cada set com a tiragem e o escalão; se algum estiver mal, muda-o aí e os usos de quem tem Moments desse set mudam sozinhos. Os usos que acertaste à mão nunca são mexidos.
 
 ## A run do dia
+- A tarefa **Fast Break na blockchain** cria sozinha cada run Classic nova, ligada e ativa (dá por ela quando é criada, quando muda de estado ou quando alguém submete um lineup para um dia dela). Qualquer run da blockchain a decorrer que não esteja no site aparece em Ajustes → Admin → **Runs na blockchain por importar**, com um botão **Importar**. Para ir buscar dias criados antes da primeira leitura, corre a tarefa com **backfill** (blocos para trás, cerca de 86 000 por dia).
 - Quando aparece uma run nova ativa (lida da blockchain), o site passa a mostrá-la sozinho, mesmo que estivesses a ver outra. Runs de teste que ainda existam apagam-se de uma vez em Ajustes → Admin → **Apagar as runs de teste**.
 - Um dia que já acabou sem resultado registado sai do plano (não gasta usos nem aparece como "hoje"); em Run → Dias fica "sem resultado" e dá para o registar. Não conta como derrota.
 - O Hoje mostra sempre os **jogos do dia** com as horas e os teus jogadores em cada jogo (durante os jogos, com o placar); a folha de cada dia em Run → Dias também.

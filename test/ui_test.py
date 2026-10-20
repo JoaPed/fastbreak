@@ -301,6 +301,8 @@ with sync_playwright() as pw:
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']
     T['runs'][0]['fictitious'] = False
+    import time as _t
+    T['chain_runs'].insert(0, {'id': 'cr-nova', 'name': 'Classic - Run 2 - NBA 2026-27 Season', 'run_start': int(_t.time()) - 3600, 'run_end': int(_t.time()) + 10 * 86400})
     for k in ('teste-261015', 'teste-261016'):
         T['runs'].append({'id': k, 'name': 'Run de teste', 'mode': 'classic', 'start_date': '2026-10-15', 'end_date': '2026-10-25', 'prizes': [], 'active': False, 'fictitious': True})
         T['run_days'].append({'run_id': k, 'date': '2026-10-16', 'objectives': [{'stat': 'pts', 'target': 120}], 'games': [], 'chain_game_id': None})
@@ -313,6 +315,11 @@ with sync_playwright() as pw:
     print('D sem botão para criar runs de teste:', pg.locator('#tab-ajustes button[data-action="test-run"]').count() == 0)
     pg.click('#tab-ajustes button[data-action="del-tests"]'); pg.wait_for_timeout(2000)
     print('D depois de apagar:', store(pg, '__FAKE_DB.tables.runs.map(r => r.id)'), '· botão:', pg.locator('#tab-ajustes button[data-action="del-tests"]').count())
+    imp = pg.locator('#tab-ajustes .card').filter(has_text='por importar')
+    print('D runs por importar:', imp.inner_text().replace('\n', ' | ')[:200] if imp.count() else 'nenhuma')
+    if imp.count():
+        imp.locator('button[data-action="chain-import"]').first.click(); pg.wait_for_timeout(2500)
+        print('D run importada:', store(pg, '(() => { const r = __FAKE_DB.tables.runs.find(x => x.chain_run_id === "cr-nova") || {}; return { id: r.id, nome: r.name, ativa: r.active, dias: __FAKE_DB.tables.run_days.filter(d => d.run_id === r.id).length, outras_ativas: __FAKE_DB.tables.runs.filter(x => x.active).length }; })()'))
     pg.close()
 
     # ---------- E: lesões, em que se baseia, avisos e dicas de compra (run a sério) ----------

@@ -32,7 +32,7 @@ fs.writeFileSync(file, JSON.stringify({
     run_days: [{ run_id: 'run-1', date: '2026-10-20', objectives: [], chain_game_id: null, games: [] }],
     chain_runs: [], chain_games: [], chain_results: [], job_state: [{ key: 'flow', value: { height: 4990 } }],
   } }));
-const run = max => execFileSync(process.execPath, ['--import', path.join(root, 'test/helpers/job-preload.mjs'), path.join(root, 'scripts/sync-fastbreak.mjs')], { env: Object.assign({}, process.env, { FB_TEST_DB: file, FB_TEST_NOW: String(T), SUPABASE_URL: '', HISTORY_MAX: String(max) }), encoding: 'utf8' });
+const run = (max, args = []) => execFileSync(process.execPath, ['--import', path.join(root, 'test/helpers/job-preload.mjs'), path.join(root, 'scripts/sync-fastbreak.mjs'), ...args], { env: Object.assign({}, process.env, { FB_TEST_DB: file, FB_TEST_NOW: String(T), SUPABASE_URL: '', HISTORY_MAX: String(max) }), encoding: 'utf8' });
 const read = () => JSON.parse(fs.readFileSync(file, 'utf8'));
 const log1 = run(5); if (process.env.SHOWLOG) console.log(log1);
 let db = read();
@@ -65,5 +65,29 @@ ok('run nova descoberta pelo estado de um dia e criada no site, ativa', nova.nam
 const d0 = db.tables.run_days.find(d => d.run_id === nova.id && d.date === new Date((S + 6 * 3600 - 4 * 3600) * 1000).toISOString().slice(0, 10)) || {};
 ok('o dia dessa run ficou com o objetivo da blockchain', JSON.stringify(d0.objectives) === JSON.stringify([{ stat: 'pts', target: 130 }]) && d0.chain_game_id === 'g-nova', d0);
 ok('log mostra as runs a decorrer', /Runs a decorrer ou a começar: .*Classic - Run 1 - NBA 2026-27/.test(log4), log4);
+// run feita à mão no site + lineup submetido por alguém na run da blockchain: a run do site fica ligada (não há duplicado)
+db = read();
+db.flow.height = 5200;
+db.flow.events = [{ height: 5150, type: 'FastBreakGameTokenMinted', data: { id: 77, fastBreakGameID: 'g-outra', serialNumber: 1, mintingDate: S, topShots: [1, 2], mintedTo: 9 } }];
+db.flow.games['g-outra'] = { id: 'g-outra', name: 'Dia 1', runId: 'cr-outra', deadline: S + 30 * 3600, numPlayers: 5, status: 1, stats: [{ name: 'REBOUNDS', type: 1, valueNeeded: 45 }] };
+db.flow.runs['cr-outra'] = { id: 'cr-outra', name: 'Classic - Run 2 - NBA 2026-27 Season', runStart: S + 20 * 3600, runEnd: S + 12 * day, status: 0 };
+db.tables.runs.push({ id: 'manual-2', name: 'Run 2 (à mão)', mode: 'classic', start_date: new Date((S + 30 * 3600 - 4 * 3600) * 1000).toISOString().slice(0, 10), end_date: '2026-11-02', prizes: [], active: false, chain_run_id: null, fictitious: false });
+fs.writeFileSync(file, JSON.stringify(db));
+const log5 = run(0);
+db = read();
+const man = db.tables.runs.find(r => r.id === 'manual-2') || {};
+ok('lineup submetido por alguém revela a run; a run feita à mão fica ligada e ativa, sem duplicado', man.chain_run_id === 'cr-outra' && man.active === true && !db.tables.runs.some(r => r.chain_run_id === 'cr-outra' && r.id !== 'manual-2'), db.tables.runs, log5);
+// --backfill: os outros dias de uma run criados antes da 1.ª leitura, sem mexer no ponto onde a leitura normal vai
+db = read();
+db.flow.height = 5300;
+db.flow.events = [{ height: 4000, type: 'FastBreakGameCreated', data: { id: 'g-nova-2', name: 'Dia 2', fastBreakRunID: 'cr-nova', submissionDeadline: S + 30 * 3600, numPlayers: 5 } }];
+db.flow.games['g-nova-2'] = { id: 'g-nova-2', name: 'Dia 2', runId: 'cr-nova', deadline: S + 30 * 3600, numPlayers: 5, status: 0, stats: [{ name: 'ASSISTS', type: 1, valueNeeded: 32 }] };
+fs.writeFileSync(file, JSON.stringify(db));
+const log6 = run(0, ['--backfill', '2000']);
+db = read();
+const nv = db.tables.runs.find(r => r.chain_run_id === 'cr-nova') || {};
+const d2 = db.tables.run_days.find(d => d.run_id === nv.id && d.chain_game_id === 'g-nova-2') || {};
+ok('backfill encontra o dia 2 da run e põe o objetivo', JSON.stringify(d2.objectives) === JSON.stringify([{ stat: 'ast', target: 32 }]), d2, log6);
+ok('backfill não mexe no ponto da leitura normal', ((db.tables.job_state.find(r => r.key === 'flow') || {}).value || {}).height === 5300, db.tables.job_state.find(r => r.key === 'flow'), log6);
 console.log(fails ? fails + ' falha(s)' : 'histórico: tudo certo');
 process.exit(fails ? 1 : 0);

@@ -124,14 +124,14 @@ access(all) fun main(addr: Address, ids: [UInt64]): [{String: AnyStruct}] {
 // ---------- 1) eventos ----------
 const flow = await getState(sb, 'flow', {});
 const latest = await flowLatestHeight();
-let start = flow.height ? flow.height + 1 : latest - (BACKFILL || 20000);
-if (BACKFILL && flow.height) start = Math.min(start, latest - BACKFILL);
+const start = flow.height ? flow.height + 1 : latest - 20000;
 const end = Math.min(latest, start + CHUNK * MAX_CHUNKS - 1);
 console.log('Blocos', start, '→', end, '(último selado', latest + ')');
 const ranges = [];
 for (let s = start; s <= end; s += CHUNK) ranges.push([s, Math.min(end, s + CHUNK - 1)]);
-// também as mudanças de estado: uma run criada há muito tempo (antes da 1.ª leitura) aparece quando começa ou abre
-const types = ['FastBreakRunCreated', 'FastBreakGameCreated', 'FastBreakGameStatAdded', 'FastBreakRunStatusChange', 'FastBreakGameStatusChange'].map(t => FASTBREAK + '.' + t);
+// também as mudanças de estado e os lineups submetidos por qualquer jogador: uma run criada há muito tempo (antes
+// da 1.ª leitura) aparece assim que alguém submete um lineup para um dia dela, ou quando ela abre ou começa
+const types = ['FastBreakRunCreated', 'FastBreakGameCreated', 'FastBreakGameStatAdded', 'FastBreakRunStatusChange', 'FastBreakGameStatusChange', 'FastBreakGameTokenMinted', 'FastBreakGameSubmissionUpdated'].map(t => FASTBREAK + '.' + t);
 const events = [];
 let failed = 0;
 await pool(ranges, 4, async ([a, b]) => {
@@ -140,6 +140,21 @@ await pool(ranges, 4, async ([a, b]) => {
     catch (e) { failed++; if (failed < 5) console.log('  erro', a, b, String(e.message).slice(0, 200)); }
   }
 });
+// --backfill N: passagem extra para trás (N blocos), só com a criação de runs e dias e os objetivos; não mexe no
+// ponto onde a leitura normal vai (serve para ir buscar os dias de uma run criada antes da 1.ª leitura)
+if (BACKFILL) {
+  const bStart = Math.max(1, latest - Math.min(BACKFILL, 3000000)), bEnd = Math.min(start - 1, latest);
+  const back = []; for (let s = bStart; s <= bEnd; s += CHUNK) back.push([s, Math.min(bEnd, s + CHUNK - 1)]);
+  const types2 = ['FastBreakRunCreated', 'FastBreakGameCreated', 'FastBreakGameStatAdded'].map(t => FASTBREAK + '.' + t);
+  let n = 0, bf = 0;
+  await pool(back, 6, async ([a, b]) => {
+    for (const t of types2) {
+      try { const ev = await flowEvents(t, a, b); events.push(...ev); n += ev.length; }
+      catch (e) { bf++; if (bf < 5) console.log('  erro (para trás)', a, b, String(e.message).slice(0, 200)); }
+    }
+  });
+  console.log('Para trás: blocos', bStart, '→', bEnd, '·', n, 'eventos' + (bf ? ' · falhas ' + bf : ''));
+}
 console.log('Eventos:', events.length, failed ? '· falhas ' + failed : '');
 const runIds = new Set(), gameIds = new Set();
 for (const ev of events) {
@@ -149,6 +164,8 @@ for (const ev of events) {
     await must(sb.from('chain_runs').upsert({ id: d.id, name: d.name, run_start: d.runStart, run_end: d.runEnd, updated_at: new Date().toISOString() }));
   } else if (ev.type.endsWith('GameCreated')) {
     gameIds.add(d.id); runIds.add(d.fastBreakRunID);
+  } else if (ev.type.endsWith('GameTokenMinted') || ev.type.endsWith('GameSubmissionUpdated')) {
+    if (d.fastBreakGameID) gameIds.add(d.fastBreakGameID);
   } else if (ev.type.endsWith('RunStatusChange')) {
     runIds.add(d.id);
   } else if (ev.type.endsWith('GameStatusChange')) {
@@ -247,7 +264,11 @@ knownGames.forEach(g => gameIds.add(g.id));
 // primeiro os dias: a run de cada dia também é lida (uma run pode só aparecer através dos seus dias)
 const gameList = [...gameIds].filter(Boolean);
 const games = [];
-for (let i = 0; i < gameList.length; i += 20) games.push(...(await flowScript(GAMES_SCRIPT, [cadence.strings(gameList.slice(i, i + 20))]) || []));
+let readErr = 0;
+for (let i = 0; i < gameList.length; i += 20) {
+  try { games.push(...(await flowScript(GAMES_SCRIPT, [cadence.strings(gameList.slice(i, i + 20))]) || [])); }
+  catch (e) { if (++readErr < 4) console.log('  erro a ler dias da blockchain:', String(e.message).slice(0, 200)); }
+}
 if (games.length) {
   await must(sb.from('chain_games').upsert(games.map(g => ({ id: g.id, run_id: g.runId, name: g.name, deadline: g.deadline, num_players: g.numPlayers, stats: g.stats || [], status: g.status, updated_at: new Date().toISOString() }))));
 }
@@ -260,8 +281,10 @@ games.forEach(g => { if (g.runId) runIds.add(g.runId); });
 }
 const runList = [...runIds].filter(Boolean);
 for (let i = 0; i < runList.length; i += 20) {
-  const info = await flowScript(RUNS_SCRIPT, [cadence.strings(runList.slice(i, i + 20))]);
-  for (const r of info || []) await must(sb.from('chain_runs').upsert({ id: r.id, name: r.name, run_start: r.runStart, run_end: r.runEnd, status: r.status, updated_at: new Date().toISOString() }));
+  let info = [];
+  try { info = await flowScript(RUNS_SCRIPT, [cadence.strings(runList.slice(i, i + 20))]) || []; }
+  catch (e) { if (++readErr < 4) console.log('  erro a ler runs da blockchain:', String(e.message).slice(0, 200)); }
+  for (const r of info) await must(sb.from('chain_runs').upsert({ id: r.id, name: r.name, run_start: r.runStart, run_end: r.runEnd, status: r.status, updated_at: new Date().toISOString() }));
 }
 console.log('Runs na blockchain:', runList.length, '· dias:', games.length);
 {
@@ -280,8 +303,19 @@ const espnGames = async date => { try { const { json } = await fetchJson('https:
   const linkedIds = new Set(allRuns.map(r => r.chain_run_id).filter(Boolean));
   const fresh = (await must(sb.from('chain_runs').select('id,name,run_start,run_end')))
     .filter(c => /classic/i.test(c.name || '') && !linkedIds.has(c.id) && c.run_end && c.run_end > nowS && c.run_start && c.run_start < nowS + 30 * 86400);
+  const others = (await must(sb.from('chain_runs').select('id,name,run_start,run_end'))).filter(c => !/classic/i.test(c.name || '') && !linkedIds.has(c.id) && c.run_end > nowS && c.run_start < nowS + 30 * 86400);
+  if (others.length) console.log('Runs na blockchain que não são Classic (importam-se à mão em Ajustes → Admin):', others.map(c => c.name).join(' | '));
   for (const c of fresh) {
     const start = etDate(c.run_start * 1000), end = etDate((c.run_end - 12 * 3600) * 1000); // o fim costuma ser de madrugada do dia seguinte
+    // run criada à mão no site para as mesmas datas (sem ligação): liga-a em vez de criar outra
+    const manual = allRuns.find(r => !r.fictitious && !r.chain_run_id && r.start_date && Math.abs(Date.parse(r.start_date) - Date.parse(start)) <= 3 * 86400e3);
+    if (manual) {
+      await must(sb.from('runs').update({ active: false }).eq('active', true));
+      await must(sb.from('runs').update({ chain_run_id: c.id, active: true }).eq('id', manual.id));
+      manual.chain_run_id = c.id;
+      console.log('Run do site', manual.name, 'ligada à run da blockchain', c.name, '(objetivos e resultados passam a vir de lá).');
+      continue;
+    }
     const n = (c.name || '').match(/run\s*(\d+)/i);
     const name = n ? 'Run ' + n[1] + ' · Classic' : c.name;
     const id = (c.name || 'classic').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
