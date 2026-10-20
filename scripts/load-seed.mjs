@@ -4,9 +4,11 @@
 //   data/seed/players.json    [{id, name, team, avg}]
 import fs from 'node:fs';
 import path from 'node:path';
-import { supa, must, upsertChunks } from './lib.mjs';
+import { supa, must, upsertChunks, fetchJson, parseEspnScoreboard } from './lib.mjs';
 
-const sb = await supa();
+const sb = globalThis.__FB_TEST_SB || await supa(); // (nos testes: base de dados falsa)
+// jogos de um dia no calendário da NBA (ESPN), para os dias de uma run sem jogos no ficheiro
+const espnGames = async date => { try { const { json } = await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + date.replace(/-/g, '')); return json ? parseEspnScoreboard(json) : null; } catch (e) { return null; } };
 const root = path.resolve('data/seed');
 const read = f => JSON.parse(fs.readFileSync(f, 'utf8'));
 const list = dir => fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => path.join(dir, f)) : [];
@@ -24,13 +26,15 @@ for (const f of list(path.join(root, 'runs'))) {
     if (act.length) delete run.active;
   }
   await must(sb.from('runs').upsert(run));
+  let withGames = 0;
   for (const d of days || []) {
     const row = { run_id: run.id, date: d.date };
     if (d.objectives) row.objectives = d.objectives;
     if (d.games) row.games = d.games;
+    else if (!run.fictitious) { const g = await espnGames(d.date); if (g && g.length) { row.games = g; withGames++; } }
     await must(sb.from('run_days').upsert(row, { onConflict: 'run_id,date' }));
   }
-  console.log('Run', run.id, '·', (days || []).length, 'dias');
+  console.log('Run', run.id, '·', (days || []).length, 'dias' + (withGames ? ' · jogos da NBA lidos para ' + withGames : ''));
 }
 for (const f of list(path.join(root, 'odds'))) {
   const o = read(f);

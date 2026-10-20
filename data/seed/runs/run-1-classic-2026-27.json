@@ -1,0 +1,183 @@
+{
+ "run": {
+  "id": "run-1-classic-2026-27",
+  "name": "Run 1 · Classic",
+  "mode": "classic",
+  "start_date": "2026-10-20",
+  "end_date": "2026-11-01",
+  "prizes": [
+   {
+    "wins": 11,
+    "value": 7,
+    "label": "≈ 7 $ (estimativa)"
+   },
+   {
+    "wins": 12,
+    "value": 28,
+    "label": "≈ 35 $ (estimativa)"
+   },
+   {
+    "wins": 13,
+    "value": 365,
+    "label": "≈ 400 $ (estimativa)"
+   }
+  ],
+  "active": true,
+  "fictitious": false
+ },
+ "days": [
+  {
+   "date": "2026-10-20",
+   "objectives": [
+    {
+     "stat": "pts",
+     "target": 120
+    }
+   ]
+  },
+  {
+   "date": "2026-10-21",
+   "objectives": [
+    {
+     "stat": "fg3",
+     "target": 18
+    },
+    {
+     "stat": "fg3a",
+     "target": 30
+    }
+   ]
+  },
+  {
+   "date": "2026-10-22",
+   "objectives": [
+    {
+     "stat": "ast",
+     "target": 30
+    },
+    {
+     "stat": "stl",
+     "target": 5
+    }
+   ]
+  },
+  {
+   "date": "2026-10-23",
+   "objectives": [
+    {
+     "stat": "pts",
+     "target": 130
+    }
+   ]
+  },
+  {
+   "date": "2026-10-24",
+   "objectives": [
+    {
+     "stat": "reb",
+     "target": 45
+    },
+    {
+     "stat": "blk",
+     "target": 5
+    }
+   ]
+  },
+  {
+   "date": "2026-10-25",
+   "objectives": [
+    {
+     "stat": "reb",
+     "target": 40
+    },
+    {
+     "stat": "ast",
+     "target": 20
+    }
+   ]
+  },
+  {
+   "date": "2026-10-26",
+   "objectives": [
+    {
+     "stat": "fgm",
+     "target": 45
+    },
+    {
+     "stat": "fga",
+     "target": 55
+    }
+   ]
+  },
+  {
+   "date": "2026-10-27",
+   "objectives": [
+    {
+     "stat": "reb",
+     "target": 50
+    },
+    {
+     "stat": "oreb",
+     "target": 12
+    }
+   ]
+  },
+  {
+   "date": "2026-10-28",
+   "objectives": [
+    {
+     "stat": "ast",
+     "target": 35
+    },
+    {
+     "stat": "stl",
+     "target": 5
+    }
+   ]
+  },
+  {
+   "date": "2026-10-29",
+   "objectives": [
+    {
+     "stat": "fg3",
+     "target": 12
+    },
+    {
+     "stat": "fg3a",
+     "target": 25
+    }
+   ]
+  },
+  {
+   "date": "2026-10-30",
+   "objectives": [
+    {
+     "stat": "pts",
+     "target": 120
+    }
+   ]
+  },
+  {
+   "date": "2026-10-31",
+   "objectives": [
+    {
+     "stat": "fgm",
+     "target": 45
+    },
+    {
+     "stat": "fga",
+     "target": 60
+    }
+   ]
+  },
+  {
+   "date": "2026-11-01",
+   "objectives": [
+    {
+     "stat": "ast",
+     "target": 25
+    }
+   ]
+  }
+ ]
+}

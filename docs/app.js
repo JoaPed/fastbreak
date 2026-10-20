@@ -1281,19 +1281,58 @@ function collectionCard(compact) {
     (withFlow.length ? '<button class="btn primary" type="button" data-action="wallet-sheet">Ler carteira' + (withFlow.length > 1 ? 's' : '') + '</button>' : '<button class="btn" type="button" data-action="goto" data-tab="ajustes" data-sub="perfil">Ir a Ajustes</button>') + '</div>';
   const n = Object.keys(col.players || {}).length;
   const tot = Object.entries(col.accounts || {}).map(([k, t]) => (groupMode() ? esc(accLabel(k)) + ' ' : '') + t.moments + ' Moments').join(' · ');
-  const head = '<div class="list-head"><h2>A tua coleção</h2><span class="small muted">lida ' + esc(ago(col.read_at)) + '</span></div><div class="small muted">' + tot + ' · ' + n + ' jogadores na NBA</div>';
-  if (compact) return '<div class="card panel">' + head + '<div class="btns"><button class="btn" type="button" data-action="wallet-sheet">Ler de novo</button><button class="btn" type="button" data-action="col-sheet">Ver coleção</button></div></div>';
-  return '<div class="card panel">' + head + '<button class="btn" type="button" data-action="wallet-sheet">Ler de novo</button></div>' + tiersCard() + collectionList();
+  if (compact) return '<div class="card panel"><div class="list-head"><h2>A tua coleção</h2><span class="small muted">lida ' + esc(ago(col.read_at)) + '</span></div><div class="small muted">' + tot + ' · ' + n + ' jogadores na NBA</div><div class="btns"><button class="btn" type="button" data-action="wallet-sheet">Ler de novo</button><button class="btn" type="button" data-action="col-sheet">Ver coleção</button></div></div>';
+  const rows = colRows();
+  return colSummary(col) + '<div class="card"><div class="list-head"><h2>Jogadores</h2><span class="small muted" id="colCount">' + S.colN + ' jogadores</span></div>' + colToolbar() + '<ul class="list" id="colList">' + rows + '</ul></div>' + tiersCard();
 }
-function collectionList() {
+// ---- coleção: resumo (Moments, jogadores, usos por run e escalões) ----
+const TIER_CLS = { Common: 'c', Fandom: 'f', Rare: 'r', Legendary: 'l', Ultimate: 'u' };
+function tierCounts(col, c) { const o = {}; Object.entries((c && c.bySet) || {}).forEach(([k, n]) => { const t = setTier(col, k); o[t] = (o[t] || 0) + n; }); return o; }
+const tierPills = o => TIERS.slice().reverse().filter(t => o[t]).map(t => '<span class="tpill t-' + TIER_CLS[t] + '">' + t + (o[t] > 1 ? ' <b>×' + o[t] + '</b>' : '') + '</span>').join('');
+function colSummary(col) {
+  const ps = Object.values(col.players || {}), moments = Object.values(col.accounts || {}).reduce((a, t) => a + (+t.moments || 0), 0);
+  const inNba = ps.reduce((a, c) => a + (+c.moments || 0), 0), uses = ps.reduce((a, c) => a + (tierUsesOf(col, c) || 0), 0);
+  const tt = {}; ps.forEach(c => { const o = tierCounts(col, c); Object.entries(o).forEach(([t, k]) => { tt[t] = (tt[t] || 0) + k; }); });
+  const sum = Object.values(tt).reduce((a, b) => a + b, 0);
+  const bar = sum ? '<div class="tier-bar" role="img" aria-label="Moments por escalão">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<i class="t-' + TIER_CLS[t] + '" style="flex:' + tt[t] + '"></i>').join('') + '</div>' +
+    '<div class="tier-legend">' + TIERS.slice().reverse().filter(t => tt[t]).map(t => '<span><i class="t-' + TIER_CLS[t] + '"></i>' + t + ' <b class="num">' + tt[t] + '</b> · ' + TIER_USES[t] + ' uso' + (TIER_USES[t] > 1 ? 's' : '') + '</span>').join('') + '</div>' : '';
+  const accLine = groupMode() ? '<div class="small muted">' + Object.entries(col.accounts || {}).map(([k, t]) => esc(accLabel(k)) + ' <b>' + t.moments + '</b>' + (t.listed ? ' (' + t.listed + ' à venda)' : '')).join(' · ') + '</div>' : '';
+  return '<div class="card panel col-sum"><div class="list-head" style="padding:0"><h2>A tua coleção</h2><span class="small muted">lida ' + esc(ago(col.read_at)) + '</span></div>' +
+    '<div class="col-kpis"><div><b class="num">' + f0(moments) + '</b><span>Moments</span></div><div><b class="num">' + ps.length + '</b><span>jogadores na NBA</span></div><div><b class="num">' + (col.sets ? f0(uses) : '–') + '</b><span>usos por run</span></div></div>' +
+    bar + accLine + (moments > inNba ? '<div class="small muted">' + f0(moments - inNba) + ' Moments de jogadores fora da NBA desta época (retirados, WNBA) não contam.</div>' : '') +
+    (col.sets ? '' : '<div class="note info">Lê a carteira outra vez para veres o escalão e os usos de cada Moment.</div>') +
+    '<button class="btn" type="button" data-action="wallet-sheet">Ler a carteira de novo</button></div>';
+}
+// ---- coleção: lista de jogadores com procura, ordem e filtro por escalão ----
+S.colView = { q: '', sort: 'uses', tier: '' };
+function colToolbar() {
+  const V = S.colView, col = (S.profile || {}).collection || {};
+  const has = {}; Object.values(col.players || {}).forEach(c => Object.keys(tierCounts(col, c)).forEach(t => { has[t] = 1; }));
+  return '<div class="col-tools"><input class="field" id="colSearch" type="search" placeholder="Procurar jogador ou equipa" value="' + esc(V.q) + '" autocomplete="off" aria-label="Procurar na coleção">' +
+    '<div class="chips scroll" role="group" aria-label="Ordenar">' + [['uses', 'Mais usos'], ['pts', 'Mais pontos'], ['moments', 'Mais Moments'], ['name', 'Nome']].map(([k, l]) => '<button type="button" data-action="col-sort" data-v="' + k + '" aria-pressed="' + (V.sort === k) + '">' + l + '</button>').join('') + '</div>' +
+    (Object.keys(has).length > 1 ? '<div class="chips scroll" role="group" aria-label="Escalão"><button type="button" data-action="col-tier" data-v="" aria-pressed="' + !V.tier + '">Todos</button>' + TIERS.slice().reverse().filter(t => has[t]).map(t => '<button type="button" data-action="col-tier" data-v="' + t + '" aria-pressed="' + (V.tier === t) + '">' + t + '</button>').join('') + '</div>' : '') + '</div>';
+}
+function colRows() {
   const col = (S.profile || {}).collection; if (!col) return '';
-  const list = Object.entries(col.players || {}).map(([id, c]) => ({ id, c, p: S.players.get(String(id)) || { name: c.name } }))
-    .sort((a, b) => ((b.p.avg && +b.p.avg.pts) || 0) - ((a.p.avg && +a.p.avg.pts) || 0));
-  return '<div class="card"><div class="list-head"><h2>Jogadores</h2><span class="small muted">' + list.length + '</span></div><ul class="list">' + list.map(({ c, p }) =>
-    '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name || c.name) + '</span></div><div class="ps">' + esc(p.team || '—') + ' · ' + c.moments + ' Moment' + (c.moments > 1 ? 's' : '') +
-    (groupMode() ? ' · ' + Object.entries(c.owners || {}).map(([k, x]) => esc(accLabel(k)) + (x > 1 ? ' ×' + x : '')).join(', ') : '') + (c.bySet ? ' · ' + esc(tierMix(col, c)) + ' → ' + plural(tierUsesOf(col, c), 'uso', 'usos') : (c.sets || []).length ? ' · ' + c.sets.slice(0, 3).map(esc).join(', ') : '') + '</div></div>' +
-    (p.avg ? '<div class="pv"><div class="v num">' + f1(+p.avg.pts || 0) + '</div><div class="u">PTS</div></div>' : '') + '</li>').join('') + '</ul></div>';
+  const V = S.colView, qn = norm(V.q), roster = (S.runId && S.mine && S.mine.roster) || null;
+  let list = Object.entries(col.players || {}).map(([id, c]) => { const p = S.players.get(String(id)) || { name: c.name, team: '' }; return { id, c, p, tc: tierCounts(col, c), uses: tierUsesOf(col, c), pts: (p.avg && +p.avg.pts) || 0 }; });
+  if (qn) list = list.filter(x => norm(x.p.name || x.c.name).includes(qn) || String(x.p.team || '').toLowerCase().includes(qn));
+  if (V.tier) list = list.filter(x => x.tc[V.tier]);
+  const by = { uses: (a, b) => ((b.uses || 0) - (a.uses || 0)) || (b.pts - a.pts), pts: (a, b) => b.pts - a.pts, moments: (a, b) => (b.c.moments - a.c.moments) || (b.pts - a.pts), name: (a, b) => String(a.p.name || '').localeCompare(String(b.p.name || '')) };
+  list.sort(by[V.sort] || by.uses);
+  S.colN = list.length; const cnt = $('colCount'); if (cnt) cnt.textContent = list.length + ' jogadores';
+  if (!list.length) return '<li class="row small muted">Nenhum jogador com esse filtro.</li>';
+  return list.map(({ id, c, p, tc, uses }) => {
+    const inR = roster && roster[id], ini = initials(p.name || c.name), bg = TEAM_COLOR[p.team] || colorFor(id);
+    const owners = groupMode() ? Object.entries(c.owners || {}).map(([k, x]) => esc(accLabel(k)) + (x > 1 ? ' ×' + x : '')).join(' · ') : '';
+    return '<li><button class="row col-row" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="avatar" style="background:' + bg + '" aria-hidden="true">' + esc(ini) + '</span>' +
+      '<div style="min-width:0;flex:1"><div class="pn"><span class="nm">' + esc(p.name || c.name) + '</span>' + (roster ? (inR ? '<span class="badge">no plantel</span>' : '<span class="pill duv">fora do plantel</span>') : '') + '</div>' +
+      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(+c.moments || 0, 'Moment', 'Moments') + (owners ? ' · ' + owners : '') + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS' : '') + '</div>' +
+      (Object.keys(tc).length ? '<div class="tpills">' + tierPills(tc) + '</div>' : '') + '</div>' +
+      '<div class="pv col-uses"><div class="v num">' + (uses != null ? uses : '–') + '</div><div class="u">usos/run</div></div></button></li>';
+  }).join('');
 }
+function renderColList() { const el = $('colList'); if (el) el.innerHTML = colRows(); }
 // campo de texto com o cursor lá dentro (não redesenhar por cima do que se está a escrever)
 function typingField(id) { const ae = document.activeElement, box = $(id); return !!(ae && box && box.contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)); }
 function renderPlantel() {
@@ -1660,7 +1699,7 @@ function buyResultsHtml(R) {
       '<div class="small muted">' + prizeLine + 'Vitórias esperadas' + (multi ? ' (todas as contas)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
   }).join('') + '<div class="small muted">Comparado com o plano que tens agora. Diferenças de 1 ponto percentual são ruído do cálculo.</div>';
 }
-function colSheet() { openSheet('<h3>A tua coleção</h3>' + collectionList() + closeRow()); }
+function colSheet() { closeSheet(); setSub('plantel', 'colecao'); setTab('plantel'); }
 
 // ---- Grupo ----
 // ---------- partilha com o grupo: plano, lineups e empréstimos ----------
@@ -2770,6 +2809,8 @@ document.addEventListener('click', async e => {
     }
     case 'spec-stat': S.spec.stat = b.dataset.v; renderPlantel(); break;
     case 'theme': applyTheme(b.dataset.v); renderAjustes(); break;
+    case 'col-sort': S.colView.sort = b.dataset.v; renderPlantel(); break;
+    case 'col-tier': S.colView.tier = b.dataset.v; renderPlantel(); break;
     case 'run-go': S.loading = true; render(); await loadRun(id); S.loading = false; compute(); render(); break;
     case 'spec-scope': S.spec.scope = b.dataset.v; renderPlantel(); break;
     case 'buy-run': b.disabled = true; await buyRun(null); if (b.isConnected) b.disabled = false; break;
@@ -2841,6 +2882,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'apSearch') renderSearch(e.target.value);
   if (e.target.id === 'buySearch') renderBuySearch(e.target.value);
   if (e.target.id === 'usesSearch') renderUsesList(e.target.value);
+  if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
 });
 // (sem redesenhar Ajustes ao sair de um campo: isso apagava o formulário a meio de um clique em Guardar)
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });

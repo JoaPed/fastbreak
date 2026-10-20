@@ -11,6 +11,7 @@ class Q {
   constructor(t) { this.t = t; this.f = []; this.op = 'select'; this.one = false; }
   select() { return this; }
   eq(c, v) { this.f.push(r => String(r[c]) === String(v)); return this; }
+  neq(c, v) { this.f.push(r => String(r[c]) !== String(v)); return this; }
   in(c, a) { this.f.push(r => a.map(String).includes(String(r[c]))); return this; }
   lt(c, v) { this.f.push(r => r[c] < v); return this; }
   gte(c, v) { this.f.push(r => r[c] >= v); return this; }
@@ -40,7 +41,7 @@ globalThis.fetch = async (url, opts = {}) => {
   if (/site\.api\.espn\.com.*\/injuries/.test(url)) return new Response(JSON.stringify(db.espn || { injuries: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
   if (/^https:\/\/ntfy\.sh\//.test(url)) { db.sent.push(Object.assign({ via: 'ntfy' }, JSON.parse(opts.body))); return new Response('{}', { status: 200 }); }
   if (/onflow\.org/.test(url) && db.flow) return flowFake(url, opts);
-  if (/site\.api\.espn\.com.*scoreboard/.test(url)) return new Response(JSON.stringify({ events: [] }), { status: 200 });
+  if (/site\.api\.espn\.com.*scoreboard/.test(url)) { const dt = (url.match(/dates=(\d{8})/) || [])[1]; return new Response(JSON.stringify({ events: (db.scoreboard || {})[dt] || [] }), { status: 200 }); }
   return new Response('nada', { status: 404 });
 };
 // Flow falsa (db.flow): altura, eventos (nenhum) e scripts do Fast Break, reconhecidos pelo código Cadence
