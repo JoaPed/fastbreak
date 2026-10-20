@@ -43,6 +43,12 @@ def seeded():
         },
     }
 
+# o site em inglês (docs/app.en.js) tem de estar gerado a partir do app.js atual
+import subprocess
+chk = subprocess.run(['node', str(root / 'scripts' / 'build-en.mjs'), '--check'], capture_output=True, text=True)
+print('inglês:', (chk.stdout or chk.stderr).strip())
+if chk.returncode: sys.exit(1)
+
 errors = []
 def new_page(b, db):
     pg = b.new_page(viewport={'width': 390, 'height': 844}, device_scale_factor=2)
@@ -605,6 +611,13 @@ with sync_playwright() as pw:
     T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': ro, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T['chain_results'] = []; T['injuries'] = []
     later = [o for o in T['odds_days'] if o['date'] == '2026-10-21']; T['odds_days'] = [o for o in T['odds_days'] if o['date'] != '2026-10-21']  # as odds de hoje chegam com o site aberto
+    # o mesmo jogador com dois nomes: "Steph Curry" no catálogo (sem jogos) e um "Steph Curry" posto à mão no plantel
+    T['nba_players'].append({'id': 'steph-curry', 'name': 'Steph Curry', 'team': 'GSW', 'avg': None, 'gp': 0, 'updated_at': '2026-10-15T09:20:00Z'})
+    ro['x-steph-curry'] = {'uses': 2, 'status': 'ok', 'name': 'Steph Curry', 'team': 'GSW'}
+    T['user_runs'][0]['plan'] = {'locks': {'2026-10-23': ['x-steph-curry']}}
+    # um amigo com o plano partilhado e jogadores fixados
+    T['profiles'][0]['share_plan'] = True
+    T['summaries'][0]['share'] = {'roster': {'sga': [2, 2, 1], 'curry': [1, 1, 1], 'giannis': [1, 1, 1]}, 'use': {}, 'lineups': {'2026-10-21': ['curry', 'giannis', 'edwards']}, 'locks': {'2026-10-21': ['curry', 'edwards']}}
     pg = new_page(b, db)
     pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
@@ -615,6 +628,7 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(1500)
     print('I odds ao voltar ao site:', pg.locator('#tab-hoje .basis-line').first.inner_text().replace('\n', ' ')[:90], '· aviso:', pg.locator('#toast').inner_text())
     pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(300)
+    print('I repetido junto:', store(pg, '{curry: __FAKE_DB.tables.user_runs[0].roster.curry, x: __FAKE_DB.tables.user_runs[0].roster["x-steph-curry"] || null, locks: __FAKE_DB.tables.user_runs[0].plan.locks}'), '· aviso:', pg.locator('#toast').inner_text())
     print('I usos pelo melhor Moment:', store(pg, '{jokic: __FAKE_DB.tables.user_runs[0].roster.jokic, sga: __FAKE_DB.tables.user_runs[0].roster.sga}'))
     print('I hero:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:300])
     lu = pg.locator('#tab-hoje .card').filter(has_text='Jogo a jogo')
@@ -662,12 +676,58 @@ with sync_playwright() as pw:
     print('I reforçar com Common:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:240])
     pg.click('#t-hoje'); pg.wait_for_timeout(500)
     print('I hoje sugestões:', pg.locator('#tab-hoje .card').filter(has_text='Sugestões de compra').inner_text().replace('\n', ' | ')[:300])
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(400)
+    pg.click('#plBody button[data-action="add-player"]'); pg.wait_for_timeout(300)
+    pg.fill('#apSearch', 'curry'); pg.wait_for_timeout(300)
+    print('I procurar curry:', ' / '.join(x.replace('\n', ' ')[:40] for x in pg.locator('#apResults .row').all_inner_texts()))
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.click('#t-grupo'); pg.wait_for_timeout(400); pg.click('#tab-grupo button[data-action="sub"][data-sub="lineups"]'); pg.wait_for_timeout(500)
+    print('I grupo lineups:', pg.locator('#tab-grupo .card').first.inner_text().replace('\n', ' | ')[:240])
+    pg.screenshot(path=str(shots / 'grupo-lineups.png'), full_page=True)
     # admin: os dois objetivos do dia 2 ficam ao mudar o alvo do segundo
     pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(500)
     print('I admin dia 2:', pg.locator('#obj-stat-1-0').input_value(), pg.locator('#obj-stat-1-1').input_value(), pg.locator('#obj-target-1-1').input_value())
     pg.fill('#obj-target-1-1', '28'); pg.press('#obj-target-1-1', 'Tab'); pg.wait_for_timeout(600)
     print('I admin guardado:', store(pg, '__FAKE_DB.tables.run_days[1].objectives'))
     pg.screenshot(path=str(shots / 'admin-combo.png'), full_page=True)
+    # muda a língua para inglês em Ajustes → Preferências (a página recarrega com o app.en.js)
+    pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(300)
+    pg.click('#tab-ajustes button[data-action="lang"][data-v="en"]'); pg.wait_for_timeout(2500)
+    print('J entrada em inglês:', pg.locator('#gate').inner_text().replace('\n', ' | ')[:140] if pg.locator('#auEmail').count() else 'sessão mantida')
+    if pg.locator('#auEmail').count():  # a base falsa recomeça ao recarregar (no site a sessão fica guardada)
+        pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    print('J inglês:', pg.evaluate('document.documentElement.lang'), '·', pg.locator('#t-hoje').inner_text(), '/', pg.locator('#t-plantel').inner_text(), '/', pg.locator('#t-ajustes').inner_text())
+    import re as _re
+    PT = _re.compile(r'[ãçõê]|\b(não|jogador|jogadores|plano|vitória|vitórias|dias|hoje|usos|uso|está|são|ainda|já|com|sem|mais|menos|tens|teu|tua|conta|contas|jogo|jogos|lesão|lesões|forma|prémio|prémios|carteira|plantel|coleção|ajustes|grupo|amigos|ver|ler)\b', _re.I)
+    def pt_left(where):
+        txt = pg.evaluate('document.body.innerText')
+        bad = sorted(set(m.group(0) for m in PT.finditer(txt)))
+        if bad:
+            lines = [l for l in txt.split('\n') if PT.search(l)][:6]
+            print('J português em', where + ':', bad, '·', ' | '.join(l[:90] for l in lines))
+        return bad
+    left = []
+    for tab, subs in [('hoje', ['lineup', 'porque', 'comparar']), ('run', ['premios', 'dias', 'analise', 'historico']), ('plantel', ['plantel', 'forma', 'lesoes', 'comprar', 'colecao']), ('grupo', ['classif', 'lineups', 'emprestimos']), ('ajustes', ['perfil', 'prefs', 'admin', 'dados'])]:
+        pg.click('#t-' + tab); pg.wait_for_timeout(400)
+        for sub in subs:
+            loc = pg.locator('#tab-' + tab + ' button[data-action="sub"][data-sub="' + sub + '"]')
+            if not loc.count(): continue
+            loc.first.click(); pg.wait_for_timeout(700 if sub != 'comprar' else 2500)
+            left += pt_left(tab + '/' + sub)
+            pg.screenshot(path=str(shots / ('en-' + tab + '-' + sub + '.png')), full_page=True)
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(400)
+    for v in ['plano', 'valor']:
+        pg.click('#plBody button[data-action="pl-view"][data-v="' + v + '"]'); pg.wait_for_timeout(400); left += pt_left('plantel/' + v)
+    pg.locator('#plBody .mx-row:not(.head)').first.click(); pg.wait_for_timeout(400); left += pt_left('ficha do plantel'); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.click('#t-hoje'); pg.wait_for_timeout(300); pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(400)
+    pg.locator('#tab-hoje button[data-action="player"]').first.click(); pg.wait_for_timeout(400); left += pt_left('ficha do jogador')
+    pg.screenshot(path=str(shots / 'en-ficha.png'), full_page=True); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.click('#tab-hoje button[data-action="day"]'); pg.wait_for_timeout(400); left += pt_left('folha do dia'); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    print('J restos em português:', sorted(set(left)) or 'nenhum', '· largura', width(pg))
+    pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(300)
+    pg.click('#tab-ajustes button[data-action="lang"][data-v="pt"]'); pg.wait_for_timeout(2500)
+    if pg.locator('#auEmail').count(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    print('J de volta ao português:', pg.evaluate('document.documentElement.lang'), '·', pg.locator('#t-hoje').inner_text())
     pg.close()
     b.close()
 

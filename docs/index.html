@@ -68,7 +68,15 @@ try { var t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="config.js"></script>
-<script src="core.js"></script>
-<script type="module" src="app.js"></script>
+<script>/* língua escolhida em Ajustes (Português: app.js; English: app.en.js, gerado a partir do app.js) */
+(function () {
+  var en = false; try { en = localStorage.getItem('fb-lang') === 'en'; } catch (e) {}
+  document.documentElement.lang = en ? 'en' : 'pt-PT';
+  var c = document.createElement('script'); c.src = en ? 'core.en.js' : 'core.js';
+  c.onload = function () { var a = document.createElement('script'); a.type = 'module'; a.src = en ? 'app.en.js' : 'app.js'; document.body.appendChild(a); };
+  c.onerror = function () { try { localStorage.removeItem('fb-lang'); } catch (e) {} if (en) location.reload(); };
+  document.body.appendChild(c);
+})();
+</script>
 </body>
 </html>

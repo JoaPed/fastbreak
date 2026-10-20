@@ -491,3 +491,9 @@ table.cmp { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 .hv.h3 { background: color-mix(in srgb, var(--good) 48%, transparent); color: var(--ink); }
 .hv.h4 { background: var(--good); color: #fff; }
 .hv.inp { box-shadow: 0 0 0 2px var(--accent); }
+/* Grupo → Lineups: jogadores fixados */
+.lu-ps { white-space: normal; }
+.lu-lock { color: var(--ink); font-weight: 600; white-space: nowrap; }
+.lu-lock .lock, .lu-badge .lock { width: 11px; height: 11px; vertical-align: -1px; margin-right: 2px; display: inline-block; }
+.lu-badge { display: inline-flex; align-items: center; gap: 1px; }
+.legend-lock .lock, p .lock { width: 11px; height: 11px; vertical-align: -1px; display: inline-block; }

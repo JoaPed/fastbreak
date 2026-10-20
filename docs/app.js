@@ -57,6 +57,20 @@ try { b2bOn = localStorage.getItem('fb-b2b') !== '0'; } catch (e) {}
 // aspeto: automático (segue o telemóvel), claro ou escuro (fica neste aparelho)
 let theme = 'auto';
 try { const t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark') theme = t; } catch (e) {}
+// língua do site: 'pt' (app.js) ou 'en' (app.en.js, gerado por scripts/build-en.mjs); o index.html carrega a certa
+const LANG = (() => { try { return localStorage.getItem('fb-lang') === 'en' ? 'en' : 'pt'; } catch (e) { return 'pt'; } })();
+function setLang(l) { try { localStorage.setItem('fb-lang', l); } catch (e) {} location.reload(); }
+// textos que estão no index.html (separadores, botões sem texto)
+function staticTexts() {
+  const tabs = { hoje: 'Hoje', run: 'Run', plantel: 'Jogadores', grupo: 'Grupo', ajustes: 'Ajustes' };
+  Object.entries(tabs).forEach(([k, label]) => { const b = $('t-' + k); if (b && b.lastChild && b.lastChild.nodeType === 3) b.lastChild.textContent = label; });
+  const lbl = (id, text) => { const e = $(id); if (e) e.setAttribute('aria-label', text); };
+  lbl('meBtn', 'O meu perfil');
+  const nav = document.querySelector('.tabbar'); if (nav) nav.setAttribute('aria-label', 'Secções');
+  const bg = document.querySelector('.sheet-bg'); if (bg) bg.setAttribute('aria-label', 'Fechar');
+  const meta = $('runMeta'); if (meta && /carregar|Loading/.test(meta.textContent)) meta.textContent = 'A carregar…';
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'pt-PT';
+}
 function applyTheme(t) {
   theme = t;
   try { if (t === 'auto') localStorage.removeItem('fb-theme'); else localStorage.setItem('fb-theme', t); } catch (e) {}
@@ -93,6 +107,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const clone = o => JSON.parse(JSON.stringify(o == null ? {} : o));
 const f1 = n => (Math.round(n * 10) / 10).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const f0 = n => Math.round(n).toLocaleString('pt-PT');
+const f2 = n => (+n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = p => p < 0.005 ? '<1%' : p > 0.995 ? '>99%' : Math.round(p * 100) + '%';
 const tone = p => p >= 0.65 ? 'good' : p >= 0.4 ? 'warn' : 'bad';
 const dt = s => new Date(s + 'T12:00:00Z');
@@ -122,7 +137,13 @@ function srcShort(info) {
 }
 // ---------- lesões ----------
 const injRec = id => (S.injuries || {})[id] || null;
-const fmtOdd = x => (x == null || x === '' ? '–' : (+x > 0 ? '+' : '') + x);
+// o mesmo jogador com dois nomes no catálogo ("Steph Curry" e "Stephen Curry"): fica um, o outro é alias dele
+S.alias = new Map();
+const canon = id => (id == null ? id : S.alias.get(String(id)) || String(id));
+// primeiro nome igual, ou um começa pelo outro (Steph/Stephen, Herb/Herbert, Cam/Cameron)
+const sameFirst = (a, b) => a === b || (a.length >= 3 && b.length >= 3 && (a.startsWith(b) || b.startsWith(a)));
+// odds decimais (as europeias: 1.91 = ganhas 1,91 por cada 1 apostado); a The Odds API dá-as americanas (+110 / −120)
+const fmtOdd = x => { const a = +x; if (x == null || x === '' || !isFinite(a) || a === 0) return '–'; return (a > 0 ? 1 + a / 100 : 1 + 100 / Math.abs(a)).toFixed(2); };
 const INJ_PILL = { out: 'fora', ofs: 'fora', doubtful: 'dout', questionable: 'duv', dtd: 'duv', probable: 'prov' };
 const INJ_SHORT = { out: 'Fora', ofs: 'Fora', doubtful: 'Dúv.', questionable: 'Dúv.', dtd: 'Dúv.', probable: 'Prov.' };
 function injLine(rec) {
@@ -154,7 +175,7 @@ function partBasis(p, part, md, id, opp) {
   const raw = (md.oddsDay || {})[id] || {};
   if (part.src === 'odds') {
     const o = raw[part.stat] || {};
-    return '<b>Odds</b> de ' + u + ': linha ' + f1(+o.line) + ' · mais ' + esc(fmtOdd(o.over)) + ' / menos ' + esc(fmtOdd(o.under)) + (o.books ? ' (consenso de ' + o.books + ' casa' + (o.books > 1 ? 's' : '') + ')' : '') + ' → ' + pct(FB.devig(o.over, o.under)) + ' de passar a linha, já sem a margem da casa → média <b class="num">' + f1(part.mu) + '</b>. As odds já contam com a forma, o adversário e os minutos.';
+    return '<b>Odds</b> de ' + u + ': linha ' + f1(+o.line) + ' · odd do mais <b class="num">' + esc(fmtOdd(o.over)) + '</b> / do menos <b class="num">' + esc(fmtOdd(o.under)) + '</b>' + (o.books ? ' (consenso de ' + o.books + ' casa' + (o.books > 1 ? 's' : '') + ')' : '') + ' → ' + pct(FB.devig(o.over, o.under)) + ' de passar a linha, já sem a margem da casa → média <b class="num">' + f1(part.mu) + '</b>. As odds já contam com a forma, o adversário e os minutos.';
   }
   if (part.src === 'proxy') {
     const o = raw[part.via] || {}, vs = esc((STATS[part.via] || {}).short || part.via), a = FB.avgOf(p, part.stat), aq = FB.avgOf(p, part.via);
@@ -171,7 +192,7 @@ function partBasis(p, part, md, id, opp) {
 }
 function playBasis(info) {
   const j = info.injury, pp = info.pPlay;
-  if (j && !j.ignored && j.status) return '<b>Disponibilidade</b>: ' + pct(pp) + ' de jogar — relatório de lesões: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + (j.rec.detail ? ' (' + esc(j.rec.detail) + ')' : '') + (j.k === 0 ? ', para o próximo jogo dele.' : ', ' + (j.k + 1) + '.º jogo dele a contar de agora.') + (info.status !== j.status ? ' Puseste-o como ' + esc(STATUS[info.status].label.toLowerCase()) + ' no plantel: conta o pior.' : '');
+  if (j && !j.ignored && j.status) return '<b>Disponibilidade</b>: ' + pct(pp) + ' de jogar — relatório de lesões: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + (j.rec.detail ? ' (' + esc(j.rec.detail) + ')' : '') + (j.k === 0 ? ', para o próximo jogo dele.' : ', no ' + (j.k + 1) + '.º jogo dele a contar de agora.') + (info.status !== j.status ? ' Puseste-o como ' + esc(STATUS[info.status].label.toLowerCase()) + ' no plantel: conta o pior.' : '');
   if (info.status !== 'ok') return '<b>Disponibilidade</b>: ' + pct(pp) + ' de jogar (estado "' + esc(STATUS[info.status].label) + '" posto por ti no plantel).';
   if (j && j.ignored) return '<b>Disponibilidade</b>: 100% — estás a ignorar o relatório de lesões para ele.';
   if (j) return '<b>Disponibilidade</b>: 100% — está no relatório (' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + '), mas ' + (j.k == null ? 'este jogo já começou ou já passou.' : 'neste jogo já conta normal.');
@@ -330,13 +351,52 @@ async function loadShared() {
   S.runs = runs || [];
   S.players = new Map((players || []).map(p => [String(p.id), p]));
   S.chainRuns = chainRuns || [];
+  dedupeCatalog();
+}
+// junta jogadores repetidos no catálogo: mesma equipa, mesmo apelido e o primeiro nome igual ou abreviado.
+// Fica o que tem mais jogos (e médias); o outro passa a alias (odds, lesões e planos dos amigos seguem para o que fica)
+function dedupeCatalog() {
+  const groups = new Map();
+  S.players.forEach(p => { const w = norm(p.name).split(' '); if (w.length < 2 || !p.team) return; const k = p.team + '|' + w.slice(1).join(' '); (groups.get(k) || groups.set(k, []).get(k)).push({ p, first: w[0] }); });
+  S.alias = new Map();
+  groups.forEach(list => {
+    if (list.length < 2) return;
+    list.sort((a, b) => ((+b.p.gp || 0) - (+a.p.gp || 0)) || ((b.p.avg ? 1 : 0) - (a.p.avg ? 1 : 0)) || (b.first.length - a.first.length));
+    const keep = [];
+    list.forEach(x => { const k = keep.find(y => sameFirst(x.first, y.first)); if (k) S.alias.set(String(x.p.id), String(k.p.id)); else keep.push(x); });
+  });
+  S.alias.forEach((to, from) => S.players.delete(from));
+  if (S.alias.size) { const inj = {}; Object.entries(S.injuries || {}).forEach(([id, r]) => { if (!inj[canon(id)]) inj[canon(id)] = r; }); S.injuries = inj; }
+}
+// ids de jogadores num documento (plano, partilha): troca os alias pelo jogador que fica, nas chaves e nos valores
+function canonDeep(x, map) {
+  if (Array.isArray(x)) return x.map(v => (typeof v === 'string' && map.has(v) ? map.get(v) : canonDeep(v, map)));
+  if (x && typeof x === 'object') { const o = {}; Object.entries(x).forEach(([k, v]) => { const k2 = map.has(k) ? map.get(k) : k; o[k2] = k2 !== k && o[k2] !== undefined ? o[k2] : canonDeep(v, map); }); return o; }
+  return x;
+}
+// plantel com o mesmo jogador duas vezes (um à mão com outro nome, ou um id antigo): junta no jogador do catálogo
+function mergeDuplicates() {
+  const R = S.mine.roster || {}, find = catalogIndex(), map = new Map(S.alias);
+  Object.keys(R).forEach(id => { if (!map.has(id) && !S.players.has(id)) { const m = R[id].name && find(R[id].name); if (m && String(m.id) !== id) map.set(id, String(m.id)); } });
+  const moves = Object.keys(R).filter(id => map.has(id));
+  if (!moves.length) return;
+  const names = [];
+  moves.forEach(from => {
+    const to = map.get(from), e = R[from], c = R[to];
+    if (c) { c.uses = Math.max(+c.uses || 0, +e.uses || 0); if (e.usesManual) c.usesManual = true; if (e.su && !c.su) c.su = e.su; }
+    else { const n = Object.assign({}, e); delete n.name; delete n.team; R[to] = n; }
+    delete R[from]; names.push(nameOf(to));
+  });
+  S.mine.plan = canonDeep(S.mine.plan || {}, map);
+  saveMine();
+  toast('Jogador repetido junto: ' + names.join(', ') + '.');
 }
 // relatório de lesões (ESPN), guardado pela tarefa "Lesões"
 async function loadInjuries() {
   let rows = null;
   try { rows = await q(sb.from('injuries').select('*')); } catch (e) { rows = null; }
   S.injuries = {}; S.injAt = null; S.injOk = rows != null;
-  (rows || []).forEach(r => { S.injuries[r.id] = r; if (!S.injAt || r.updated_at > S.injAt) S.injAt = r.updated_at; });
+  (rows || []).forEach(r => { const k = canon(r.id); if (!S.injuries[k]) S.injuries[k] = r; if (!S.injAt || r.updated_at > S.injAt) S.injAt = r.updated_at; });
 }
 async function loadAlerts() {
   try { S.alerts = await q(sb.from('alerts').select('*').eq('user_id', S.session.user.id).maybeSingle()) || {}; S.alertsOk = true; }
@@ -378,6 +438,7 @@ async function loadRun(runId) {
   S.mine = mine ? { roster: mine.roster || {}, plan: mine.plan || {} } : { roster: {}, plan: {} };
   S.mineSeen = mine ? Date.parse(mine.updated_at) : 0;
   S.mineLoaded = true;
+  mergeDuplicates();
   syncTierUses();
   await loadOdds();
   await loadGroup();
@@ -394,7 +455,7 @@ async function loadOdds() {
   S.oddsAt = Date.now();
   if (runId !== S.runId) return false;
   let changed = false;
-  (rows || []).forEach(o => { const cur = S.odds[o.date]; if (!cur || cur.updated_at !== o.updated_at) { S.odds[o.date] = o; changed = true; } });
+  (rows || []).forEach(o => { const cur = S.odds[o.date]; if (!cur || cur.updated_at !== o.updated_at) { S.odds[o.date] = S.alias.size ? Object.assign({}, o, { players: canonDeep(o.players || {}, S.alias) }) : o; changed = true; } });
   return changed;
 }
 async function refreshOdds() {
@@ -412,7 +473,7 @@ async function loadGroup() {
     q(sb.from('members').select('*')),
     run.chain_run_id ? q(sb.from('chain_results').select('*').eq('chain_run_id', run.chain_run_id)) : Promise.resolve([]),
   ]);
-  S.group = { profiles: profiles || [], summaries: summaries || [], members: members || [], chain: chain || [] };
+  S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [] };
 }
 
 // Resultados lidos da blockchain entram sozinhos no plano de cada conta (e descontam os usos dessa conta)
@@ -554,7 +615,7 @@ function publishNext() {
   if (JSON.stringify(S.mine.plan.next || {}) === JSON.stringify(out)) return;
   S.mine.plan.next = out; saveMine();
 }
-const nameOf = id => { const r = (S.mine.roster || {})[id]; const p = S.players.get(String(id)); return (r && r.name) || (p && p.name) || String(id); };
+const nameOf = id => { const r = (S.mine.roster || {})[id]; const p = S.players.get(String(canon(id))); return (r && r.name) || (p && p.name) || String(id); };
 const lastName = id => { const parts = nameOf(id).split(' '); return parts.length > 1 ? parts.slice(1).join(' ') : parts[0]; };
 // Um dia acabou quando o último jogo começou há mais de 5 h (sem jogos: no dia seguinte ao meio-dia UTC)
 function dayEnd(day) {
@@ -647,6 +708,8 @@ function renderHeader() {
   $('runMeta').innerHTML = bits.join('<span aria-hidden="true">·</span>');
 }
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+// 12.º / 12th (o site em inglês usa o mesmo código, com LANG = 'en')
+const ord = n => (LANG === 'en' ? n + ([11, 12, 13].includes(n % 100) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th')) : n + '.º');
 const recordTxt = (w, l) => (w + l === 0 ? 'ainda sem resultados' : plural(w, 'vitória', 'vitórias') + ', ' + plural(l, 'derrota', 'derrotas'));
 // probabilidade em palavras
 const likely = p => (p >= 0.95 ? 'Quase garantido' : p >= 0.75 ? 'Muito provável' : p >= 0.55 ? 'Provável' : p >= 0.4 ? 'Meio-meio' : p >= 0.2 ? 'Possível' : p >= 0.05 ? 'Difícil' : 'Muito difícil');
@@ -1671,7 +1734,7 @@ function specHtml() {
     const reg = d > 0 && dMed ? (d <= dMed * 0.85 ? '<span class="badge" title="Varia pouco de jogo para jogo (época passada)">regular</span>' : d >= dMed * 1.2 ? '<span class="pill duv" title="Varia muito de jogo para jogo (época passada)">irregular</span>' : '') : '';
     const spec = stat !== 'pts' && i < 30 && pr > 75 ? '<span class="pill ok" title="No topo desta estatística mas fora dos 75 melhores marcadores">especialista</span>' : '';
     return '<li><button class="row spec-row" type="button" data-action="pform" data-id="' + esc(p.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(p.name) + '</span>' + (mine ? '<span class="badge">teu</span>' : '') + spec + reg + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + pr + '.º em PTS' : '') + (p.gp ? ' · ' + p.gp + ' jogos esta época' : ' · época passada') + '</div></div><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
+      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + p.gp + ' jogos esta época' : ' · época passada') + '</div></div><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
   }).join('');
   const rd = runDays[stat];
   return '<div class="card"><div class="list-head"><h2>Especialistas</h2><span class="small muted">por jogo</span></div>' +
@@ -1819,7 +1882,7 @@ function buyTipsCard(limit, inBuy) {
   const tips = A.list.map(x => buySummary(A, x)).slice(0, limit);
   if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'Não há jogadores fora do teu plantel com jogos nos dias que faltam.' : 'Nenhum Moment Rare muda o plano desta run: o teu plantel já cobre bem os dias que faltam.') + ' Em Jogadores → Comprar dá para avaliar um jogador em especial.</div>' + more + '</div>';
   return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' vitórias' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'vitórias esperadas ' + f1(t.e0) + ' → <b class="' + (t.worth ? 'up' : '') + '">' + f1(t.e1) + '</b>';
-    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">2.º Moment</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? Math.max(0, t.e1 - t.e0).toFixed(2).replace('.', ',') : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
+    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">2.º Moment</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
     '</ul><div class="row small muted" style="display:block">Calculado sozinho: a run refeita com um Moment Rare (2 usos) de cada jogador que ainda não tens' + (S.multi ? ' e com um 2.º Moment de quem só tens um (assim as duas contas podem usá-lo no mesmo dia)' : '') + '. <b>pp</b> = pontos percentuais a mais no prémio que mais sobe. Toca para ver em que dias joga.</div>' + more + '</div>';
 }
 function buyResultsHtml(R) {
@@ -1885,7 +1948,11 @@ function shareDoc() {
   });
   Object.entries(S.mine.roster || {}).forEach(([id, e]) => { const left = usesEff(e, id, 'main'), tot = left + usedCount('main', id); if (tot > 0) roster[id] = [left, tot, collectionInfo(id).copies]; });
   Object.values(use).forEach(l => l.sort());
-  return { roster, use, lineups };
+  // jogadores fixados (decididos) em cada dia que falta, e no dia a decorrer os que já entraram em jogo
+  const locks = {}, pm = planOf('main'), today = todayET();
+  Object.entries(pm.locks || {}).forEach(([d, ids]) => { if (d >= today && (ids || []).length) locks[d] = ids.slice(); });
+  Object.entries(pm.live || {}).forEach(([d, l]) => { if (d < today || !l || !l.active) return; Object.entries(l.players || {}).forEach(([id, e]) => { if (e && (e.state === 'jogo' || e.state === 'fim')) { const a = (locks[d] = locks[d] || []); if (!a.includes(id)) a.push(id); } }); });
+  return { roster, use, lineups, locks };
 }
 const groupName = uid => (S.group.profiles.find(p => p.user_id === uid) || {}).display_name || 'Sem nome';
 const sharing = s => !!(s && s.share && s.share.roster) && ((S.group.profiles.find(p => p.user_id === s.user_id) || {}).share_plan !== false);
@@ -1899,13 +1966,15 @@ function lineupsHtml() {
   const myV = view();
   const cards = r.model.days.filter(md => md.objs.length).slice(0, 6).map(md => {
     const day = md.day, mine = ((myV.days.find(d => d.date === day.date) || {}).lineup) || [];
-    const row = (uid, ids, at) => '<li class="row lu-row"><div style="display:flex;gap:10px;align-items:center;min-width:0">' + avatar(uid, groupName(uid)) + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(uid === me ? 'Tu' : groupName(uid)) + '</span>' + (at ? '<span class="small muted">' + esc(ago(at)) + '</span>' : '') + '</div><div class="ps">' +
-      (ids.length ? ids.map(id => '<span class="' + (uid !== me && mineIds.has(id) ? 'lu-same' : '') + '">' + esc(lastName(id) || id) + '</span>').join(' · ') : 'sem jogadores') + '</div></div></div></li>';
-    const rows = [row(me, mine)].concat(shared.map(s => row(s.user_id, ((s.share.lineups || {})[day.date]) || [], s.updated_at)));
+    const myLocks = (((curPlan().locks || {})[day.date]) || []).concat(Object.entries((((curPlan().live || {})[day.date]) || {}).players || {}).filter(([, e]) => e && (e.state === 'jogo' || e.state === 'fim')).map(([id]) => id));
+    const row = (uid, ids, at, locked) => { const lk = new Set(locked || []), nL = ids.filter(id => lk.has(id)).length;
+      return '<li class="row lu-row"><div style="display:flex;gap:10px;align-items:center;min-width:0">' + avatar(uid, groupName(uid)) + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(uid === me ? 'Tu' : groupName(uid)) + '</span>' + (nL ? '<span class="badge lu-badge">' + icoLock + nL + (nL === ids.length ? ' (todos)' : '') + '</span>' : '') + (at ? '<span class="small muted">' + esc(ago(at)) + '</span>' : '') + '</div><div class="ps lu-ps">' +
+        (ids.length ? ids.map(id => '<span class="' + (uid !== me && mineIds.has(id) ? 'lu-same' : '') + (lk.has(id) ? ' lu-lock' : '') + '">' + (lk.has(id) ? icoLock : '') + esc(lastName(id) || id) + '</span>').join(' · ') : 'sem jogadores') + '</div></div></div></li>'; };
+    const rows = [row(me, mine, null, myLocks)].concat(shared.map(s => row(s.user_id, ((s.share.lineups || {})[day.date]) || [], s.updated_at, (s.share.locks || {})[day.date])));
     return '<div class="card"><div class="list-head"><h2>Dia ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div><ul class="list">' + rows.join('') + '</ul></div>';
   });
   return (shared.length ? '' : '<div class="note info">Ainda ninguém do grupo partilhou o plano. Aparece aqui quando os amigos abrirem o site com esta versão (a partilha vem ligada; desliga-se em Ajustes → Perfil).</div>') + cards.join('') +
-    '<p class="small muted" style="margin:0 4px">O lineup que o plano de cada um sugere hoje para cada dia (pode mudar até ao jogo). <span class="lu-same">Sublinhado</span>: jogador que também tens.' + (hidden.length ? ' Sem plano partilhado: ' + hidden.map(m => esc(groupName(m.user_id))).join(', ') + '.' : '') + '</p>';
+    '<p class="small muted" style="margin:0 4px">O lineup que o plano de cada um sugere hoje para cada dia (pode mudar até ao jogo). ' + icoLock + ' <b>fixado</b>: jogador que essa pessoa já fixou para o dia (ou que já entrou em jogo), não muda. <span class="lu-same">Sublinhado</span>: jogador que também tens.' + (hidden.length ? ' Sem plano partilhado: ' + hidden.map(m => esc(groupName(m.user_id))).join(', ') + '.' : '') + '</p>';
 }
 // Empréstimos: Moments dos amigos que podes pedir nos dias em que eles não os usam
 S.borrow = { results: null, busy: false };
@@ -2055,6 +2124,8 @@ function renderAjustes() {
   if (sub === 'prefs' && S.runs.length) {
     html.push('<div class="card panel"><h2>Run a ver</h2><select class="field" id="runPick" aria-label="Escolher run">' + S.runs.map(x => '<option value="' + esc(x.id) + '"' + (x.id === S.runId ? ' selected' : '') + '>' + esc(x.name) + ' · ' + dShort(x.start_date) + (x.active ? ' (ativa)' : '') + '</option>').join('') + '</select></div>');
   }
+  if (sub === 'prefs') html.push('<div class="card panel"><h2>Língua · Language</h2><div class="small muted">Muda a língua de todo o site. Fica guardado neste aparelho.</div>' +
+    '<div class="seg acc-seg" role="group" aria-label="Língua · Language">' + [['pt', 'Português'], ['en', 'English']].map(([k, l]) => '<button type="button" data-action="lang" data-v="' + k + '" aria-pressed="' + (LANG === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Aspeto</h2><div class="small muted">Automático segue o modo claro ou escuro do telemóvel. Fica guardado neste aparelho.</div>' +
     '<div class="seg acc-seg" role="group" aria-label="Aspeto">' + [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Jogos seguidos</h2><div class="small muted">No 2.º de dois jogos em dias seguidos (back-to-back) os jogadores costumam render um pouco menos. Sem odds, o plano tira 3%, ou o que esse jogador fez nesses jogos na época passada (há quem não note diferença). As odds já contam com isto. Fica guardado neste aparelho.</div>' +
@@ -2583,7 +2654,10 @@ function catalogIndex() {
     if (t.length > 2 && exact.has(t[0] + ' ' + t[t.length - 1])) return exact.get(t[0] + ' ' + t[t.length - 1]);
     if (short.has(qn)) return short.get(qn);
     const c = all.filter(a => t.every(w => a.n.split(' ').includes(w)));
-    return c.length === 1 ? c[0].p : null;
+    if (c.length === 1) return c[0].p;
+    // diminutivo: "Steph Curry" = Stephen Curry (mesmo apelido, primeiro nome abreviado, só um)
+    if (t.length >= 2) { const last = t.slice(1).join(' '), d = all.filter(a => { const w = a.n.split(' '); return w.slice(1).join(' ') === last && sameFirst(t[0], w[0]); }); if (d.length === 1) return d[0].p; }
+    return null;
   };
 }
 // Lê as carteiras de todas as contas (principal e smurf) e junta os Moments por jogador do catálogo
@@ -3007,6 +3081,7 @@ document.addEventListener('click', async e => {
     }
     case 'spec-stat': S.spec.stat = b.dataset.v; renderPlantel(); break;
     case 'theme': applyTheme(b.dataset.v); renderAjustes(); break;
+    case 'lang': if (b.dataset.v !== LANG) setLang(b.dataset.v); break;
     case 'col-sort': S.colView.sort = b.dataset.v; renderPlantel(); break;
     case 'col-tier': S.colView.tier = b.dataset.v; renderPlantel(); break;
     case 'run-go': S.loading = true; render(); await loadRun(id); S.loading = false; compute(); render(); break;
@@ -3118,6 +3193,7 @@ setInterval(() => {
 
 // ---------- arranque ----------
 (async function init() {
+  staticTexts();
   if (!sb) { showGate(brand() + '<div class="err">O site ainda não está ligado ao Supabase.</div><p class="small muted" style="margin:0">Põe o Project URL e a chave anon/publishable em <span class="kbd">docs/config.js</span>.</p>'); return; }
   sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') { S.session = null; } });
   try { await afterLogin(); } catch (e) { renderAuth('login', errText(e)); }
