@@ -51,5 +51,19 @@ ok('2.ª vez: o resto (1 a 3) e o de ontem outra vez', mine('main').length === 7
 ok('a smurf já não tem nada novo', !/Histórico de smurfy/.test(log2) || /smurfy[^\n]*: 0 dias/.test(log2), log2);
 const log3 = run(0);
 ok('HISTORY_MAX=0 desliga o histórico', !/Histórico de/.test(log3), log3);
+// run Classic nova criada antes da 1.ª leitura: só aparece por uma mudança de estado de um dos seus dias
+db = read();
+db.flow.height = 5100;
+db.flow.events = [{ height: 5050, type: 'FastBreakGameStatusChange', data: { id: 'g-nova', newRawStatus: 1 } }];
+db.flow.games['g-nova'] = { id: 'g-nova', name: 'Dia 1', runId: 'cr-nova', deadline: S + 6 * 3600, numPlayers: 5, status: 1, stats: [{ name: 'POINTS', type: 1, valueNeeded: 130 }] };
+db.flow.runs['cr-nova'] = { id: 'cr-nova', name: 'Classic - Run 1 - NBA 2026-27 Season', runStart: S - 5 * 3600, runEnd: S + 10 * day, status: 1 };
+fs.writeFileSync(file, JSON.stringify(db));
+const log4 = run(0);
+db = read();
+const nova = db.tables.runs.find(r => r.chain_run_id === 'cr-nova') || {};
+ok('run nova descoberta pelo estado de um dia e criada no site, ativa', nova.name === 'Run 1 · Classic' && nova.active === true && db.tables.runs.filter(r => r.active).length === 1, db.tables.runs, log4);
+const d0 = db.tables.run_days.find(d => d.run_id === nova.id && d.date === new Date((S + 6 * 3600 - 4 * 3600) * 1000).toISOString().slice(0, 10)) || {};
+ok('o dia dessa run ficou com o objetivo da blockchain', JSON.stringify(d0.objectives) === JSON.stringify([{ stat: 'pts', target: 130 }]) && d0.chain_game_id === 'g-nova', d0);
+ok('log mostra as runs a decorrer', /Runs a decorrer ou a começar: .*Classic - Run 1 - NBA 2026-27/.test(log4), log4);
 console.log(fails ? fails + ' falha(s)' : 'histórico: tudo certo');
 process.exit(fails ? 1 : 0);

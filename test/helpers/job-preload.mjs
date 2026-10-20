@@ -49,7 +49,13 @@ const dec = a => { const v = JSON.parse(Buffer.from(a, 'base64').toString('utf8'
 function flowFake(url, opts) {
   const F = db.flow, ok = v => new Response(JSON.stringify(Buffer.from(JSON.stringify(enc(v))).toString('base64')), { status: 200 });
   if (/\/blocks\?height=sealed/.test(url)) return new Response(JSON.stringify([{ header: { height: String(F.height || 1000) } }]), { status: 200 });
-  if (/\/events\?/.test(url)) return new Response('[]', { status: 200 });
+  if (/\/events\?/.test(url)) {
+    // eventos falsos (db.flow.events: [{height, type, data}]) dentro do intervalo de blocos pedido
+    const u = new URL(url), type = u.searchParams.get('type'), a = +u.searchParams.get('start_height'), b = +u.searchParams.get('end_height');
+    const evs = (F.events || []).filter(e => type.endsWith('.' + e.type) && e.height >= a && e.height <= b);
+    const blocks = evs.map(e => ({ block_height: String(e.height), block_timestamp: '2026-10-20T10:00:00Z', events: [{ type, payload: Buffer.from(JSON.stringify({ type: 'Event', value: { id: type, fields: Object.entries(e.data).map(([name, v]) => ({ name, value: enc(v) })) } })).toString('base64') }] }));
+    return new Response(JSON.stringify(blocks), { status: 200 });
+  }
   const body = JSON.parse(opts.body), code = Buffer.from(body.script, 'base64').toString('utf8'), args = body.arguments.map(dec);
   F.scripts = F.scripts || []; 
   if (/fun main\(addr: Address\): \[UInt64\]/.test(code)) { F.scripts.push('ids'); return ok((F.ids || {})[args[0]] || []); }

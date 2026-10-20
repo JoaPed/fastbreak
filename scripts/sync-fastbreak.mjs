@@ -130,7 +130,8 @@ const end = Math.min(latest, start + CHUNK * MAX_CHUNKS - 1);
 console.log('Blocos', start, '→', end, '(último selado', latest + ')');
 const ranges = [];
 for (let s = start; s <= end; s += CHUNK) ranges.push([s, Math.min(end, s + CHUNK - 1)]);
-const types = ['FastBreakRunCreated', 'FastBreakGameCreated', 'FastBreakGameStatAdded'].map(t => FASTBREAK + '.' + t);
+// também as mudanças de estado: uma run criada há muito tempo (antes da 1.ª leitura) aparece quando começa ou abre
+const types = ['FastBreakRunCreated', 'FastBreakGameCreated', 'FastBreakGameStatAdded', 'FastBreakRunStatusChange', 'FastBreakGameStatusChange'].map(t => FASTBREAK + '.' + t);
 const events = [];
 let failed = 0;
 await pool(ranges, 4, async ([a, b]) => {
@@ -148,6 +149,10 @@ for (const ev of events) {
     await must(sb.from('chain_runs').upsert({ id: d.id, name: d.name, run_start: d.runStart, run_end: d.runEnd, updated_at: new Date().toISOString() }));
   } else if (ev.type.endsWith('GameCreated')) {
     gameIds.add(d.id); runIds.add(d.fastBreakRunID);
+  } else if (ev.type.endsWith('RunStatusChange')) {
+    runIds.add(d.id);
+  } else if (ev.type.endsWith('GameStatusChange')) {
+    gameIds.add(d.id);
   } else if (ev.type.endsWith('GameStatAdded')) {
     gameIds.add(d.fastBreakGameID);
   }
@@ -239,18 +244,30 @@ try {
 for (const id of linked) runIds.add(id);
 const knownGames = await must(sb.from('chain_games').select('id').in('run_id', linked.length ? linked : ['-']));
 knownGames.forEach(g => gameIds.add(g.id));
-const runList = [...runIds].filter(Boolean);
-for (let i = 0; i < runList.length; i += 20) {
-  const info = await flowScript(RUNS_SCRIPT, [cadence.strings(runList.slice(i, i + 20))]);
-  for (const r of info || []) await must(sb.from('chain_runs').upsert({ id: r.id, name: r.name, run_start: r.runStart, run_end: r.runEnd, status: r.status, updated_at: new Date().toISOString() }));
-}
+// primeiro os dias: a run de cada dia também é lida (uma run pode só aparecer através dos seus dias)
 const gameList = [...gameIds].filter(Boolean);
 const games = [];
 for (let i = 0; i < gameList.length; i += 20) games.push(...(await flowScript(GAMES_SCRIPT, [cadence.strings(gameList.slice(i, i + 20))]) || []));
 if (games.length) {
   await must(sb.from('chain_games').upsert(games.map(g => ({ id: g.id, run_id: g.runId, name: g.name, deadline: g.deadline, num_players: g.numPlayers, stats: g.stats || [], status: g.status, updated_at: new Date().toISOString() }))));
 }
+games.forEach(g => { if (g.runId) runIds.add(g.runId); });
+// e as runs de dias lidos nos últimos 3 dias que ainda não estão em chain_runs
+{
+  const recent = await must(sb.from('chain_games').select('run_id').gte('updated_at', new Date(Date.now() - 3 * 86400e3).toISOString()));
+  const known = new Set((await must(sb.from('chain_runs').select('id'))).map(r => r.id));
+  recent.forEach(g => { if (g.run_id && !known.has(g.run_id)) runIds.add(g.run_id); });
+}
+const runList = [...runIds].filter(Boolean);
+for (let i = 0; i < runList.length; i += 20) {
+  const info = await flowScript(RUNS_SCRIPT, [cadence.strings(runList.slice(i, i + 20))]);
+  for (const r of info || []) await must(sb.from('chain_runs').upsert({ id: r.id, name: r.name, run_start: r.runStart, run_end: r.runEnd, status: r.status, updated_at: new Date().toISOString() }));
+}
 console.log('Runs na blockchain:', runList.length, '· dias:', games.length);
+{
+  const live = (await must(sb.from('chain_runs').select('id,name,run_start,run_end'))).filter(r => r.run_end && r.run_end > nowS && r.run_start && r.run_start < nowS + 30 * 86400);
+  console.log('Runs a decorrer ou a começar:', live.length ? live.map(r => r.name + ' (' + etDate(r.run_start * 1000) + ' → ' + etDate(r.run_end * 1000) + ')').join(' | ') : 'nenhuma');
+}
 const named = await must(sb.from('chain_runs').select('name,run_start').order('run_start', { ascending: false }).limit(8));
 if (named.length) console.log('Runs conhecidas:', named.map(r => r.name).join(' | '));
 const statNames = [...new Set(games.flatMap(g => (g.stats || []).map(s => s.name + (s.type === 0 ? ' (cada jogador)' : ''))))];
