@@ -157,7 +157,8 @@
   "en": " each",
   "at": {
    "const objOne = o => o.target + '+ ' + statShort(o.stat) + (o.each ? ' cada' : '');": " each",
-   "'<div class=\"score\"><div class=\"goal\">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ?": " each"
+   "'<div class=\"score\"><div class=\"goal\">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ?": " each",
+   "'<div class=\"score\"><div class=\"goal\">' + ((day.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' ": true
   }
  },
  "down": null,
@@ -205,8 +206,8 @@
  "V ": null,
  "p-good": null,
  "p-bad": null,
- "V": null,
- "D": null,
+ "V": "W",
+ "D": "L",
  "day": null,
  "result-sheet": null,
  "is-next": null,
@@ -1626,6 +1627,102 @@
  "Run ligada à blockchain.": "Run linked to the blockchain.",
  "Ligação removida.": "Link removed.",
  "<div class=\"err\">O site ainda não está ligado ao Supabase.</div><p class=\"small muted\" style=\"margin:0\">Põe o Project URL e a chave anon/publishable em <span class=\"kbd\">docs/config.js</span>.</p>": "<div class=\"err\">The site isn't connected to Supabase yet.</div><p class=\"small muted\" style=\"margin:0\">Put the Project URL and the anon/publishable key in <span class=\"kbd\">docs/config.js</span>.</p>",
+ "Fixar ": "Lock ",
+ "Tirar ": "Remove ",
+ "</h3><div class=\"small muted\" id=\"choiceProg\">A refazer a run com a tua escolha…</div>": "</h3><div class=\"small muted\" id=\"choiceProg\">Redoing the run with your choice…</div>",
+ "Não consegui calcular: ": "Couldn't calculate: ",
+ "Entra": "In",
+ "Sai": "Out",
+ "no plano jogava ": "in the plan he played ",
+ "o plano não o usava": "the plan didn't use him",
+ ". <span class=\"down\">Deixa de jogar ": ". <span class=\"down\">He no longer plays ",
+ ". Passa a jogar ": ". He now plays ",
+ "Outros dias": "Other days",
+ "Outras contas": "Other accounts",
+ "vitórias esperadas: ": "expected wins: ",
+ "O plano não o punha neste dia: fixá-lo": "The plan didn't put him on this day: locking him",
+ "O plano punha-o neste dia: tirá-lo": "The plan put him on this day: removing him",
+ " <b>custa</b> à tua run. Podes fazê-lo na mesma, por exemplo se sabes algo que o plano não sabe (minutos, lesão, jogo decisivo).</div>": " <b>costs</b> your run. You can still do it, for example if you know something the plan doesn't (minutes, injury, a key game).</div>",
+ "<div class=\"note info\">Isto sobe as tuas hipóteses: o plano ainda não tinha esta combinação. Vale a pena.</div>": "<div class=\"note info\">This raises your chances: the plan hadn't found this combination yet. Worth it.</div>",
+ "<div class=\"note info\">Quase não muda nada: o plano vale o mesmo com a tua escolha.</div>": "<div class=\"note info\">Almost nothing changes: the plan is worth the same with your choice.</div>",
+ "<div class=\"small muted\">Comparado com o plano que tens agora. O resto da run é refeito com a tua escolha.</div>": "<div class=\"small muted\">Compared with the plan you have now. The rest of the run is redone with your choice.</div>",
+ "\">Cancelar</button><button class=\"btn ": "\">Cancel</button><button class=\"btn ",
+ "primary": null,
+ "lock-yes": null,
+ "ban-yes": null,
+ "lock": null,
+ "ban": null,
+ "Fixar na mesma": "Lock anyway",
+ "Tirar na mesma": "Remove anyway",
+ "Já existe uma conta com este email. Usa “Entrar”.": "There is already an account with this email. Use “Sign in”.",
+ "<p style=\"margin:0\">Para entrares no grupo precisas do código de convite.</p><form id=\"joinForm\" class=\"stack\"><label>Código de convite<input class=\"field\" id=\"joinCode\" autocomplete=\"off\" spellcheck=\"false\" autocapitalize=\"none\" required></label>": "<p style=\"margin:0\">To join the group you need the invite code.</p><form id=\"joinForm\" class=\"stack\"><label>Invite code<input class=\"field\" id=\"joinCode\" autocomplete=\"off\" spellcheck=\"false\" autocapitalize=\"none\" required></label>",
+ "<label>Utilizador do Top Shot (opcional)<input class=\"field\" id=\"pfTs\" maxlength=\"40\" autocapitalize=\"none\" autocomplete=\"off\" spellcheck=\"false\" value=\"": "<label>Top Shot username (optional)<input class=\"field\" id=\"pfTs\" maxlength=\"40\" autocapitalize=\"none\" autocomplete=\"off\" spellcheck=\"false\" value=\"",
+ "<div class=\"col-tools\"><input class=\"field\" id=\"colSearch\" type=\"search\" placeholder=\"Procurar jogador ou equipa…\" value=\"": "<div class=\"col-tools\"><input class=\"field\" id=\"colSearch\" type=\"search\" placeholder=\"Search player or team…\" value=\"",
+ "<div class=\"toolbar\"><input class=\"field\" id=\"rosterFilter\" type=\"search\" placeholder=\"Procurar no plantel…\" value=\"": "<div class=\"toolbar\"><input class=\"field\" id=\"rosterFilter\" type=\"search\" placeholder=\"Search the roster…\" value=\"",
+ "<label class=\"small muted\">Ou avalia um jogador em especial<input class=\"field\" id=\"buySearch\" type=\"search\" placeholder=\"Nome, ex.: Curry…\" autocomplete=\"off\"></label><div id=\"buyFound\" class=\"search-list\" hidden></div></div>": "<label class=\"small muted\">Or evaluate a specific player<input class=\"field\" id=\"buySearch\" type=\"search\" placeholder=\"Name, e.g. Curry…\" autocomplete=\"off\"></label><div id=\"buyFound\" class=\"search-list\" hidden></div></div>",
+ "<label class=\"small muted\">Utilizador do Top Shot<input class=\"field\" id=\"pfTs2\" maxlength=\"40\" autocapitalize=\"none\" autocomplete=\"off\" spellcheck=\"false\" value=\"": "<label class=\"small muted\">Top Shot username<input class=\"field\" id=\"pfTs2\" maxlength=\"40\" autocapitalize=\"none\" autocomplete=\"off\" spellcheck=\"false\" value=\"",
+ "<label class=\"small muted\">Endereço Flow da tua carteira Dapper (0x seguido de 16 letras/números; é o que liga os teus resultados da blockchain)<input class=\"field\" id=\"pfFlow2\" maxlength=\"18\" autocapitalize=\"none\" autocomplete=\"off\" spellcheck=\"false\" placeholder=\"0x…\" value=\"": "<label class=\"small muted\">Flow address of your Dapper wallet (0x followed by 16 letters/numbers; it links your blockchain results)<input class=\"field\" id=\"pfFlow2\" maxlength=\"18\" autocapitalize=\"none\" autocomplete=\"off\" spellcheck=\"false\" placeholder=\"0x…\" value=\"",
+ "<form id=\"inviteForm\" class=\"toolbar\"><input class=\"field\" id=\"invCode\" placeholder=\"Novo código (mín. 4)\" autocomplete=\"off\" autocapitalize=\"none\" spellcheck=\"false\"><button class=\"btn\" type=\"submit\">Mudar</button></form></div>": "<form id=\"inviteForm\" class=\"toolbar\"><input class=\"field\" id=\"invCode\" placeholder=\"New code (min. 4)\" autocomplete=\"off\" autocapitalize=\"none\" spellcheck=\"false\"><button class=\"btn\" type=\"submit\">Change</button></form></div>",
+ "<h3>Adicionar jogador</h3><input class=\"field\" id=\"apSearch\" type=\"search\" placeholder=\"Nome do jogador…\" autocomplete=\"off\" aria-label=\"Procurar jogador\"><div id=\"apResults\" class=\"search-list\"></div>": "<h3>Add player</h3><input class=\"field\" id=\"apSearch\" type=\"search\" placeholder=\"Player name…\" autocomplete=\"off\" aria-label=\"Search player\"><div id=\"apResults\" class=\"search-list\"></div>",
+ "<div class=\"row muted small\">O catálogo de jogadores ainda está vazio. Usa “Adicionar à mão” ou espera pela primeira atualização automática.</div>": "<div class=\"row muted small\">The player catalog is still empty. Use “Add by hand” or wait for the first automatic update.</div>",
+ "<input class=\"field\" id=\"usesSearch\" type=\"search\" placeholder=\"Procurar, ex.: james…\" autocomplete=\"off\" aria-label=\"Procurar no plantel\"><div id=\"usesList\" class=\"card\"></div>": "<input class=\"field\" id=\"usesSearch\" type=\"search\" placeholder=\"Search, e.g. james…\" autocomplete=\"off\" aria-label=\"Search the roster\"><div id=\"usesList\" class=\"card\"></div>",
+ "\" maxlength=\"18\" autocapitalize=\"none\" autocomplete=\"off\" spellcheck=\"false\" placeholder=\"0x…\" value=\"": null,
+ "sheetTitle": null,
+ "status": null,
+ "Jornada": "Matchday",
+ "<div class=\"day-strip\" role=\"group\" aria-label=\"Dias da run\">": "<div class=\"day-strip\" role=\"group\" aria-label=\"Run days\">",
+ " win": null,
+ " loss": null,
+ " c-": null,
+ " now": null,
+ "c-good": null,
+ "c-bad": null,
+ "<i class=\"ds-inj\" title=\"Lesão no lineup\"></i>": "<i class=\"ds-inj\" title=\"Injury in the lineup\"></i>",
+ "lido da blockchain": "read from the blockchain",
+ "registado à mão": "entered by hand",
+ "sem resultado": "no result",
+ "por registar": "not entered",
+ "<div class=\"impact\"><div>Feitos: <b class=\"num\">": "<div class=\"impact\"><div>Scored: <b class=\"num\">",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Lineup</h2></div><ul class=\"list\">": "<div class=\"card\"><div class=\"list-head\"><h2>Lineup</h2></div><ul class=\"list\">",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">": "<div class=\"card\"><div class=\"list-head\"><h2>Games that day</h2><span class=\"small muted\">",
+ "Mudar o resultado": "Change the result",
+ "Registar o resultado": "Enter the result",
+ "<div class=\"note info\">Este dia já passou: o resultado e o que o plano previa estão no Lineup.</div>": "<div class=\"note info\">This day is over: the result and what the plan expected are under Lineup.</div>",
+ "Nenhum jogador do teu plantel joga neste dia.": "None of your roster plays that day.",
+ "<div class=\"impact\"><div>Previsão do plano da run para este dia. Vai mudando até lá com as odds, as lesões e os resultados dos dias antes.</div></div>": "<div class=\"impact\"><div>The run plan's forecast for this day. It keeps changing until then with the odds, injuries and the results of the days before.</div></div>",
+ "O mesmo Moment está fixado em duas contas hoje: ": "The same Moment is locked in two accounts today: ",
+ "O mesmo Moment está fixado em duas contas neste dia: ": "The same Moment is locked in two accounts that day: ",
+ "Neste dia": "That day",
+ " o objetivo é por jogador: cada um tem de chegar ao valor sozinho. O plano ainda o calcula como total da equipa, por isso confirma o lineup à mão (e podes submeter menos jogadores).</div>": " the goal is per player: each one has to reach the value alone. The plan still calculates it as a team total, so check the lineup by hand (you can also submit fewer players).</div>",
+ "Sem jogo hoje, por isso não entram: ": "No game today, so they don't play: ",
+ "Sem jogo neste dia, por isso não entram: ": "No game that day, so they don't play: ",
+ "Fixaste quem está fora hoje (lesão ou estado), por isso não entra: ": "You locked someone who is out today (injury or status), so he doesn't play: ",
+ "Fixaste quem está fora neste dia (lesão ou estado), por isso não entra: ": "You locked someone who is out that day (injury or status), so he doesn't play: ",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Lineup</h2>": "<div class=\"card\"><div class=\"list-head\"><h2>Lineup</h2>",
+ "\"><i></i>Jogo a jogo</button>": "\"><i></i>Live</button>",
+ "Neste dia esta conta não joga: os Moments rendem mais nas outras contas.": "This account doesn't play that day: the Moments are worth more in the other accounts.",
+ "\">Fechar o dia</button></div>": "\">Close the day</button></div>",
+ "\">Ajustar</button></div>": "\">Adjust</button></div>",
+ "Jogos de hoje": "Today's games",
+ "Jogos do dia": "Games that day",
+ "ninguém do teu plantel que joga neste dia": "nobody from your roster who plays that day",
+ "Na run": "In the run",
+ ": já não afeta os dias que faltam": ": no longer affects the days left",
+ " (ignorado)": " (ignored)",
+ "ninguém do teu plantel no relatório": "nobody from your roster in the report",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Lesões e forma</h2><span class=\"small muted\">": "<div class=\"card\"><div class=\"list-head\"><h2>Injuries and form</h2><span class=\"small muted\">",
+ "jogador teu joga": "of your players plays",
+ "jogadores teus jogam": "of your players play",
+ "rende menos neste dia do que os do lineup": "is worth less that day than the ones in the lineup",
+ "pp hoje": "pp today",
+ "pp no dia": "pp that day",
+ " · está neste dia para poupar outros para dias em que rendem mais": " · plays that day to save others for days when they are worth more",
+ "O número é quanto cada jogador acrescenta à vitória de hoje, em pontos percentuais (pp). Quem fica de fora mesmo a subir o dia de hoje está guardado porque vale mais noutro dia da run. Toca num jogador para ver as contas dele.": "The number is how much each player adds to today's win, in percentage points (pp). Anyone left out even though he would raise today is being saved because he is worth more on another day of the run. Tap a player to see his numbers.",
+ "O número é quanto cada jogador acrescenta à vitória deste dia, em pontos percentuais (pp). Quem fica de fora mesmo a subir este dia está guardado porque vale mais noutro dia da run. É uma previsão: muda com as odds e as lesões até lá.": "The number is how much each player adds to this day's win, in percentage points (pp). Anyone left out even though he would raise this day is being saved because he is worth more on another day of the run. It is a forecast: it changes with the odds and injuries until then.",
+ " contas.</b></div><div>": " accounts.</b></div><div>",
+ "Neste dia: ": "That day: ",
+ "Hoje: ": "Today: ",
+ "<div class=\"note info\">Ainda não está no lineup que submeteste. Se fizeres a troca no Top Shot, carrega em <b>Fiz a troca</b> na Jornada.</div>": "<div class=\"note info\">He isn't in the lineup you submitted yet. If you make the swap on Top Shot, tap <b>I made the swap</b> on Matchday.</div>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1706,7 +1803,9 @@
    "liveHtml = '<div class=\"card panel\" style=\"gap:10px\"><div class=\"label\">Jogo a jogo</div><div class=\"chips\" role=\"group\" aria-label=\"Estado do jogo\">' + [['por'": false,
    "return '<li class=\"uses-row' + (accs.length > 1 ? ' multi' : '') + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(id)) + '</span></": "game",
    "players[id] = stt.state === 'post' ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false,
-   "players[id] = g.gameStatus === 3 ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, +g.period || 1)), vals };": false
+   "players[id] = g.gameStatus === 3 ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, +g.period || 1)), vals };": false,
+   "if ((day.games || []).length) out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jo": true,
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a ca": true
   }
  },
  "jogos": {
@@ -1719,7 +1818,9 @@
    "const PL_SORTS = [['plano', 'No plano'], ['proximo', 'Próximo dia'], ['usos', 'Usos'], ['jogos', 'Jogos'], ['nome', 'Nome']];": false,
    "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div>' +": "games",
    "((day.games || []).length ? '<div class=\"card\"><div class=\"list-head\"><h2>Jogos</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + ' ": "games",
-   "return '<li class=\"uses-row' + (accs.length > 1 ? ' multi' : '') + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(id)) + '</span></": "games"
+   "return '<li class=\"uses-row' + (accs.length > 1 ? ' multi' : '') + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(id)) + '</span></": "games",
+   "if ((day.games || []).length) out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jo": true,
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a ca": true
   }
  },
  "usos": {
@@ -1747,7 +1848,8 @@
   "en": "loss",
   "at": {
    "const recordTxt = (w, l) => (w + l === 0 ? 'ainda sem resultados' : plural(w, 'vitória', 'vitórias') + ', ' + plural(l, 'derrota', 'derrotas'));": "loss",
-   "const rec = '<div class=\"rec-big num\">' + r.wins + '<small>' + (r.wins === 1 ? 'vitória' : 'vitórias') + '</small>' + r.losses + '<small>' + (r.losses === 1 ? '": "loss"
+   "const rec = '<div class=\"rec-big num\">' + r.wins + '<small>' + (r.wins === 1 ? 'vitória' : 'vitórias') + '</small>' + r.losses + '<small>' + (r.losses === 1 ? '": "loss",
+   "'<div class=\"pbig ' + (res === 'win' ? 'c-good' : res === 'loss' ? 'c-bad' : '') + '\">' + (res === 'win' ? 'V' : res === 'loss' ? 'D' : '–') + '<span>' + (res =": true
   }
  },
  "derrotas": {
@@ -1784,7 +1886,14 @@
  "m": {
   "en": "",
   "at": {
-   "(!b2bOn ? ' (ajuste desligado nas Preferências).' : !noOdds.length ? ': as odds já contam com o cansaço.' : ': ' + (noOdds.length < bb.length ? noOdds.map(x => ": ""
+   "(!b2bOn ? ' (ajuste desligado nas Preferências).' : !noOdds.length ? ': as odds já contam com o cansaço.' : ': ' + (noOdds.length < bb.length ? noOdds.map(x => ": "",
+   "lines.push(['Dia ' + dn, 'vitória ' + arrow(d0.P, d1.P, pct) + diff(d0.P, d1.P) + (outs.length || ins.length ? '<br><span class=\"muted\">' + (ins.length ? 'Entra": ""
+  }
+ },
+ "em": {
+  "en": "",
+  "at": {
+   "lines.push(['Dia ' + dn, 'vitória ' + arrow(d0.P, d1.P, pct) + diff(d0.P, d1.P) + (outs.length || ins.length ? '<br><span class=\"muted\">' + (ins.length ? 'Entra": ""
   }
  },
  "nenhuma": {

@@ -48,7 +48,7 @@ try { var t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark
   <nav class="tabbar" aria-label="Secções">
     <div class="tabbar-in" role="tablist">
       <button class="tab" role="tab" id="t-hoje" aria-controls="tab-hoje" aria-selected="true" data-tab="hoje" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Hoje</button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Jornada</button>
       <button class="tab" role="tab" id="t-run" aria-controls="tab-run" aria-selected="false" data-tab="run" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Run</button>
       <button class="tab" role="tab" id="t-plantel" aria-controls="tab-plantel" aria-selected="false" data-tab="plantel" type="button">
@@ -63,7 +63,7 @@ try { var t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark
 
 <div class="sheet" id="sheet" hidden>
   <button class="sheet-bg" type="button" aria-label="Fechar" data-action="close-sheet"></button>
-  <div class="sheet-panel" role="dialog" aria-modal="true" id="sheetPanel"></div>
+  <div class="sheet-panel" role="dialog" aria-modal="true" id="sheetPanel" tabindex="-1"></div>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 

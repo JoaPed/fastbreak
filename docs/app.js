@@ -62,7 +62,7 @@ const LANG = (() => { try { return localStorage.getItem('fb-lang') === 'en' ? 'e
 function setLang(l) { try { localStorage.setItem('fb-lang', l); } catch (e) {} location.reload(); }
 // textos que estão no index.html (separadores, botões sem texto)
 function staticTexts() {
-  const tabs = { hoje: 'Hoje', run: 'Run', plantel: 'Jogadores', grupo: 'Grupo', ajustes: 'Ajustes' };
+  const tabs = { hoje: 'Jornada', run: 'Run', plantel: 'Jogadores', grupo: 'Grupo', ajustes: 'Ajustes' };
   Object.entries(tabs).forEach(([k, label]) => { const b = $('t-' + k); if (b && b.lastChild && b.lastChild.nodeType === 3) b.lastChild.textContent = label; });
   const lbl = (id, text) => { const e = $(id); if (e) e.setAttribute('aria-label', text); };
   lbl('meBtn', 'O meu perfil');
@@ -223,13 +223,15 @@ function initials(name) { const p = String(name || '?').trim().split(/\s+/); ret
 function avatar(id, name) { return '<span class="avatar" style="background:' + colorFor(id) + '" aria-hidden="true">' + esc(initials(name)) + '</span>'; }
 
 function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  const t = $('toast'); t.hidden = false; t.textContent = msg;
+  // o leitor de ecrã só anuncia mudanças numa região viva já visível: volta a pôr o texto logo a seguir
+  requestAnimationFrame(() => { if (!t.hidden) { t.textContent = ''; t.textContent = msg; } });
   clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 2800);
 }
 function errText(e) {
   const m = String((e && (e.message || e.error_description)) || e || '');
   if (/Invalid login credentials/i.test(m)) return 'Email ou palavra-passe errados.';
-  if (/already registered|already been registered/i.test(m)) return 'Já existe uma conta com este email. Usa "Entrar".';
+  if (/already registered|already been registered/i.test(m)) return 'Já existe uma conta com este email. Usa “Entrar”.';
   if (/Password should be at least/i.test(m)) return 'A palavra-passe precisa de pelo menos 6 caracteres.';
   if (/rate limit|too many/i.test(m)) return 'Demasiadas tentativas seguidas. Espera um minuto.';
   if (/Email not confirmed/i.test(m)) return 'Falta confirmar o email. Abre a mensagem que recebeste.';
@@ -292,7 +294,7 @@ async function afterLogin() {
 }
 function renderJoin(hasMembers, err) {
   showGate(brand() + (hasMembers
-    ? '<p style="margin:0">Para entrares no grupo precisas do código de convite.</p><form id="joinForm" class="stack"><label>Código de convite<input class="field" id="joinCode" autocomplete="off" autocapitalize="none" required></label>' + (err ? '<div class="err" role="alert">' + esc(err) + '</div>' : '') + '<button class="btn primary" type="submit">Entrar no grupo</button></form>'
+    ? '<p style="margin:0">Para entrares no grupo precisas do código de convite.</p><form id="joinForm" class="stack"><label>Código de convite<input class="field" id="joinCode" autocomplete="off" spellcheck="false" autocapitalize="none" required></label>' + (err ? '<div class="err" role="alert">' + esc(err) + '</div>' : '') + '<button class="btn primary" type="submit">Entrar no grupo</button></form>'
     : '<p style="margin:0">Ainda não há ninguém no grupo. Ficas como <b>admin</b>: crias as runs, defines os objetivos e escolhes o código de convite para os teus amigos.</p>' + (err ? '<div class="err" role="alert">' + esc(err) + '</div>' : '') + '<form id="joinForm"><button class="btn primary" type="submit" style="width:100%">Criar o grupo</button></form>') +
     '<button class="btn link" type="button" data-action="logout">Sair desta conta</button>');
   $('joinForm').dataset.has = hasMembers ? '1' : '';
@@ -311,7 +313,7 @@ function renderProfileSetup(err) {
   const name = sessionStorageGet('fb-pending-name') || meta.name || '';
   showGate(brand() + '<p style="margin:0">Só falta o teu perfil. O nome de utilizador do Top Shot serve para ler os teus resultados da blockchain.</p>' +
     '<form id="profForm" class="stack"><label>Nome que o grupo vê<input class="field" id="pfName" maxlength="40" value="' + esc(name) + '" required></label>' +
-    '<label>Utilizador do Top Shot (opcional)<input class="field" id="pfTs" maxlength="40" autocapitalize="none" value="' + esc((S.profile || {}).topshot_username || '') + '"></label>' +
+    '<label>Utilizador do Top Shot (opcional)<input class="field" id="pfTs" maxlength="40" autocapitalize="none" autocomplete="off" spellcheck="false" value="' + esc((S.profile || {}).topshot_username || '') + '"></label>' +
     (err ? '<div class="err" role="alert">' + esc(err) + '</div>' : '') + '<button class="btn primary" type="submit">Continuar</button></form>');
 }
 async function submitProfile(nameEl, tsEl, flowEl, smurfs) {
@@ -722,7 +724,7 @@ function aro(p, center, size, extra) {
 const miniAros = (prizes, probs) => '<span class="aros-mini">' + prizes.map((p, i) => aro(probs[i], p.wins, 30)).join('') + '</span>';
 function empty(title, text, btn) { return '<div class="card empty"><h2>' + esc(title) + '</h2><p class="muted small" style="margin:0;max-width:44ch">' + esc(text) + '</p>' + (btn || '') + '</div>'; }
 function guard(el, needRoster) {
-  if (S.loading) { el.innerHTML = empty('A carregar', 'A ler a run e o teu plantel.'); return false; }
+  if (S.loading) { el.innerHTML = empty('A carregar…', 'A ler a run e o teu plantel.'); return false; }
   if (!S.runId) {
     el.innerHTML = S.role === 'admin' ? empty('Ainda não há runs', 'Cria a primeira run em Ajustes → Admin, com as datas e os objetivos de cada dia.', '<button class="btn primary" type="button" data-action="goto" data-tab="ajustes" data-sub="admin">Criar run</button>')
       : empty('Ainda não há runs', 'O admin do grupo ainda não criou a run. Volta mais tarde.');
@@ -761,24 +763,76 @@ function objBars(d, live) {
         : '<span>' + lbl + (many ? '' : 'Projeção ') + '<b class="num">' + f1(t.mu) + '</b> <span class="num">± ' + f1(t.sd) + '</span></span><span>alvo <b class="num">' + t.target + '</b>' + (many ? ' · <b class="num">' + pct(pk) + '</b>' : '') + '</span>') + '</div></div>';
   }).join('') + (many ? '<div class="bar-note">Tens de chegar aos ' + d.totals.length + ' alvos. A % de cada um é sozinho; a vitória é a dos ' + d.totals.length + ' juntos.</div>' : '');
 }
-// ---- Hoje ----
+// ---- Jornada (antigo "Hoje"): o dia escolhido na faixa dos dias; por defeito o próximo dia por jogar ----
+// S.hd = data escolhida (null = o próximo dia). Dias que já passaram mostram o resultado e o previsto vs real.
+function jornadaDay() {
+  const r = S.result; if (!r) return null;
+  const nd0 = nextDay();
+  if (S.hd && (!S.days.some(x => x.date === S.hd) || (nd0 && S.hd === nd0.date))) S.hd = null;
+  const date = S.hd || (nd0 ? nd0.date : null); if (!date) return null;
+  const day = S.days.find(x => x.date === date), { md, d } = dayInfo(date);
+  return { date, day, idx: S.days.indexOf(day), md, d, cur: !!nd0 && date === nd0.date, past: !md || !d };
+}
+// quem do lineup de um dia está no relatório de lesões (para a faixa dos dias e o cartão de lesões)
+function lineupInjured(r, md, ids) {
+  return ids.filter(id => { const pi = r.model.pIndex.get(id), inf = pi != null && md.info[pi] && md.info[pi][0]; return inf && inf.injury && !inf.injury.ignored && inf.injury.status; });
+}
+// faixa com os dias todos da run: resultado nos que passaram, vitória prevista nos que faltam, ponto vermelho se há lesão no lineup
+function dayStrip(sel) {
+  const r = S.result, v = view(), nd0 = nextDay(), pl = curPlan().played || {};
+  return '<div class="day-strip" role="group" aria-label="Dias da run">' + S.days.map((day, i) => {
+    const p = pl[day.date], { md, d } = dayInfo(day.date), now = !!nd0 && nd0.date === day.date;
+    let val = '–', cls = '';
+    if (p && p.done) { val = p.result === 'win' ? 'V' : p.result === 'loss' ? 'D' : '–'; cls = p.result === 'win' ? ' win' : p.result === 'loss' ? ' loss' : ''; }
+    else if (md && d && !d.noObjective && d.lineup.length) { val = pct(d.P); cls = ' c-' + tone(d.P); }
+    const inj = md && d ? lineupInjured(r, md, d.lineup).length : 0;
+    return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="hd" data-date="' + day.date + '" aria-pressed="' + (day.date === sel) + '"><b class="num">' + (i + 1) + '</b><small>' + (now ? 'Hoje' : dWeek(day.date)) + '</small><span class="ds-v num">' + val + '</span>' + (inj ? '<i class="ds-inj" title="Lesão no lineup"></i>' : '') + '</button>';
+  }).join('') + '</div>';
+}
 function renderHoje() {
-  const el = $('tab-hoje');
+  const el = $('tab-hoje'), os = el.querySelector('.day-strip'), left = os ? os.scrollLeft : null;
+  renderJornada(el);
+  // a faixa não volta ao início a cada desenho; ao escolher um dia, centra-o
+  const ns = el.querySelector('.day-strip'); if (!ns) return;
+  const on = ns.querySelector('[aria-pressed="true"]');
+  if ((S.hdCenter || left == null) && on) ns.scrollLeft = Math.max(0, on.offsetLeft - ns.offsetLeft - (ns.clientWidth - on.offsetWidth) / 2);
+  else if (left != null) ns.scrollLeft = left;
+  S.hdCenter = false;
+}
+// um dia que já passou: resultado, o que o plano previa e o que saiu, jogos
+function pastDayHtml(J) {
+  const r = S.result, day = J.day, pl = ((curPlan().played || {})[J.date]) || null, done = !!(pl && pl.done), res = done ? pl.result : null;
+  const lineup = done && (pl.lineup || []).length ? pl.lineup : ((((curPlan().proj || {})[J.date]) || {}).lineup || []);
+  const out = ['<div class="card hero"><div class="hero-top"><span class="eyebrow">Dia ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + (pl && pl.chain ? 'lido da blockchain' : done ? 'registado à mão' : 'sem resultado') + '</span></div>' +
+    '<div class="score"><div class="goal">' + ((day.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>').join('<small> e </small>') || '<small>Objetivo por definir</small>') + '</div>' +
+    '<div class="pbig ' + (res === 'win' ? 'c-good' : res === 'loss' ? 'c-bad' : '') + '">' + (res === 'win' ? 'V' : res === 'loss' ? 'D' : '–') + '<span>' + (res === 'win' ? 'vitória' : res === 'loss' ? 'derrota' : 'por registar') + '</span></div></div>' +
+    (pl && pl.points != null ? '<div class="impact"><div>Feitos: <b class="num">' + f0(pl.points) + '</b></div></div>' : '') + '</div>'];
+  out.push(predVsActualHtml(J.date) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineup.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">Sem jogadores registados.</li>') + '</ul></div>');
+  if ((day.games || []).length) out.push('<div class="card"><div class="list-head"><h2>Jogos do dia</h2><span class="small muted">' + plural(day.games.length, 'jogo', 'jogos') + ' · hora de cá</span></div><ul class="list">' + gameRows(day, r, lineup, null, null, day.objectives) + '</ul></div>');
+  out.push('<div class="foot" style="grid-template-columns:1fr"><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + J.date + '">' + (done ? 'Mudar o resultado' : 'Registar o resultado') + '</button></div>');
+  return out.join('');
+}
+function renderJornada(el) {
   if (!guard(el, true)) return;
-  const r = S.result, v = view(), nd = nextDay();
-  if (!nd) { el.innerHTML = empty('Run terminada', 'Acabaste com ' + r.wins + ' vitórias em ' + r.playedCount + ' dias.'); return; }
-  const d = v.days[0], md = r.model.days[0], o = (nd.objectives || [])[0];
-  const live = liveOn(nd.date), t = d.totals[0];
-  const sub = subOf('hoje'), html = [subBar('hoje')];
+  const r = S.result, v = view(), J = jornadaDay();
+  if (!J) { el.innerHTML = empty('Run terminada', 'Acabaste com ' + r.wins + ' vitórias em ' + r.playedCount + ' dias.'); return; }
+  const sub = subOf('hoje'), html = [subBar('hoje'), dayStrip(J.date)];
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
   if (run.fictitious) html.push('<div class="note">Estás a ver uma <b>run de teste</b>: os jogos e os objetivos são inventados. ' + (real ? '<button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Ver a ' + esc(real.name) + '</button>' : 'A run a sério escolhe-se em Ajustes → Preferências.') + '</div>');
   if (groupMode()) html.push(accSwitch());
+  if (J.past) {
+    html.push(sub === 'lineup' ? pastDayHtml(J) : '<div class="note info">Este dia já passou: o resultado e o que o plano previa estão no Lineup.</div>');
+    el.innerHTML = html.join(''); return;
+  }
+  const { md, d } = J, nd = md.day, o = (nd.objectives || [])[0], isCur = J.cur;
+  const live = isCur && liveOn(nd.date), t = d.totals[0];
+  const noneTxt = isCur ? 'Nenhum jogador do teu plantel joga hoje.' : 'Nenhum jogador do teu plantel joga neste dia.';
   if (sub === 'porque') {
-    html.push(basisDayCard(r, v, d, md, nd) || '<div class="note info">' + (d.noObjective ? 'Este dia ainda não tem objetivo.' : 'Nenhum jogador do teu plantel joga hoje.') + '</div>');
+    html.push(basisDayCard(r, v, d, md, nd) || '<div class="note info">' + (d.noObjective ? 'Este dia ainda não tem objetivo.' : noneTxt) + '</div>');
     el.innerHTML = html.join(''); return;
   }
   if (sub === 'comparar') {
-    html.push(compareCard(md, d, nd.date, true) || '<div class="note info">' + (d.noObjective ? 'Este dia ainda não tem objetivo.' : 'Nenhum jogador do teu plantel joga hoje.') + '</div>');
+    html.push(compareCard(md, d, nd.date, true) || '<div class="note info">' + (d.noObjective ? 'Este dia ainda não tem objetivo.' : noneTxt) + '</div>');
     el.innerHTML = html.join(''); return;
   }
   const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort();
@@ -787,24 +841,24 @@ function renderHoje() {
   html.push('<div class="card hero"><div class="hero-top"><span class="eyebrow">Dia ' + (nd.idx + 1) + ' · ' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>' + right + '</div>' +
     '<div class="score"><div class="goal">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>').join('<small> e </small>') : '<small>Objetivo por definir</small>') + '</div>' +
     (d.noObjective ? '' : '<div class="pbig num c-' + tone(d.P) + '">' + pct(d.P) + '<span>vitória</span></div>') + '</div>' + barHtml +
-    (S.multi ? groupLine(nd) : '<div class="seg" role="group" aria-label="Estratégia para hoje"><button type="button" data-action="mode" data-mode="run" aria-pressed="' + (modeFor(nd.date) !== 'allin') + '">Plano da run</button><button type="button" data-action="mode" data-mode="allin" aria-pressed="' + (modeFor(nd.date) === 'allin') + '">Tudo pelo dia</button></div>' +
+    (S.multi ? groupLine(nd, isCur) : !isCur ? '<div class="impact"><div>Previsão do plano da run para este dia. Vai mudando até lá com as odds, as lesões e os resultados dos dias antes.</div></div>' : '<div class="seg" role="group" aria-label="Estratégia para hoje"><button type="button" data-action="mode" data-mode="run" aria-pressed="' + (modeFor(nd.date) !== 'allin') + '">Plano da run</button><button type="button" data-action="mode" data-mode="allin" aria-pressed="' + (modeFor(nd.date) === 'allin') + '">Tudo pelo dia</button></div>' +
     impactHtml(r)) + '</div>');
-  html.push(todoCard(r, v, d, md, nd, live, tips));
+  if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, true));
   if (S.multi) {
     const cl = S.multi.clashes.filter(c => c.date === nd.date);
-    if (cl.length) html.push('<div class="note">O mesmo Moment está fixado em duas contas hoje: ' + cl.map(c => esc(nameOf(c.id)) + ' (' + c.accounts.map(accLabel).map(esc).join(', ') + ')').join(' · ') + '. Só pode jogar por uma.</div>');
+    if (cl.length) html.push('<div class="note">' + (isCur ? 'O mesmo Moment está fixado em duas contas hoje: ' : 'O mesmo Moment está fixado em duas contas neste dia: ') + cl.map(c => esc(nameOf(c.id)) + ' (' + c.accounts.map(accLabel).map(esc).join(', ') + ')').join(' · ') + '. Só pode jogar por uma.</div>');
   }
   if (d.noObjective) html.push('<div class="note info">' + (S.role === 'admin' ? 'Este dia ainda não tem objetivo. Define-o em Ajustes → Admin.' : 'Este dia ainda não tem objetivo. O admin do grupo ainda não o definiu.') + '</div>');
-  if (d.perPlayer) html.push('<div class="note">Hoje o objetivo é por jogador: cada um tem de chegar ao valor sozinho. O plano ainda o calcula como total da equipa, por isso confirma o lineup à mão (e podes submeter menos jogadores).</div>');
+  if (d.perPlayer) html.push('<div class="note">' + (isCur ? 'Hoje' : 'Neste dia') + ' o objetivo é por jogador: cada um tem de chegar ao valor sozinho. O plano ainda o calcula como total da equipa, por isso confirma o lineup à mão (e podes submeter menos jogadores).</div>');
   if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) html.push('<div class="note info">Pontos na área: a ESPN não os dá por jogador, por isso as médias e os valores ao vivo são estimados a partir dos lançamentos de 2. O resultado final vem da blockchain.</div>');
   else if (!(nd.games || []).length) html.push('<div class="note info">Os jogos deste dia ainda não foram carregados do calendário NBA.</div>');
   if (r.normal.conflicts.length) html.push('<div class="note">Fixaste jogadores mais vezes do que os usos que têm: ' + r.normal.conflicts.map(c => esc(nameOf(c.player)) + ' (' + c.used + ' de ' + c.uses + ')').join(', ') + '.</div>');
   if (d.badLocks && d.badLocks.length) {
     const plays = FB.teamsOn(nd), teamOf = id => (r.model.players[r.model.pIndex.get(id)] || {}).team;
     const noGame = d.badLocks.filter(id => !plays.has(teamOf(id))), outNow = d.badLocks.filter(id => plays.has(teamOf(id)));
-    if (noGame.length) html.push('<div class="note">Sem jogo hoje, por isso não entram: ' + noGame.map(id => esc(nameOf(id))).join(', ') + '.</div>');
-    if (outNow.length) html.push('<div class="note">Fixaste quem está fora hoje (lesão ou estado), por isso não entra: ' + outNow.map(id => esc(nameOf(id)) + (injRec(id) ? ' (' + esc((INJ_LABEL[injRec(id).status] || '').toLowerCase()) + ')' : '')).join(', ') + '. Solta-o ou, se sabes que joga, ignora o relatório na ficha dele.</div>');
+    if (noGame.length) html.push('<div class="note">' + (isCur ? 'Sem jogo hoje, por isso não entram: ' : 'Sem jogo neste dia, por isso não entram: ') + noGame.map(id => esc(nameOf(id))).join(', ') + '.</div>');
+    if (outNow.length) html.push('<div class="note">' + (isCur ? 'Fixaste quem está fora hoje (lesão ou estado), por isso não entra: ' : 'Fixaste quem está fora neste dia (lesão ou estado), por isso não entra: ') + outNow.map(id => esc(nameOf(id)) + (injRec(id) ? ' (' + esc((INJ_LABEL[injRec(id).status] || '').toLowerCase()) + ')' : '')).join(', ') + '. Solta-o ou, se sabes que joga, ignora o relatório na ficha dele.</div>');
   }
   if (live && d.live && (d.live.out.length || d.live.in.length)) {
     const pSub = lineupP(md, d.live.submitted), pNew = d.P, pairs = [];
@@ -832,16 +886,17 @@ function renderHoje() {
     return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + sub + '</div></div>' + pvHtml(objVals(md, pi, live)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
-  html.push('<div class="card"><div class="list-head"><h2>Lineup</h2><button class="switch" type="button" data-action="live-toggle" aria-pressed="' + live + '"><i></i>Jogo a jogo</button></div>' +
-    (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'Hoje esta conta não joga: os Moments rendem mais nas outras contas.' : 'Nenhum jogador do teu plantel joga hoje.') + '</div>') +
+  html.push('<div class="card"><div class="list-head"><h2>Lineup</h2>' + (isCur ? '<button class="switch" type="button" data-action="live-toggle" aria-pressed="' + live + '"><i></i>Jogo a jogo</button>' : '<span class="small muted">' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>') + '</div>' +
+    (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? (isCur ? 'Hoje esta conta não joga: os Moments rendem mais nas outras contas.' : 'Neste dia esta conta não joga: os Moments rendem mais nas outras contas.') : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total final ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '') +
     (live ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="live-fetch">Atualizar estatísticas ao vivo</button></div>'
-      : (d.lineup.length && !d.noObjective ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="alts">Ver 2 a 3 alternativas para hoje</button></div>' : '')) +
-    '<div class="foot"><button class="btn" type="button" data-action="day" data-date="' + nd.date + '">Ajustar</button><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + nd.date + '">Fechar o dia</button></div></div>');
+      : (isCur && d.lineup.length && !d.noObjective ? '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="alts">Ver 2 a 3 alternativas para hoje</button></div>' : '')) +
+    (isCur ? '<div class="foot"><button class="btn" type="button" data-action="day" data-date="' + nd.date + '">Ajustar</button><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + nd.date + '">Fechar o dia</button></div>'
+      : '<div class="foot" style="grid-template-columns:1fr"><button class="btn" type="button" data-action="day" data-date="' + nd.date + '">Ajustar</button></div>') + '</div>');
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
-  html.push(todayPlayersCard(r, md, nd), buyTipsCard(2));
-  if (d.lineup.length && !d.noObjective) html.push('<div class="card"><button class="cta-row row" type="button" data-action="sub" data-stab="hoje" data-sub="porque"><span><span class="t">Porquê este lineup?</span><span class="s" style="display:block">Odds, lesões, forma e o que cada jogador acrescenta hoje</span></span><span class="muted" aria-hidden="true">›</span></button></div>');
-  if (!live && tips.length) html.push('<p class="small muted" style="margin:0 4px">O lineup fecha jogo a jogo. Liga <b>Jogo a jogo</b> quando o primeiro jogo começar: a app prende quem já jogou e sugere trocas para os jogos que faltam.</p>');
+  html.push(todayPlayersCard(r, md, nd, isCur), isCur ? buyTipsCard(2) : '');
+  if (isCur && d.lineup.length && !d.noObjective) html.push('<div class="card"><button class="cta-row row" type="button" data-action="sub" data-stab="hoje" data-sub="porque"><span><span class="t">Porquê este lineup?</span><span class="s" style="display:block">Odds, lesões, forma e o que cada jogador acrescenta hoje</span></span><span class="muted" aria-hidden="true">›</span></button></div>');
+  if (isCur && !live && tips.length) html.push('<p class="small muted" style="margin:0 4px">O lineup fecha jogo a jogo. Liga <b>Jogo a jogo</b> quando o primeiro jogo começar: a app prende quem já jogou e sugere trocas para os jogos que faltam.</p>');
   el.innerHTML = html.join('');
 }
 // ---- jogos de hoje ao vivo (placar da ESPN) ----
@@ -877,8 +932,8 @@ function liveGamesCard(r, md, nd, ids, live, above) {
   if (inWin !== !!above) return '';
   if (inWin && (!S.board || S.board.date !== nd.date)) { setTimeout(() => refreshBoard(nd.date), 0); return '<div class="card"><div class="list-head"><h2>Jogos de hoje</h2></div><div class="row small muted" style="display:block">A ler o placar…</div></div>'; }
   const B = inWin ? (S.board.games || []) : null, o = nd.objectives || [], lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
-  const n = (nd.games || []).length;
-  return '<div class="card"><div class="list-head"><h2>Jogos de hoje</h2><span class="small muted">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a cada minuto') : plural(n, 'jogo', 'jogos')) + '</span></div><ul class="list">' + gameRows(nd, r, ids, B, lp, o) + '</ul>' +
+  const n = (nd.games || []).length, ttl = nd.date === (nextDay() || {}).date ? 'Jogos de hoje' : 'Jogos do dia';
+  return '<div class="card"><div class="list-head"><h2>' + ttl + '</h2><span class="small muted">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a cada minuto') : plural(n, 'jogo', 'jogos')) + '</span></div><ul class="list">' + gameRows(nd, r, ids, B, lp, o) + '</ul>' +
     (inWin && live && o.filter(x => x && x.stat).length > 1 ? '<div class="row small muted" style="display:block">Valores: ' + o.filter(x => x && x.stat).map(x => esc(statShort(x.stat))).join('/') + '.</div>' : '') +
     (inWin && !live ? '<div class="row small muted" style="display:block">Liga o <b>Jogo a jogo</b> para veres as estatísticas dos teus jogadores aqui e as trocas sugeridas.</div>' : '') +
     (!inWin ? '<div class="row small muted" style="display:block">Hora de cá. Os teus jogadores em cada jogo; a negrito os do lineup.</div>' : '') + '</div>';
@@ -913,29 +968,37 @@ function todoCard(r, v, d, md, nd, live, tips) {
   if (!items.length) return '';
   return '<div class="card todo"><div class="list-head"><h2>A fazer</h2><span class="small muted">' + items.filter(x => x.indexOf('<button') >= 0).length + '</span></div><ul class="list">' + items.join('') + '</ul></div>';
 }
-// Lesões e forma de quem joga hoje (o resumo; o resto em Jogadores)
-function todayPlayersCard(r, md, nd) {
+// Lesões e forma de quem joga neste dia, e as lesões do plantel na run toda (o resumo; o resto em Jogadores)
+function todayPlayersCard(r, md, nd, isCur) {
   const o = (nd.objectives || [])[0]; if (!o || !md.teams.size) return '';
   const mine = r.model.players.map((p, pi) => ({ p, pi, info: md.info[pi] && md.info[pi][0] })).filter(x => x.info && md.teams.has(x.p.team));
   if (!mine.length) return '';
+  const runInj = injuryHits(r);
   const link = x => '<button class="lnk" type="button" data-action="player" data-id="' + esc(x.p.id) + '" data-date="' + nd.date + '">' + esc(lastName(x.p.id)) + '</button>';
   const inj = mine.filter(x => x.info.injury && !x.info.injury.ignored && x.info.injury.status);
   const fm = mine.map(x => ({ x, fi: FB.formInfo(x.p, o.stat) })).filter(z => z.fi && (z.fi.n5 || 0) >= 3 && z.fi.season && z.fi.l5 != null).map(z => Object.assign(z, { d: (z.fi.l5 - z.fi.season) / Math.max(1, Math.abs(z.fi.season)) }));
   const hot = fm.filter(z => z.d >= 0.08).sort((a, b) => b.d - a.d).slice(0, 3), cold = fm.filter(z => z.d <= -0.08).sort((a, b) => a.d - b.d).slice(0, 3);
   const pcs = z => ' <span class="' + (z.d > 0 ? 'up' : 'down') + '">' + (z.d > 0 ? '+' : '−') + Math.abs(Math.round(z.d * 100)) + '%</span>';
-  const lines = [['Lesões', inj.length ? inj.map(x => link(x) + ' ' + esc((INJ_LABEL[x.info.injury.rec.status] || '').toLowerCase()) + (x.info.injury.status === 'fora' ? '' : ' (' + pct(x.info.pPlay) + ')')).join(' · ') : (S.injOk ? 'ninguém do teu plantel que joga hoje' : 'relatório ainda não ligado')]];
+  const lines = [['Lesões', inj.length ? inj.map(x => link(x) + ' ' + esc((INJ_LABEL[x.info.injury.rec.status] || '').toLowerCase()) + (x.info.injury.status === 'fora' ? '' : ' (' + pct(x.info.pPlay) + ')')).join(' · ') : (S.injOk ? (isCur === false ? 'ninguém do teu plantel que joga neste dia' : 'ninguém do teu plantel que joga hoje') : 'relatório ainda não ligado')]];
+  // na run toda: quem do plantel está no relatório e em que dias que faltam isso pesa
+  if (S.injOk) lines.push(['Na run', runInj.length ? runInj.map(x => '<button class="lnk" type="button" data-action="pl-sheet" data-id="' + esc(x.p.id) + '">' + esc(lastName(x.p.id)) + '</button> ' + esc((INJ_LABEL[x.rec.status] || '').toLowerCase()) +
+    (x.hits.length ? ': ' + (x.hits.length > 1 ? 'dias ' : 'dia ') + x.hits.map(h => h.n + (h.out ? '' : ' (' + pct(h.p) + ')')).join(', ') : ': já não afeta os dias que faltam') + (x.p.injIgnore ? ' (ignorado)' : '')).join(' · ') : 'ninguém do teu plantel no relatório']);
   if (fm.length) { lines.push(['Em forma', hot.length ? hot.map(z => link(z.x) + pcs(z)).join(' · ') : 'ninguém acima da época']); lines.push(['Fora de forma', cold.length ? cold.map(z => link(z.x) + pcs(z)).join(' · ') : 'ninguém abaixo da época']); }
-  return '<div class="card"><div class="list-head"><h2>Quem joga hoje</h2><span class="small muted">' + plural(mine.length, 'jogador teu', 'jogadores teus') + '</span></div>' +
+  return '<div class="card"><div class="list-head"><h2>Lesões e forma</h2><span class="small muted">' + plural(mine.length, 'jogador teu joga', 'jogadores teus jogam') + '</span></div>' +
     lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') +
     (fm.length ? '<div class="row small muted" style="display:block">Forma: últimos 5 jogos face à época, em ' + esc(statShort(o.stat)) + '. Tudo em <button class="lnk" type="button" data-action="goto" data-tab="plantel" data-sub="forma">Jogadores → Forma</button>.</div>' : '') + '</div>';
 }
-// Run: lesões do plantel e os dias que afetam
-function runInjuriesCard(r) {
-  const rows = r.model.players.filter(p => injRec(p.id)).map(p => {
+// lesões do plantel na run toda: para cada jogador no relatório, os dias que faltam em que conta (fora ou com X% de jogar)
+function injuryHits(r) {
+  return r.model.players.filter(p => injRec(p.id)).map(p => {
     const pi = r.model.pIndex.get(p.id), rec = injRec(p.id);
-    const hits = r.model.days.map(md => { const inf = md.info[pi] && md.info[pi][0]; return inf && inf.injury && !inf.injury.ignored && inf.injury.status && md.teams.has(p.team) ? (md.day.idx + 1) + (inf.injury.status === 'fora' ? ' (fora)' : ' (' + pct(inf.pPlay) + ')') : null; }).filter(Boolean);
+    const hits = r.model.days.map(md => { const inf = md.info[pi] && md.info[pi][0]; return inf && inf.injury && inf.injury.status && md.teams.has(p.team) ? { n: md.day.idx + 1, out: inf.injury.status === 'fora', p: inf.pPlay } : null; }).filter(Boolean);
     return { p, rec, hits };
   });
+}
+// Run: lesões do plantel e os dias que afetam
+function runInjuriesCard(r) {
+  const rows = injuryHits(r).map(x => Object.assign(x, { hits: x.p.injIgnore ? [] : x.hits.map(h => h.n + (h.out ? ' (fora)' : ' (' + pct(h.p) + ')')) }));
   if (!rows.length) return '';
   return '<div class="card inj-list"><div class="list-head"><h2>Lesões no teu plantel</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div><ul class="list">' + rows.map(x =>
     '<li><button class="row" type="button" data-action="pl-sheet" data-id="' + esc(x.p.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(x.p.name) + '</span><span class="pill ' + INJ_PILL[x.rec.status] + '">' + esc(INJ_LABEL[x.rec.status]) + '</span>' + (x.p.injIgnore ? '<span class="badge">ignorado</span>' : '') + '</div><div class="ps">' + (x.rec.detail ? esc(x.rec.detail) + ' · ' : '') + (x.rec.return_date ? 'regresso previsto ' + dShort(x.rec.return_date) + ' · ' : '') + (x.hits.length ? 'no plano conta nos dias ' + x.hits.join(', ') : 'já não afeta os dias que faltam') + '</div></div></button></li>').join('') + '</ul></div>';
@@ -943,7 +1006,7 @@ function runInjuriesCard(r) {
 // De onde vem o lineup de hoje: odds, lesões, médias, run; e quanto pesa cada jogador (e porque ficam outros de fora)
 function basisDayCard(r, v, d, md, nd) {
   if (!d.lineup.length || d.noObjective) return '';
-  const date = nd.date, od = S.odds[date];
+  const date = nd.date, od = S.odds[date], cur = date === (nextDay() || {}).date;
   const rows = d.lineup.map(id => { const pi = r.model.pIndex.get(id); return { id, pi, info: md.info[pi][0] }; });
   const withOdds = rows.filter(x => ['odds', 'proxy', 'misto'].includes(x.info.src)).length;
   const hasOdds = od && Object.keys(od.players || {}).length;
@@ -975,22 +1038,23 @@ function basisDayCard(r, v, d, md, nd) {
     const id = r.model.players[pi].id, info = md.info[pi][0], later = v.days.filter(x => x.date !== date && x.lineup.includes(id));
     let swapP = P, swapOut = null;
     d.lineup.forEach(y => { const q2 = lineupP(md, d.lineup.filter(z => z !== y).concat([id])); if (q2 > swapP + 1e-12) { swapP = q2; swapOut = y; } });
-    const reason = !(r.model.uses[pi] > 0) ? 'já não tem usos' : later.length ? 'guardado para ' + (later.length > 1 ? 'os dias ' : 'o dia ') + later.map(x => x.idx + 1).join(', ') : info.pPlay < 1 ? 'só ' + pct(info.pPlay) + ' de jogar' : 'rende menos hoje do que os do lineup';
+    const reason = !(r.model.uses[pi] > 0) ? 'já não tem usos' : later.length ? 'guardado para ' + (later.length > 1 ? 'os dias ' : 'o dia ') + later.map(x => x.idx + 1).join(', ') : info.pPlay < 1 ? 'só ' + pct(info.pPlay) + ' de jogar' : cur ? 'rende menos hoje do que os do lineup' : 'rende menos neste dia do que os do lineup';
     return { id, info, reason, swapP, swapOut };
   });
   const pp = x => Math.round(x * 100), signed = n => (n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0');
-  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div><div class="pv"><div class="v num">' + val + '</div><div class="u">pp hoje</div></div></button></li>';
+  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div><div class="pv"><div class="v num">' + val + '</div><div class="u">' + (cur ? 'pp hoje' : 'pp no dia') + '</div></div></button></li>';
   return '<div class="card basis-day"><div class="list-head"><h2>Em que se baseia</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div>' +
     lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') +
     '<div class="list-head sub-head"><h3>Porquê estes jogadores</h3></div><ul class="list">' +
-    why.map(w => row(w.id, esc(nameOf(w.id)), esc(srcShort(w.info)) + (w.info.pPlay < 1 ? ' · ' + pct(w.info.pPlay) + ' de jogar' : '') + ' · sem ele: ' + pct(P) + ' → ' + pct(w.without) + (w.sub ? ' (entrava ' + esc(lastName(w.sub)) + ')' : '') + (pp(w.without) > pp(P) ? ' · está hoje para poupar outros para dias em que rendem mais' : ''), signed(pp(P) - pp(w.without)))).join('') +
+    why.map(w => row(w.id, esc(nameOf(w.id)), esc(srcShort(w.info)) + (w.info.pPlay < 1 ? ' · ' + pct(w.info.pPlay) + ' de jogar' : '') + ' · sem ele: ' + pct(P) + ' → ' + pct(w.without) + (w.sub ? ' (entrava ' + esc(lastName(w.sub)) + ')' : '') + (pp(w.without) > pp(P) ? (cur ? ' · está hoje para poupar outros para dias em que rendem mais' : ' · está neste dia para poupar outros para dias em que rendem mais') : ''), signed(pp(P) - pp(w.without)))).join('') +
     outs.map(x => row(x.id, '<span class="muted">De fora:</span> ' + esc(nameOf(x.id)), esc(x.reason) + (x.swapOut ? ' · no lugar de ' + esc(lastName(x.swapOut)) + ': ' + pct(P) + ' → ' + pct(x.swapP) : ''), signed(x.swapOut ? pp(x.swapP) - pp(P) : 0))).join('') +
-    '</ul><div class="row small muted" style="display:block">O número é quanto cada jogador acrescenta à vitória de hoje, em pontos percentuais (pp). Quem fica de fora mesmo a subir o dia de hoje está guardado porque vale mais noutro dia da run. Toca num jogador para ver as contas dele.</div></div>';
+    '</ul><div class="row small muted" style="display:block">' + (cur ? 'O número é quanto cada jogador acrescenta à vitória de hoje, em pontos percentuais (pp). Quem fica de fora mesmo a subir o dia de hoje está guardado porque vale mais noutro dia da run. Toca num jogador para ver as contas dele.'
+      : 'O número é quanto cada jogador acrescenta à vitória deste dia, em pontos percentuais (pp). Quem fica de fora mesmo a subir este dia está guardado porque vale mais noutro dia da run. É uma previsão: muda com as odds e as lesões até lá.') + '</div></div>';
 }
 // várias contas: probabilidade de vitória de cada conta hoje
-function groupLine(nd) {
+function groupLine(nd, isCur) {
   const g = S.multi;
-  return '<div class="impact"><div><b>Plano conjunto das ' + g.keys.length + ' contas.</b></div><div>Hoje: ' + g.keys.map(k => { const dd = g.byKey[k].normal.days.find(x => x.date === nd.date); return esc(accLabel(k)) + ' ' + (dd ? (dd.lineup.length ? '<b class="num">' + pct(dd.P) + '</b>' : 'não joga') : 'dia fechado'); }).join(' · ') + '</div></div>';
+  return '<div class="impact"><div><b>Plano conjunto das ' + g.keys.length + ' contas.</b></div><div>' + (isCur === false ? 'Neste dia: ' : 'Hoje: ') + g.keys.map(k => { const dd = g.byKey[k].normal.days.find(x => x.date === nd.date); return esc(accLabel(k)) + ' ' + (dd ? (dd.lineup.length ? '<b class="num">' + pct(dd.P) + '</b>' : 'não joga') : 'dia fechado'); }).join(' · ') + '</div></div>';
 }
 // Moments a mandar de uma conta para outra (onlyNow: só os que têm de mudar antes do próximo dia)
 function transfersCard(onlyNow) {
@@ -1422,7 +1486,7 @@ S.colView = { q: '', sort: 'uses', tier: '' };
 function colToolbar() {
   const V = S.colView, col = (S.profile || {}).collection || {};
   const has = {}; Object.values(col.players || {}).forEach(c => Object.keys(tierCounts(col, c)).forEach(t => { has[t] = 1; }));
-  return '<div class="col-tools"><input class="field" id="colSearch" type="search" placeholder="Procurar jogador ou equipa" value="' + esc(V.q) + '" autocomplete="off" aria-label="Procurar na coleção">' +
+  return '<div class="col-tools"><input class="field" id="colSearch" type="search" placeholder="Procurar jogador ou equipa…" value="' + esc(V.q) + '" autocomplete="off" aria-label="Procurar na coleção">' +
     '<div class="chips scroll" role="group" aria-label="Ordenar">' + [['uses', 'Mais usos'], ['pts', 'Mais pontos'], ['moments', 'Mais Moments'], ['name', 'Nome']].map(([k, l]) => '<button type="button" data-action="col-sort" data-v="' + k + '" aria-pressed="' + (V.sort === k) + '">' + l + '</button>').join('') + '</div>' +
     (Object.keys(has).length > 1 ? '<div class="chips scroll" role="group" aria-label="Escalão"><button type="button" data-action="col-tier" data-v="" aria-pressed="' + !V.tier + '">Todos</button>' + TIERS.slice().reverse().filter(t => has[t]).map(t => '<button type="button" data-action="col-tier" data-v="' + t + '" aria-pressed="' + (V.tier === t) + '">' + t + '</button>').join('') + '</div>' : '') + '</div>';
 }
@@ -1451,7 +1515,7 @@ function renderColList() { const el = $('colList'); if (el) el.innerHTML = colRo
 function typingField(id) { const ae = document.activeElement, box = $(id); return !!(ae && box && box.contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)); }
 function renderPlantel() {
   const el = $('tab-plantel');
-  if (S.loading) { el.innerHTML = empty('A carregar', 'A ler a run e o teu plantel.'); return; }
+  if (S.loading) { el.innerHTML = empty('A carregar…', 'A ler a run e o teu plantel.'); return; }
   const sub = subOf('plantel');
   if (!$('plSubBar')) el.innerHTML = '<div id="plSubBar"></div><div id="plSub" class="stack"></div>';
   $('plSubBar').innerHTML = subBar('plantel');
@@ -1468,7 +1532,7 @@ function renderPlantel() {
   }
   const ids = Object.keys(S.mine.roster || {});
   if (!$('rosterFilter')) {
-    box.innerHTML = '<div class="toolbar"><input class="field" id="rosterFilter" type="search" placeholder="Procurar no plantel" value="' + esc(S.filter) + '" aria-label="Procurar no plantel"><button class="btn" type="button" data-action="add-player">Adicionar</button></div><div id="plBody" class="stack"></div>';
+    box.innerHTML = '<div class="toolbar"><input class="field" id="rosterFilter" type="search" placeholder="Procurar no plantel…" value="' + esc(S.filter) + '" aria-label="Procurar no plantel"><button class="btn" type="button" data-action="add-player">Adicionar</button></div><div id="plBody" class="stack"></div>';
   }
   const body = $('plBody'), run = curRun() || {};
   if (!ids.length) {
@@ -1707,7 +1771,7 @@ function buyHtml() {
     '<div><div class="label" style="margin-bottom:6px">Escalão do Moment a comprar</div><div class="chips" role="group" aria-label="Escalão do Moment">' + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + (B.uses === n) + '">' + tierName(n) + ' · ' + n + '</button>').join('') + '</div>' +
     '<div class="small muted" style="margin-top:6px">Usos em cada run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. Para um Common com ASP acima de 10 $, escolhe Rare (também dá 2). Num jogador que já tens, conta só o melhor Moment: não se somam.</div></div>' +
     '<button class="btn primary" type="button" data-action="buy-run">' + (B.mode === 'new' ? 'Procurar as melhores compras' : 'Ver quem vale a pena reforçar') + '</button>' +
-    '<label class="small muted">Ou avalia um jogador em especial<input class="field" id="buySearch" type="search" placeholder="Nome (ex.: Curry)" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
+    '<label class="small muted">Ou avalia um jogador em especial<input class="field" id="buySearch" type="search" placeholder="Nome, ex.: Curry…" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
     '<div id="buyOut" class="stack">' + (B.results ? buyResultsHtml(B.results) : '') + '</div>' + specHtml();
 }
 // ---- Especialistas: os melhores da NBA em cada estatística (época atual misturada com a passada) ----
@@ -2062,7 +2126,7 @@ function emprestimosHtml() {
 }
 function renderGrupo() {
   const el = $('tab-grupo');
-  if (S.loading) { el.innerHTML = empty('A carregar', 'A ler o grupo.'); return; }
+  if (S.loading) { el.innerHTML = empty('A carregar…', 'A ler o grupo.'); return; }
   if (!S.runId) { el.innerHTML = empty('Ainda não há runs', 'A classificação aparece quando houver uma run.'); return; }
   const gsub = subOf('grupo');
   if (gsub === 'lineups') { el.innerHTML = subBar('grupo') + '<div class="stack">' + lineupsHtml() + '</div>'; return; }
@@ -2116,8 +2180,8 @@ function renderAjustes() {
   const el = $('tab-ajustes'), me = S.profile || {}, run = curRun(), sub = subOf('ajustes'), html = [subBar('ajustes')];
   if (sub === 'perfil') html.push('<div class="card panel"><h2>Perfil</h2><form id="pfForm" class="stack">' +
     '<label class="small muted">Nome que o grupo vê<input class="field" id="pfName2" maxlength="40" value="' + esc(me.display_name || '') + '"></label>' +
-    '<label class="small muted">Utilizador do Top Shot<input class="field" id="pfTs2" maxlength="40" autocapitalize="none" value="' + esc(me.topshot_username || '') + '"></label>' +
-    '<label class="small muted">Endereço Flow da tua carteira Dapper (0x seguido de 16 letras/números; é o que liga os teus resultados da blockchain)<input class="field" id="pfFlow2" maxlength="18" autocapitalize="none" placeholder="0x…" value="' + esc(me.flow_address || '') + '"></label>' +
+    '<label class="small muted">Utilizador do Top Shot<input class="field" id="pfTs2" maxlength="40" autocapitalize="none" autocomplete="off" spellcheck="false" value="' + esc(me.topshot_username || '') + '"></label>' +
+    '<label class="small muted">Endereço Flow da tua carteira Dapper (0x seguido de 16 letras/números; é o que liga os teus resultados da blockchain)<input class="field" id="pfFlow2" maxlength="18" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="0x…" value="' + esc(me.flow_address || '') + '"></label>' +
     smurfFormHtml() +
     '<div class="btns"><button class="btn quiet" type="button" data-action="logout">Terminar sessão</button><button class="btn primary" type="submit">Guardar perfil</button></div></form></div>' +
     '<div class="card panel"><h2>Partilhar com o grupo</h2><div class="small muted">O grupo vê o lineup que o teu plano sugere para cada dia e os usos dos teus jogadores, e o site sugere-lhes pedir-te Moments só nos dias em que o teu plano não os usa. O plantel e o plano continuam só teus.</div>' +
@@ -2174,8 +2238,8 @@ function smurfFormHtml() {
   const sms = S.smDraft || (S.smDraft = smurfList().map(x => Object.assign({}, x)));
   return '<div class="label">Contas smurf</div><div class="small muted">Até 2 contas extra tuas. O plano junta as coleções como se fossem uma só e diz que Moments mandar para que conta antes de cada noite (um Moment só joga por uma conta em cada noite).</div>' +
     sms.map((x, i) => '<div class="smurf-row stack"><div class="label">Smurf ' + (i + 1) + '</div>' +
-      '<label class="small muted">Utilizador do Top Shot<input class="field" id="smTs' + i + '" maxlength="40" autocapitalize="none" value="' + esc(x.topshot_username || '') + '"></label>' +
-      '<label class="small muted">Endereço Flow<input class="field" id="smFlow' + i + '" maxlength="18" autocapitalize="none" placeholder="0x…" value="' + esc(x.flow_address || '') + '"></label>' +
+      '<label class="small muted">Utilizador do Top Shot<input class="field" id="smTs' + i + '" maxlength="40" autocapitalize="none" autocomplete="off" spellcheck="false" value="' + esc(x.topshot_username || '') + '"></label>' +
+      '<label class="small muted">Endereço Flow<input class="field" id="smFlow' + i + '" maxlength="18" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="0x…" value="' + esc(x.flow_address || '') + '"></label>' +
       '<button class="btn small quiet" type="button" data-action="sm-del" data-i="' + i + '">Tirar esta smurf</button></div>').join('') +
     (sms.length < 2 ? '<button class="btn" type="button" data-action="sm-add">Adicionar smurf</button>' : '');
 }
@@ -2245,7 +2309,7 @@ function adminHtml(run) {
   out.push('<div class="card panel"><h2>Convidar amigos</h2><div class="small muted">Manda-lhes o link do site e o código. Criam conta com email e palavra-passe e entram com o código.</div>' +
     '<div class="status-line"><span>Site</span><span class="kbd">' + esc(site) + '</span></div>' +
     '<div class="status-line"><span>Código atual</span><span class="kbd">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'nenhum') + '</span></div>' +
-    '<form id="inviteForm" class="toolbar"><input class="field" id="invCode" placeholder="Novo código (mín. 4)" autocomplete="off"><button class="btn" type="submit">Mudar</button></form></div>');
+    '<form id="inviteForm" class="toolbar"><input class="field" id="invCode" placeholder="Novo código (mín. 4)" autocomplete="off" autocapitalize="none" spellcheck="false"><button class="btn" type="submit">Mudar</button></form></div>');
   const members = S.group.members.map(m => { const p = S.group.profiles.find(x => x.user_id === m.user_id) || {}; return { m, p }; });
   if (members.length) out.push('<div class="card"><div class="list-head"><h2>Membros</h2><span class="small muted">' + members.length + '</span></div><ul class="list">' + members.map(({ m, p }) => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.display_name || 'Sem nome') + '</span>' + (m.role === 'admin' ? '<span class="badge">admin</span>' : '') + '</div><div class="ps">' + esc(p.topshot_username || 'sem utilizador Top Shot') + '</div></div>' + (m.user_id !== S.session.user.id ? '<button class="btn small quiet" type="button" data-action="kick" data-id="' + esc(m.user_id) + '">Remover</button>' : '<span></span>') + '</li>').join('') + '</ul></div>');
   out.push('<div class="card panel"><h2>Nova run</h2><form id="newRunForm" class="stack"><input class="field" id="nrName" placeholder="Nome (ex.: Run 1 · Classic)" maxlength="60" required>' +
@@ -2292,8 +2356,23 @@ function dataHtml() {
 }
 
 // ---------- folhas ----------
-function openSheet(html, back) { S.sheetBack = back || null; $('sheetPanel').innerHTML = '<div class="grab" aria-hidden="true"></div>' + html; $('sheet').hidden = false; $('sheetPanel').scrollTop = 0; }
-function closeSheet() { $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; }
+// a folha é um diálogo: o resto da app fica inerte enquanto está aberta, o foco entra nela e volta ao botão que a abriu
+function openSheet(html, back) {
+  S.sheetBack = back || null;
+  const p = $('sheetPanel');
+  if ($('sheet').hidden) S.sheetFrom = document.activeElement;
+  p.innerHTML = '<div class="grab" aria-hidden="true"></div>' + html;
+  const h = p.querySelector('h2, h3');
+  if (h) p.setAttribute('aria-labelledby', h.id || (h.id = 'sheetTitle')); else p.removeAttribute('aria-labelledby');
+  p.querySelectorAll('[id$="Prog"]').forEach(x => x.setAttribute('role', 'status')); // "a calcular…" lido pelo leitor de ecrã
+  $('sheet').hidden = false; $('app').inert = true; p.scrollTop = 0;
+  if (!p.contains(document.activeElement)) p.focus({ preventScroll: true });
+}
+function closeSheet() {
+  $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; $('app').inert = false;
+  const f = S.sheetFrom; S.sheetFrom = null;
+  if (f && f.isConnected && typeof f.focus === 'function') f.focus({ preventScroll: true });
+}
 const closeRow = back => '<div class="btns">' + (back ? '<button class="btn quiet" type="button" data-action="sheet-back">Voltar</button>' : '<span></span>') + '<button class="btn quiet" type="button" data-action="close-sheet">Fechar</button></div>';
 function dayInfo(date) { const r = S.result; const md = r && r.model.days.find(x => x.day.date === date); const d = md && view().days.find(x => x.date === date); return { md, d }; }
 
@@ -2399,7 +2478,7 @@ function playerSheet(id, date, back) {
       (state !== 'por' ? objs.map((ob, k) => { const val = Math.round(FB.statValue(e.vals || {}, ob.stat, p.avg) * 10) / 10;
         return '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="stepper"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-k="' + k + '" data-d="-1" aria-label="Menos um">−</button><input class="num" id="liveVal-' + k + '" type="number" inputmode="decimal"' + (/-/.test(ob.stat) ? '' : ' min="0"') + ' value="' + val + '" data-action="live-input" data-id="' + esc(id) + '" data-k="' + k + '" aria-label="' + esc(statShort(ob.stat)) + ' até agora"><button type="button" data-action="live-val" data-id="' + esc(id) + '" data-k="' + k + '" data-d="1" aria-label="Mais um">+</button></div><span class="small muted">' + esc(statShort(ob.stat)) + (state === 'fim' ? ' no final' : ' até agora') + '</span></div>'; }).join('') : '') +
       (state === 'jogo' ? '<div class="chips" role="group" aria-label="Período">' + [1, 2, 3, 4].map(qn => '<button type="button" data-action="live-q" data-id="' + esc(id) + '" data-q="' + qn + '" aria-pressed="' + (+e.q === qn) + '">' + qn + '.º</button>').join('') + '</div>' : '') + '</div>';
-  } else if (live) liveHtml = '<div class="note info">Ainda não está no lineup que submeteste. Se fizeres a troca no Top Shot, carrega em <b>Fiz a troca</b> no ecrã Hoje.</div>';
+  } else if (live) liveHtml = '<div class="note info">Ainda não está no lineup que submeteste. Se fizeres a troca no Top Shot, carrega em <b>Fiz a troca</b> na Jornada.</div>';
   openSheet('<h3>' + esc(p.name) + '</h3><div class="small muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · Dia ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
     '<div class="kv"><div><div class="label">Esperado</div><div class="v num">' + (md.objs.length > 1 ? md.objs.map((x, k) => f1((md.info[pi][k] || {}).mu || 0)).join('<small> / </small>') : f1(info.mu)) + '</div><div class="small muted">' + (md.objs.length > 1 ? md.objs.map(x => esc(statShort(x.stat))).join(' / ') : esc(statShort(o.stat))) + '</div></div><div><div class="label">Usos</div><div class="v num">' + (p.uses || 0) + '</div><div class="small muted">restantes</div></div><div><div class="label">No plano</div><div class="v num">' + inPlan.length + '</div><div class="small muted">' + (inPlan.length ? 'dias ' + inPlan.join(', ') : '—') + '</div></div></div>' +
     liveHtml + injuryBlock(id, info.injury, date) + (md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + gamesTable(p.avg) +
@@ -2448,7 +2527,7 @@ function momentsBlock(id) {
     (copies === 1 && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">Ver se compensa um 2.º Moment</button>' : '') + '</div>';
 }
 function addPlayerSheet() {
-  openSheet('<h3>Adicionar jogador</h3><input class="field" id="apSearch" type="search" placeholder="Nome do jogador" autocomplete="off" aria-label="Procurar jogador"><div id="apResults" class="search-list"></div>' +
+  openSheet('<h3>Adicionar jogador</h3><input class="field" id="apSearch" type="search" placeholder="Nome do jogador…" autocomplete="off" aria-label="Procurar jogador"><div id="apResults" class="search-list"></div>' +
     '<div class="small muted">Não aparece? <button class="btn link small" type="button" data-action="custom-player">Adicionar à mão</button></div>' + closeRow());
   renderSearch(''); setTimeout(() => { const f = $('apSearch'); if (f) f.focus(); }, 50);
 }
@@ -2460,7 +2539,7 @@ function searchPlayers(qs, limit) {
 }
 function renderSearch(qs) {
   const box = $('apResults'); if (!box) return;
-  if (!S.players.size) { box.innerHTML = '<div class="row muted small">O catálogo de jogadores ainda está vazio. Usa "Adicionar à mão" ou espera pela primeira atualização automática.</div>'; return; }
+  if (!S.players.size) { box.innerHTML = '<div class="row muted small">O catálogo de jogadores ainda está vazio. Usa “Adicionar à mão” ou espera pela primeira atualização automática.</div>'; return; }
   const res = searchPlayers(qs, 30);
   box.innerHTML = res.map(p => { const inR = !!S.mine.roster[p.id]; return '<div class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS · ' + f1(+p.avg.reb || 0) + ' REB · ' + f1(+p.avg.ast || 0) + ' AST' : '') + '</div></div>' + (inR ? '<span class="small muted">no plantel</span>' : '<button class="btn small" type="button" data-action="add-id" data-id="' + esc(p.id) + '">Adicionar</button>') + '</div>'; }).join('') || '<div class="row muted small">Nenhum jogador com esse nome.</div>';
 }
@@ -2777,6 +2856,55 @@ function deepMerge(a, b) {
   return a;
 }
 function planPatch(patch) { deepMerge(curPlan(), patch); schedule(); saveMine(); }
+// Fixar quem o plano não põe nesse dia (ou tirar quem ele põe): antes de mudar, mostra o que custa — vitória nesse
+// dia, prémios e vitórias esperadas da run, quem sai do lineup e em que dias o jogador deixa de jogar
+async function choiceSheet(id, date, kind) {
+  const r = S.result, cur = view(); if (!r || !cur) return;
+  const d0 = cur.days.find(x => x.date === date), inPlan = !!(d0 && d0.lineup.includes(id));
+  if (kind === 'lock' && (inPlan || !d0)) { lockToggle(id, date, true); closeSheet(); return; }
+  if (kind === 'ban' && !inPlan) { banToggle(id, date, true); closeSheet(); return; }
+  const day = S.days.find(x => x.date === date) || {}, dn = S.days.indexOf(day) + 1, name = esc(nameOf(id));
+  const title = kind === 'lock' ? 'Fixar ' + name + ' no dia ' + dn + '?' : 'Tirar ' + name + ' do dia ' + dn + '?';
+  openSheet('<h3>' + title + '</h3><div class="small muted" id="choiceProg">A refazer a run com a tua escolha…</div>' + closeRow());
+  await new Promise(res => setTimeout(res, 30));
+  let ev;
+  try {
+    ev = evalAlt(kind === 'lock'
+      ? plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = [...new Set((plan.locks[date] || []).concat([id]))]; plan.bans[date] = (plan.bans[date] || []).filter(x => x !== id); }
+      : altMods.ban(date, id));
+  } catch (e) { console.warn(e); if ($('choiceProg')) $('choiceProg').textContent = 'Não consegui calcular: ' + errText(e); return; }
+  if (!$('choiceProg')) return; // fechou a folha
+  const res = ev.res, d1 = res.days.find(x => x.date === date) || { P: 0, lineup: [] };
+  const pp = x => Math.round(x * 100), diff = (a, b) => { const k = pp(b) - pp(a); return k === 0 ? '' : ' <small class="' + (k > 0 ? 'up' : 'down') + '">' + (k > 0 ? '+' : '−') + Math.abs(k) + ' pp</small>'; };
+  const arrow = (a, b, f) => f(a) + ' → <b class="' + (b > a + 1e-9 ? 'up' : b < a - 1e-9 ? 'down' : '') + '">' + f(b) + '</b>';
+  const lines = [];
+  // o dia escolhido
+  const outs = d0.lineup.filter(x => !d1.lineup.includes(x)), ins = d1.lineup.filter(x => !d0.lineup.includes(x) && x !== id);
+  lines.push(['Dia ' + dn, 'vitória ' + arrow(d0.P, d1.P, pct) + diff(d0.P, d1.P) + (outs.length || ins.length ? '<br><span class="muted">' + (ins.length ? 'Entra' + (ins.length > 1 ? 'm' : '') + ': ' + ins.map(x => esc(lastName(x))).join(', ') + '. ' : '') + (outs.length ? 'Sai' + (outs.length > 1 ? 'em' : '') + ': ' + outs.map(x => esc(lastName(x))).join(', ') + '.' : '') + '</span>' : '')]);
+  // os dias do jogador
+  const dOf = v => v.days.filter(x => x.lineup.includes(id)).map(x => x.idx + 1);
+  const before = dOf(cur), after = dOf(res), lost = before.filter(x => !after.includes(x)), gained = after.filter(x => !before.includes(x) && x !== dn);
+  lines.push([esc(lastName(id)), (before.length ? 'no plano jogava ' + (before.length > 1 ? 'nos dias ' : 'no dia ') + before.join(', ') : 'o plano não o usava') + ' → ' + (after.length ? (after.length > 1 ? 'dias ' : 'dia ') + after.join(', ') : 'não joga') + (lost.length ? '. <span class="down">Deixa de jogar ' + (lost.length > 1 ? 'nos dias ' : 'no dia ') + lost.join(', ') + '</span>' : '') + (gained.length ? '. Passa a jogar ' + (gained.length > 1 ? 'nos dias ' : 'no dia ') + gained.join(', ') : '') + '.']);
+  // outros dias que mudam (≥ 3 pp)
+  const others = cur.days.filter(x => x.date !== date).map(x => ({ x, y: res.days.find(z => z.date === x.date) })).filter(o => o.y && Math.abs(pp(o.y.P) - pp(o.x.P)) >= 3);
+  if (others.length) lines.push(['Outros dias', others.slice(0, 6).map(o => 'dia ' + (o.x.idx + 1) + ' ' + arrow(o.x.P, o.y.P, pct)).join(' · ') + (others.length > 6 ? ' e mais ' + (others.length - 6) : '')]);
+  // a run toda
+  const ew0 = r.wins + cur.expected, ew1 = r.wins + res.expected;
+  lines.push(['Run', (r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + arrow(cur.prizeProbs[i], res.prizeProbs[i], pct)).join(' · ') + '<br>' : '') + 'vitórias esperadas ' + arrow(ew0, ew1, f1)]);
+  // as outras contas (plano conjunto)
+  if (ev.group && S.multi) {
+    const acc = ev.group.keys.filter(k => k !== S.acc).map(k => { const a = S.multi.byKey[k], b = ev.group.byKey[k]; if (!a || !b) return ''; const e0 = a.wins + a.normal.expected, e1 = b.wins + b.normal.expected; return Math.abs(e1 - e0) >= 0.05 ? esc(accLabel(k)) + ' ' + arrow(e0, e1, f1) : ''; }).filter(Boolean);
+    if (acc.length) lines.push(['Outras contas', 'vitórias esperadas: ' + acc.join(' · ')]);
+  }
+  const loss = ew1 < ew0 - 0.05 || r.prizes.some((p, i) => pp(res.prizeProbs[i]) < pp(cur.prizeProbs[i]));
+  const gain = !loss && (ew1 > ew0 + 0.05 || r.prizes.some((p, i) => pp(res.prizeProbs[i]) > pp(cur.prizeProbs[i])));
+  const verdict = loss ? '<div class="note">' + (kind === 'lock' ? 'O plano não o punha neste dia: fixá-lo' : 'O plano punha-o neste dia: tirá-lo') + ' <b>custa</b> à tua run. Podes fazê-lo na mesma, por exemplo se sabes algo que o plano não sabe (minutos, lesão, jogo decisivo).</div>'
+    : gain ? '<div class="note info">Isto sobe as tuas hipóteses: o plano ainda não tinha esta combinação. Vale a pena.</div>'
+    : '<div class="note info">Quase não muda nada: o plano vale o mesmo com a tua escolha.</div>';
+  openSheet('<h3>' + title + '</h3>' + verdict + '<div class="card">' + lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') + '</div>' +
+    '<div class="small muted">Comparado com o plano que tens agora. O resto da run é refeito com a tua escolha.</div>' +
+    '<div class="btns"><button class="btn quiet" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '">Cancelar</button><button class="btn ' + (loss ? '' : 'primary') + '" type="button" data-action="' + (kind === 'lock' ? 'lock-yes' : 'ban-yes') + '" data-id="' + esc(id) + '" data-date="' + date + '">' + (kind === 'lock' ? 'Fixar na mesma' : 'Tirar na mesma') + '</button></div>');
+}
 function lockToggle(id, date, on) {
   const cur = new Set(((curPlan().locks || {})[date]) || []);
   if (on) {
@@ -2810,7 +2938,7 @@ function changeUses(id, delta, acc) {
 // Acertar os usos de todos de uma vez: procura por nome e − / + em cada um (em cada conta, com smurfs)
 function usesSheet() {
   openSheet('<h3>Acertar usos</h3><div class="small muted">Escreve parte do nome e acerta os usos que restam a cada um nesta run' + (groupMode() ? ', em cada conta' : '') + '. Guarda sozinho.</div>' +
-    '<input class="field" id="usesSearch" type="search" placeholder="Procurar (ex.: james)" autocomplete="off" aria-label="Procurar no plantel"><div id="usesList" class="card"></div>' + closeRow());
+    '<input class="field" id="usesSearch" type="search" placeholder="Procurar, ex.: james…" autocomplete="off" aria-label="Procurar no plantel"><div id="usesList" class="card"></div>' + closeRow());
   renderUsesList('');
   setTimeout(() => { const f = $('usesSearch'); if (f) f.focus(); }, 60);
 }
@@ -2979,7 +3107,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.ma
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-action], [data-tab]');
   if (!b || b.disabled) return;
-  if (b.matches('.tab')) { setTab(b.dataset.tab); return; }
+  if (b.matches('.tab')) { if (b.dataset.tab === 'hoje' && S.tab === 'hoje' && S.hd) { S.hd = null; S.hdCenter = true; } setTab(b.dataset.tab); return; }
   const a = b.dataset.action, id = b.dataset.id, date = b.dataset.date, nd = nextDay();
   switch (a) {
     case 'auth-mode': renderAuth(b.dataset.mode); break;
@@ -2992,11 +3120,14 @@ document.addEventListener('click', async e => {
     case 'mode': planPatch({ mode: { [nd.date]: b.dataset.mode } }); break;
     case 'player': playerSheet(id, date, b.dataset.back === 'day' ? () => daySheet(date) : null); break;
     case 'day': daySheet(date); break;
+    case 'hd': S.hd = date; S.hdCenter = true; renderHoje(); break;
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id); break;
-    case 'lock': lockToggle(id, date, true); closeSheet(); break;
+    case 'lock': choiceSheet(id, date, 'lock'); break;
+    case 'lock-yes': lockToggle(id, date, true); closeSheet(); break;
     case 'unlock': lockToggle(id, date, false); closeSheet(); break;
-    case 'ban': banToggle(id, date, true); closeSheet(); break;
+    case 'ban': choiceSheet(id, date, 'ban'); break;
+    case 'ban-yes': banToggle(id, date, true); closeSheet(); break;
     case 'unban': banToggle(id, date, false); closeSheet(); break;
     case 'set-status': setStatus(id, b.dataset.status); rosterSheet(id); break;
     case 'uses': changeUses(id, +b.dataset.d, b.dataset.acc); break;
