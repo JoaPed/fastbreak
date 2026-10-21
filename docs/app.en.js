@@ -75,7 +75,7 @@ function staticTexts() {
   const tabs = { hoje: 'Matchday', run: 'Run', plantel: 'Players', grupo: 'Group', ajustes: 'Settings' };
   Object.entries(tabs).forEach(([k, label]) => { const b = $('t-' + k); if (b && b.lastChild && b.lastChild.nodeType === 3) b.lastChild.textContent = label; });
   const lbl = (id, text) => { const e = $(id); if (e) e.setAttribute('aria-label', text); };
-  lbl('meBtn', 'My profile');
+  lbl('meBtn', 'Settings and profile');
   const nav = document.querySelector('.tabbar'); if (nav) nav.setAttribute('aria-label', 'Sections');
   const bg = document.querySelector('.sheet-bg'); if (bg) bg.setAttribute('aria-label', 'Close');
   const meta = $('runMeta'); if (meta && /carregar|Loading/.test(meta.textContent)) meta.textContent = 'Loading…';
@@ -4028,7 +4028,7 @@ document.addEventListener('visibilitychange', async () => {
     refreshOdds();
   } catch (err) { /* sem rede: fica como está */ }
 });
-function setTabUI() { TABS.forEach(t => { $('tab-' + t).hidden = t !== S.tab; $('t-' + t).setAttribute('aria-selected', String(t === S.tab)); }); }
+function setTabUI() { TABS.forEach(t => { $('tab-' + t).hidden = t !== S.tab; $('t-' + t).setAttribute('aria-selected', String(t === S.tab)); }); const me = $('meBtn'); if (me) { if (S.tab === 'ajustes') me.setAttribute('aria-current', 'page'); else me.removeAttribute('aria-current'); } }
 function setTab(tab) {
   S.tab = tab; setTabUI();
   try { localStorage.setItem('fb-tab3', tab); } catch (e) {}

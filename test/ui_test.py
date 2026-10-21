@@ -221,7 +221,7 @@ with sync_playwright() as pw:
     print('B folha amigo:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200])
     pg.click('#sheetPanel button[data-action="close-sheet"]')
 
-    pg.click('#t-ajustes'); pg.wait_for_timeout(400)
+    pg.click('#meBtn'); pg.wait_for_timeout(400)
     # clique à velocidade humana: carregar, esperar, largar
     pg.fill('#pfTs2', '@outro_nome'); pg.fill('#pfFlow2', '0xe7fb03955ade55fa')
     box = pg.locator('#pfForm button[type="submit"]').bounding_box()
@@ -263,7 +263,7 @@ with sync_playwright() as pw:
         print('B carta', fid, '→ Legendary:', store(pg, '{mt: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.mt, usos: __FAKE_DB.tables.user_runs[0].roster["%s"].uses}' % pid1))
         print('B aprendido (Luka, 2 Holo Icon):', store(pg, '{usos: __FAKE_DB.tables.user_runs[0].roster["luka"] && __FAKE_DB.tables.user_runs[0].roster["luka"].uses, tl: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.tl}'), '·', pg.locator('#toast').inner_text())
     pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
-    pg.click('#t-ajustes'); pg.wait_for_timeout(300)
+    pg.click('#meBtn'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="logout"]'); pg.wait_for_timeout(300)
     print('B depois de sair:', pg.locator('#auSubmit').inner_text())
     # Moments novos desde a última leitura: tira 3 da coleção guardada, entra outra vez e lê a carteira
@@ -276,7 +276,7 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="wallet-apply"]'); pg.wait_for_timeout(300)
     print('B aviso ao guardar:', pg.locator('#toast').inner_text(), '· ok' if '+3' in pg.locator('#toast').inner_text() else '· ERRO')
     pg.wait_for_timeout(1000)
-    pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="logout"]'); pg.wait_for_timeout(300)
+    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="logout"]'); pg.wait_for_timeout(300)
 
     # ---------- C: conta com uma smurf (coleções juntas, plano conjunto, transferências) ----------
     db = seeded(); T = db['tables']
@@ -374,7 +374,7 @@ with sync_playwright() as pw:
         pg.locator('#plSub .pl-card[data-id="' + one + '"]').click(); pg.wait_for_timeout(300)
         print('C um só Moment (' + one + '):', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ')[:300] if pg.locator('#sheetPanel .note').count() else '-')
         pg.click('#sheetPanel button[data-action="close-sheet"]')
-    pg.click('#t-ajustes'); pg.wait_for_timeout(400)
+    pg.click('#meBtn'); pg.wait_for_timeout(400)
     pg.click('#tab-ajustes button[data-action="sm-add"]'); pg.wait_for_timeout(200)
     pg.fill('#smTs1', 'segunda'); pg.fill('#smFlow1', '0x123')
     pg.click('#pfForm button[type="submit"]'); pg.wait_for_timeout(400)
@@ -397,7 +397,7 @@ with sync_playwright() as pw:
     pg.on('dialog', lambda d: d.accept())
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'amigo@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(1500)
-    pg.click('#t-ajustes'); pg.wait_for_timeout(400)
+    pg.click('#meBtn'); pg.wait_for_timeout(400)
     pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(300)
     print('D sem botão para criar runs de teste:', pg.locator('#tab-ajustes button[data-action="test-run"]').count() == 0)
     pg.click('#tab-ajustes button[data-action="del-tests"]'); pg.wait_for_timeout(2000)
@@ -525,8 +525,8 @@ with sync_playwright() as pw:
     if pg.locator('#plSub .frow').count():
         pg.locator('#plSub .frow').last.click(); pg.wait_for_timeout(300)
         print('E ficha da forma:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200]); pg.click('#sheetPanel button[data-action="close-sheet"]')
-    pg.click('#t-ajustes'); pg.wait_for_timeout(400)
-    print('E ajustes sem avisos (desligados por agora):', pg.locator('#tab-ajustes h2').all_inner_texts() if pg.click('#t-ajustes') is None and pg.wait_for_timeout(400) is None else '')
+    pg.click('#meBtn'); pg.wait_for_timeout(400)
+    print('E ajustes sem avisos (desligados por agora):', pg.locator('#tab-ajustes h2').all_inner_texts() if pg.click('#meBtn') is None and pg.wait_for_timeout(400) is None else '')
     pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300); 
     t0 = __import__('time').time()
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
@@ -678,7 +678,7 @@ with sync_playwright() as pw:
     print('G empréstimos:', ' // '.join(x.replace('\n', ' | ')[:420] for x in pg.locator('#borrowOut .card').all_inner_texts()) or pg.locator('#borrowOut').inner_text())
     pg.screenshot(path=str(shots / 'grupo-emprestimos.png'), full_page=True)
     print('G partilha publicada:', store(pg, 'Object.keys((__FAKE_DB.tables.summaries.find(s=>s.user_id==="u-eu")||{}).share||{})'), '· usos de um jogador:', store(pg, '((__FAKE_DB.tables.summaries.find(s=>s.user_id==="u-eu")||{}).share||{}).roster?.sga'))
-    pg.click('#t-ajustes'); pg.wait_for_timeout(300)
+    pg.click('#meBtn'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="sub"][data-sub="perfil"]'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="share-plan"][data-v="0"]'); pg.wait_for_timeout(3500)
     print('G deixar de partilhar:', store(pg, '__FAKE_DB.tables.profiles.find(p=>p.user_id==="u-eu").share_plan'), '· partilha no resumo:', store(pg, '(__FAKE_DB.tables.summaries.find(s=>s.user_id==="u-eu")||{}).share'))
@@ -689,7 +689,7 @@ with sync_playwright() as pw:
     pg.reload(); pg.wait_for_timeout(800)
     print('G tema depois de recarregar:', pg.evaluate('document.documentElement.dataset.theme'), bg())
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
-    pg.click('#t-ajustes'); pg.wait_for_timeout(300)
+    pg.click('#meBtn'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="theme"][data-v="auto"]'); pg.wait_for_timeout(200)
     print('G tema automático:', pg.evaluate('document.documentElement.dataset.theme || "auto"'), bg())
     print('G largura:', width(pg))
@@ -1022,7 +1022,7 @@ with sync_playwright() as pw:
     print('I grupo lineups:', pg.locator('#tab-grupo .card').first.inner_text().replace('\n', ' | ')[:240])
     pg.screenshot(path=str(shots / 'grupo-lineups.png'), full_page=True)
     # admin: os dois objetivos do dia 2 ficam ao mudar o alvo do segundo
-    pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(500)
+    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(500)
     print('I admin dia 2:', pg.locator('#obj-stat-1-0').input_value(), pg.locator('#obj-stat-1-1').input_value(), pg.locator('#obj-target-1-1').input_value())
     pg.fill('#obj-target-1-1', '28'); pg.press('#obj-target-1-1', 'Tab'); pg.wait_for_timeout(600)
     print('I admin guardado:', store(pg, '__FAKE_DB.tables.run_days[1].objectives'))
@@ -1033,7 +1033,7 @@ with sync_playwright() as pw:
     print('J entrada em inglês:', pg.locator('#gate').inner_text().replace('\n', ' | ')[:140] if pg.locator('#auEmail').count() else 'sessão mantida')
     if pg.locator('#auEmail').count():  # a base falsa recomeça ao recarregar (no site a sessão fica guardada)
         pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
-    print('J inglês:', pg.evaluate('document.documentElement.lang'), '·', pg.locator('#t-hoje').inner_text(), '/', pg.locator('#t-plantel').inner_text(), '/', pg.locator('#t-ajustes').inner_text())
+    print('J inglês:', pg.evaluate('document.documentElement.lang'), '·', pg.locator('#t-hoje').inner_text(), '/', pg.locator('#t-plantel').inner_text(), '/', pg.locator('#meBtn').inner_text())
     import re as _re
     PT = _re.compile(r'[ãçõê]|\b(não|jogador|jogadores|plano|vitória|vitórias|dias|hoje|usos|uso|está|são|ainda|já|com|sem|mais|menos|tens|teu|tua|conta|contas|jogo|jogos|lesão|lesões|forma|prémio|prémios|carteira|plantel|coleção|ajustes|grupo|amigos|ver|ler)\b', _re.I)
     def pt_left(where):
@@ -1045,7 +1045,7 @@ with sync_playwright() as pw:
         return bad
     left = []
     for tab, subs in [('hoje', ['lineup', 'porque', 'comparar']), ('run', ['premios', 'dias', 'analise', 'historico']), ('plantel', ['plantel', 'forma', 'lesoes', 'comprar', 'colecao']), ('grupo', ['classif', 'lineups', 'emprestimos']), ('ajustes', ['perfil', 'prefs', 'admin', 'dados'])]:
-        pg.click('#t-' + tab); pg.wait_for_timeout(400)
+        pg.click('#meBtn' if tab == 'ajustes' else '#t-' + tab); pg.wait_for_timeout(400)
         for sub in subs:
             loc = pg.locator('#tab-' + tab + ' button[data-action="sub"][data-sub="' + sub + '"]')
             if not loc.count(): continue
@@ -1062,7 +1062,7 @@ with sync_playwright() as pw:
     pg.locator('#tab-hoje .hero button[data-action="opcoes"]').click(); wait_opcoes(pg); left += pt_left('opções'); pg.screenshot(path=str(shots / 'en-opcoes.png'), full_page=True); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     pg.locator('#tab-hoje button[data-action="help"]').first.click(); pg.wait_for_timeout(300); left += pt_left('ajuda'); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     print('J restos em português:', sorted(set(left)) or 'nenhum', '· largura', width(pg))
-    pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(300)
+    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="lang"][data-v="pt"]'); pg.wait_for_timeout(2500)
     if pg.locator('#auEmail').count(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
     print('J de volta ao português:', pg.evaluate('document.documentElement.lang'), '·', pg.locator('#t-hoje').inner_text())

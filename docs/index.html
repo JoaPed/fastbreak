@@ -35,7 +35,7 @@ try { var t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark
         <h1 class="run-name" id="runName">Fastbreak</h1>
         <div class="run-meta" id="runMeta">A carregar…</div>
       </div>
-      <button class="me-btn" id="meBtn" type="button" data-action="goto" data-tab="ajustes" data-sub="perfil" aria-label="O meu perfil"></button>
+      <button class="me-btn" id="meBtn" type="button" data-action="goto" data-tab="ajustes" aria-label="Ajustes e perfil"></button>
     </header>
     <main>
       <section role="tabpanel" id="tab-hoje" aria-labelledby="t-hoje"></section>
@@ -55,7 +55,7 @@ try { var t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3 4 5.5 2.5 10 6 11v10h12V11l3.5-1L20 5.5 16 3c-.6 1.5-2.1 2.5-4 2.5S8.6 4.5 8 3z"/></svg>Jogadores</button>
       <button class="tab" role="tab" id="t-grupo" aria-controls="tab-grupo" aria-selected="false" data-tab="grupo" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Grupo</button>
-      <button class="tab" role="tab" id="t-ajustes" aria-controls="tab-ajustes" aria-selected="false" data-tab="ajustes" type="button">
+      <button class="tab" role="tab" id="t-ajustes" aria-controls="tab-ajustes" aria-selected="false" data-tab="ajustes" type="button" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Ajustes</button>
     </div>
   </nav>
