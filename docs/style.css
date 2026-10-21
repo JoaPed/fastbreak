@@ -634,6 +634,7 @@ p, .note { text-wrap: pretty; }
 
 /* fotos dos jogadores (ESPN): círculo na cor da equipa com a inicial por baixo */
 .face { --av: var(--muted); position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--surface-2); background: color-mix(in srgb, var(--av) 14%, var(--surface)); }
+.face { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .85); } /* linha preta fina à volta da cara */
 .face b { font-size: 13px; font-weight: 700; color: var(--muted); }
 .face img { position: absolute; left: 50%; bottom: 0; width: 56px; height: auto; transform: translateX(-50%); }
 .face.sm { width: 34px; height: 34px; } .face.sm b { font-size: 11px; } .face.sm img { width: 48px; }
