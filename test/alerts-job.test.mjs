@@ -82,7 +82,7 @@ const hello = g.sent[0] || {}, g0 = g.sent[1] || {};
 ok('Telegram: cumprimenta o grupo da primeira vez', /Olá! Sou o bot do Fast Break/.test(hello.message || ''), hello);
 ok('Telegram: o grupo é descoberto e guardado', (g.tables.job_state.find(r => r.key === 'telegram') || {}).value?.chat === '-1001', g.tables.job_state, lg);
 ok('Telegram: especialista do dia em dúvida também entra (mesmo sem estar em nenhum lineup)', /<b>Trae Young<\/b> \(ATL\) · <b>Dia a dia<\/b>[^]*?⭐ Especialista em 3PM \(2\.º\)/.test(g0.message || ''), g0.message);
-ok('Telegram: uma mensagem com as lesões dos lineups de toda a gente e de quem é cada um', g.sent.length === 2 && g0.via === 'tg' && g0.chat === '-1001' && /<b>Stephen Curry<\/b> \(GSW\) · <b>Fora<\/b>/.test(g0.message) && /👥 No lineup de João\n/.test(g0.message) && /<b>Keshon Gilbert<\/b> \(ATL\) · <b>Dia a dia<\/b>[^]*?👥 No lineup de João e Marquês/.test(g0.message) && /\n\n/.test(g0.message), g.sent);
+ok('Telegram: uma mensagem com as lesões dos lineups de toda a gente e de quem é cada um', g.sent.length === 2 && g0.via === 'tg' && g0.chat === '-1001' && /<b>Stephen Curry<\/b> \(GSW\) · <b>Fora<\/b>/.test(g0.message) && /👥 No lineup de <b>João<\/b>\n/.test(g0.message) && /<b>Keshon Gilbert<\/b> \(ATL\) · <b>Dia a dia<\/b>[^]*?👥 No lineup de <b>João e Marquês<\/b>/.test(g0.message) && /\n\n/.test(g0.message), g.sent);
 runTg(Date.parse('2026-10-21T22:00:00Z'));
 g = readTg();
 const gl = g.sent.find(x => /Já fizeram o lineup/.test(x.message)) || {}, gs = g.sent.find(x => /Ponto da situação/.test(x.message)) || {};

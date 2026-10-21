@@ -631,16 +631,16 @@ function groupBlock(i, hm, owners, spec) {
   const who = '<b>' + tgEsc(i.name) + '</b>' + (i.team ? ' (' + tgEsc(i.team) + ')' : '');
   const lab = (INJ_LABEL[i.status] || i.status || '').toLowerCase(), det = i.inj && i.inj.detail ? tgEsc(i.inj.detail) + ' · ' : '';
   const out = [];
-  if (i.kind === 'clear') { out.push('✅ ' + who + ' · <b>deve jogar</b>', 'Saiu do relatório de lesões · jogo às ' + hm(i.tip)); }
+  if (i.kind === 'clear') { out.push('✅ ' + who + ' · <b>deve jogar</b>', 'Saiu do relatório de lesões · jogo às <b>' + hm(i.tip) + '</b>'); }
   else {
     const icon = i.kind === 'last' ? '⏰' : i.kind === 'status' ? '📋' : i.status === 'out' || i.status === 'ofs' ? '🚫' : '⚠️';
     const pre = i.kind === 'last' ? 'Última chamada · ' : '';
     const st = i.kind === 'status' || i.kind === 'last' ? 'continua <b>' + tgEsc(lab) + '</b>' : '<b>' + tgEsc(INJ_LABEL[i.status] || i.status) + '</b>' + (i.kind === 'change' && i.prev ? ' (antes: ' + tgEsc((INJ_LABEL[i.prev] || i.prev).toLowerCase()) + ')' : '');
-    out.push(icon + ' ' + pre + who + ' · ' + st, det + 'jogo às ' + hm(i.tip));
+    out.push(icon + ' ' + pre + who + ' · ' + st, det + 'jogo às <b>' + hm(i.tip) + '</b>');
     if (i.inj && i.inj.comment) out.push('<i>' + tgEsc(i.inj.comment) + '</i>');
-    if (i.kind === 'last') out.push('Troquem antes de fechar se não quiserem arriscar.');
+    if (i.kind === 'last') out.push('<b>Troquem antes de fechar</b> se não quiserem arriscar.');
   }
-  if ((owners[i.id] || []).length) out.push('👥 No lineup de ' + tgEsc(andJoin(owners[i.id])));
+  if ((owners[i.id] || []).length) out.push('👥 No lineup de <b>' + tgEsc(andJoin(owners[i.id])) + '</b>');
   if (spec[i.id]) out.push('⭐ ' + tgEsc(spec[i.id]));
   return out.join('\n');
 }
