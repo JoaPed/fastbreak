@@ -43,6 +43,12 @@ def seeded():
         },
     }
 
+# o site em inglês (docs/app.en.js) tem de estar gerado a partir do app.js atual
+import subprocess
+chk = subprocess.run(['node', str(root / 'scripts' / 'build-en.mjs'), '--check'], capture_output=True, text=True)
+print('inglês:', (chk.stdout or chk.stderr).strip())
+if chk.returncode and not __import__('os').environ.get('FB_SKIP_EN'): sys.exit(1)  # FB_SKIP_EN=1: só para ensaios a meio de uma mudança
+
 errors = []
 def new_page(b, db):
     pg = b.new_page(viewport={'width': 390, 'height': 844}, device_scale_factor=2)
@@ -81,7 +87,7 @@ def new_page(b, db):
     def setof(k): return ('Holo Icon', 90, 49) if k % 23 == 0 else ('Metallic Gold LE', 33, 499) if k % 7 == 0 else ('Base Set', 2, 15000)
     def row(k, names):
         nm, sid, _ = setof(k)
-        return {'type': 'Array', 'value': [S(names[k % len(names)]), S(nm), S('8'), S(str(k)), S(str(sid)), S(str(k % 50)), S(''), S('')]}
+        return {'type': 'Array', 'value': [S(names[k % len(names)]), S(nm), S('8'), S(str(k)), S(str(sid)), S(str(k % 50)), S(''), S(''), S(str(1000 + k))]}
     def editions(sets):
         def d(pairs): return {'type': 'Dictionary', 'value': [{'key': {'type': 'UInt32', 'value': str(a)}, 'value': b} for a, b in pairs]}
         cnt = {2: 15000, 33: 499, 90: 49}
@@ -108,6 +114,8 @@ def new_page(b, db):
     return pg
 
 def width(pg): return pg.evaluate('document.documentElement.scrollWidth')
+def lineup_card(pg): return pg.locator('#tab-hoje .card').filter(has=pg.locator('button[data-k="lineup"], button[data-k="aovivo"]'))
+def wait_opcoes(pg, ms=90000): pg.wait_for_function("() => !document.getElementById('opProg')", timeout=ms); pg.wait_for_timeout(200)
 def store(pg, expr): return pg.evaluate('JSON.stringify(' + expr + ')')
 
 with sync_playwright() as pw:
@@ -141,6 +149,7 @@ with sync_playwright() as pw:
 
     # ---------- B: amigo entra com o código e usa o planeador ----------
     pg = new_page(b, seeded())
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')  # dia 2, antes dos jogos (o dia 1 já fechou na blockchain)
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(400)
     pg.fill('#joinCode', 'errado'); pg.click('#joinForm button[type="submit"]'); pg.wait_for_timeout(300)
@@ -150,7 +159,8 @@ with sync_playwright() as pw:
     print('B hoje sem plantel:', pg.locator('#tab-hoje').inner_text().replace('\n', ' | ')[:100])
     print('B resultado da blockchain aplicado:', store(pg, '(__FAKE_DB.tables.user_runs[0]||{}).plan'))
     pg.click('#t-plantel'); pg.wait_for_timeout(300)
-    pg.click('#plBody button[data-action="paste-sheet"]'); pg.wait_for_timeout(200)
+    pg.locator('#plSub button[data-action="add-player"]').first.click(); pg.wait_for_timeout(200)
+    pg.click('#sheetPanel button[data-action="paste-sheet"]'); pg.wait_for_timeout(200)
     pg.fill('#pasteText', 'Jokic 2\nWembanyama 3\nShai Gilgeous-Alexander 2\nLuka 2\nBrunson 3, Cade Cunningham 3\nSabonis 4\nGobert 5; Maxey 3\nJalen Johnson 4\nDaniels 5\nMobley 4\nChet 4\nLopez 5\nAnthony Edwards 3\nMitchell 3\nCurry 2\nSengun 4\nZzzz Inventado 1')
     pg.click('button[data-action="paste-preview"]'); pg.wait_for_timeout(200)
     print('B correspondências:', ' / '.join(pg.locator('#pasteOut li').all_inner_texts())[:500])
@@ -165,29 +175,41 @@ with sync_playwright() as pw:
     print('B hoje:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:200])
     print('B lineup:', pg.locator('#tab-hoje .list .row').count(), 'jogadores · largura', width(pg))
     pg.screenshot(path=str(shots / 'hoje.png'))
-    pg.click('#tab-hoje button[data-action="alts"]'); pg.wait_for_timeout(4000)
-    print('B alternativas:', ' // '.join(x.replace('\n', ' | ')[:230] for x in pg.locator('#sheetPanel .card').all_inner_texts()))
-    pg.screenshot(path=str(shots / 'alternativas.png'), full_page=True)
-    before = store(pg, 'Object.values(__FAKE_DB.tables.user_runs[0].plan.locks || {})')
-    pg.click('#sheetPanel button[data-action="alt-use"][data-i="0"]'); pg.wait_for_timeout(1500)
-    print('B alternativa usada:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'), '·', store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans'), '· hoje:', pg.locator('.hero .pbig').inner_text().replace('\n', ' '))
-    pg.click('#tab-hoje button[data-action="alts"]'); pg.wait_for_timeout(4000)
-    if pg.locator('#sheetPanel button[data-action="alt-reset"]').count():
-        pg.click('#sheetPanel button[data-action="alt-reset"]'); pg.wait_for_timeout(1200)
-        print('B voltou à sugestão:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'))
+    # ajuda ao toque: o (?) do lineup abre a explicação numa folha
+    pg.locator('#tab-hoje button[data-action="help"][data-k="lineup"]').click(); pg.wait_for_timeout(200)
+    print('B ajuda do lineup:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:160])
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    # Opções para hoje (antes dos jogos): o plano, tudo pelo dia, guardar um jogador
+    pg.click('#tab-hoje button[data-action="opcoes"]'); wait_opcoes(pg)
+    print('B opções:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#sheetPanel .op-card').all_inner_texts()))
+    pg.locator('#sheetPanel button[data-action="help"][data-k="opcoes"]').click(); pg.wait_for_timeout(200)
+    print('B ajuda dentro da folha:', pg.locator('#sheetPanel #help-opcoes').count(), '·', pg.locator('#sheetPanel button[data-k="opcoes"]').get_attribute('aria-expanded'))
+    pg.screenshot(path=str(shots / 'opcoes.png'), full_page=True)
+    alt = pg.locator('#sheetPanel .op-card').filter(has_not_text='o melhor').locator('button[data-action="op-use"]')
+    (alt if alt.count() else pg.locator('#sheetPanel button[data-action="op-use"]')).first.click(); pg.wait_for_timeout(1500)
+    print('B opção escolhida:', pg.locator('#toast').inner_text(), '·', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'), '·', store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans'), '· hoje:', pg.locator('.hero .pbig').inner_text().replace('\n', ' '))
+    pg.click('#tab-hoje button[data-action="opcoes"]'); wait_opcoes(pg)
+    clear = pg.locator('#sheetPanel .op-card').filter(has_text='sem as tuas escolhas').locator('button[data-action="op-use"]')
+    if clear.count():
+        clear.click(); pg.wait_for_timeout(1200)
+        print('B voltou ao plano:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'), store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans'))
     else:
+        print('B opções (2.ª vez):', ' // '.join(x.replace('\n', ' | ')[:120] for x in pg.locator('#sheetPanel .op-card').all_inner_texts()))
         pg.click('#sheetPanel button[data-action="close-sheet"]')
-    pg.click('button[data-action="live-toggle"]'); pg.wait_for_timeout(400)
-    pg.click('button[data-action="live-fetch"]'); pg.wait_for_timeout(800)
+    # ao vivo: passa sozinho quando o 1.º jogo começa (sem botão)
+    print('B antes dos jogos:', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
+    pg.clock.set_fixed_time('2026-10-22T02:40:00Z')
+    pg.evaluate('document.dispatchEvent(new Event("visibilitychange"))')
     pg.wait_for_function('() => { const l = (__FAKE_DB.tables.user_runs[0].plan || {}).live; return l && Object.values(l)[0] && Object.keys(Object.values(l)[0].players || {}).length; }', timeout=15000)
+    pg.wait_for_timeout(500)
+    print('B ao vivo (sozinho):', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '), '·', lineup_card(pg).locator('.list-head').inner_text().replace('\n', ' '))
     print('B ao vivo:', store(pg, 'Object.values(__FAKE_DB.tables.user_runs[0].plan.live)[0].players'))
     print('B placar ao vivo:', pg.locator('.hero .bar-cap').inner_text().replace('\n', ' '))
 
     pg.click('#t-run'); pg.wait_for_timeout(400)
     print('B run (prémios):', pg.locator('#tab-run .run-board').inner_text().replace('\n', ' | '), '// distribuição:', pg.locator('#tab-run .dist i').count(), 'barras ·', pg.locator('#tab-run .dist-legend').inner_text().replace('\n', ' '))
     pg.screenshot(path=str(shots / 'run-premios.png'), full_page=True)
-    pg.click('#tab-run button[data-action="sub"][data-sub="dias"]'); pg.wait_for_timeout(300); 
-    print('B run dias:', pg.locator('#tab-run .drow').count(), '·', pg.locator('#tab-run .drow').first.inner_text().replace('\n', ' '))
+    print('B run separadores:', pg.locator('#tab-run [role="tablist"]').first.inner_text().replace('\n', ' | '))
 
     pg.click('#t-grupo'); pg.wait_for_timeout(2900)
     pg.click('button[data-action="group-refresh"]'); pg.wait_for_timeout(500)
@@ -217,12 +239,26 @@ with sync_playwright() as pw:
     print('B escalões dos sets:', store(pg, '__FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.sets'))
     print('B usos pelo escalão:', store(pg, 'Object.fromEntries(Object.entries(__FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.players).slice(0, 4).map(([k, c]) => [k, [c.bySet, c.uses]]))'))
     pg.wait_for_timeout(300)
-    tc = pg.locator('#plSub .card').filter(has_text='Escalões e usos')
-    print('B cartão dos escalões:', tc.inner_text().replace('\n', ' | ')[:300] if tc.count() else 'sem cartão')
-    if tc.count():
-        pg.select_option('#plSub select[data-tier-set="Holo Icon"]', 'Rare'); pg.wait_for_timeout(800)
-        print('B Holo Icon mudado para Rare:', store(pg, '__FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.sets["Holo Icon"]'))
-        pg.screenshot(path=str(shots / 'escaloes.png'), full_page=True)
+    print('B coleção (sem o cartão dos escalões por set):', pg.locator('#plSub select[data-tier-set]').count() == 0, '·', pg.locator('#plSub .col-sum').inner_text().replace('\n', ' | ')[:200])
+    # escalão carta a carta: das cartas de um jogador, a melhor (Holo Icon, Legendary pela tiragem) passa a Common → usos 1
+    name1 = [x['name'] for x in roster['players'].values()][1]; pid1 = list(roster['players'])[1]
+    pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(300)
+    pg.locator('#plBody .pl-card').filter(has_text=name1).first.click(); pg.wait_for_timeout(300)
+    cc = pg.locator('#sheetPanel .card').filter(has_text='As tuas cartas')
+    print('B cartas de', name1 + ':', cc.inner_text().replace('\n', ' | ')[:260] if cc.count() else 'sem cartão', '· seletores:', pg.locator('#sheetPanel select[data-mo-tier]').count())
+    if cc.count():
+        fid = pg.locator('#sheetPanel select[data-mo-tier]').first.get_attribute('data-mo-tier')
+        pg.select_option('#sheetPanel select[data-mo-tier="%s"]' % fid, 'Common'); pg.wait_for_timeout(900)
+        print('B carta', fid, '→ Common:', pg.locator('#toast').inner_text(), '· Luka:', store(pg, '__FAKE_DB.tables.user_runs[0].roster["luka"] && __FAKE_DB.tables.user_runs[0].roster["luka"].uses'), '·', store(pg, '{mt: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.mt, usos: __FAKE_DB.tables.user_runs[0].roster["%s"].uses}' % pid1))
+        print('B depois:', pg.locator('#sheetPanel .card').filter(has_text='As tuas cartas').locator('.list-head').inner_text().replace('\n', ' ')[:160])
+        pg.locator('#sheetPanel button[data-action="help"][data-k="cartas"]').click(); pg.wait_for_timeout(200)
+        print('B ajuda das cartas (na folha):', pg.locator('#sheetPanel #help-cartas').inner_text()[:120])
+        pg.evaluate('document.querySelector("#sheetPanel .mo-row").scrollIntoView()'); pg.wait_for_timeout(100)
+        pg.screenshot(path=str(shots / 'cartas.png'))
+        pg.select_option('#sheetPanel select[data-mo-tier="%s"]' % fid, 'Legendary'); pg.wait_for_timeout(900)
+        print('B carta', fid, '→ Legendary:', store(pg, '{mt: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.mt, usos: __FAKE_DB.tables.user_runs[0].roster["%s"].uses}' % pid1))
+        print('B aprendido (Luka, 2 Holo Icon):', store(pg, '{usos: __FAKE_DB.tables.user_runs[0].roster["luka"] && __FAKE_DB.tables.user_runs[0].roster["luka"].uses, tl: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.tl}'), '·', pg.locator('#toast').inner_text())
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     pg.click('#t-ajustes'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="logout"]'); pg.wait_for_timeout(300)
     print('B depois de sair:', pg.locator('#auSubmit').inner_text())
@@ -234,11 +270,14 @@ with sync_playwright() as pw:
     T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in roster['players']}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T['chain_results'].append({'user_id': 'u-eu', 'account': 's1', 'game_id': 'g1', 'chain_run_id': 'cr1', 'date': run['days'][0]['date'], 'points': 140, 'win': True, 'lineup': ['Nikola Jokić']})
     pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
     print('C contas:', pg.locator('#tab-hoje .acc-seg').inner_text().replace('\n', ' | ') if pg.locator('#tab-hoje .acc-seg').count() else 'sem seletor')
     print('C a fazer (sem carteiras):', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
     print('C hoje (sem carteiras):', pg.locator('.hero .impact').inner_text().replace('\n', ' ')[:160], '//', ' / '.join(pg.locator('#tab-hoje .note').all_inner_texts())[:200])
+    try: pg.wait_for_function('() => { const p = (__FAKE_DB.tables.user_runs[0] || {}).plan || {}; return p.smurfs && p.smurfs.s1 && p.smurfs.s1.played; }', timeout=15000)  # gravação atrasada pelo cálculo
+    except Exception: pass
     print('C resultado da smurf lido:', store(pg, '{played: __FAKE_DB.tables.user_runs[0].plan.smurfs && __FAKE_DB.tables.user_runs[0].plan.smurfs.s1.played, jokic: __FAKE_DB.tables.user_runs[0].roster.jokic}'))
     pg.click('#t-plantel'); pg.wait_for_timeout(600)
     pg.click('#tab-plantel button[data-action="sub"][data-sub="colecao"]'); pg.wait_for_timeout(300); 
@@ -257,8 +296,14 @@ with sync_playwright() as pw:
     pg.click('#tab-hoje button[data-action="acc"][data-acc="s1"]'); pg.wait_for_timeout(500)
     print('C hoje smurf:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:160], '// lineup:', ' / '.join(pg.locator('#tab-hoje .list .row .nm').all_inner_texts()))
     pg.screenshot(path=str(shots / 'smurf-hoje-s1.png'), full_page=True)
-    pg.click('#tab-hoje button[data-action="alts"]'); pg.wait_for_timeout(9000)
-    print('C alternativas smurf:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#sheetPanel .card').all_inner_texts()))
+    pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="contas"]'); pg.wait_for_timeout(500)
+    trc = pg.locator('#tab-run .card').filter(has_text='Transferências')
+    print('C transferências:', trc.inner_text().replace('\n', ' | ')[:400] if trc.count() else 'sem cartão')
+    pg.click('#tab-run button[data-action="sub"][data-sub="premios"]'); pg.wait_for_timeout(300)
+    pg.click('#t-hoje'); pg.wait_for_timeout(400)
+    print('C a fazer (com trocas):', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
+    pg.click('#tab-hoje button[data-action="opcoes"]'); wait_opcoes(pg, 120000)
+    print('C opções smurf:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#sheetPanel .op-card').all_inner_texts()))
     pg.click('#sheetPanel button[data-action="close-sheet"]')
     pg.click('#t-run'); pg.wait_for_timeout(500)
     print('C run prémios:', pg.locator('#tab-run .run-board').inner_text().replace('\n', ' | ')[:300])
@@ -332,7 +377,7 @@ with sync_playwright() as pw:
     mine = list(roster['players'])[:16]
     T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in mine}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T['chain_results'] = []
-    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    now_iso = '2026-10-20T14:30:00Z'
     T['injuries'] = [
         {'id': 'maxey', 'name': 'Tyrese Maxey', 'team': 'PHI', 'status': 'out', 'label': 'Out', 'detail': 'Ankle', 'comment': 'Maxey will miss Tuesday.', 'return_date': None, 'updated_at': now_iso},
         {'id': 'sga', 'name': 'Shai Gilgeous-Alexander', 'team': 'OKC', 'status': 'dtd', 'label': 'Day-To-Day', 'detail': 'Knee · Tendinitis (left)', 'comment': 'SGA is questionable.', 'return_date': None, 'updated_at': now_iso},
@@ -343,26 +388,41 @@ with sync_playwright() as pw:
         sent.append(r.request.post_data)
         r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{}')
     pg.route('https://ntfy.sh/**', ntfy)
+    pg.clock.set_fixed_time('2026-10-20T15:00:00Z')  # dia 1, antes dos jogos
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
-    print('E lineup dia 1:', ' / '.join(pg.locator('#tab-hoje .card').filter(has_text='Jogo a jogo').locator('.row .nm').all_inner_texts()))
+    print('E lineup dia 1:', ' / '.join(lineup_card(pg).locator('.row .nm').all_inner_texts()))
     pg.wait_for_timeout(5000)
     print('E a fazer:', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
-    print('E quem joga hoje:', pg.locator('#tab-hoje .card').filter(has_text='Quem joga hoje').inner_text().replace('\n', ' | ')[:300])
-    print('E sugestões (hoje):', pg.locator('#tab-hoje .card').filter(has_text='Sugestões de compra').inner_text().replace('\n', ' | ')[:400])
+    print('E lesões e forma:', pg.locator('#tab-hoje .card').filter(has_text='Lesões e forma').inner_text().replace('\n', ' | ')[:400])
+    # Jornada: faixa com os dias da run; um dia mais à frente mostra a previsão do plano para esse dia
+    print('E faixa dos dias:', ' · '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .day-strip .ds').all_inner_texts()), '· com lesão:', pg.locator('#tab-hoje .ds .ds-inj').count())
+    pg.locator('#tab-hoje .day-strip .ds').nth(3).click(); pg.wait_for_timeout(300)
+    print('E dia 4:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:220], '· opções:', pg.locator('#tab-hoje button[data-action="opcoes"]').count(), '· a fazer:', pg.locator('#tab-hoje .todo').count(),
+          '· jogos:', pg.locator('#tab-hoje .card h2').filter(has_text='Jogos').all_inner_texts())
+    print('E dia 4 lesões:', pg.locator('#tab-hoje .card').filter(has_text='Lesões e forma').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .card').filter(has_text='Lesões e forma').count() else '-')
+    pg.click('#tab-hoje button[data-action="sub"][data-sub="porque"]'); pg.wait_for_timeout(300)
+    print('E dia 4 porquê:', pg.locator('#tab-hoje .basis-day .list-head').first.inner_text().replace('\n', ' '), '·', pg.locator('#tab-hoje .basis-day .pv .u').first.inner_text() if pg.locator('#tab-hoje .basis-day .pv .u').count() else '-')
+    pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(200)
+    pg.screenshot(path=str(shots / 'jornada-dia4.png'), full_page=True)
+    pg.click('#t-hoje'); pg.wait_for_timeout(300)
+    print('E tocar em Jornada volta ao próximo dia:', pg.locator('.hero .eyebrow').inner_text(), '·', pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '))
+    for _ in range(60):
+        if pg.locator('#tab-hoje .cta-row').count(): break
+        pg.wait_for_timeout(500)
+    buy = pg.locator('#tab-hoje .cta-row').filter(has_text='Melhor compra')
+    print('E melhor compra (Jornada):', buy.inner_text().replace('\n', ' | ') if buy.count() else 'nenhuma')
     pg.screenshot(path=str(shots / 'hoje-completo.png'), full_page=True)
     pg.click('#t-run'); pg.wait_for_timeout(500)
-    print('E run prémios:', ' // '.join(x.replace('\n', ' | ')[:250] for x in pg.locator('#tab-run .card').all_inner_texts()[2:5]))
+    print('E run prémios:', ' // '.join(x.replace('\n', ' | ')[:250] for x in pg.locator('#tab-run .card').all_inner_texts()[:2]))
     pg.screenshot(path=str(shots / 'run-premios-2.png'), full_page=True)
-    pg.click('#tab-run button[data-action="sub"][data-sub="dias"]'); pg.wait_for_timeout(300)
-    print('E dias com lesão:', pg.locator('#tab-run .drow').filter(has_text='lesão').count())
-    pg.click('#tab-run button[data-action="sub"][data-sub="premios"]'); pg.wait_for_timeout(300)
-    btns = pg.locator('#tab-run button[data-action="buy-open"]')
-    if btns.count():
-        btns.first.click(); pg.wait_for_timeout(500)
-        print('E abrir sugestão:', pg.locator('#plSubBar button[aria-selected="true"]').inner_text(), '·', pg.locator('#buyOut .card').count(), 'cartões')
+    print('E run sem compras (uma casa só, Comprar):', pg.locator('#tab-run button[data-action="buy-open"]').count() == 0)
     pg.click('#t-hoje'); pg.wait_for_timeout(400)
-    print('E linhas com lesão:', ' / '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .row').filter(has_text='lesão').all_inner_texts())[:300])
+    if pg.locator('#tab-hoje .cta-row').count():
+        pg.locator('#tab-hoje .cta-row').first.click(); pg.wait_for_timeout(500)
+        print('E abrir melhor compra:', pg.locator('#plSubBar button[aria-selected="true"]').inner_text(), '·', pg.locator('#plSub .card').first.inner_text().replace('\n', ' | ')[:200])
+        pg.click('#t-hoje'); pg.wait_for_timeout(400)
+    print('E linhas com lesão:', ' / '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .row').filter(has=pg.locator('.pill.duv, .pill.fora, .pill.dout')).all_inner_texts())[:300])
     pg.click('#tab-hoje button[data-action="sub"][data-sub="porque"]'); pg.wait_for_timeout(300); 
     print('E em que se baseia:', pg.locator('#tab-hoje .basis-day').inner_text().replace('\n', ' | ')[:900])
     pg.screenshot(path=str(shots / 'hoje-baseia.png'), full_page=True)
@@ -383,14 +443,15 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'hoje-lineup.png'), full_page=True)
     pg.click('#t-plantel'); pg.wait_for_timeout(500)
     pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(300)
-    pg.click('#plSub button[data-action="uses-sheet"]'); pg.wait_for_timeout(300)
-    pg.fill('#usesSearch', 'james'); pg.wait_for_timeout(200)
-    print('E acertar usos (james):', pg.locator('#usesList .uses-row').count(), 'linha(s) ·', pg.locator('#usesList .uses-row').first.inner_text().replace('\n', ' | '))
-    pg.locator('#usesList button[data-action="uses"][data-d="1"]').first.click(); pg.wait_for_timeout(150)
-    pg.locator('#usesList button[data-action="uses"][data-d="1"]').first.click(); pg.wait_for_timeout(900)
-    print('E usos guardados:', store(pg, '__FAKE_DB.tables.user_runs[0].roster.lebron'), '· mostrado:', pg.locator('#usesList output').first.inner_text())
-    pg.screenshot(path=str(shots / 'acertar-usos.png'))
+    print('E sem botão Acertar usos:', pg.locator('#plSub button[data-action="uses-sheet"]').count() == 0)
+    pg.fill('#rosterFilter', 'lebron'); pg.wait_for_timeout(300)
+    pg.locator('#plBody .pl-card').first.click(); pg.wait_for_timeout(300)
+    pg.locator('#sheetPanel button[data-action="uses"][data-d="1"]').first.click(); pg.wait_for_timeout(150)
+    pg.locator('#sheetPanel button[data-action="uses"][data-d="1"]').first.click(); pg.wait_for_timeout(2500)
+    print('E usos na ficha (LeBron):', store(pg, '__FAKE_DB.tables.user_runs[0].roster.lebron'), '· mostrado:', pg.locator('#sheetPanel output').first.inner_text())
+    pg.screenshot(path=str(shots / 'ficha-usos.png'))
     pg.click('#sheetPanel button[data-action="close-sheet"]')
+    pg.fill('#rosterFilter', ''); pg.wait_for_timeout(300)
     print('E sub-separadores do plantel:', pg.locator('#plSubBar').inner_text().replace('\n', ' | '))
     pg.click('#tab-plantel button[data-action="sub"][data-sub="lesoes"]'); pg.wait_for_timeout(300); 
     print('E lesões:', pg.locator('#plSub').inner_text().replace('\n', ' | ')[:400])
@@ -426,6 +487,17 @@ with sync_playwright() as pw:
     print('E grupo:', ' // '.join(pg.locator('.grp-row').all_inner_texts()).replace('\n', ' ')[:300])
     pg.screenshot(path=str(shots / 'grupo-aros.png'), full_page=True)
     print('E largura:', width(pg))
+    # folhas: × sempre em cima à direita; ‹ quando há folha anterior; o voltar do telemóvel volta/fecha sem sair da app
+    sheet_t = lambda: pg.locator('#sheetPanel h3').first.inner_text() if pg.evaluate('!document.getElementById("sheet").hidden') else '(fechada)'
+    pg.click('#t-hoje'); pg.wait_for_timeout(300); pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(300)
+    pg.locator('#tab-hoje .list button[data-action="player"]').first.click(); pg.wait_for_timeout(400)
+    print('E folha (× / ‹):', pg.locator('#sheetPanel .sheet-bar [data-action="close-sheet"]').count(), '/', pg.locator('#sheetPanel .sheet-bar [data-action="sheet-back"]').count())
+    pg.click('#sheetPanel button[data-action="ban"]'); pg.wait_for_function("() => !document.getElementById('choiceProg')", timeout=60000); pg.wait_for_timeout(200)
+    pg.click('#sheetPanel .sheet-bar [data-action="sheet-back"]'); pg.wait_for_timeout(300)
+    print('E ‹ volta à ficha:', sheet_t())
+    pg.click('#sheetPanel button[data-action="ban"]'); pg.wait_for_function("() => !document.getElementById('choiceProg')", timeout=60000); pg.wait_for_timeout(200)
+    pg.go_back(); pg.wait_for_timeout(400); print('E voltar do telemóvel 1:', sheet_t())
+    pg.go_back(); pg.wait_for_timeout(400); print('E voltar do telemóvel 2:', sheet_t(), '· na app:', pg.url, pg.evaluate('!document.getElementById("app").hidden'))
     pg.close()
 
     # ---------- F: jogos de hoje ao vivo e jogos seguidos (relógio no dia 1, a meio do 2.º jogo) ----------
@@ -459,11 +531,22 @@ with sync_playwright() as pw:
     card = pg.locator('#tab-hoje .card').filter(has_text='Jogos de hoje')
     print('F jogos de hoje:', card.inner_text().replace('\n', ' | ')[:400] if card.count() else 'sem cartão')
     print('F a fazer:', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:200] if pg.locator('#tab-hoje .todo').count() else 'nada')
-    print('F lineup (seguidos):', ' / '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .card').filter(has_text='Jogo a jogo').locator('.row').all_inner_texts()))
-    pg.click('button[data-action="live-toggle"]'); pg.wait_for_timeout(2500)
+    pg.wait_for_function('() => { const l = (__FAKE_DB.tables.user_runs[0].plan || {}).live; return l && Object.values(l)[0] && Object.values(l)[0].active; }', timeout=15000); pg.wait_for_timeout(2500)
+    print('F lineup ao vivo:', ' / '.join(x.replace('\n', ' ') for x in lineup_card(pg).locator('.row').all_inner_texts()))
     print('F ao vivo (sozinho):', store(pg, 'Object.values((__FAKE_DB.tables.user_runs[0].plan.live)||{})[0]?.players || null'))
     print('F jogos de hoje (ao vivo):', pg.locator('#tab-hoje .card').filter(has_text='Jogos de hoje').inner_text().replace('\n', ' | ')[:400])
     pg.screenshot(path=str(shots / 'ao-vivo.png'), full_page=True)
+    # Opções para hoje durante os jogos: com o que já aconteceu, manter / tirar um / poupar os que faltam
+    print('F botão opções:', pg.locator('#tab-hoje .hero button[data-action="opcoes"]').count())
+    pg.locator('#tab-hoje .hero button[data-action="opcoes"]').click(); pg.wait_for_timeout(600)
+    print('F opções (logo):', pg.locator('#opHead').inner_text().replace('\n', ' | ')[:300], '·', pg.locator('#opCards').inner_text().replace('\n', ' ')[:80])
+    wait_opcoes(pg)
+    print('F opções ao vivo:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#sheetPanel .op-card').all_inner_texts()))
+    print('F lineup submetido:', ' / '.join(pg.locator('#sheetPanel .chips button[aria-pressed="true"]').all_inner_texts()))
+    pg.screenshot(path=str(shots / 'opcoes-ao-vivo.png'))
+    if pg.locator('#sheetPanel button[data-action="op-use"]').count():
+        pg.locator('#sheetPanel button[data-action="op-use"]').last.click(); pg.wait_for_timeout(1500)
+        print('F escolha aplicada:', pg.locator('#toast').inner_text(), '· sugestão:', pg.locator('#tab-hoje .note.sug').inner_text().replace('\n', ' | ')[:200] if pg.locator('#tab-hoje .note.sug').count() else 'sem sugestão')
     pg.click('#tab-hoje button[data-action="sub"][data-sub="comparar"]'); pg.wait_for_timeout(400)
     print('F comparar (seguidos):', pg.locator('#tab-hoje table.cmp tbody tr').filter(has_text='2.º seguido').count(), 'de', pg.locator('#tab-hoje table.cmp tbody tr').count())
     pg.click('#tab-hoje button[data-action="sub"][data-sub="porque"]'); pg.wait_for_timeout(400)
@@ -508,10 +591,10 @@ with sync_playwright() as pw:
     pg.click('#tab-run button[data-action="sub"][data-sub="analise"]'); pg.wait_for_timeout(400)
     print('G análise:', ' // '.join(x.replace('\n', ' | ')[:260] for x in pg.locator('#tab-run .card').all_inner_texts()))
     pg.screenshot(path=str(shots / 'run-analise.png'), full_page=True)
-    pg.locator('#tab-run button[data-action="day"]').first.click(); pg.wait_for_timeout(300)
-    print('G dia fechado:', pg.locator('#sheetPanel .card').filter(has_text='Previsto vs real').inner_text().replace('\n', ' | ')[:400])
-    pg.screenshot(path=str(shots / 'dia-previsto-real.png'))
-    pg.click('#sheetPanel button[data-action="close-sheet"]')
+    pg.locator('#tab-run button[data-action="day"]').first.click(); pg.wait_for_timeout(400)
+    print('G dia fechado (na Jornada):', pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '), '·', ' // '.join(x.replace('\n', ' | ')[:300] for x in pg.locator('#tab-hoje .card').all_inner_texts()[1:2]))
+    pg.screenshot(path=str(shots / 'dia-previsto-real.png'), full_page=True)
+    pg.click('#t-run'); pg.wait_for_timeout(300)
     pg.click('#tab-run button[data-action="sub"][data-sub="historico"]'); pg.wait_for_timeout(800)
     print('G histórico:', ' // '.join(x.replace('\n', ' | ')[:300] for x in pg.locator('#tab-run .card').all_inner_texts()))
     pg.screenshot(path=str(shots / 'run-historico.png'), full_page=True)
@@ -570,20 +653,119 @@ with sync_playwright() as pw:
     print('H a fazer:', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
     gc = pg.locator('#tab-hoje .card').filter(has_text='Jogos de hoje')
     print('H jogos de hoje:', gc.inner_text().replace('\n', ' | ')[:300] if gc.count() else 'sem cartão')
-    lineup_teams = pg.locator('#tab-hoje .card').filter(has_text='Jogo a jogo').locator('.row .ps').all_inner_texts()
+    lineup_teams = lineup_card(pg).locator('.row .ps').all_inner_texts()
     day3 = [g[:2] for g in run['days'][2]['games']]; teams3 = set(t for g in day3 for t in g)
     print('H lineup só com quem joga hoje:', all(any(t in x for t in teams3) for x in lineup_teams), len(lineup_teams))
     pg.screenshot(path=str(shots / 'hoje-dia3.png'), full_page=True)
-    pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="dias"]'); pg.wait_for_timeout(300)
-    print('H dias:', ' // '.join(x.replace('\n', ' ') for x in pg.locator('#tab-run .drow').all_inner_texts()[:3]))
-    print('H registo:', pg.locator('#tab-run .run-board, #hdr').first.inner_text().replace('\n', ' ')[:80] if pg.locator('#tab-run .run-board').count() else pg.evaluate('document.querySelector(".rec") && document.querySelector(".rec").textContent'))
-    pg.locator('#tab-run .drow').first.click(); pg.wait_for_timeout(300)
-    print('H registar dia 1:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200])
+    print('H faixa (antes):', ' · '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .day-strip .ds').all_inner_texts()[:3]))
+    pg.locator('#tab-hoje .todo button[data-action="result-sheet"]').first.click(); pg.wait_for_timeout(300)
+    print('H registar dia 1 (A fazer):', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200])
     pg.click('#sheetPanel button[data-action="result"][data-res="win"]'); pg.wait_for_timeout(1500)
-    print('H dia 1 registado:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played'), '·', pg.evaluate('document.querySelector(".rec") && document.querySelector(".rec").textContent'))
-    pg.locator('#tab-run .drow').nth(2).click(); pg.wait_for_timeout(300)
-    print('H folha do dia 3 (jogos):', pg.locator('#sheetPanel .card').filter(has_text='hora de cá').inner_text().replace('\n', ' | ')[:300])
-    pg.screenshot(path=str(shots / 'dia-jogos.png'))
+    print('H dia 1 registado:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played'), '·', pg.locator('#runMeta').inner_text())
+    print('H faixa:', ' · '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .day-strip .ds').all_inner_texts()[:5]))
+    pg.locator('#tab-hoje .day-strip .ds').nth(0).click(); pg.wait_for_timeout(300)
+    print('H dia 1 (passado):', pg.locator('.hero').inner_text().replace('\n', ' | ')[:160], '·', pg.locator('#tab-hoje button[data-action="result-sheet"]').inner_text())
+    pg.locator('#tab-hoje .day-strip .ds').nth(1).click(); pg.wait_for_timeout(300)
+    print('H dia 2 (sem resultado):', pg.locator('.hero').inner_text().replace('\n', ' | ')[:160], '·', pg.locator('#tab-hoje button[data-action="result-sheet"]').inner_text())
+    pg.screenshot(path=str(shots / 'jornada-passado.png'), full_page=True)
+    pg.click('#t-hoje'); pg.wait_for_timeout(300)
+    jg = pg.locator('#tab-hoje .card').filter(has=pg.locator('button[data-k="jogosdia"]'))
+    print('H jogos do dia 3:', jg.first.inner_text().replace('\n', ' | ')[:300] if jg.count() else 'sem cartão')
+    pg.close()
+
+    # ---------- K: os dias fecham sozinhos com as fichas dos jogos (ESPN), sem registar à mão ----------
+    ESPN_AB = {'NYK': 'NY', 'SAS': 'SA', 'GSW': 'GS', 'UTA': 'UTAH', 'WAS': 'WSH', 'NOP': 'NO'}
+    KEYS = ['minutes', 'points', 'fieldGoalsMade-fieldGoalsAttempted', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'freeThrowsMade-freeThrowsAttempted', 'rebounds', 'assists', 'turnovers', 'steals', 'blocks', 'offensiveRebounds', 'defensiveRebounds', 'fouls', 'plusMinus']
+    LABELS = ['MIN', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'TO', 'STL', 'BLK', 'OREB', 'DREB', 'PF', '+/-']
+    def ath(name, pts, fg3='1-4', reb=5, dnp=False):
+        if dnp: return {'athlete': {'displayName': name}, 'didNotPlay': True, 'reason': "COACH'S DECISION", 'stats': []}
+        return {'athlete': {'displayName': name}, 'stats': ['30', str(pts), '8-17', fg3, '3-4', str(reb), '4', '2', '1', '0', '1', str(reb - 1), '2', '+3']}
+    g_by_id, g_by_date = {}, {}
+    for i_, d_ in enumerate(run['days']):
+        for j_, g_ in enumerate(d_['games']):
+            gid_ = '4019%05d' % (i_ * 20 + j_ + 1); g_by_id[gid_] = g_; g_by_date.setdefault(d_['date'].replace('-', ''), []).append((gid_, g_))
+    def k_route(lines, calls):
+        # placar e fichas como os da ESPN (siglas NY, SA…; 5 suplentes em cada equipa; jogos acabados)
+        def h(r):
+            url = r.request.url; hdr = {'access-control-allow-origin': '*'}; calls.append(url.split('/nba/')[1])
+            if 'scoreboard' in url:
+                evs = [{'id': gid, 'date': g[2], 'status': {'type': {'state': 'post', 'shortDetail': 'Final', 'completed': True}, 'period': 4},
+                        'competitions': [{'competitors': [{'homeAway': 'away', 'team': {'abbreviation': ESPN_AB.get(g[0], g[0])}, 'score': '104'}, {'homeAway': 'home', 'team': {'abbreviation': ESPN_AB.get(g[1], g[1])}, 'score': '116'}]}]}
+                       for gid, g in g_by_date.get(url.split('dates=')[1][:8], [])]
+                return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'events': evs}))
+            g = g_by_id[url.split('event=')[1][:9]]
+            teams = [{'team': {'abbreviation': ESPN_AB.get(t, t)}, 'statistics': [{'keys': KEYS, 'labels': LABELS, 'athletes': lines.get(t, []) + [ath('Suplente %s %d' % (t, k), 2 + k) for k in range(5)]}]} for t in g[:2]]
+            return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'header': {'competitions': [{'status': {'type': {'state': 'post', 'completed': True}}}]}, 'boxscore': {'players': teams}}))
+        return h
+    seedK = json.loads((root / 'data' / 'seed' / 'runs' / 'run-1-classic-2026-27.json').read_text())
+    d1, d2 = run['days'][0]['date'], run['days'][1]['date']
+    lu1 = ['sga', 'brunson', 'wemby', 'cade', 'maxey']
+    def k_db(plan, uses):
+        db = seeded(); T = db['tables']
+        T['runs'][0]['fictitious'] = False
+        for i_, d_ in enumerate(T['run_days']): d_['objectives'] = seedK['days'][i_]['objectives']  # dia 1: 120 PTS; dia 2: 18 3PM + 30 3PA
+        T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+        T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+        T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': uses.get(pid, 2), 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': plan, 'updated_at': '2026-10-21T08:00:00Z'}]
+        T['chain_results'] = []; T['injuries'] = []
+        return db
+    # K1 (o caso do utilizador): dia 1 registado à mão como derrota; o ao vivo só leu o 1.º jogo (Cade) e o Maxey a meio;
+    # os outros jogos acabaram com a app fechada. Ao abrir de manhã, lê as fichas que faltam e completa o dia.
+    pl1 = {'sga': [[29.5], 7, 'o', 0, 1], 'brunson': [[26.0], 6.8, 'o', 0, 1], 'wemby': [[26.1], 7, 'o', 0, 1], 'cade': [[24.0], 6.5, 'o', 0, 1], 'maxey': [[26.4], 7, 'o', 0, 1], 'kat': [[20.0], 6, 'a', 0, 1], 'lebron': [[21.0], 6, 'a', 1, 1]}
+    plan1 = {'proj': {d1: {'P': 0.76, 'lineup': lu1, 'o': [{'stat': 'pts', 'T': 120, 'mu': 132, 'sd': 18}], 'pl': pl1, 'at': '2026-10-20T18:35:00Z'}},
+             'live': {d1: {'active': True, 'lineup': lu1, 'players': {'cade': {'state': 'fim', 'vals': {'pts': 22}}, 'maxey': {'state': 'jogo', 'q': 3, 'vals': {'pts': 15}}}}},
+             'played': {d1: {'done': True, 'result': 'loss', 'lineup': lu1}}}
+    calls = []
+    pg = new_page(b, k_db(plan1, {pid: 1 for pid in lu1}))
+    pg.route('https://site.api.espn.com/**', k_route({'OKC': [ath('Shai Gilgeous-Alexander', 35), ath('Chet Holmgren', 0, dnp=True)], 'SAS': [ath('Victor Wembanyama', 12)],
+        'NYK': [ath('Jalen Brunson', 21), ath('Karl-Anthony Towns', 19)], 'PHI': [ath('Tyrese Maxey', 28), ath('LeBron James', 14)], 'DET': [ath('Cade Cunningham', 22)]}, calls))
+    pg.clock.set_fixed_time('2026-10-21T08:10:00Z')  # 9:10 em Lisboa: os jogos do dia 1 acabaram de madrugada
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).box' % d1, timeout=15000); pg.wait_for_timeout(800)
+    print('K1 dia 1 completo:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1), '· reais:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.proj["%s"].act' % d1))
+    print('K1 usos (sem descontar outra vez):', store(pg, 'Object.fromEntries(%s.map(id => [id, __FAKE_DB.tables.user_runs[0].roster[id].uses]))' % json.dumps(lu1)), '· pedidos à ESPN:', sorted(set(calls)))
+    pg.locator('#tab-hoje .day-strip .ds').nth(0).click(); pg.wait_for_timeout(600)
+    print('K1 dia 1 (Jornada):', pg.locator('.hero').inner_text().replace('\n', ' | ')[:200])
+    pva = pg.locator('#tab-hoje .card').filter(has_text='Previsto vs real')
+    print('K1 previsto vs real:', pva.inner_text().replace('\n', ' | ')[:420])
+    print('K1 jogos do dia:', pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Jogos do dia')).inner_text().replace('\n', ' | ')[:300])
+    pg.screenshot(path=str(shots / 'dia-fechado-estatisticas.png'), full_page=True)
+    # mudar à mão para vitória: os usos não mudam outra vez e aparece o que dizem as estatísticas
+    pg.click('#tab-hoje button[data-action="result-sheet"]'); pg.wait_for_timeout(300)
+    print('K1 folha (dia fechado):', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:260])
+    pg.click('#sheetPanel button[data-action="result"][data-res="win"]'); pg.wait_for_timeout(1500)
+    print('K1 mudado à mão:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu1)))
+    print('K1 aviso:', ' / '.join(pg.locator('#tab-hoje .note').all_inner_texts())[:200], '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
+    pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="dias"]'); pg.wait_for_timeout(400)
+    print('K1 run → dias:', ' // '.join(x.replace('\n', ' ') for x in pg.locator('#tab-run .drow').all_inner_texts()[:4]), '·', pg.locator('#tab-run .drow').count(), 'dias')
+    pg.screenshot(path=str(shots / 'run-dias.png'), full_page=True)
+    pg.locator('#tab-run .drow').nth(2).click(); pg.wait_for_timeout(400)
+    print('K1 tocar no dia 3:', pg.locator('#t-hoje').get_attribute('aria-selected'), pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '))
+    print('K1 largura:', width(pg))
+    pg.close()
+    # K2: dia 2 (3PM + 3PA) sem nada registado e sem ao vivo (app fechada durante os jogos): fecha sozinho com o lineup
+    # guardado antes do 1.º jogo, desconta os usos; "Não joguei" desfaz e não volta a fechar
+    lu2 = ['curry', 'luka', 'ant', 'mitchell', 'jokic']
+    plan2 = {'proj': {d2: {'P': 0.55, 'lineup': lu2, 'o': [{'stat': 'fg3', 'T': 18, 'mu': 17.1, 'sd': 3.9}, {'stat': 'fg3a', 'T': 30, 'mu': 41, 'sd': 6}], 'pl': {pid: [[3.5, 9], 1.8, 'o', 0, 1] for pid in lu2}, 'at': '2026-10-21T22:40:00Z'}},
+             'played': {d1: {'done': True, 'result': 'loss', 'lineup': lu1, 'box': True, 'points': 118, 'tot': [118]}}}
+    calls = []
+    pg = new_page(b, k_db(plan2, {pid: 1 for pid in lu1}))
+    pg.route('https://site.api.espn.com/**', k_route({'GSW': [ath('Stephen Curry', 30, '7-14')], 'LAL': [ath('Luka Dončić', 33, '5-11')], 'MIN': [ath('Anthony Edwards', 27, '4-9')], 'CLE': [ath('Donovan Mitchell', 25, '2-6')], 'DEN': [ath('Nikola Jokić', 26, '1-2')]}, calls))
+    pg.clock.set_fixed_time('2026-10-22T08:30:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).done' % d2, timeout=15000); pg.wait_for_timeout(300)
+    print('K2 aviso:', pg.locator('#toast').inner_text())
+    print('K2 dia 2 fechado sozinho:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, 'Object.fromEntries(%s.map(id => [id, __FAKE_DB.tables.user_runs[0].roster[id].uses]))' % json.dumps(lu2)))
+    print('K2 pedidos à ESPN:', len([c for c in calls if 'summary' in c]), 'fichas ·', len([c for c in calls if 'scoreboard' in c]), 'placares')
+    pg.wait_for_timeout(700)
+    print('K2 cabeçalho:', pg.locator('#runMeta').inner_text(), '· faixa:', ' · '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .day-strip .ds').all_inner_texts()[:3]))
+    pg.locator('#tab-hoje .day-strip .ds').nth(1).click(); pg.wait_for_timeout(500)
+    print('K2 dia 2:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:200])
+    pg.click('#tab-hoje button[data-action="result-sheet"]'); pg.wait_for_timeout(300)
+    pg.click('#sheetPanel button[data-action="undo-result"]'); pg.wait_for_timeout(2500)
+    print('K2 não joguei:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu2)), '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
     pg.close()
 
     # ---------- I: dias de combinação (3PM e 3PA), usos pelo melhor Moment, vistas do plantel e sugestões de compra ----------
@@ -604,13 +786,28 @@ with sync_playwright() as pw:
     ro['jokic'] = {'uses': 5, 'tierUses': 5, 'status': 'ok'}; ro['sga'] = {'uses': 4, 'tierUses': 5, 'status': 'ok'}
     T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': ro, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T['chain_results'] = []; T['injuries'] = []
+    later = [o for o in T['odds_days'] if o['date'] == '2026-10-21']; T['odds_days'] = [o for o in T['odds_days'] if o['date'] != '2026-10-21']  # as odds de hoje chegam com o site aberto
+    # o mesmo jogador com dois nomes: "Steph Curry" no catálogo (sem jogos) e um "Steph Curry" posto à mão no plantel
+    T['nba_players'].append({'id': 'steph-curry', 'name': 'Steph Curry', 'team': 'GSW', 'avg': None, 'gp': 0, 'updated_at': '2026-10-15T09:20:00Z'})
+    ro['x-steph-curry'] = {'uses': 2, 'status': 'ok', 'name': 'Steph Curry', 'team': 'GSW'}
+    T['user_runs'][0]['plan'] = {'locks': {'2026-10-23': ['x-steph-curry']}}
+    # um amigo com o plano partilhado e jogadores fixados
+    T['profiles'][0]['share_plan'] = True
+    T['summaries'][0]['share'] = {'roster': {'sga': [2, 2, 1], 'curry': [1, 1, 1], 'giannis': [1, 1, 1]}, 'use': {}, 'lineups': {'2026-10-21': ['curry', 'giannis', 'edwards']}, 'locks': {'2026-10-21': ['curry', 'edwards']}}
     pg = new_page(b, db)
     pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    pg.click('#tab-hoje button[data-action="sub"][data-sub="porque"]'); pg.wait_for_timeout(300)
+    print('I odds antes:', pg.locator('#tab-hoje .basis-line').first.inner_text().replace('\n', ' ')[:90])
+    pg.evaluate('(rows) => { rows.forEach(r => { r.updated_at = "2026-10-21T15:05:00Z"; __FAKE_DB.tables.odds_days.push(r); }); document.dispatchEvent(new Event("visibilitychange")); }', later)
+    pg.wait_for_timeout(1500)
+    print('I odds ao voltar ao site:', pg.locator('#tab-hoje .basis-line').first.inner_text().replace('\n', ' ')[:90], '· aviso:', pg.locator('#toast').inner_text())
+    pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(300)
+    print('I repetido junto:', store(pg, '{curry: __FAKE_DB.tables.user_runs[0].roster.curry, x: __FAKE_DB.tables.user_runs[0].roster["x-steph-curry"] || null, locks: __FAKE_DB.tables.user_runs[0].plan.locks}'), '· aviso:', pg.locator('#toast').inner_text())
     print('I usos pelo melhor Moment:', store(pg, '{jokic: __FAKE_DB.tables.user_runs[0].roster.jokic, sga: __FAKE_DB.tables.user_runs[0].roster.sga}'))
     print('I hero:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:300])
-    lu = pg.locator('#tab-hoje .card').filter(has_text='Jogo a jogo')
+    lu = lineup_card(pg)
     print('I lineup (valores):', ' // '.join(x.replace('\n', ' ') for x in lu.locator('.pv').all_inner_texts()[:3]))
     pg.screenshot(path=str(shots / 'combo-hoje.png'), full_page=True)
     print('I largura hoje:', width(pg))
@@ -621,6 +818,14 @@ with sync_playwright() as pw:
     print('I comparar (estatísticas):', pg.locator('#tab-hoje button[data-action="cmp-obj"]').all_inner_texts())
     pg.locator('#tab-hoje button[data-action="cmp-obj"]').nth(1).click(); pg.wait_for_timeout(300)
     print('I comparar 3PA:', pg.locator('#tab-hoje .cmp tbody tr').first.inner_text().replace('\n', ' ')[:120])
+    # fixar quem o plano não põe hoje: primeiro mostra o que custa
+    pg.locator('#tab-hoje .cmp tbody tr:not(.inl)').first.click(); pg.wait_for_timeout(400)
+    who = pg.locator('#sheetPanel h3').inner_text()
+    pg.click('#sheetPanel button[data-action="lock"]'); pg.wait_for_function("() => !document.getElementById('choiceProg')", timeout=60000); pg.wait_for_timeout(200)
+    print('I fixar', who + ':', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:500])
+    pg.screenshot(path=str(shots / 'fixar-aviso.png'), full_page=True)
+    pg.click('#sheetPanel button[data-action="lock-yes"]'); pg.wait_for_timeout(1500)
+    print('I fixado:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'))
     pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(200)
     # plantel: lista, plano por dia e valor por dia
     pg.click('#t-plantel'); pg.wait_for_timeout(500); pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(500)
@@ -654,13 +859,61 @@ with sync_playwright() as pw:
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
     print('I reforçar com Common:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:240])
     pg.click('#t-hoje'); pg.wait_for_timeout(500)
-    print('I hoje sugestões:', pg.locator('#tab-hoje .card').filter(has_text='Sugestões de compra').inner_text().replace('\n', ' | ')[:300])
+    buy = pg.locator('#tab-hoje .cta-row').filter(has_text='Melhor compra')
+    print('I melhor compra (Jornada):', buy.inner_text().replace('\n', ' | ') if buy.count() else 'nenhuma', '· cartões de compra na Jornada:', pg.locator('#tab-hoje .card').filter(has_text='mais compensam').count())
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(400)
+    pg.click('#plSub .toolbar button[data-action="add-player"]'); pg.wait_for_timeout(300)
+    pg.fill('#apSearch', 'curry'); pg.wait_for_timeout(300)
+    print('I procurar curry:', ' / '.join(x.replace('\n', ' ')[:40] for x in pg.locator('#apResults .row').all_inner_texts()))
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.click('#t-grupo'); pg.wait_for_timeout(400); pg.click('#tab-grupo button[data-action="sub"][data-sub="lineups"]'); pg.wait_for_timeout(500)
+    print('I grupo lineups:', pg.locator('#tab-grupo .card').first.inner_text().replace('\n', ' | ')[:240])
+    pg.screenshot(path=str(shots / 'grupo-lineups.png'), full_page=True)
     # admin: os dois objetivos do dia 2 ficam ao mudar o alvo do segundo
     pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(500)
     print('I admin dia 2:', pg.locator('#obj-stat-1-0').input_value(), pg.locator('#obj-stat-1-1').input_value(), pg.locator('#obj-target-1-1').input_value())
     pg.fill('#obj-target-1-1', '28'); pg.press('#obj-target-1-1', 'Tab'); pg.wait_for_timeout(600)
     print('I admin guardado:', store(pg, '__FAKE_DB.tables.run_days[1].objectives'))
     pg.screenshot(path=str(shots / 'admin-combo.png'), full_page=True)
+    # muda a língua para inglês em Ajustes → Preferências (a página recarrega com o app.en.js)
+    pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(300)
+    pg.click('#tab-ajustes button[data-action="lang"][data-v="en"]'); pg.wait_for_timeout(2500)
+    print('J entrada em inglês:', pg.locator('#gate').inner_text().replace('\n', ' | ')[:140] if pg.locator('#auEmail').count() else 'sessão mantida')
+    if pg.locator('#auEmail').count():  # a base falsa recomeça ao recarregar (no site a sessão fica guardada)
+        pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    print('J inglês:', pg.evaluate('document.documentElement.lang'), '·', pg.locator('#t-hoje').inner_text(), '/', pg.locator('#t-plantel').inner_text(), '/', pg.locator('#t-ajustes').inner_text())
+    import re as _re
+    PT = _re.compile(r'[ãçõê]|\b(não|jogador|jogadores|plano|vitória|vitórias|dias|hoje|usos|uso|está|são|ainda|já|com|sem|mais|menos|tens|teu|tua|conta|contas|jogo|jogos|lesão|lesões|forma|prémio|prémios|carteira|plantel|coleção|ajustes|grupo|amigos|ver|ler)\b', _re.I)
+    def pt_left(where):
+        txt = pg.evaluate('document.body.innerText')
+        bad = sorted(set(m.group(0) for m in PT.finditer(txt)))
+        if bad:
+            lines = [l for l in txt.split('\n') if PT.search(l)][:6]
+            print('J português em', where + ':', bad, '·', ' | '.join(l[:90] for l in lines))
+        return bad
+    left = []
+    for tab, subs in [('hoje', ['lineup', 'porque', 'comparar']), ('run', ['premios', 'dias', 'analise', 'historico']), ('plantel', ['plantel', 'forma', 'lesoes', 'comprar', 'colecao']), ('grupo', ['classif', 'lineups', 'emprestimos']), ('ajustes', ['perfil', 'prefs', 'admin', 'dados'])]:
+        pg.click('#t-' + tab); pg.wait_for_timeout(400)
+        for sub in subs:
+            loc = pg.locator('#tab-' + tab + ' button[data-action="sub"][data-sub="' + sub + '"]')
+            if not loc.count(): continue
+            loc.first.click(); pg.wait_for_timeout(700 if sub != 'comprar' else 2500)
+            left += pt_left(tab + '/' + sub)
+            pg.screenshot(path=str(shots / ('en-' + tab + '-' + sub + '.png')), full_page=True)
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(400)
+    for v in ['plano', 'valor']:
+        pg.click('#plBody button[data-action="pl-view"][data-v="' + v + '"]'); pg.wait_for_timeout(400); left += pt_left('plantel/' + v)
+    pg.locator('#plBody .mx-row:not(.head)').first.click(); pg.wait_for_timeout(400); left += pt_left('ficha do plantel'); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.click('#t-hoje'); pg.wait_for_timeout(300); pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(400)
+    pg.locator('#tab-hoje button[data-action="player"]').first.click(); pg.wait_for_timeout(400); left += pt_left('ficha do jogador')
+    pg.screenshot(path=str(shots / 'en-ficha.png'), full_page=True); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.locator('#tab-hoje .hero button[data-action="opcoes"]').click(); wait_opcoes(pg); left += pt_left('opções'); pg.screenshot(path=str(shots / 'en-opcoes.png'), full_page=True); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.locator('#tab-hoje button[data-action="help"]').first.click(); pg.wait_for_timeout(300); left += pt_left('ajuda'); pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    print('J restos em português:', sorted(set(left)) or 'nenhum', '· largura', width(pg))
+    pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(300)
+    pg.click('#tab-ajustes button[data-action="lang"][data-v="pt"]'); pg.wait_for_timeout(2500)
+    if pg.locator('#auEmail').count(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    print('J de volta ao português:', pg.evaluate('document.documentElement.lang'), '·', pg.locator('#t-hoje').inner_text())
     pg.close()
     b.close()
 
