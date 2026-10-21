@@ -301,18 +301,6 @@
    "toast(added + ' jogador' + (added === 1 ? '' : 'es') + ' da coleção no plantel.');": true
   }
  },
- " novo": {
-  "en": "",
-  "at": {
-   "toast(S.runId ? (added ? added + ' jogador' + (added > 1 ? 'es' : '') + ' novo' + (added > 1 ? 's' : '') + ' no plantel' : 'Plantel atualizado') + (removed ? ',": ""
-  }
- },
- " tirado": {
-  "en": " removed",
-  "at": {
-   "toast(S.runId ? (added ? added + ' jogador' + (added > 1 ? 'es' : '') + ' novo' + (added > 1 ? 's' : '') + ' no plantel' : 'Plantel atualizado') + (removed ? ',": " removed"
-  }
- },
  "FG": null,
  "3PT": null,
  "FT": null,
@@ -590,9 +578,7 @@
  "\">Ver a ": "\">Open ",
  "Este dia ainda não tem objetivo.": "This day has no goal yet.",
  "<span class=\"small muted\">1.º jogo ": "<span class=\"small muted\">1st game ",
- "<div class=\"card hero\"><div class=\"hero-top\"><span class=\"eyebrow\">Dia ": "<div class=\"card hero\"><div class=\"hero-top\"><span class=\"eyebrow\">Day ",
  "<small> e </small>": "<small> and </small>",
- "<span>vitória</span></div>": "<span>win</span></div>",
  "<span class=\"pill fim\">Fim</span> ": "<span class=\"pill fim\">Final</span> ",
  "Em jogo": "Playing",
  " até agora": " so far",
@@ -1681,12 +1667,28 @@
  "Cadeados a mais tirados. Plano refeito.": "Extra locks removed. Plan redone.",
  "jogador novo": "new player",
  "jogadores novos": "new players",
- "<div class=\"small muted\">Nada mudou no plantel.</div>": "<div class=\"small muted\">Nothing changed in your roster.</div>",
  "<div class=\"small muted\">Escalões: ": "<div class=\"small muted\">Tiers: ",
  "<div class=\"small\">Usos que mudam: ": "<div class=\"small\">Uses that change: ",
  "Lineup mantido como estava quando tiraste o cadeado. <button class=\"btn link small\" type=\"button\" data-action=\"keep-clear\" data-date=\"": "Lineup kept as it was when you removed the lock. <button class=\"btn link small\" type=\"button\" data-action=\"keep-clear\" data-date=\"",
  " sem cadeado. O lineup fica igual.": " unlocked. The lineup stays the same.",
  "O plano volta a escolher este dia.": "The plan picks this day again.",
+ " e mais": " and more",
+ "Moment novo": "new Moment",
+ "Moments novos": "new Moments",
+ "Moment saiu": "Moment gone",
+ "Moments saíram": "Moments gone",
+ "Moment mudou": "Moment moved",
+ "Moments mudaram": "Moments moved",
+ " de conta:</b> ": " to another account:</b> ",
+ "<div class=\"small muted\">Nenhum Moment novo desde a última leitura.</div>": "<div class=\"small muted\">No new Moments since the last read.</div>",
+ "<div class=\"small muted\">Os usos no plantel ficam iguais.</div>": "<div class=\"small muted\">Uses in your roster stay the same.</div>",
+ "px;top:": null,
+ "px\">": null,
+ "</b><span>vitória</span></div></div>": "</b><span>win</span></div></div>",
+ " na coleção. ": " in your collection. ",
+ "tirado": "removed",
+ "<div class=\"hero-top\"><span class=\"eyebrow\">Dia ": "<div class=\"hero-top\"><span class=\"eyebrow\">Day ",
+ "tirados": "removed",
  "normal": null,
  "sem": null,
  "odds": null,

@@ -135,6 +135,17 @@ function goalBig(objs) {
   const one = x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>';
   return l.length === 1 ? '<div class="goal">' + one(l[0]) + '</div>' : '<div class="goal multi">' + l.map(x => '<span>' + one(x) + '</span>').join('') + '</div>';
 }
+// placar do dia: meia quadra ao fundo (linha de três pontos, garrafão, lance livre e aro), vista de cima
+const COURT = '<svg class="court-b" viewBox="0 0 400 150" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><path d="M20 150V112A180 180 0 0 1 380 112V150"/><rect x="140" y="40" width="120" height="110"/><path d="M140 40A60 60 0 0 1 260 40"/><path d="M140 40A60 60 0 0 0 260 40" stroke-dasharray="6 7"/><path d="M176 150V135M224 150V135M184 128h32"/><circle class="rim" cx="200" cy="120" r="7"/></svg>';
+const BALL = '<svg viewBox="0 0 40 40" width="22" height="22" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="#E8742F" stroke="#1a1208" stroke-width="1.6"/><path d="M1.5 20h37M20 1.5v37M7 7c6 5 6 21 0 26M33 7c-6 5-6 21 0 26" stroke="#1a1208" stroke-width="1.6" fill="none" stroke-linecap="round"/><ellipse cx="13" cy="11" rx="6" ry="3.5" fill="#fff" opacity=".18" transform="rotate(-30 13 11)"/></svg>';
+// vitória do dia num anel que enche até à percentagem, com a bola na ponta
+function winRing(P, tn) {
+  const r = 40, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, P || 0)), a = -Math.PI / 2 + 2 * Math.PI * p;
+  return '<div class="win-ring t-' + tn + '"><svg width="100" height="100" viewBox="0 0 100 100" aria-hidden="true"><circle class="wr-bg" cx="50" cy="50" r="47"/><circle class="wr-tr" cx="50" cy="50" r="40"/>' +
+    (p > 0.004 ? '<circle class="wr-on" cx="50" cy="50" r="40" stroke-dasharray="' + (c * p).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 50 50)"/>' : '') + '</svg>' +
+    '<span class="wr-ball" style="left:' + (50 + r * Math.cos(a) - 11).toFixed(1) + 'px;top:' + (50 + r * Math.sin(a) - 11).toFixed(1) + 'px">' + BALL + '</span>' +
+    '<div class="wr-v"><b class="num">' + pct(P) + '</b><span>vitória</span></div></div>';
+}
 // tom de um dia: cinzento quando o plano o dá por perdido (guarda os usos para outros dias)
 const dTone = P => (P < 0.05 ? 'mute' : tone(P));
 const objsText = day => { const list = ((day || {}).objectives || []).filter(o => o && o.stat); return list.length ? list.map(objOne).join(' e ') : 'Objetivo por definir'; };
@@ -940,7 +951,7 @@ function pastDayHtml(J) {
   // placar desse dia (uma leitura): os resultados ao lado das equipas
   const B = S.box[J.date], run = curRun();
   if (run && !run.fictitious && (!B || (!B.board && !B.busy && Date.now() - B.at > 120e3))) setTimeout(() => { boxLoad(J.date, new Set()).then(() => { if (S.tab === 'hoje') renderHoje(); }); }, 0);
-  const out = ['<div class="card hero"><div class="hero-top"><span class="eyebrow">Dia ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + src + '</span></div>' +
+  const out = ['<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Dia ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + src + '</span></div>' +
     '<div class="score">' + goalBig(objs) +
     '<div class="pbig num ' + (res === 'win' ? 'c-good' : res === 'loss' ? 'c-bad' : '') + '">' + (res && tot && objs.length === 1 ? f0(tot[0]) : res ? resMark(res) : wait ? '…' : '–') + '<span>' + (res === 'win' ? 'vitória' : res === 'loss' ? 'derrota' : wait ? 'à espera' : 'sem resultado') + '</span></div></div>' +
     (tot && objs.length === 1 && res ? '<div class="impact"><div>' + (tot[0] >= +objs[0].target ? '<b class="num">' + f0(tot[0] - objs[0].target) + '</b> acima do alvo' : 'Faltaram <b class="num">' + f0(objs[0].target - tot[0]) + '</b>') + '</div></div>'
@@ -979,9 +990,9 @@ function renderJornada(el) {
   const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort();
   const right = live ? '<span class="pill jogo">Ao vivo</span>' : tips.length ? '<span class="small muted">1.º jogo ' + hm(tips[0]) + '</span>' : '';
   // placar do dia: objetivo, vitória, barra(s); no dia em curso, o botão das opções
-  html.push('<div class="card hero"><div class="hero-top"><span class="eyebrow">Dia ' + (nd.idx + 1) + ' · ' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>' + right + '</div>' +
+  html.push('<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Dia ' + (nd.idx + 1) + ' · ' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>' + right + '</div>' +
     '<div class="score">' + goalBig(nd.objectives) +
-    (d.noObjective ? '' : '<div class="pbig num c-' + dTone(d.P) + '">' + pct(d.P) + '<span>vitória</span></div>') + '</div>' + (t ? objBars(d, live) : '') +
+    (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' + (t ? objBars(d, live) : '') +
     (S.multi ? groupLine(nd) : '') +
     (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões para hoje</button>' : !isCur ? '<div class="impact"><div>Previsão: muda com as odds e as lesões até lá.</div></div>' : '') + '</div>');
   if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
@@ -3102,15 +3113,28 @@ async function walletSheet() {
   const ups = hasRun ? found.map(e => { const r0 = S.mine.roster[e.p.id]; if (!r0 || r0.usesManual) return null; const nv = Math.max(0, players[e.p.id].uses - usedCount('main', e.p.id)), cur = +r0.uses || 0; const to = r0.tierUses != null ? nv : Math.max(cur, nv); return to !== cur ? { e, cur, to } : null; }).filter(Boolean) : [];
   const tierCount = {}; Object.keys(items).forEach(f => { const t = momentTier(S.walletCol, f); tierCount[t] = (tierCount[t] || 0) + 1; });
   const tot = Object.entries(accTot).map(([k, t]) => (groupMode() ? esc(accLabel(k)) + ' ' : '') + t.moments + ' Moments' + (t.listed ? ' (' + t.listed + ' à venda)' : '')).join(' · ');
+  // o que mudou desde a última leitura: Moments novos, que saíram e que mudaram de conta
+  const prevItems = prevCol.items || null, diff = []; S.walletNew = 0;
+  if (prevItems) {
+    const grp = (list, src, col, extra) => { const g = new Map(); list.forEach(f => { const it = src[f] || {}, k = it.p + '|' + momentTier(col, f) + (extra ? '|' + extra(f) : ''); g.set(k, (g.get(k) || 0) + 1); });
+      return [...g].map(([k, n]) => { const [pid, t, x] = k.split('|'); return '<b>' + esc(nameOf(pid)) + '</b> <span class="muted">' + esc(t) + '</span>' + (n > 1 ? ' ×' + n : '') + (x ? ' ' + x : ''); }).slice(0, 12).join(', ') + (g.size > 12 ? ' e mais' : ''); };
+    const add = Object.keys(items).filter(f => !prevItems[f]), rem = Object.keys(prevItems).filter(f => !items[f]);
+    const moved = groupMode() ? Object.keys(items).filter(f => prevItems[f] && prevItems[f].a && items[f].a !== prevItems[f].a) : [];
+    S.walletNew = add.length;
+    if (add.length) diff.push('<div><b class="up">+' + plural(add.length, 'Moment novo', 'Moments novos') + ':</b> ' + grp(add, items, S.walletCol) + '.</div>');
+    if (rem.length) diff.push('<div><b class="down">−' + plural(rem.length, 'Moment saiu', 'Moments saíram') + ':</b> ' + grp(rem, prevItems, prevCol) + '.</div>');
+    if (moved.length) diff.push('<div><b>' + plural(moved.length, 'Moment mudou', 'Moments mudaram') + ' de conta:</b> ' + grp(moved, items, S.walletCol, f => '→ ' + esc(accLabel(items[f].a))) + '.</div>');
+  }
   openSheet('<h3>A tua coleção</h3><div class="small muted">' + tot + ' · ' + found.length + ' jogadores na NBA esta época</div>' +
     (failed.length ? '<div class="note">Não consegui ler: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' tem o mesmo endereço Flow de outra conta: só li essa carteira uma vez. Confirma os endereços em Ajustes → Perfil.</div>' : '') +
+    (diff.length ? '<div class="note info">' + diff.join('') + '</div>' : prevItems ? '<div class="small muted">Nenhum Moment novo desde a última leitura.</div>' : '') +
     '<div class="small muted">Escalões: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '</div>' +
     (ups.length ? '<div class="small">Usos que mudam: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' e mais ' + (ups.length - 12) : '') + '.</div>' : '') +
     // só o que muda (a lista toda fica em Jogadores → Coleção)
     (!found.length ? '<div class="small muted">Nenhum Moment de um jogador com equipa NBA esta época.</div>'
       : fresh.length ? '<div class="small"><b>' + plural(fresh.length, 'jogador novo', 'jogadores novos') + ':</b> ' + fresh.slice(0, 12).map(e => esc(e.p.name)).join(', ') + (fresh.length > 12 ? ' e mais ' + (fresh.length - 12) : '') + '.</div>'
-      : hasRun && !ups.length ? '<div class="small muted">Nada mudou no plantel.</div>' : '') +
+      : hasRun && !ups.length && diff.length ? '<div class="small muted">Os usos no plantel ficam iguais.</div>' : '') +
     (gone.length ? '<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wGone"> <span>Tirar do plantel quem já não está na carteira: ' + gone.map(id => esc(nameOf(id))).join(', ') + '</span></label>' : '') +
     '<button class="btn primary" type="button" data-action="wallet-apply" style="width:100%">' + (hasRun ? (fresh.length ? 'Guardar e juntar ' + fresh.length + ' jogador' + (fresh.length > 1 ? 'es' : '') + ' ao plantel' : 'Guardar e atualizar o plantel') : 'Guardar a coleção') + '</button>');
 }
@@ -3136,7 +3160,8 @@ async function walletApply() {
   }
   S.walletCol = null; S.walletGone = null;
   closeSheet(); schedule();
-  toast(S.runId ? (added ? added + ' jogador' + (added > 1 ? 'es' : '') + ' novo' + (added > 1 ? 's' : '') + ' no plantel' : 'Plantel atualizado') + (removed ? ', ' + removed + ' tirado' + (removed > 1 ? 's' : '') : '') + '.' : 'Coleção guardada.');
+  const nm = S.walletNew || 0; S.walletNew = 0;
+  toast((nm ? '+' + plural(nm, 'Moment novo', 'Moments novos') + ' na coleção. ' : '') + (S.runId ? (added ? plural(added, 'jogador novo', 'jogadores novos') + ' no plantel' : 'Plantel atualizado') + (removed ? ', ' + plural(removed, 'tirado', 'tirados') : '') + '.' : 'Coleção guardada.'));
 }
 // junta ao plantel da run os jogadores da coleção guardada (1 uso cada; acertam-se depois)
 function collectionToRoster() {

@@ -274,6 +274,22 @@ html, body { min-height: 100%; }
 .hero .seg button[aria-pressed="true"] { background: rgba(255, 255, 255, .16); color: var(--board-ink); box-shadow: none; }
 .hero .pill.jogo { background: rgba(255, 138, 69, .18); color: var(--board-ball); }
 @media (max-width: 360px) { .hero .goal, .hero .pbig { font-size: 48px; } }
+/* placar do dia: meia quadra ao fundo e a vitória num anel com a bola na ponta */
+.card.hero.day-hero::after { display: none; }
+.day-hero .court-b { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 170px; z-index: -1; fill: none; stroke: rgba(255, 255, 255, .09); stroke-width: 2; pointer-events: none; }
+.day-hero .court-b .rim { stroke: rgba(255, 138, 69, .35); }
+.day-hero .hero-btn { background: rgba(11, 15, 22, .55); }
+.win-ring { --gc: var(--board-warn); position: relative; width: 100px; height: 100px; flex: none; margin: -10px -6px -6px 0; }
+.win-ring.t-good { --gc: var(--board-good); } .win-ring.t-bad { --gc: var(--board-bad); } .win-ring.t-mute { --gc: var(--board-muted); }
+.win-ring svg { display: block; }
+.win-ring .wr-bg { fill: #0b0f16; stroke: rgba(255, 138, 69, .45); stroke-width: 1.5; }
+.win-ring .wr-tr { fill: none; stroke: rgba(255, 255, 255, .1); stroke-width: 6; }
+.win-ring .wr-on { fill: none; stroke: var(--gc); stroke-width: 6; stroke-linecap: round; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--gc) 60%, transparent)); }
+.win-ring .wr-ball { position: absolute; line-height: 0; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .6)); }
+.win-ring .wr-v { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.win-ring .wr-v b { font: 800 32px/1 var(--font-display); color: var(--gc); text-shadow: 0 0 10px color-mix(in srgb, var(--gc) 45%, transparent); }
+.win-ring .wr-v span { font-size: 10px; font-weight: 600; color: var(--board-muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+@media (max-width: 360px) { .win-ring { transform: scale(.88); transform-origin: right center; } }
 
 /* ---- tabela de comparação e jogos ---- */
 .cmp-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }

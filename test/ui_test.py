@@ -188,7 +188,7 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'opcoes.png'), full_page=True)
     alt = pg.locator('#sheetPanel .op-card').filter(has_not_text='o melhor').locator('button[data-action="op-use"]')
     (alt if alt.count() else pg.locator('#sheetPanel button[data-action="op-use"]')).first.click(); pg.wait_for_timeout(1500)
-    print('B opção escolhida:', pg.locator('#toast').inner_text(), '·', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'), '·', store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans'), '· hoje:', pg.locator('.hero .pbig').inner_text().replace('\n', ' '))
+    print('B opção escolhida:', pg.locator('#toast').inner_text(), '·', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'), '·', store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans'), '· hoje:', pg.locator('.hero .win-ring .wr-v').inner_text().replace('\n', ' '))
     pg.click('#tab-hoje button[data-action="opcoes"]'); wait_opcoes(pg)
     clear = pg.locator('#sheetPanel .op-card').filter(has_text='sem as tuas escolhas').locator('button[data-action="op-use"]')
     if clear.count():
@@ -238,6 +238,9 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="wallet-apply"]'); pg.wait_for_timeout(1200)
     print('B plantel depois da carteira:', store(pg, '{n: Object.keys(__FAKE_DB.tables.user_runs[0].roster).length, jokic: __FAKE_DB.tables.user_runs[0].roster["jokic"]}'))
     print('B escalões dos sets:', store(pg, '__FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.sets'))
+    pg.click('#plSub button[data-action="wallet-sheet"]'); pg.wait_for_timeout(1500)
+    print('B ler outra vez:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200])
+    pg.click('#sheetPanel [data-action="close-sheet"]'); pg.wait_for_timeout(300)
     print('B usos pelo escalão:', store(pg, 'Object.fromEntries(Object.entries(__FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.players).slice(0, 4).map(([k, c]) => [k, [c.bySet, c.uses]]))'))
     pg.wait_for_timeout(300)
     print('B coleção (sem o cartão dos escalões por set):', pg.locator('#plSub select[data-tier-set]').count() == 0, '·', pg.locator('#plSub .col-sum').inner_text().replace('\n', ' | ')[:200])
@@ -263,6 +266,17 @@ with sync_playwright() as pw:
     pg.click('#t-ajustes'); pg.wait_for_timeout(300)
     pg.click('#tab-ajustes button[data-action="logout"]'); pg.wait_for_timeout(300)
     print('B depois de sair:', pg.locator('#auSubmit').inner_text())
+    # Moments novos desde a última leitura: tira 3 da coleção guardada, entra outra vez e lê a carteira
+    pg.evaluate('(() => { const c = __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection; Object.keys(c.items).slice(0, 3).forEach(k => delete c.items[k]); })()')
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="colecao"]'); pg.wait_for_timeout(300)
+    pg.click('#plSub button[data-action="wallet-sheet"]'); pg.wait_for_timeout(1500)
+    nn = pg.locator('#sheetPanel .note.info').filter(has_text='Moments novos')
+    print('B Moments novos:', nn.inner_text().replace('\n', ' ')[:200] if nn.count() else 'ERRO sem aviso')
+    pg.click('#sheetPanel button[data-action="wallet-apply"]'); pg.wait_for_timeout(300)
+    print('B aviso ao guardar:', pg.locator('#toast').inner_text(), '· ok' if '+3' in pg.locator('#toast').inner_text() else '· ERRO')
+    pg.wait_for_timeout(1000)
+    pg.click('#t-ajustes'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="logout"]'); pg.wait_for_timeout(300)
 
     # ---------- C: conta com uma smurf (coleções juntas, plano conjunto, transferências) ----------
     db = seeded(); T = db['tables']
