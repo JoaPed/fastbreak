@@ -209,9 +209,9 @@ function basisHtml(p, info, o, md, id, many) {
 const icoLock = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Locked"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 // ---------- ajuda: as explicações ficam atrás de um (?) ao lado dos títulos ----------
 const HELP = {
-  lineup: ['Lineup', 'The lineup the plan suggests for this day, with the whole run in mind: it may save players for days when they are worth more. The number on the right is what each one should score. Tap a player to see what it is based on, lock him or remove him from the day.'],
-  aovivo: ['Live', 'When the first game starts, the app locks in whoever has played, reads the points from ESPN every 2 minutes and redoes the rest of the run. When the lineup’s games end, the day closes by itself. If the lineup you submitted on Top Shot is different, fix it in Options for today. If ESPN fails, tap a player to enter the numbers by hand.'],
-  opcoes: ['Options for today', '<b>Before the games</b>: compares the plan with going all in today or saving a player for another day.<br><b>During the games</b>: with the points already in, compares keeping, removing or saving whoever hasn’t played yet.<br>Each option redoes the whole run with the uses left; “the best” is the one that raises your prize chances the most. Removing a player before his game starts doesn’t spend the use.'],
+  lineup: ['Lineup', 'The lineup the plan suggests for this day, with the whole run in mind: it may save players for days when they are worth more. The number on the right is what each one should score. In Change you lock, remove and add players one by one and see what that does to the run. Tap a player to see what it’s based on.'],
+  aovivo: ['Live', 'When the first game starts, the app locks in whoever has played, reads the points from ESPN every 2 minutes and redoes the rest of the run. When the lineup’s games end, the day closes by itself. If the lineup you submitted on Top Shot is different, fix it in Suggestions for today. If ESPN fails, tap a player to enter the numbers by hand.'],
+  opcoes: ['Suggestions for today', '<b>Before the games</b>: compares the plan with going all in today or saving a player for another day (to pick player by player yourself, use Change on the lineup).<br><b>During the games</b>: with the points already in, compares keeping, removing or saving whoever hasn’t played yet.<br>Each option redoes the whole run with the uses left; “the best” is the one that raises your prize chances the most. Removing a player before his game starts doesn’t spend the use.'],
   jogosdia: ['Games that day', 'Local time. Under each game, your players (the lineup in bold). During the games: live score and the numbers of the players in the lineup.'],
   lesoesforma: ['Injuries and form', '<b>Injuries</b>: ESPN report for whoever plays this day, with the chance the plan counts on. <b>In the run</b>: the remaining days where the injury still matters (out, or % to play). <b>Form</b>: average of the last 5 games vs the season, in the day’s stat.'],
   porque: ['What it’s based on', 'Bookmaker odds when there are any; otherwise season averages with form and opponent. Each player’s number (pp) is how much he adds to the day’s win: without him, the best one left would come in. “Saves others”: he’s here so someone better can be kept for another day. The ones left out are saved for other days or are worth less.'],
@@ -220,6 +220,7 @@ const HELP = {
   premios: ['Prizes', 'Each ring is the chance of finishing the run with at least that many wins: full means certain. Green likely, yellow a toss-up, red hard. The plan picks the lineups to raise these chances.'],
   dist: ['Wins at the end', 'The chance of each win total at the end of the run. The colours mark the prize tiers; the outline is the most likely total.'],
   contas: ['Accounts', 'The plan pools your accounts’ collections as if they were one and picks each account’s lineup. Tap an account to see its prizes.'],
+  mudar: ['Change the lineup', 'Tap the lock to lock in who must play, the × to remove someone from this day and the + to add a player the plan left out. The plan fills in the rest and redoes the run after each change. At the top you see what changes compared with the plan’s suggestion: the day’s win, the expected wins in the run, the prizes and the other days where someone comes in or goes out (uses spent today are no longer there). To undo, tap the lock again or Back to the plan’s suggestion.'],
   dias: ['Days', 'The whole run: each day’s goal, the plan’s lineup and the predicted win. For days already played, the result and the total made, which come in by themselves from the game stats. Tap a day to open it in Matchday.'],
   analise: ['Analysis', 'Each day’s prediction is saved until the first game. Then you see the prediction next to what happened: wins, totals and each player (100% = did as predicted). With few days, luck weighs a lot.'],
   historico: ['History', 'Your Fast Break days read from the blockchain, from every run. Older days come in little by little.'],
@@ -656,7 +657,7 @@ function publishSummary() {
 
 // ---------- cálculo ----------
 let scheduled = false;
-function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); ensureLive(); boxTick(); }, 16); }
+function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); if (S.lu && $('luBody')) luRender(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); ensureLive(); boxTick(); }, 16); }
 function recalcNow() { if (!S.session) return; compute(); render(); publishSummary(); publishNext(); }
 // Lineups dos próximos 3 dias de cada conta, guardados no plano: a tarefa dos avisos usa-os quando ainda não há
 // lineup submetido no Top Shot (só runs a sério)
@@ -913,13 +914,13 @@ function renderJornada(el) {
     '<div class="score"><div class="goal">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' each' : '') + '</small>').join('<small> and </small>') : '<small>Goal not set</small>') + '</div>' +
     (d.noObjective ? '' : '<div class="pbig num c-' + tone(d.P) + '">' + pct(d.P) + '<span>win</span></div>') + '</div>' + (t ? objBars(d, live) : '') +
     (S.multi ? groupLine(nd) : '') +
-    (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Options for today</button>' : !isCur ? '<div class="impact"><div>Forecast: it changes with the odds and injuries until then.</div></div>' : '') + '</div>');
+    (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : !isCur ? '<div class="impact"><div>Forecast: it changes with the odds and injuries until then.</div></div>' : '') + '</div>');
   if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
   // ao vivo: o plano sugere mudar quem ainda não jogou
   if (live && d.live && (d.live.out.length || d.live.in.length)) {
     const pSub = lineupP(md, d.live.submitted);
     html.push('<div class="note sug"><div><b>Suggestion:</b> ' + [d.live.out.length ? 'remove ' + d.live.out.map(id => esc(lastName(id))).join(', ') : '', d.live.in.length ? 'add ' + d.live.in.map(id => esc(lastName(id))).join(', ') : ''].filter(Boolean).join(' and ') +
-      ' · today ' + pct(pSub) + ' → <b>' + pct(d.P) + '</b>' + (d.P + 0.15 < pSub ? ' (saves uses for the run)' : '') + '</div><div class="btns"><button class="btn" type="button" data-action="opcoes">Options</button><button class="btn primary" type="button" data-action="swap-done">Done it</button></div></div>');
+      ' · today ' + pct(pSub) + ' → <b>' + pct(d.P) + '</b>' + (d.P + 0.15 < pSub ? ' (saves uses for the run)' : '') + '</div><div class="btns"><button class="btn" type="button" data-action="opcoes">Suggestions</button><button class="btn primary" type="button" data-action="swap-done">Done it</button></div></div>');
   }
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, true));
   // avisos curtos
@@ -956,7 +957,9 @@ function renderJornada(el) {
     return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div></div>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
-  html.push('<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2><span class="small muted">' + (live ? 'live points' : d.lineup.length ? d.lineup.length + ' of ' + md.size : '') + '</span></div>' +
+  // antes dos jogos: Mudar (fixar, tirar e pôr jogadores um a um, com o que muda face à sugestão)
+  const tip0 = firstTipOf(nd), canEdit = !live && !(tip0 != null && Date.now() >= tip0) && md.elig.length > 0;
+  html.push('<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change</button>' : '<span class="small muted">' + (live ? 'live points' : d.lineup.length ? d.lineup.length + ' of ' + md.size : '') + '</span>') + '</div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '') +
     (bans.length ? '<div class="row small muted" style="display:block">Removed from this day: ' + bans.map(id => esc(lastName(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + nd.date + '">restore</button>').join(' · ') + '</div>' : '') + '</div>');
@@ -1150,7 +1153,7 @@ const altMods = {
   ban: (date, id) => plan => { plan.bans = plan.bans || {}; plan.bans[date] = (plan.bans[date] || []).concat([id]); if (plan.locks && plan.locks[date]) plan.locks[date] = plan.locks[date].filter(x => x !== id); },
   clear: date => plan => { if (plan.locks) plan.locks[date] = []; if (plan.bans) plan.bans[date] = []; },
 };
-// ---- Opções para hoje: o plano comparado com as alternativas, cada uma com a run toda refeita ----
+// ---- Sugestões para hoje (antes "Opções"): o plano comparado com as alternativas, cada uma com a run toda refeita ----
 // Antes dos jogos: ir com tudo hoje ou guardar um dos que mais pesam. Durante os jogos (com os pontos que já
 // entraram): manter, tirar um ou poupar os que ainda não jogaram. Quem sai antes de o jogo começar não gasta o uso.
 function chainLineupToday(date) {
@@ -1189,7 +1192,7 @@ async function opcoesSheet(fetchLive) {
   if (during) ensureLive();
   compute();
   const r0 = S.result;
-  openSheet('<h3>Options for today ' + helpBtn('opcoes') + '</h3><div id="opHead" class="stack">' + (during ? liveHead(nd).html : '') + '</div><div id="opCards" class="stack"><div class="small muted" id="opProg">' + (during ? 'Reading the live points…' : 'Redoing the run…') + '</div></div>');
+  openSheet('<h3>Suggestions for today ' + helpBtn('opcoes') + '</h3><div id="opHead" class="stack">' + (during ? liveHead(nd).html : '') + '</div><div id="opCards" class="stack"><div class="small muted" id="opProg">' + (during ? 'Reading the live points…' : 'Redoing the run…') + '</div></div>');
   if (during && fetchLive !== false && gamesWindow(nd)) { try { await liveFetch(true); } catch (e) { /* sem rede: usa o que há */ } if (!$('opCards')) return; compute(); }
   const r = S.result || r0, cur = view(), d0 = cur.days[0];
   let opts = [];
@@ -2477,7 +2480,7 @@ function openSheet(html, back) {
   sheetGuard();
 }
 function closeSheet(fromBack) {
-  $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; S.sheetPl = null; $('app').inert = false;
+  $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; S.sheetPl = null; S.lu = null; $('app').inert = false;
   const f = S.sheetFrom; S.sheetFrom = null;
   if (f && f.isConnected && typeof f.focus === 'function') f.focus({ preventScroll: true });
   if (!fromBack) sheetUnguard();
@@ -2576,9 +2579,9 @@ function playerSheet(id, date, back) {
   } else if (live) liveHtml = '<div class="note info">Not in the submitted lineup.</div>';
   openSheet('<h3>' + esc(p.name) + '</h3><div class="small muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · Day ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
     '<div class="kv"><div><div class="label">Expected</div><div class="v num">' + (md.objs.length > 1 ? md.objs.map((x, k) => f1((md.info[pi][k] || {}).mu || 0)).join('<small> / </small>') : f1(info.mu)) + '</div><div class="small muted">' + (md.objs.length > 1 ? md.objs.map(x => esc(statShort(x.stat))).join(' / ') : esc(statShort(o.stat))) + '</div></div><div><div class="label">Uses</div><div class="v num">' + (p.uses || 0) + '</div><div class="small muted">left</div></div><div><div class="label">In the plan</div><div class="v num">' + inPlan.length + '</div><div class="small muted">' + (inPlan.length ? 'days ' + inPlan.join(', ') : '—') + '</div></div></div>' +
-    liveHtml + injuryBlock(id, info.injury, date) + (md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + gamesTable(p.avg) +
-    '<div class="stack">' + (locked ? '<button class="btn" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">Unlock on this day</button>' : '<button class="btn primary" type="button" data-action="lock" data-id="' + esc(id) + '" data-date="' + date + '">Lock on this day</button>') +
-    '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Remove from this day</button></div>', back);
+    '<div class="btns">' + (locked ? '<button class="btn" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">Unlock</button>' : '<button class="btn primary" type="button" data-action="lock" data-id="' + esc(id) + '" data-date="' + date + '">Lock on this day</button>') +
+    '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Remove from this day</button></div>' +
+    liveHtml + injuryBlock(id, info.injury, date) + (md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + gamesTable(p.avg), back);
 }
 function rosterSheet(id) {
   const e = S.mine.roster[id]; if (!e) return;
@@ -3011,11 +3014,11 @@ function planPatch(patch) { deepMerge(curPlan(), patch); schedule(); saveMine();
 async function choiceSheet(id, date, kind) {
   const r = S.result, cur = view(); if (!r || !cur) return;
   const d0 = cur.days.find(x => x.date === date), inPlan = !!(d0 && d0.lineup.includes(id));
-  if (kind === 'lock' && (inPlan || !d0)) { lockToggle(id, date, true); closeSheet(); return; }
-  if (kind === 'ban' && !inPlan) { banToggle(id, date, true); closeSheet(); return; }
+  if (kind === 'lock' && (inPlan || !d0)) { lockToggle(id, date, true); luBack(date); return; }
+  if (kind === 'ban' && !inPlan) { banToggle(id, date, true); luBack(date); return; }
   const day = S.days.find(x => x.date === date) || {}, dn = S.days.indexOf(day) + 1, name = esc(nameOf(id));
   const title = kind === 'lock' ? 'Lock ' + name + ' on day ' + dn + '?' : 'Remove ' + name + ' of day ' + dn + '?';
-  const back = () => playerSheet(id, date);
+  const back = () => playerSheet(id, date, S.lu && S.lu.date === date ? () => lineupSheet(date) : null);
   openSheet('<h3>' + title + '</h3><div class="small muted" id="choiceProg">Redoing the run…</div>', back);
   await new Promise(res => setTimeout(res, 30));
   let ev;
@@ -3053,17 +3056,18 @@ async function choiceSheet(id, date, kind) {
     : gain ? '<div class="note info">It <b>raises</b> your chances. Worth it.</div>'
     : '<div class="note info">Barely changes anything.</div>';
   openSheet('<h3>' + title + '</h3>' + verdict + '<div class="card">' + lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') + '</div>' +
-    '<div class="btns"><button class="btn quiet" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '">Cancel</button><button class="btn ' + (loss ? '' : 'primary') + '" type="button" data-action="' + (kind === 'lock' ? 'lock-yes' : 'ban-yes') + '" data-id="' + esc(id) + '" data-date="' + date + '">' + (kind === 'lock' ? 'Lock anyway' : 'Remove anyway') + '</button></div>', back);
+    '<div class="btns"><button class="btn quiet" type="button" data-action="sheet-back">Cancel</button><button class="btn ' + (loss ? '' : 'primary') + '" type="button" data-action="' + (kind === 'lock' ? 'lock-yes' : 'ban-yes') + '" data-id="' + esc(id) + '" data-date="' + date + '">' + (kind === 'lock' ? 'Lock anyway' : 'Remove anyway') + '</button></div>', back);
 }
 function lockToggle(id, date, on) {
   const cur = new Set(((curPlan().locks || {})[date]) || []);
   if (on) {
     const lim = (S.days.find(d => d.date === date) || {}).numPlayers || 5;
-    if (cur.size >= lim) { toast('You already have ' + lim + ' players locked on this day.'); return; }
+    if (cur.size >= lim) { toast('You already have ' + lim + ' players locked on this day.'); return false; }
     cur.add(id);
     planPatch({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } });
     toast(lastName(id) + ' locked. Plan redone.');
   } else { cur.delete(id); planPatch({ locks: { [date]: [...cur] } }); }
+  return true;
 }
 function banToggle(id, date, on) {
   const cur = new Set(((curPlan().bans || {})[date]) || []);
@@ -3071,6 +3075,91 @@ function banToggle(id, date, on) {
   planPatch({ bans: { [date]: [...cur] }, locks: { [date]: (((curPlan().locks || {})[date]) || []).filter(x => !on || x !== id) } });
   if (on) toast(lastName(id) + ' out of this day. Plan redone.');
 }
+// ---- Mudar o lineup de um dia: fixar, tirar e pôr jogadores um a um. Cada mudança refaz a run e a folha mostra o que
+// muda face à sugestão do plano (o plano sem as tuas escolhas nesse dia): vitória do dia, vitórias esperadas, prémios e
+// os outros dias em que entra ou sai alguém. S.lu = {date, base, busy, all, toTop}; fecha-se com a folha.
+const icoPlus = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const icoLockBtn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+const luSnap = (wins, v, date) => { const d = v.days.find(x => x.date === date) || { P: 0, lineup: [] }; return { P: d.P, lineup: d.lineup.slice(), ew: wins + v.expected, probs: (v.prizeProbs || []).slice(), days: v.days.map(x => ({ date: x.date, idx: x.idx, P: x.P, lineup: x.lineup.slice() })) }; };
+async function lineupSheet(date) {
+  const r = S.result, v = view(); if (!r || !v) return;
+  if (!S.lu || S.lu.date !== date) {
+    const mine = (((curPlan().locks || {})[date]) || []).length + (((curPlan().bans || {})[date]) || []).length;
+    S.lu = { date, base: mine ? null : luSnap(r.wins, v, date), toTop: true }; // sem escolhas neste dia: a sugestão é o plano que se vê
+  }
+  luRender();
+  const L = S.lu;
+  if (L.base || L.busy) return;
+  L.busy = true;
+  await new Promise(ok => setTimeout(ok, 30));
+  try { L.base = luSnap(r.wins, evalAlt(altMods.clear(date)).res, date); } catch (e) { console.warn(e); L.err = true; }
+  L.busy = false;
+  if (S.lu === L && $('luBody')) luRender();
+}
+function luRender() {
+  const L = S.lu, r = S.result, v = view(); if (!L || !r || !v) return;
+  const date = L.date, { md, d } = dayInfo(date), day = S.days.find(x => x.date === date) || {}, dn = S.days.indexOf(day) + 1;
+  const p0 = $('sheetPanel'), keep = $('luBody') && !L.toTop ? p0.scrollTop : 0; L.toTop = false;
+  const tip = firstTipOf(day);
+  if (!md || !d || (tip != null && Date.now() >= tip)) { openSheet('<h3>Lineup for day ' + dn + '</h3><div class="note info" id="luBody">This day’s games have already started: changes are made in Suggestions for today.</div>'); return; }
+  const locks = new Set(((curPlan().locks || {})[date]) || []), bans = ((curPlan().bans || {})[date]) || [], size = md.size;
+  const B = L.base, pp = x => Math.round(x * 100), ew = r.wins + v.expected, mine = locks.size + bans.length > 0;
+  const sgn = (n, s) => (n > 0 ? '+' : '−') + s;
+  // em cima: hoje e a run, face à sugestão
+  let head;
+  if (!B) head = '<div class="small muted" id="luProg">' + (L.err ? 'Couldn’t work out the plan’s suggestion.' : 'Working out the plan’s suggestion…') + '</div>';
+  else {
+    const dP = pp(d.P) - pp(B.P), dE = ew - B.ew;
+    head = '<div class="kv lu-kv"><div><div class="label">Win today</div><div class="v num c-' + tone(d.P) + '">' + pct(d.P) + '</div><div class="small muted">' + (!mine ? 'the plan’s suggestion' : 'suggestion ' + pct(B.P) + (dP ? ' · <b class="' + (dP > 0 ? 'up' : 'down') + '">' + sgn(dP, Math.abs(dP) + ' pp') + '</b>' : '')) + '</div></div>' +
+      '<div><div class="label">Wins in the run</div><div class="v num">' + f1(ew) + '</div><div class="small muted">' + (!mine ? 'expected' : 'suggestion ' + f1(B.ew) + (Math.abs(dE) >= 0.05 ? ' · <b class="' + (dE > 0 ? 'up' : 'down') + '">' + sgn(dE, f1(Math.abs(dE))) + '</b>' : '')) + '</div></div></div>';
+    if (mine) {
+      const pz = r.prizes.map((p, i) => ({ p, a: B.probs[i] || 0, b: v.prizeProbs[i] || 0 })).filter(x => pp(x.a) !== pp(x.b));
+      const worse = dE < -0.05 || pz.some(x => pp(x.b) < pp(x.a)), better = !worse && (dE > 0.05 || pz.some(x => pp(x.b) > pp(x.a)));
+      head += (worse ? '<div class="note"><b>Costs</b> the run compared with the suggestion. Keep it if you know something the plan doesn’t (minutes, injury).</div>' : better ? '<div class="note info"><b>Better</b> than the plan’s suggestion.</div>' : '<div class="note info">Almost the same as the plan’s suggestion.</div>') +
+        (pz.length ? '<div class="small muted">Prizes: ' + pz.map(x => x.p.wins + 'V ' + pct(x.a) + ' → ' + pct(x.b)).join(' · ') + '</div>' : '');
+    }
+  }
+  // no lineup: cadeado (fixar / soltar) e × (tirar deste dia; o plano põe outro)
+  const nameBtn = (id, p, pi, sub) => { const st = (md.info[pi][0] || {}).status; return '<button class="lu-main" type="button" data-action="lu-player" data-id="' + esc(id) + '" data-date="' + date + '"><span class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</span><span class="ps">' + sub + '</span></button>'; };
+  const later = id => v.days.filter(x => x.date !== date && x.lineup.includes(id)).map(x => x.idx + 1);
+  const inRows = d.lineup.map(id => {
+    const pi = r.model.pIndex.get(id), p = r.model.players[pi]; if (pi == null) return '';
+    const lk = locks.has(id);
+    return '<li class="lu-row">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + (lk ? ' · locked' : '')) + pvHtml(objVals(md, pi, false)) +
+      '<button class="lu-ic' + (lk ? ' on' : '') + '" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '" aria-pressed="' + lk + '" aria-label="Lock ' + esc(p.name) + '" title="' + (lk ? 'Locked (tap to unlock)' : 'Lock') + '">' + icoLockBtn + '</button>' +
+      '<button class="lu-ic" type="button" data-action="lu-ban" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Remove ' + esc(p.name) + ' from this day" title="Remove from this day">' + icoX + '</button></li>';
+  }).join('');
+  // os outros dias que mudam (quem entra e quem sai), face à sugestão
+  let chHtml = '';
+  if (B && mine) {
+    const ch = v.days.filter(x => x.date !== date).map(x => { const b = B.days.find(y => y.date === x.date); if (!b) return null; const ins = x.lineup.filter(id => !b.lineup.includes(id)), outs = b.lineup.filter(id => !x.lineup.includes(id)); return ins.length || outs.length || Math.abs(pp(x.P) - pp(b.P)) >= 3 ? { x, b, ins, outs } : null; }).filter(Boolean);
+    if (ch.length) chHtml = '<div class="card"><div class="list-head"><h2>Changes on other days</h2><span class="small muted">compared with the suggestion</span></div><ul class="list">' +
+      ch.slice(0, 6).map(c => '<li class="row lu-ch"><span><b>Day ' + (c.x.idx + 1) + '</b> ' + pct(c.b.P) + ' → <b class="' + (pp(c.x.P) > pp(c.b.P) ? 'up' : pp(c.x.P) < pp(c.b.P) ? 'down' : '') + '">' + pct(c.x.P) + '</b>' + (c.outs.length ? ' · out ' + c.outs.map(id => esc(lastName(id))).join(', ') : '') + (c.ins.length ? ' · in ' + c.ins.map(id => esc(lastName(id))).join(', ') : '') + '</span></li>').join('') +
+      (ch.length > 6 ? '<li class="row small muted" style="display:block">and ' + plural(ch.length - 6, 'day', 'days') + '</li>' : '') + '</ul></div>';
+  }
+  // pôr no lineup: quem joga neste dia e não está, do que mais rende para o que menos (com os dias em que o plano o usa)
+  const weight = pi => md.objs.reduce((t, _, k) => t + (md.mu[pi][k] || 0) / (md.T[k] || 1), 0);
+  const cand = md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a));
+  const full = locks.size >= size, shown = L.all ? cand : cand.slice(0, 8);
+  const candRows = shown.map(pi => {
+    const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id);
+    return '<li class="lu-row">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (!uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan')) + pvHtml(objVals(md, pi, false)) +
+      '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' to the lineup" title="' + (full ? 'You already have ' + size + ' locked: unlock one first' : 'Add to the lineup and lock') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button></li>';
+  }).join('');
+  const bad = (d.badLocks || []).map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '">unlock</button>').join(' · ');
+  const html = '<h3>Lineup for day ' + dn + ' ' + helpBtn('mudar') + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="luBody" class="stack">' + head +
+    '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + d.lineup.length + ' of ' + size + (locks.size ? ' · ' + plural(locks.size, 'locked', 'locked') : '') + '</span></div>' + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Nobody in the lineup: the plan saves the uses for other days.</div>') + '</div>' +
+    (bad ? '<div class="note">Locked but can’t play this day: ' + bad + '</div>' : '') + chHtml +
+    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to the lineup</h2><span class="small muted">' + plural(cand.length, 'player', 'players') + '</span></div><ul class="list">' + candRows + '</ul>' + (cand.length > shown.length ? '<button class="btn quiet" type="button" data-action="lu-all" data-date="' + date + '" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
+    (bans.length ? '<div class="card"><div class="list-head"><h2>Removed from this day</h2></div><ul class="list">' + bans.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span><button class="btn small" type="button" data-action="lu-unban" data-id="' + esc(id) + '" data-date="' + date + '">Restore</button></li>').join('') + '</ul></div>' : '') +
+    (mine ? '<button class="btn" type="button" data-action="lu-reset" data-date="' + date + '">Back to the plan’s suggestion</button>' : '') + '</div>';
+  openSheet(html);
+  if (keep) p0.scrollTop = keep;
+}
+// enquanto a run é refeita: a folha fica esbatida (e volta ao topo quando a mudança mexe no lineup)
+function luBusy(top) { const b = $('luBody'); if (b) b.classList.add('busy'); if (S.lu) S.lu.toTop = !!top; }
+// depois de fixar/tirar pela ficha do jogador: volta ao "Mudar lineup" se veio de lá, senão fecha
+function luBack(date) { if (S.lu && S.lu.date === date) { S.lu.toTop = true; lineupSheet(date); } else closeSheet(); }
 function setStatus(id, status) { if (!S.mine.roster[id]) return; S.mine.roster[id].status = status; schedule(); saveMine(); }
 const useTimers = {};
 function changeUses(id, delta, acc) {
@@ -3397,11 +3486,20 @@ document.addEventListener('click', async e => {
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id); break;
     case 'lock': choiceSheet(id, date, 'lock'); break;
-    case 'lock-yes': lockToggle(id, date, true); closeSheet(); break;
-    case 'unlock': lockToggle(id, date, false); closeSheet(); break;
+    case 'lock-yes': lockToggle(id, date, true); luBack(date); break;
+    case 'unlock': lockToggle(id, date, false); luBack(date); break;
     case 'ban': choiceSheet(id, date, 'ban'); break;
-    case 'ban-yes': banToggle(id, date, true); closeSheet(); break;
-    case 'unban': banToggle(id, date, false); closeSheet(); break;
+    case 'ban-yes': banToggle(id, date, true); luBack(date); break;
+    case 'unban': banToggle(id, date, false); luBack(date); break;
+    // Mudar o lineup (folha com o que muda face à sugestão do plano)
+    case 'lu-edit': S.lu = null; lineupSheet(date); break;
+    case 'lu-lock': { const on = !(((curPlan().locks || {})[date]) || []).includes(id); luBusy(); if (!lockToggle(id, date, on)) luRender(); break; }
+    case 'lu-add': luBusy(true); if (!lockToggle(id, date, true)) luRender(); break;
+    case 'lu-ban': luBusy(); banToggle(id, date, true); break;
+    case 'lu-unban': luBusy(); banToggle(id, date, false); break;
+    case 'lu-reset': luBusy(true); planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
+    case 'lu-all': if (S.lu) { S.lu.all = true; luRender(); } break;
+    case 'lu-player': playerSheet(id, date, () => lineupSheet(date)); break;
     case 'set-status': setStatus(id, b.dataset.status); rosterSheet(id); break;
     case 'uses': changeUses(id, +b.dataset.d, b.dataset.acc); break;
     case 'acc': S.acc = b.dataset.acc; if (S.multi && S.multi.byKey[S.acc]) S.result = S.multi.byKey[S.acc]; render(); break;

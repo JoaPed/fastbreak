@@ -591,3 +591,21 @@ p, .note { text-wrap: pretty; }
 .sheet-ic svg { width: 18px; height: 18px; }
 .sheet-ic:active { background: var(--active); }
 @media (hover: hover) and (pointer: fine) { .sheet-ic:hover { background: var(--active); } }
+
+/* Mudar o lineup: cada linha com o nome (abre a ficha), o valor e os botões redondos (cadeado, ×, +) */
+.lu-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 16px; }
+.lu-main { flex: 1; min-width: 0; border: 0; background: none; padding: 5px 0; text-align: left; color: inherit; display: grid; }
+.lu-row .pv { flex: none; margin-right: 2px; }
+.lu-ic { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); display: grid; place-items: center; padding: 0; position: relative; }
+.lu-ic::after { content: ""; position: absolute; inset: -3px; }
+.lu-ic svg { width: 16px; height: 16px; }
+.lu-ic.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.lu-ic.add { color: var(--ink); }
+.lu-ic:disabled { opacity: .35; }
+.lu-ic:active:not(:disabled) { background: var(--active); }
+.lu-ic.on:active { background: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .lu-ic:not(.on):not(:disabled):hover { background: var(--surface-2); color: var(--ink); } .lu-main:hover .nm { text-decoration: underline; } }
+.lu-kv { grid-template-columns: 1fr 1fr; }
+.lu-ch span { font-size: 13.5px; }
+#luBody.busy { opacity: .5; pointer-events: none; transition: opacity .15s; }
+@media (prefers-reduced-motion: reduce) { #luBody.busy { transition: none; } }

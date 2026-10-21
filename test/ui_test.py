@@ -768,6 +768,35 @@ with sync_playwright() as pw:
     print('K2 não joguei:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu2)), '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
     pg.close()
 
+    # ---------- L: Mudar o lineup antes dos jogos (fixar, tirar e pôr um a um, com o que muda face à sugestão) ----------
+    db = seeded(); T = db['tables']
+    T['runs'][0]['fictitious'] = False
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T['chain_results'] = []; T['injuries'] = []
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-20T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    lu_idle = "() => { const b = document.getElementById('luBody'); return b && !b.classList.contains('busy') && !document.getElementById('luProg'); }"
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(300)
+    print('L mudar (abrir):', pg.locator('#luBody .lu-kv').inner_text().replace('\n', ' | '), '· no lineup:', pg.locator('#luBody .lu-row button[data-action="lu-ban"]').count(), '· para pôr:', pg.locator('#luBody button[data-action="lu-add"]').count())
+    who = pg.locator('#luBody button[data-action="lu-add"]:not([disabled])').first.get_attribute('data-id')
+    pg.locator('#luBody button[data-action="lu-add"]:not([disabled])').first.click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
+    print('L pôr', who + ':', pg.locator('#luBody .lu-kv').inner_text().replace('\n', ' | '), '·', ' / '.join(pg.locator('#luBody .note').all_inner_texts())[:120], '· fixados:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'))
+    print('L muda noutros dias:', pg.locator('#luBody .card').filter(has_text='Muda noutros dias').count())
+    gone = pg.locator('#luBody .lu-row button[data-action="lu-ban"]').first.get_attribute('data-id')
+    pg.locator('#luBody .lu-row button[data-action="lu-ban"]').first.click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
+    print('L tirar', gone + ':', store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans'), '·', pg.locator('#luBody .lu-kv').inner_text().replace('\n', ' | '))
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(500)
+    print('L jornada depois:', ' / '.join(lineup_card(pg).locator('.row .nm').all_inner_texts()), '· com', who, ':', any(who in (x or '') for x in lineup_card(pg).locator('button[data-action="player"]').evaluate_all('els => els.map(e => e.dataset.id)')))
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000)
+    pg.click('#sheetPanel button[data-action="lu-reset"]'); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
+    print('L voltar à sugestão:', store(pg, '{l: __FAKE_DB.tables.user_runs[0].plan.locks, b: __FAKE_DB.tables.user_runs[0].plan.bans}'), '· botão:', pg.locator('#tab-hoje button[data-action="opcoes"]').inner_text())
+    print('L largura:', width(pg))
+    pg.close()
+
     # ---------- I: dias de combinação (3PM e 3PA), usos pelo melhor Moment, vistas do plantel e sugestões de compra ----------
     db = seeded(); T = db['tables']
     T['runs'][0]['fictitious'] = False
