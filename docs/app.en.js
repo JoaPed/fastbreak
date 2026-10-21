@@ -106,6 +106,7 @@ async function espnBoard(date) {
 // véspera do 1.º dia da run: quem jogou (para os jogos seguidos do dia 1)
 async function loadPrevGames() {
   const d0 = (S.days[0] || {}).date; if (!d0) return;
+  const p0 = (planOf('main').played || {})[d0]; if (d0 < todayET() || (p0 && p0.done)) return; // o dia 1 já passou: não faz falta (e evita refazer a run)
   const x = new Date(d0 + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - 1); const prev = x.toISOString().slice(0, 10);
   if (S.prevGames && S.prevGames[prev]) return;
   try { const games = await espnBoard(prev); S.prevGames = { [prev]: games.flatMap(g => [g.away, g.home]).filter(Boolean) }; schedule(); } catch (e) { /* sem rede: o dia 1 fica sem jogos seguidos */ }
@@ -237,7 +238,7 @@ const HELP = {
   premios: ['Prizes', 'Each ring is the chance of finishing the run with at least that many wins: full means certain. Green likely, yellow a toss-up, red hard. The plan picks the lineups to raise these chances.'],
   dist: ['Wins at the end', 'The chance of each win total at the end of the run. The colours mark the prize tiers; the outline is the most likely total.'],
   contas: ['Accounts', 'The plan pools your accounts’ collections as if they were one and picks each account’s lineup. Tap an account to see its prizes.'],
-  mudar: ['Change the lineup', 'Tap the lock to lock in who must play, the × to remove someone from this day and the + to add a player the plan left out. The plan fills in the rest and redoes the run after each change. At the top you see what changes compared with the plan’s suggestion: the day’s win, the expected wins in the run, the prizes and the other days where someone comes in or goes out (uses spent today are no longer there). To undo, tap the lock again or Back to the plan’s suggestion.'],
+  mudar: ['Change the lineup', 'Tap the lock to lock in who must play, the × to remove someone from this day (it leaves an empty spot: tap + to choose who comes in, or let the plan choose) and the + under Add to lineup to bring in a player the plan left out. The plan fills in the rest and redoes the run after each change. At the top you see what changes compared with the plan’s suggestion: the day’s win, the expected wins in the run, the prizes and the other days where someone comes in or goes out (uses spent today are no longer there). To undo, tap the lock again or Back to the plan’s suggestion.'],
   dias: ['Days', 'The whole run: each day’s goal, the plan’s lineup and the predicted win. For days already played, the result and the total made, which come in by themselves from the game stats. Tap a day to open it in Matchday.'],
   analise: ['Analysis', 'Each day’s prediction is saved until the first game. Then you see the prediction next to what happened: wins, totals and each player (100% = did as predicted). With few days, luck weighs a lot.'],
   historico: ['History', 'Your Fast Break days read from the blockchain, from every run. Older days come in little by little.'],
@@ -757,21 +758,32 @@ function engineInputs(acc) {
   Object.entries(S.odds).forEach(([d, o]) => { odds.days[d] = { players: o.players || {}, source: o.source, updatedAt: o.updated_at }; });
   return { run: { name: run.name, prizes: run.prizes || [], days: S.days }, roster: { players }, odds, plan: planForEngine(acc) };
 }
+// O plano só é refeito quando alguma coisa que entra no cálculo mudou (plantel, plano, odds, lesões, jogos já
+// começados…): voltar à app ou redesenhar não refaz a run (com smurfs, cada vez são vários segundos no telemóvel).
+let calcKey = null;
 function compute() {
-  S.result = null; S.multi = null; S.calcError = null;
-  if (!S.runId || !S.mineLoaded) return;
+  if (!S.runId || !S.mineLoaded) { S.result = null; S.multi = null; S.calcError = null; calcKey = null; return; }
+  const multi = groupMode(), accs = multi ? accounts() : null;
+  if (multi && !accs.some(a => a.id === S.acc)) S.acc = 'main';
+  if (!multi) S.acc = 'main';
+  let inputs = null, key = null;
   try {
-    if (groupMode()) {
+    inputs = multi ? accs.map(a => engineInputs(a.id)) : [engineInputs('main')];
+    const now = Date.now(), started = S.days.reduce((n, d) => n + (d.games || []).filter(g => Date.parse(g[2]) <= now).length, 0);
+    key = JSON.stringify([accs && accs.map(a => a.id), inputs, engOpts(), formLevel, started, todayET()]);
+  } catch (e) { key = null; }
+  if (key && key === calcKey && S.result && !S.calcError) { if (S.multi) S.result = S.multi.byKey[S.acc] || S.result; return; }
+  S.result = null; S.multi = null; S.calcError = null; calcKey = null;
+  try {
+    if (multi) {
       // plano conjunto: as coleções das contas como se fossem uma só (um Moment joga por uma conta em cada noite)
-      const accs = accounts();
-      if (!accs.some(a => a.id === S.acc)) S.acc = 'main';
-      const base = engineInputs('main');
-      S.multi = FB.planGroup(base.run, accs.map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); return { key: a.id, roster: x.roster, plan: x.plan }; }), base.odds, engOpts());
+      const base = inputs ? inputs[0] : engineInputs('main');
+      S.multi = FB.planGroup(base.run, accs.map((a, i) => { const x = inputs ? inputs[i] : engineInputs(a.id); return { key: a.id, roster: x.roster, plan: x.plan }; }), base.odds, engOpts());
       S.result = S.multi.byKey[S.acc];
     } else {
-      S.acc = 'main';
-      const x = engineInputs('main'); S.result = FB.planRun(x.run, x.roster, x.odds, x.plan, engOpts());
+      const x = inputs ? inputs[0] : engineInputs('main'); S.result = FB.planRun(x.run, x.roster, x.odds, x.plan, engOpts());
     }
+    calcKey = key;
   } catch (e) { console.error(e); S.calcError = 'Calculation error: ' + (e && e.message); }
 }
 const mainResult = () => S.multi ? S.multi.byKey.main : S.result;
@@ -1196,6 +1208,42 @@ function transfersCard() {
   return '<div class="card"><div class="list-head"><h2>Transfers ' + helpBtn('transf') + '</h2><span class="small muted">' + (list.length ? list.length + ' in the run' : 'none') + '</span></div>' + (list.length ? '<ul class="list">' + list.map(row).join('') + '</ul>' : '<div class="row small muted">Each account plays with the Moments it has.</div>') + '</div>';
 }
 // ---- a run refeita com uma mudança ao plano (para as opções do dia e para fixar/tirar um jogador) ----
+// ---- motor noutro fio (engine-worker.js): sem Worker, ou se não arrancar, corre aqui como antes ----
+let EW = null, ewSeq = 0; const ewWait = new Map();
+function engineWorker() {
+  if (EW !== null) return EW || null;
+  try {
+    EW = new Worker('engine-worker.js');
+    EW.onmessage = e => { const p = ewWait.get(e.data.id); if (!p) return; ewWait.delete(e.data.id); window.FB_WORKER = 'ok'; if (e.data.err) p.no(new Error(e.data.err)); else p.ok(e.data.out); };
+    EW.onerror = () => { ewWait.forEach(p => p.no(new Error('worker'))); ewWait.clear(); EW = false; window.FB_WORKER = 'falhou'; };
+  } catch (e) { EW = false; }
+  return EW || null;
+}
+function engineLocal(kind, args, key) {
+  if (kind === 'planRun') { const r = FB.planRun.apply(null, args); return { res: r.normal, total: r.normal.objective }; }
+  const g = FB.planGroup.apply(null, args); return { res: g.byKey[key || 'main'].normal, total: g.objective, group: g };
+}
+function engineCall(kind, args, key) {
+  const w = engineWorker();
+  if (!w) return tick(0).then(() => engineLocal(kind, args, key));
+  // a hora vai com o pedido (o outro fio pode ter outro relógio: jogos já começados, lesões)
+  const o = args[args.length - 1]; if (o && typeof o === 'object' && o.now == null) args = args.slice(0, -1).concat([Object.assign({}, o, { now: Date.now() })]);
+  return new Promise((ok, no) => { const id = ++ewSeq; ewWait.set(id, { ok, no }); try { w.postMessage({ id, kind, args, key, form: +formLevel }); } catch (e) { ewWait.delete(id); no(e); } })
+    .catch(() => engineLocal(kind, args, key));
+}
+// como evalAlt / planWith, mas no outro fio (o ecrã continua a responder)
+function evalAltAsync(mod) {
+  if (!S.multi) { const x = engineInputs('main'), plan = clone(x.plan); mod(plan); return engineCall('planRun', [x.run, x.roster, x.odds, plan, engOpts()]); }
+  const base = engineInputs('main');
+  const list = accounts().map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); let plan = x.plan; if (a.id === S.acc) { plan = clone(plan); mod(plan); } return { key: a.id, roster: x.roster, plan }; });
+  return engineCall('planGroup', [base.run, list, base.odds, engOpts()], S.acc);
+}
+function planWithAsync(mod, kicks) {
+  if (!S.multi) { const y = engineInputs('main'); mod(y.roster.players); return engineCall('planRun', [y.run, y.roster, y.odds, y.plan, engOpts()]); }
+  const base = engineInputs('main');
+  const list = accounts().map(a => { const y = a.id === 'main' ? base : engineInputs(a.id); const ro = clone(y.roster); mod(ro.players); return { key: a.id, roster: ro, plan: y.plan }; });
+  return engineCall('planGroup', [base.run, list, base.odds, Object.assign(engOpts(), kicks != null ? { kicks } : {})], 'main');
+}
 function evalAlt(mod) {
   if (!S.multi) {
     // como o plano que se vê (planRun: também experimenta tudo pelo dia e fica com o melhor), para as contas baterem certo
@@ -1304,7 +1352,7 @@ async function opcoesSheet(fetchLive) {
   for (let k = 0; k < opts.length; k++) {
     await new Promise(ok => setTimeout(ok, 30));
     if (!$('opCards')) return; // fechou a folha
-    try { const ev = evalAlt(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); } catch (e) { console.warn(e); }
+    try { const ev = await evalAltAsync(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); } catch (e) { console.warn(e); }
     draw(k < opts.length - 1);
   }
 }
@@ -2051,14 +2099,14 @@ async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
   const list = [];
   let base = null;
   if (shortlist.length) {
-    base = kicks != null && S.multi ? planWith(() => {}, kicks) : planNow();
+    base = kicks != null && S.multi ? await planWithAsync(() => {}, kicks) : planNow();
     for (let k = 0; k < shortlist.length; k++) {
       if (alive && !alive()) return null;
       const id = shortlist[k];
       if (prog) prog('Redoing the run with ' + nameOf(id) + '… ' + (k + 1) + ' of ' + shortlist.length);
       await tick();
       if (alive && !alive()) return null;
-      try { list.push({ id, ev: planWith(add(id), kicks) }); } catch (e) { console.warn(e); }
+      try { list.push({ id, ev: await planWithAsync(add(id), kicks) }); } catch (e) { console.warn(e); }
     }
   }
   list.sort((a, b) => b.ev.total - a.ev.total);
@@ -2254,7 +2302,7 @@ async function borrowRun() {
     for (let k = 0; k < short.length; k++) {
       const o = short[k], p = $('borrowProg'); if (p) p.textContent = 'Redoing the run with ' + nameOf(o.id) + ' (from ' + o.from + ')… ' + (k + 1) + ' of ' + short.length;
       await tick();
-      try { list.push({ o, ev: planWith(pl => { pl[o.id] = borrowEntry(o); }) }); } catch (e) { console.warn(e); }
+      try { list.push({ o, ev: await planWithAsync(pl => { pl[o.id] = borrowEntry(o); }) }); } catch (e) { console.warn(e); }
     }
     list.sort((a, b) => b.ev.total - a.ev.total);
     S.borrow.results = { list: list.filter(z => z.ev.total > base.total + 1e-6), base, at: Date.now(), n: offers.length };
@@ -3089,7 +3137,7 @@ async function choiceSheet(id, date, kind) {
   await new Promise(res => setTimeout(res, 30));
   let ev;
   try {
-    ev = evalAlt(kind === 'lock'
+    ev = await evalAltAsync(kind === 'lock'
       ? plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = [...new Set((plan.locks[date] || []).concat([id]))]; plan.bans[date] = (plan.bans[date] || []).filter(x => x !== id); }
       : altMods.ban(date, id));
   } catch (e) { console.warn(e); if ($('choiceProg')) $('choiceProg').innerHTML = '<span class="down">Couldn’t calculate:</span> ' + esc(errText(e)); return; }
@@ -3158,7 +3206,7 @@ async function lineupSheet(date) {
   if (L.base || L.busy) return;
   L.busy = true;
   await new Promise(ok => setTimeout(ok, 30));
-  try { L.base = luSnap(r.wins, evalAlt(altMods.clear(date)).res, date); } catch (e) { console.warn(e); L.err = true; }
+  try { L.base = luSnap(r.wins, (await evalAltAsync(altMods.clear(date))).res, date); } catch (e) { console.warn(e); L.err = true; }
   L.busy = false;
   if (S.lu === L && $('luBody')) luRender();
 }
@@ -3188,8 +3236,11 @@ function luRender() {
   // no lineup: cadeado (fixar / soltar) e × (tirar deste dia; o plano põe outro)
   const nameBtn = (id, p, pi, sub) => { const st = (md.info[pi][0] || {}).status; return '<button class="lu-main" type="button" data-action="lu-player" data-id="' + esc(id) + '" data-date="' + date + '">' + face(id, 'sm') + '<span class="lu-t"><span class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</span><span class="ps">' + sub + '</span></span></button>'; };
   const later = id => v.days.filter(x => x.date !== date && x.lineup.includes(id)).map(x => x.idx + 1);
+  const gaps = (L.out || []).filter(id => d.lineup.includes(id));
   const inRows = d.lineup.map(id => {
     const pi = r.model.pIndex.get(id), p = r.model.players[pi]; if (pi == null) return '';
+    if (gaps.includes(id)) return '<li class="lu-row lu-gap"><div class="gapb"><button class="gapb-go" type="button" data-action="lu-pick" data-id="' + esc(id) + '" data-date="' + date + '"><span class="gapb-ic">' + icoPlus + '</span><span class="gapb-t"><b>Add player</b><span>out: ' + esc(p.name) + '</span></span></button>' +
+      '<button class="btn link small gapb-keep" type="button" data-action="lu-undo" data-id="' + esc(id) + '" data-date="' + date + '">keep</button></div></li>';
     const lk = locks.has(id);
     return '<li class="lu-row">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + (lk ? ' · locked' : '')) + pvHtml(objVals(md, pi, false)) +
       '<button class="lu-ic' + (lk ? ' on' : '') + '" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '" aria-pressed="' + lk + '" aria-label="Lock ' + esc(p.name) + '" title="' + (lk ? 'Locked (tap to unlock)' : 'Lock') + '">' + icoLockBtn + '</button>' +
@@ -3210,10 +3261,12 @@ function luRender() {
   const candRows = shown.map(pi => {
     const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id);
     return '<li class="lu-row">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (!uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan')) + pvHtml(objVals(md, pi, false)) +
-      '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' to the lineup" title="' + (full ? 'You already have ' + size + ' locked: unlock one first' : 'Add to the lineup and lock') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button></li>';
+      (gaps.length ? '<button class="lu-ic add" type="button" data-action="lu-fill" data-out="' + esc(gaps[0]) + '" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' in place of ' + esc(nameOf(gaps[0])) + '" title="Put in the empty spot"' + (uses ? '' : ' disabled') + '>' + icoPlus + '</button>' :
+      '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' to the lineup" title="' + (full ? 'You already have ' + size + ' locked: unlock one first' : 'Add to the lineup and lock') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '</li>';
   }).join('');
   const bad = (d.badLocks || []).map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '">unlock</button>').join(' · ');
   const html = '<h3>Lineup for day ' + dn + ' ' + helpBtn('mudar') + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="luBody" class="stack">' + head +
+    (gaps.length ? '<div class="note info">Tap + to choose who comes in' + (gaps.length > 1 ? ' for each empty spot' : '') + '. Until then, the numbers are for the lineup before the swap.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + d.lineup.length + ' of ' + size + (locks.size ? ' · ' + plural(locks.size, 'locked', 'locked') : '') + '</span></div>' + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Nobody in the lineup: the plan saves the uses for other days.</div>') + '</div>' +
     (bad ? '<div class="note">Locked but can’t play this day: ' + bad + '</div>' : '') + chHtml +
     (cand.length ? '<div class="card"><div class="list-head"><h2>Add to the lineup</h2><span class="small muted">' + plural(cand.length, 'player', 'players') + '</span></div><ul class="list">' + candRows + '</ul>' + (cand.length > shown.length ? '<button class="btn quiet" type="button" data-action="lu-all" data-date="' + date + '" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
@@ -3221,6 +3274,33 @@ function luRender() {
     (mine ? '<button class="btn" type="button" data-action="lu-reset" data-date="' + date + '">Back to the plan’s suggestion</button>' : '') + '</div>';
   openSheet(html);
   if (keep) p0.scrollTop = keep;
+}
+// Quem entra no lugar de quem saiu: os que jogam neste dia e não estão no lineup, do que mais rende para o que
+// menos; ou deixar o plano escolher
+function luPickSheet(date, out) {
+  const r = S.result, v = view(), { md, d } = dayInfo(date); if (!r || !v || !md || !d) return;
+  const day = md.day, bans = new Set(((curPlan().bans || {})[date]) || []);
+  const weight = pi => md.objs.reduce((t, _, k) => t + (md.mu[pi][k] || 0) / (md.T[k] || 1), 0);
+  const later = id => v.days.filter(x => x.date !== date && x.lineup.includes(id)).map(x => x.idx + 1);
+  const cand = md.elig.filter(pi => { const id = r.model.players[pi].id; return !d.lineup.includes(id) && !bans.has(id); }).sort((a, b) => weight(b) - weight(a));
+  const rows = cand.map(pi => {
+    const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
+    return '<li><button class="row" type="button" data-action="lu-fill" data-out="' + esc(out) + '" data-id="' + esc(id) + '" data-date="' + date + '"' + (uses ? '' : ' disabled') + '><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</div>' +
+      '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (!uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan') + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
+  }).join('');
+  openSheet('<h3>Who comes in?</h3><div class="small muted">In place of ' + esc(nameOf(out)) + ' · day ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
+    (rows ? '<ul class="list card">' + rows + '</ul>' : '<div class="note info">None of your other players has a game this day.</div>') +
+    '<button class="btn" type="button" data-action="lu-auto" data-id="' + esc(out) + '" data-date="' + date + '">Let the plan choose</button>', () => lineupSheet(date));
+}
+// troca: sai quem estava no lugar livre (tirado do dia), entra o escolhido (fixado); a run é refeita e o Mudar mostra o efeito
+function luFill(date, out, pick) {
+  const P = curPlan(), size = ((dayInfo(date).md) || {}).size || 5;
+  const locks = new Set(((P.locks || {})[date]) || []); locks.delete(out); locks.add(pick);
+  if (locks.size > size) { toast('You already have ' + size + ' players locked this day: unlock one first.'); return; }
+  const bans = [...new Set((((P.bans || {})[date]) || []).concat([out]))].filter(x => x !== pick);
+  if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== out);
+  lineupSheet(date); luBusy(true);
+  planPatch({ locks: { [date]: [...locks] }, bans: { [date]: bans } });
 }
 // enquanto a run é refeita: a folha fica esbatida (e volta ao topo quando a mudança mexe no lineup)
 function luBusy(top) { const b = $('luBody'); if (b) b.classList.add('busy'); if (S.lu) S.lu.toTop = !!top; }
@@ -3561,7 +3641,11 @@ document.addEventListener('click', async e => {
     case 'lu-edit': S.lu = null; lineupSheet(date); break;
     case 'lu-lock': { const on = !(((curPlan().locks || {})[date]) || []).includes(id); luBusy(); if (!lockToggle(id, date, on)) luRender(); break; }
     case 'lu-add': luBusy(true); if (!lockToggle(id, date, true)) luRender(); break;
-    case 'lu-ban': luBusy(); banToggle(id, date, true); break;
+    case 'lu-ban': if (S.lu) { S.lu.out = (S.lu.out || []).concat([id]); luRender(); } break; // fica um lugar livre: nada muda até escolheres
+    case 'lu-undo': if (S.lu) { S.lu.out = (S.lu.out || []).filter(x => x !== id); luRender(); } break;
+    case 'lu-pick': luPickSheet(date, id); break;
+    case 'lu-fill': luFill(date, b.dataset.out, id); break;
+    case 'lu-auto': if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== id); lineupSheet(date); luBusy(); banToggle(id, date, true); break;
     case 'lu-unban': luBusy(); banToggle(id, date, false); break;
     case 'lu-reset': luBusy(true); planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }

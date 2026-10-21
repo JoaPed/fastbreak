@@ -655,3 +655,14 @@ p, .note { text-wrap: pretty; }
 .rdots i.n { background: none; box-shadow: inset 0 0 0 1.5px var(--ball); }
 .recc { display: inline-flex; align-items: baseline; gap: 2px; margin-left: 2px; font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: .02em; }
 .recc .w { color: var(--good); } .recc .l { color: var(--bad); } .recc i { font-style: normal; color: var(--muted); font-weight: 600; }
+/* Mudar: lugar livre depois de tirar alguém — cartão laranja suave "Adicionar jogador" até escolheres quem entra */
+.lu-gap .gapb { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; background: var(--ball-soft); border-radius: 14px; padding: 4px 10px 4px 4px; }
+.gapb-go { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 6px; text-align: left; color: inherit; font: inherit; border-radius: 10px; }
+.gapb-ic { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--ball); color: #fff; display: grid; place-items: center; }
+.gapb-ic svg { width: 18px; height: 18px; }
+.gapb-t { display: grid; min-width: 0; }
+.gapb-t b { font-weight: 600; color: var(--ball-ink); }
+.gapb-t span { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lu-gap .gapb-keep { flex: none; color: var(--muted); }
+.gapb-go:active { background: rgba(0, 0, 0, .04); }
+@media (hover: hover) and (pointer: fine) { .gapb-go:hover .gapb-t b { text-decoration: underline; } }
