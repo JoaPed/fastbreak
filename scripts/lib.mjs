@@ -624,21 +624,38 @@ function alertLine(i, hm, plural) {
   if (i.kind === 'last') return '⏰ Última chamada: ' + who + ' continua ' + lab.toLowerCase() + det + '. Jogo às ' + hm(i.tip) + ': troca antes de fechar se não ' + (plural ? 'quiserem' : 'quiseres') + ' arriscar.';
   return (i.status === 'out' || i.status === 'ofs' ? '🚫 ' : '⚠️ ') + who + ': ' + lab + det + (i.kind === 'change' && i.prev ? ' (antes: ' + (INJ_LABEL[i.prev] || i.prev).toLowerCase() + ')' : '') + '. Jogo às ' + hm(i.tip) + '.' + com;
 }
-// Grupo do Telegram: uma mensagem com os avisos dos lineups de toda a gente (owners: id → nomes de quem o tem)
+// Grupo do Telegram (HTML): um bloco por jogador, separados por uma linha em branco
+// owners: id → nomes de quem o tem no lineup; spec: id → "Especialista em 3PM (1.º)"
+const tgEsc = x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function groupBlock(i, hm, owners, spec) {
+  const who = '<b>' + tgEsc(i.name) + '</b>' + (i.team ? ' (' + tgEsc(i.team) + ')' : '');
+  const lab = (INJ_LABEL[i.status] || i.status || '').toLowerCase(), det = i.inj && i.inj.detail ? tgEsc(i.inj.detail) + ' · ' : '';
+  const out = [];
+  if (i.kind === 'clear') { out.push('✅ ' + who + ' · <b>deve jogar</b>', 'Saiu do relatório de lesões · jogo às ' + hm(i.tip)); }
+  else {
+    const icon = i.kind === 'last' ? '⏰' : i.kind === 'status' ? '📋' : i.status === 'out' || i.status === 'ofs' ? '🚫' : '⚠️';
+    const pre = i.kind === 'last' ? 'Última chamada · ' : '';
+    const st = i.kind === 'status' || i.kind === 'last' ? 'continua <b>' + tgEsc(lab) + '</b>' : '<b>' + tgEsc(INJ_LABEL[i.status] || i.status) + '</b>' + (i.kind === 'change' && i.prev ? ' (antes: ' + tgEsc((INJ_LABEL[i.prev] || i.prev).toLowerCase()) + ')' : '');
+    out.push(icon + ' ' + pre + who + ' · ' + st, det + 'jogo às ' + hm(i.tip));
+    if (i.inj && i.inj.comment) out.push('<i>' + tgEsc(i.inj.comment) + '</i>');
+    if (i.kind === 'last') out.push('Troquem antes de fechar se não quiserem arriscar.');
+  }
+  if ((owners[i.id] || []).length) out.push('👥 No lineup de ' + tgEsc(andJoin(owners[i.id])));
+  if (spec[i.id]) out.push('⭐ ' + tgEsc(spec[i.id]));
+  return out.join('\n');
+}
 export function groupAlertText(items, owners, opts = {}) {
   const tz = opts.tz || 'Europe/Lisbon';
   const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
-  const spec = opts.spec || {};
-  const lines = items.slice().sort((a, b) => a.tip - b.tip).map(i => alertLine(i, hm, true) + ((owners[i.id] || []).length ? ' (lineup de ' + andJoin(owners[i.id]) + ')' : '') + (spec[i.id] ? ' (' + spec[i.id] + ')' : ''));
-  return 'Fast Break · lesões\n' + lines.join('\n');
+  const spec = opts.spec || {}, list = items.slice().sort((a, b) => a.tip - b.tip);
+  const title = list.every(i => i.kind === 'status') ? 'Ponto da situação' : list.every(i => i.kind === 'last') ? 'Última chamada' : 'Lesões';
+  return '🏀 <b>Fast Break · ' + title + '</b>\n\n' + list.map(i => groupBlock(i, hm, owners || {}, spec)).join('\n\n');
 }
-// "Já fizeram o lineup?" no grupo: quem já submeteu e quem ainda não
+// "Já fizeram o lineup?" no grupo: só o aviso, sem nomes (o site não sabe ao certo quem já submeteu)
 export function groupReminderText(R, opts = {}) {
   const tz = opts.tz || 'Europe/Lisbon';
   const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
-  const done = (R.accs || []).filter(a => a.submitted).map(a => a.label), left = (R.accs || []).filter(a => !a.submitted).map(a => a.label);
-  return '🏀 Fast Break · os jogos de hoje começam às ' + hm(R.firstTip) + (R.run ? ' (' + R.run + ')' : '') + '. Já fizeram o lineup?' +
-    (left.length ? '\n⏳ Ainda não: ' + andJoin(left) : '') + (done.length ? '\n✓ Já submeteram: ' + andJoin(done) : '');
+  return '🏀 <b>Já fizeram o lineup?</b>\n\nOs jogos de hoje começam às <b>' + hm(R.firstTip) + '</b>' + (R.run ? ' · ' + tgEsc(R.run) : '') + '.';
 }
 const andJoin = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0] || '');
 export function alertText(items, opts = {}) {

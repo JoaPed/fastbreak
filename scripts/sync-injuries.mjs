@@ -72,9 +72,9 @@ async function tgChat() {
 async function sendTg(text) {
   const chat = await tgChat();
   if (!chat) { note('ainda não sei o grupo. Junta o bot ao grupo e escreve /start@<nome do bot> lá.'); return false; }
-  let r = await tg('sendMessage', { chat_id: chat, text, disable_web_page_preview: true });
+  let r = await tg('sendMessage', { chat_id: chat, text, parse_mode: 'HTML', disable_web_page_preview: true });
   const mig = r && r.parameters && r.parameters.migrate_to_chat_id; // o grupo passou a supergrupo: muda de número
-  if (!r.ok && mig) { tgState = Object.assign({}, tgState, { chat: String(mig) }); await setState(sb, 'telegram', tgState); r = await tg('sendMessage', { chat_id: mig, text, disable_web_page_preview: true }); }
+  if (!r.ok && mig) { tgState = Object.assign({}, tgState, { chat: String(mig) }); await setState(sb, 'telegram', tgState); r = await tg('sendMessage', { chat_id: mig, text, parse_mode: 'HTML', disable_web_page_preview: true }); }
   if (!r.ok) note('mensagem falhou: ' + (r.description || '').slice(0, 120));
   return !!r.ok;
 }
@@ -201,7 +201,7 @@ if (TG_TOKEN) {
       playing.map(p => ({ p, v: (FB.avgOf({ avg: p.avg }, st) || {}).v })).filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 8).forEach((x, i) => {
         const id = String(x.p.id); if (!injuries.has(id)) return;
         if (!union.has(id)) union.set(id, { id, name: x.p.name, team: x.p.team, tip: tipOf(x.p.team) });
-        if (!spec[id]) spec[id] = 'especialista em ' + lab + ', ' + (i + 1) + '.º';
+        if (!spec[id]) spec[id] = 'Especialista em ' + lab + ' (' + (i + 1) + '.º)';
       });
     }
   }
