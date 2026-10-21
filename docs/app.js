@@ -120,11 +120,11 @@ const statLabel = st => FB.statTerms(st).map((t, i) => (i ? (t.sign < 0 ? ' − 
 const objOne = o => o.target + '+ ' + statShort(o.stat) + (o.each ? ' cada' : '');
 const objsText = day => { const list = ((day || {}).objectives || []).filter(o => o && o.stat); return list.length ? list.map(objOne).join(' e ') : 'Objetivo por definir'; };
 // de onde vem o valor esperado de um jogador (texto curto para as listas)
-// seta de forma: últimos 5 jogos acima/abaixo da média da época na estatística do dia
-function formTag(p, o) {
+// seta de forma ao lado do valor: últimos 5 jogos acima/abaixo da média da época na estatística do dia
+function formMark(p, o) {
   if (!o) return '';
   const f = FB.formInfo(p, o.stat); if (!f || !f.n5 || f.n5 < 3) return '';
-  return f.trend >= 0.12 ? ' · <span class="up">em forma ↑</span>' : f.trend <= -0.12 ? ' · <span class="down">fora de forma ↓</span>' : '';
+  return f.trend >= 0.12 ? ' <i class="fm up" title="Em forma" aria-label="em forma">▲</i>' : f.trend <= -0.12 ? ' <i class="fm down" title="Fora de forma" aria-label="fora de forma">▼</i>' : '';
 }
 function srcShort(info) {
   if (info.src === 'odds') return 'linha ' + f1(info.line);
@@ -148,13 +148,6 @@ const INJ_SHORT = { out: 'Fora', ofs: 'Fora', doubtful: 'Dúv.', questionable: '
 function injLine(rec) {
   if (!rec) return '';
   return esc(INJ_LABEL[rec.status] || rec.label || rec.status) + (rec.detail ? ' · ' + esc(rec.detail) : '') + (rec.return_date ? ' · regresso previsto ' + dShort(rec.return_date) : '');
-}
-// jogou ontem (2.º de dois jogos seguidos)
-const b2bTag = info => (info && info.b2b ? ' · <span class="warn-t">2.º seguido</span>' : '');
-// nas listas: "lesão: dia a dia" quando o relatório mexe no plano deste dia
-function injTag(info) {
-  const j = info && info.injury; if (!j || j.ignored || !j.status) return '';
-  return ' · <span class="' + (j.status === 'fora' || j.status === 'dout' ? 'down' : 'warn-t') + '">lesão: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + '</span>';
 }
 // relatório de lesões nas fichas, com o botão para o ignorar
 function injuryBlock(id, j, date) {
@@ -255,7 +248,7 @@ function helpSheet(k, btn) {
     btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', id);
     return;
   }
-  openSheet('<h3>' + h[0] + '</h3><div class="help-text">' + h[1] + '</div>' + closeRow());
+  openSheet('<h3>' + h[0] + '</h3><div class="help-text">' + h[1] + '</div>');
 }
 const todayET = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
 function norm(name) {
@@ -264,7 +257,7 @@ function norm(name) {
 }
 function colorFor(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360; return 'hsl(' + h + ' 55% 45%)'; }
 function initials(name) { const p = String(name || '?').trim().split(/\s+/); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase(); }
-function avatar(id, name) { return '<span class="avatar" style="background:' + colorFor(id) + '" aria-hidden="true">' + esc(initials(name)) + '</span>'; }
+function avatar(id, name) { return '<span class="avatar" style="--av:' + colorFor(id) + '" aria-hidden="true">' + esc(initials(name)) + '</span>'; }
 
 function toast(msg) {
   const t = $('toast'); t.hidden = false; t.textContent = msg;
@@ -755,8 +748,9 @@ function renderHeader() {
   $('runName').textContent = run.name;
   const bits = [];
   if (run.fictitious) bits.push('<span class="chip">Teste</span>');
-  if (S.days.length) bits.push('<span>' + dShort(S.days[0].date) + ' – ' + dShort(S.days[S.days.length - 1].date) + '</span>');
-  if (r) { const nd = nextDay(), m = mainResult(); bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span><span class="rec">' + recordTxt(m.wins, m.losses) + '</span>'); }
+  // uma linha só: em que dia vai e o registo (as datas estão na faixa da Jornada)
+  if (r) { const nd = nextDay(), m = mainResult(); bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span>', '<span class="rec">' + recordTxt(m.wins, m.losses) + '</span>'); }
+  else if (S.days.length) bits.push('<span>' + dShort(S.days[0].date) + ' – ' + dShort(S.days[S.days.length - 1].date) + '</span>');
   $('runMeta').innerHTML = bits.join('<span aria-hidden="true">·</span>');
 }
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
@@ -795,9 +789,9 @@ function objVals(md, pi, live) {
     return { o, v: v || 0, fin: st === 'fim' };
   });
 }
-function pvHtml(vals) {
+function pvHtml(vals, mark) {
   const fv = x => (x.fin ? f0(x.v) : f1(x.v));
-  if (vals.length <= 1) { const x = vals[0]; return '<div class="pv"><div class="v num">' + (x ? fv(x) : '–') + '</div><div class="u">' + esc(x ? statShort(x.o.stat) : '') + '</div></div>'; }
+  if (vals.length <= 1) { const x = vals[0]; return '<div class="pv"><div class="v num">' + (x ? fv(x) : '–') + '</div><div class="u">' + esc(x ? statShort(x.o.stat) : '') + (mark || '') + '</div></div>'; }
   return '<div class="pv pv-multi">' + vals.map(x => '<div><b class="num">' + fv(x) + '</b><span class="u">' + esc(statShort(x.o.stat)) + '</span></div>').join('') + '</div>';
 }
 // barra de cada objetivo: projeção (ou feito ao vivo), alvo e, com mais de um, a chance de cada um
@@ -922,12 +916,12 @@ function renderJornada(el) {
       else if (st === 'jogo') ps = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Em jogo') + '</span> ' + md.objs.map((ob, k) => f0(md.info[pi][k].known) + (md.objs.length > 1 ? ' ' + esc(statShort(ob.stat)) : '')).join(' · ') + ' até agora';
       else if (st === 'jogo?') ps = '<span class="pill jogo">Em jogo</span> toca para pôr o valor';
       else ps = (sb2 ? '' : '<span class="pill prov">Novo</span> ') + esc(p.team) + ' ' + esc(opp(p.team, nd));
-    } else ps = esc(p.team) + ' ' + esc(opp(p.team, nd)) + injTag(info) + b2bTag(info) + ' · ' + srcShort(info) + formTag(p, o);
+    } else ps = esc(p.team) + ' ' + esc(opp(p.team, nd)) + (info.b2b ? ' · 2.º seguido' : ''); // a fonte do valor fica em Porquê e na ficha; a lesão é a pílula do nome
     // Moment que ainda está noutra conta: tem de ser mandado antes deste jogo
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Mandar de ' + esc(accLabel(tr.from)) + '</span> ' + ps;
     const stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
-    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div></div>' + pvHtml(objVals(md, pi, live)) + '</button></li>';
+    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div></div>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
   html.push('<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2><span class="small muted">' + (live ? 'pontos ao vivo' : d.lineup.length ? d.lineup.length + ' de ' + md.size : '') + '</span></div>' +
@@ -979,10 +973,12 @@ function gameRows(day, r, ids, B, lp, objs) {
   return games.map(g => {
     const bg = B ? B.find(x => (x.away === g[0] && x.home === g[1]) || (x.home === g[0] && x.away === g[1])) || null : null;
     const mine = r.model.players.filter(p => p.team === g[0] || p.team === g[1]).map(p => p.id).sort((a, b) => (inLine.has(b) ? 1 : 0) - (inLine.has(a) ? 1 : 0));
-    const stat = !bg ? (g[2] ? hm(g[2]) : '') : bg.state === 'pre' ? hm(bg.start || g[2]) : bg.state === 'post' ? 'Final' : bg.detail;
-    const sc = bg && bg.state !== 'pre' ? '<b class="num">' + esc(bg.as) + '</b> – <b class="num">' + esc(bg.hs) + '</b>' : '<span class="num">' + esc(g[2] ? hm(g[2]) : '–') + '</span>';
-    return '<li class="game-row' + (bg && bg.state === 'in' ? ' on' : '') + (mine.some(id => inLine.has(id)) ? ' mine' : '') + '"><span class="gt">' + teamTag(g[0]) + '</span><span class="gs">' + sc + '</span><span class="gt r">' + teamTag(g[1]) + '</span>' + (bg && bg.state !== 'pre' ? '<span class="gst">' + esc(stat) + '</span>' : '') +
-      (mine.length ? '<span class="gm">' + mine.map(id => { const e = lp && lp[id], on = inLine.has(id); return (on ? '<b>' : '<span class="muted">') + esc(lastName(id)) + (e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : '') + (on ? '</b>' : '</span>'); }).join(' · ') + '</span>' : '') + '</li>';
+    // uma linha por jogo: as equipas (e o resultado) à esquerda, a hora ou o estado à direita; os meus jogadores por baixo
+    const started = bg && bg.state !== 'pre', st = !started ? '' : bg.state === 'post' ? 'Final' : bg.detail;
+    const teams = teamTag(g[0]) + (started ? ' <b class="gsc num">' + esc(bg.as) + '–' + esc(bg.hs) + '</b> ' : ' <span class="muted">@</span> ') + teamTag(g[1]);
+    const right = started ? esc(st) : (g[2] ? hm(bg && bg.start || g[2]) : '–');
+    return '<li class="game-row' + (bg && bg.state === 'in' ? ' on' : '') + '"><span class="gl">' + teams + '</span><span class="gs num">' + right + '</span>' +
+      (mine.length ? '<span class="gm">' + mine.map(id => { const e = lp && lp[id], on = inLine.has(id); return (on ? '<b>' : '<span>') + esc(lastName(id)) + (e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : '') + (on ? '</b>' : '</span>'); }).join(' · ') + '</span>' : '') + '</li>';
   }).join('');
 }
 // Jogos do dia: durante os jogos ficam por cima do lineup, com o placar da ESPN; antes, por baixo, com as horas
@@ -1162,7 +1158,7 @@ async function opcoesSheet(fetchLive) {
   if (during) ensureLive();
   compute();
   const r0 = S.result;
-  openSheet('<h3>Opções para hoje ' + helpBtn('opcoes') + '</h3><div id="opHead" class="stack">' + (during ? liveHead(nd).html : '') + '</div><div id="opCards" class="stack"><div class="small muted" id="opProg">' + (during ? 'A ler os pontos ao vivo…' : 'A refazer a run…') + '</div></div>' + closeRow());
+  openSheet('<h3>Opções para hoje ' + helpBtn('opcoes') + '</h3><div id="opHead" class="stack">' + (during ? liveHead(nd).html : '') + '</div><div id="opCards" class="stack"><div class="small muted" id="opProg">' + (during ? 'A ler os pontos ao vivo…' : 'A refazer a run…') + '</div></div>');
   if (during && fetchLive !== false && gamesWindow(nd)) { try { await liveFetch(true); } catch (e) { /* sem rede: usa o que há */ } if (!$('opCards')) return; compute(); }
   const r = S.result || r0, cur = view(), d0 = cur.days[0];
   let opts = [];
@@ -1572,9 +1568,9 @@ function colRows() {
   S.colN = list.length; const cnt = $('colCount'); if (cnt) cnt.textContent = list.length + ' jogadores';
   if (!list.length) return '<li class="row small muted">Nenhum jogador com esse filtro.</li>';
   return list.map(({ id, c, p, tc, uses }) => {
-    const inR = roster && roster[id], ini = initials(p.name || c.name), bg = TEAM_COLOR[p.team] || colorFor(id);
+    const inR = roster && roster[id];
     const owners = groupMode() ? Object.entries(c.owners || {}).map(([k, x]) => esc(accLabel(k)) + (x > 1 ? ' ×' + x : '')).join(' · ') : '';
-    return '<li><button class="row col-row" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="avatar" style="background:' + bg + '" aria-hidden="true">' + esc(ini) + '</span>' +
+    return '<li><button class="row col-row" type="button" data-action="pform" data-id="' + esc(id) + '">' +
       '<div style="min-width:0;flex:1"><div class="pn"><span class="nm">' + esc(p.name || c.name) + '</span>' + (roster ? (inR ? '<span class="badge">no plantel</span>' : '<span class="pill duv">fora do plantel</span>') : '') + '</div>' +
       '<div class="ps">' + teamTag(p.team) + ' · ' + plural(+c.moments || 0, 'Moment', 'Moments') + (owners ? ' · ' + owners : '') + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS' : '') + '</div>' +
       (Object.keys(tc).length ? '<div class="tpills">' + tierPills(tc) + '</div>' : '') + '</div>' +
@@ -1636,8 +1632,8 @@ function renderPlantel() {
   let usedTot = 0; Object.values(played).forEach(pl => { if (pl && pl.done) usedTot += (pl.lineup || []).length; });
   const closed = Object.values(played).filter(pl => pl && pl.done).length;
   body.innerHTML = accSwitch() +
-    '<div class="card"><div class="list-head"><h2>' + esc(run.name || 'Run') + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + ' ' + helpBtn('plantel') + '</h2></div>' +
-    '<div class="kv" style="padding:0 14px 10px"><div><div class="label">Usados</div><div class="v num">' + usedTot + '</div><div class="small muted">' + closed + ' dia' + (closed === 1 ? '' : 's') + ' fechado' + (closed === 1 ? '' : 's') + '</div></div><div><div class="label">Restantes</div><div class="v num">' + totalU + '</div><div class="small muted">' + ids.length + ' jogadores</div></div><div><div class="label">No plano</div><div class="v num">' + totalP + '</div><div class="small muted">até ao fim</div></div></div>' +
+    '<div class="card"><div class="list-head"><h2>Usos' + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + ' ' + helpBtn('plantel') + '</h2></div>' +
+    '<div class="kv" style="padding:0 16px 12px"><div><div class="label">Usados</div><div class="v num">' + usedTot + '</div><div class="small muted">' + plural(closed, 'dia', 'dias') + '</div></div><div><div class="label">Restantes</div><div class="v num">' + totalU + '</div><div class="small muted">' + ids.length + ' jogadores</div></div><div><div class="label">No plano</div><div class="v num">' + totalP + '</div><div class="small muted">até ao fim</div></div></div>' +
     '<div class="seg pl-seg" role="group" aria-label="Como ver o plantel">' + [['lista', 'Jogadores'], ['plano', 'Plano por dia'], ['valor', 'Valor por dia']].map(([k, l]) => '<button type="button" data-action="pl-view" data-v="' + k + '" aria-pressed="' + (PV.mode === k) + '">' + l + '</button>').join('') + '</div>' +
     view3 + '</div>';
 }
@@ -1704,11 +1700,11 @@ function plListHtml(ctx) {
     const avgs = stats.map(s => { const a = FB.avgOf({ avg: p.avg }, s); if (!a) return ''; const fi = FB.formInfo(p, s), d = fi && (fi.n5 || 0) >= 3 && fi.season ? (fi.l5 - fi.season) / Math.max(1, Math.abs(fi.season)) : 0;
       return '<span>' + esc(statShort(s)) + ' <b class="num">' + f1(a.v) + '</b>' + (d >= 0.08 ? '<i class="up">▲</i>' : d <= -0.08 ? '<i class="down">▼</i>' : '') + '</span>'; }).filter(Boolean).join('');
     const full = f.uses > 0 && f.plan >= f.uses, none = f.uses <= 0;
-    return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '"><span class="avatar" style="background:' + (TEAM_COLOR[p.team] || colorFor(p.id)) + '" aria-hidden="true">' + esc(initials(p.name)) + '</span>' +
+    return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '">' +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (f.tier ? '<span class="tpill t-' + TIER_CLS[f.tier] + '">' + f.tier + '</span>' : '') + st + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div>' +
-      plStrip(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</div>' +
-      '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + f.uses + '</b><span>' + (f.uses === 1 ? 'uso' : 'usos') + '</span><small>' + (f.plan ? 'plano ' + f.plan : 'fora do plano') + (f.usedN ? ' · usado ' + f.usedN : '') + '</small></div></button></li>';
+      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +
+      '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + f.uses + '</b><span>' + (f.uses === 1 ? 'uso' : 'usos') + '</span><small>' + (f.plan ? 'plano ' + f.plan : 'fora do plano') + (f.usedN ? ' · usado ' + f.usedN : '') + '</small></div>' +
+      plStrip(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</button></li>';
   }).join('');
   return plToolbar(counts, fk, true) + '<ul class="list">' + (items || '<li class="row small muted">Nenhum jogador com este filtro.</li>') + '</ul>' +
     '<div class="legend"><span><i class="ls s-u"></i>usado</span><span><i class="ls s-on"></i>no plano</span>' + (S.multi ? '<span><i class="ls s-ot"></i>na outra conta</span>' : '') + '<span><i class="ls s-g"></i>tem jogo</span><span>▲▼ forma nos últimos 5 jogos</span></div>';
@@ -1822,7 +1818,7 @@ function catalogSheet(id) {
   openSheet('<h3>' + esc(c.name) + '</h3><div class="small muted">' + teamTag(c.team) + (c.gp ? ' · ' + c.gp + ' jogos esta época' : '') + '</div>' + injuryBlock(String(id), null, null) +
     (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div></div>' : '<div class="note info">Ainda sem médias.</div>') +
     gamesTable(avg) +
-    '<div class="btns">' + (S.runId ? '<button class="btn primary" type="button" data-action="buy-eval" data-id="' + esc(id) + '">Ver se compensa comprar</button>' : '<span></span>') + '<button class="btn" type="button" data-action="add-id" data-id="' + esc(id) + '">Juntar ao plantel</button></div>' + closeRow());
+    '<div class="btns">' + (S.runId ? '<button class="btn primary" type="button" data-action="buy-eval" data-id="' + esc(id) + '">Ver se compensa comprar</button>' : '<span></span>') + '<button class="btn" type="button" data-action="add-id" data-id="' + esc(id) + '">Juntar ao plantel</button></div>');
 }
 // ---- dicas de compra: refaz a run com cada candidato ----
 function buyHtml() {
@@ -2221,7 +2217,7 @@ function friendSheet(uid) {
       (r ? '<span class="pchip ' + (r === 'win' ? 'p-good' : 'p-bad') + '">' + (r === 'win' ? 'V' : 'D') + '</span>' : '<span class="pchip p-done">—</span>') + '</li>';
   }).join('');
   openSheet('<h3>' + esc(p.display_name || 'Sem nome') + '</h3><div class="small muted">' + (p.topshot_username ? 'Top Shot: ' + esc(p.topshot_username) : 'Sem utilizador do Top Shot no perfil') + '</div>' +
-    '<ul class="list card">' + rows + '</ul>' + closeRow());
+    '<ul class="list card">' + rows + '</ul>');
 }
 
 // ---- Ajustes ----
@@ -2404,23 +2400,38 @@ function dataHtml() {
 
 // ---------- folhas ----------
 // a folha é um diálogo: o resto da app fica inerte enquanto está aberta, o foco entra nela e volta ao botão que a abriu
+// em cima: ‹ para voltar à folha anterior (quando há) e × para fechar; o botão/gesto de voltar do telemóvel faz o mesmo
+const icoBack = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
+const icoX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 function openSheet(html, back) {
   S.sheetBack = back || null;
   const p = $('sheetPanel');
   if ($('sheet').hidden) S.sheetFrom = document.activeElement;
-  p.innerHTML = '<div class="grab" aria-hidden="true"></div>' + html;
+  p.innerHTML = '<div class="sheet-bar">' + (back ? '<button class="sheet-ic" type="button" data-action="sheet-back" aria-label="Voltar">' + icoBack + '</button>' : '<span></span>') +
+    '<div class="grab" aria-hidden="true"></div><button class="sheet-ic" type="button" data-action="close-sheet" aria-label="Fechar">' + icoX + '</button></div>' + html;
   const h = p.querySelector('h2, h3');
   if (h) p.setAttribute('aria-labelledby', h.id || (h.id = 'sheetTitle')); else p.removeAttribute('aria-labelledby');
   p.querySelectorAll('[id$="Prog"]').forEach(x => x.setAttribute('role', 'status')); // "a calcular…" lido pelo leitor de ecrã
   $('sheet').hidden = false; $('app').inert = true; p.scrollTop = 0;
   if (!p.contains(document.activeElement)) p.focus({ preventScroll: true });
+  sheetGuard();
 }
-function closeSheet() {
+function closeSheet(fromBack) {
   $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; S.sheetPl = null; $('app').inert = false;
   const f = S.sheetFrom; S.sheetFrom = null;
   if (f && f.isConnected && typeof f.focus === 'function') f.focus({ preventScroll: true });
+  if (!fromBack) sheetUnguard();
 }
-const closeRow = back => '<div class="btns">' + (back ? '<button class="btn quiet" type="button" data-action="sheet-back">Voltar</button>' : '<span></span>') + '<button class="btn quiet" type="button" data-action="close-sheet">Fechar</button></div>';
+// botão/gesto de voltar do telemóvel: com uma folha aberta, volta à folha anterior ou fecha-a (em vez de sair da app).
+// Enquanto há uma folha aberta fica uma entrada a mais no histórico; ao fechar de outra maneira (×, fundo, Esc) sai.
+function sheetGuard() { try { if (!(history.state && history.state.fbSheet)) history.pushState({ fbSheet: 1 }, ''); } catch (e) { /* sem histórico: só os botões */ } }
+function sheetUnguard() { setTimeout(() => { try { if ($('sheet').hidden && history.state && history.state.fbSheet) { S.popIgnore = true; history.back(); } } catch (e) {} }, 0); }
+window.addEventListener('popstate', () => {
+  if (S.popIgnore) { S.popIgnore = false; return; }
+  if ($('sheet').hidden) return;
+  const fn = S.sheetBack;
+  if (fn) fn(); else closeSheet(true);
+});
 function dayInfo(date) { const r = S.result; const md = r && r.model.days.find(x => x.day.date === date); const d = md && view().days.find(x => x.date === date); return { md, d }; }
 
 // ---- comparar os jogadores de um dia (forma, minutos, lançamentos, adversário) ----
@@ -2507,7 +2518,7 @@ function playerSheet(id, date, back) {
     '<div class="kv"><div><div class="label">Esperado</div><div class="v num">' + (md.objs.length > 1 ? md.objs.map((x, k) => f1((md.info[pi][k] || {}).mu || 0)).join('<small> / </small>') : f1(info.mu)) + '</div><div class="small muted">' + (md.objs.length > 1 ? md.objs.map(x => esc(statShort(x.stat))).join(' / ') : esc(statShort(o.stat))) + '</div></div><div><div class="label">Usos</div><div class="v num">' + (p.uses || 0) + '</div><div class="small muted">restantes</div></div><div><div class="label">No plano</div><div class="v num">' + inPlan.length + '</div><div class="small muted">' + (inPlan.length ? 'dias ' + inPlan.join(', ') : '—') + '</div></div></div>' +
     liveHtml + injuryBlock(id, info.injury, date) + (md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + gamesTable(p.avg) +
     '<div class="stack">' + (locked ? '<button class="btn" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">Deixar de fixar neste dia</button>' : '<button class="btn primary" type="button" data-action="lock" data-id="' + esc(id) + '" data-date="' + date + '">Fixar neste dia</button>') +
-    '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Tirar deste dia</button></div>' + closeRow(back), back);
+    '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Tirar deste dia</button></div>', back);
 }
 function rosterSheet(id) {
   const e = S.mine.roster[id]; if (!e) return;
@@ -2533,7 +2544,7 @@ function rosterSheet(id) {
     '<div><div class="label" style="margin-bottom:6px">Estado</div><div class="chips" role="group" aria-label="Estado">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
     (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo' + (c.gp ? ' (' + c.gp + ' jogos)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimativa a partir das outras médias</div>' : '') + '</div>' : '<div class="note info">Ainda sem médias.</div>') +
     gamesTable(avg) +
-    '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Tirar do plantel</button>' + closeRow());
+    '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Tirar do plantel</button>');
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
 // (p. ex. dos dois Luka, só um é Rare); os usos por run do jogador são os da melhor carta
@@ -2593,7 +2604,7 @@ function momentsBlock(id) {
 }
 function addPlayerSheet() {
   openSheet('<h3>Adicionar jogador</h3><input class="field" id="apSearch" type="search" placeholder="Nome do jogador…" autocomplete="off" aria-label="Procurar jogador"><div id="apResults" class="search-list"></div>' +
-    '<div class="small muted"><button class="btn link small" type="button" data-action="paste-sheet">Colar uma lista</button> · <button class="btn link small" type="button" data-action="custom-player">Jogador que não aparece</button></div>' + closeRow());
+    '<div class="small muted"><button class="btn link small" type="button" data-action="paste-sheet">Colar uma lista</button> · <button class="btn link small" type="button" data-action="custom-player">Jogador que não aparece</button></div>');
   renderSearch(''); setTimeout(() => { const f = $('apSearch'); if (f) f.focus(); }, 50);
 }
 function searchPlayers(qs, limit) {
@@ -2610,7 +2621,7 @@ function renderSearch(qs) {
 }
 function customPlayerSheet() {
   openSheet('<h3>Adicionar à mão</h3><input class="field" id="cpName" placeholder="Nome" aria-label="Nome do jogador"><div class="grid2"><select class="field" id="cpTeam" aria-label="Equipa">' + TEAMS.map(t => '<option>' + t + '</option>').join('') + '</select><input class="field num" id="cpUses" type="number" min="0" max="20" value="1" aria-label="Usos"></div>' +
-    '<div class="small muted">Sem médias, só entra no plano nos dias com odds.</div><div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Cancelar</button><button class="btn primary" type="button" data-action="save-custom">Adicionar</button></div>');
+    '<div class="small muted">Sem médias, só entra no plano nos dias com odds.</div><div class="btns"><button class="btn quiet" type="button" data-action="sheet-back">Cancelar</button><button class="btn primary" type="button" data-action="save-custom">Adicionar</button></div>', addPlayerSheet);
 }
 // "Jokic 2, Tatum 3" → [{text, uses, match}]
 function parseList(text) {
@@ -2627,7 +2638,7 @@ function parseList(text) {
 }
 function pasteSheet() {
   openSheet('<h3>Colar lista</h3><div class="small muted">Um por linha, com os usos. Ex.: <span class="kbd">Jokic 2</span> <span class="kbd">Curry 1</span></div>' +
-    '<textarea class="field" id="pasteText" rows="6" aria-label="Lista de jogadores"></textarea><button class="btn" type="button" data-action="paste-preview">Ver correspondências</button><div id="pasteOut"></div>' + closeRow());
+    '<textarea class="field" id="pasteText" rows="6" aria-label="Lista de jogadores"></textarea><button class="btn" type="button" data-action="paste-preview">Ver correspondências</button><div id="pasteOut"></div>', addPlayerSheet);
 }
 
 // ---------- carteira: Moments lidos da blockchain Flow, diretamente no browser ----------
@@ -2822,7 +2833,7 @@ async function walletSheet() {
     openSheet('<h3>Ler carteira</h3><div class="small muted">Falta o endereço Flow (carteira Dapper) no teu perfil.</div><div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Cancelar</button><button class="btn primary" type="button" data-action="goto" data-tab="ajustes" data-sub="perfil">Ir a Ajustes</button></div>');
     return;
   }
-  openSheet('<h3>Ler carteira' + (accs.length > 1 ? 's' : '') + '</h3><div class="small muted" id="wProg">A ler os teus Moments na blockchain…</div>' + closeRow());
+  openSheet('<h3>Ler carteira' + (accs.length > 1 ? 's' : '') + '</h3><div class="small muted" id="wProg">A ler os teus Moments na blockchain…</div>');
   const reads = [], failed = [];
   for (const a of accs) {
     try { reads.push({ a, w: await readWallet(a.flow.trim(), (d, t) => { const el = $('wProg'); if (el) el.textContent = 'A ler ' + a.label + '… ' + d + ' de ' + t + ' Moments'; }) }); }
@@ -2890,7 +2901,7 @@ async function walletSheet() {
     (found.length ? '<ul class="ops">' + found.map(li).join('') + '</ul>' : '<div class="small muted">Nenhum Moment de um jogador com equipa NBA esta época.</div>') +
     (outside.size ? '<div class="small muted">Não entram (WNBA, retirados): ' + [...outside.values()].slice(0, 25).map(esc).join(', ') + (outside.size > 25 ? ' e mais ' + (outside.size - 25) : '') + '.</div>' : '') +
     (gone.length ? '<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wGone"> <span>Tirar do plantel quem já não está na carteira: ' + gone.map(id => esc(nameOf(id))).join(', ') + '</span></label>' : '') +
-    '<button class="btn primary" type="button" data-action="wallet-apply" style="width:100%">' + (hasRun ? (fresh.length ? 'Guardar e juntar ' + fresh.length + ' jogador' + (fresh.length > 1 ? 'es' : '') + ' ao plantel' : 'Guardar e atualizar o plantel') : 'Guardar a coleção') + '</button>' + closeRow());
+    '<button class="btn primary" type="button" data-action="wallet-apply" style="width:100%">' + (hasRun ? (fresh.length ? 'Guardar e juntar ' + fresh.length + ' jogador' + (fresh.length > 1 ? 'es' : '') + ' ao plantel' : 'Guardar e atualizar o plantel') : 'Guardar a coleção') + '</button>');
 }
 async function walletApply() {
   const col = S.walletCol; if (!col) return;
@@ -2943,7 +2954,8 @@ async function choiceSheet(id, date, kind) {
   if (kind === 'ban' && !inPlan) { banToggle(id, date, true); closeSheet(); return; }
   const day = S.days.find(x => x.date === date) || {}, dn = S.days.indexOf(day) + 1, name = esc(nameOf(id));
   const title = kind === 'lock' ? 'Fixar ' + name + ' no dia ' + dn + '?' : 'Tirar ' + name + ' do dia ' + dn + '?';
-  openSheet('<h3>' + title + '</h3><div class="small muted" id="choiceProg">A refazer a run…</div>' + closeRow());
+  const back = () => playerSheet(id, date);
+  openSheet('<h3>' + title + '</h3><div class="small muted" id="choiceProg">A refazer a run…</div>', back);
   await new Promise(res => setTimeout(res, 30));
   let ev;
   try {
@@ -2980,7 +2992,7 @@ async function choiceSheet(id, date, kind) {
     : gain ? '<div class="note info"><b>Sobe</b> as tuas hipóteses. Vale a pena.</div>'
     : '<div class="note info">Quase não muda nada.</div>';
   openSheet('<h3>' + title + '</h3>' + verdict + '<div class="card">' + lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') + '</div>' +
-    '<div class="btns"><button class="btn quiet" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '">Cancelar</button><button class="btn ' + (loss ? '' : 'primary') + '" type="button" data-action="' + (kind === 'lock' ? 'lock-yes' : 'ban-yes') + '" data-id="' + esc(id) + '" data-date="' + date + '">' + (kind === 'lock' ? 'Fixar na mesma' : 'Tirar na mesma') + '</button></div>');
+    '<div class="btns"><button class="btn quiet" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '">Cancelar</button><button class="btn ' + (loss ? '' : 'primary') + '" type="button" data-action="' + (kind === 'lock' ? 'lock-yes' : 'ban-yes') + '" data-id="' + esc(id) + '" data-date="' + date + '">' + (kind === 'lock' ? 'Fixar na mesma' : 'Tirar na mesma') + '</button></div>', back);
 }
 function lockToggle(id, date, on) {
   const cur = new Set(((curPlan().locks || {})[date]) || []);
@@ -3192,7 +3204,7 @@ document.addEventListener('click', async e => {
       const sn = (curPlan().proj || {})[date];
       const lineup = d ? (liveOn(date) && d.live ? d.live.submitted : d.lineup) : liveOn(date) ? ((liveDoc(date) || {}).lineup || []) : sn ? sn.lineup : [];
       openSheet('<h3>Fechar o dia ' + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">' + (lineup.length ? 'Com o lineup ' + (liveOn(date) ? 'que submeteste' : d ? 'do plano' : 'previsto') + ': os usos destes jogadores são descontados.' : 'Sem lineup guardado: depois acerta os usos de quem jogou (toca no jogador em Jogadores).') + ' Com o utilizador do Top Shot no perfil, isto entra sozinho da blockchain.</div>' +
-        (lineup.length ? '<ul class="list card">' + lineup.map(x => '<li class="row"><span>' + esc(nameOf(x)) + '</span></li>').join('') + '</ul>' : '') + '<div class="btns"><button class="btn" type="button" data-action="result" data-date="' + date + '" data-res="loss">Perdi</button><button class="btn primary" type="button" data-action="result" data-date="' + date + '" data-res="win">Ganhei</button></div>' + closeRow());
+        (lineup.length ? '<ul class="list card">' + lineup.map(x => '<li class="row"><span>' + esc(nameOf(x)) + '</span></li>').join('') + '</ul>' : '') + '<div class="btns"><button class="btn" type="button" data-action="result" data-date="' + date + '" data-res="loss">Perdi</button><button class="btn primary" type="button" data-action="result" data-date="' + date + '" data-res="win">Ganhei</button></div>');
       break;
     }
     case 'result': recordResult(date, b.dataset.res); closeSheet(); break;
@@ -3285,7 +3297,7 @@ document.addEventListener('click', async e => {
     case 'paste-apply': { const items = (S.pasteItems || []).filter(x => x.match); items.forEach(x => { S.mine.roster[x.match.id] = Object.assign({ status: 'ok' }, S.mine.roster[x.match.id] || {}, { uses: x.uses }); }); closeSheet(); applyChainResults(); schedule(); saveMine(); toast(items.length + ' jogadores no plantel.'); break; }
     case 'copy-roster': {
       const others = S.runs.filter(x => x.id !== S.runId);
-      openSheet('<h3>Copiar plantel</h3><div class="small muted">Copia os jogadores de outra run. Os usos voltam a 1; acerta-os depois.</div><div class="stack">' + others.map(x => '<button class="btn" type="button" data-action="copy-from" data-id="' + esc(x.id) + '">' + esc(x.name) + '</button>').join('') + '</div>' + closeRow());
+      openSheet('<h3>Copiar plantel</h3><div class="small muted">Copia os jogadores de outra run. Os usos voltam a 1; acerta-os depois.</div><div class="stack">' + others.map(x => '<button class="btn" type="button" data-action="copy-from" data-id="' + esc(x.id) + '">' + esc(x.name) + '</button>').join('') + '</div>');
       break;
     }
     case 'copy-from': {
@@ -3373,6 +3385,7 @@ setInterval(() => {
 // ---------- arranque ----------
 (async function init() {
   staticTexts();
+  try { if (history.state && history.state.fbSheet) history.replaceState(null, ''); } catch (e) {} // recarregou com uma folha aberta
   if (!sb) { showGate(brand() + '<div class="err">O site ainda não está ligado ao Supabase.</div><p class="small muted" style="margin:0">Põe o Project URL e a chave anon/publishable em <span class="kbd">docs/config.js</span>.</p>'); return; }
   sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') { S.session = null; } });
   try { await afterLogin(); } catch (e) { renderAuth('login', errText(e)); }

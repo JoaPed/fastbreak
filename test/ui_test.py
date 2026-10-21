@@ -485,6 +485,17 @@ with sync_playwright() as pw:
     print('E grupo:', ' // '.join(pg.locator('.grp-row').all_inner_texts()).replace('\n', ' ')[:300])
     pg.screenshot(path=str(shots / 'grupo-aros.png'), full_page=True)
     print('E largura:', width(pg))
+    # folhas: × sempre em cima à direita; ‹ quando há folha anterior; o voltar do telemóvel volta/fecha sem sair da app
+    sheet_t = lambda: pg.locator('#sheetPanel h3').first.inner_text() if pg.evaluate('!document.getElementById("sheet").hidden') else '(fechada)'
+    pg.click('#t-hoje'); pg.wait_for_timeout(300); pg.click('#tab-hoje button[data-action="sub"][data-sub="lineup"]'); pg.wait_for_timeout(300)
+    pg.locator('#tab-hoje .list button[data-action="player"]').first.click(); pg.wait_for_timeout(400)
+    print('E folha (× / ‹):', pg.locator('#sheetPanel .sheet-bar [data-action="close-sheet"]').count(), '/', pg.locator('#sheetPanel .sheet-bar [data-action="sheet-back"]').count())
+    pg.click('#sheetPanel button[data-action="ban"]'); pg.wait_for_function("() => !document.getElementById('choiceProg')", timeout=60000); pg.wait_for_timeout(200)
+    pg.click('#sheetPanel .sheet-bar [data-action="sheet-back"]'); pg.wait_for_timeout(300)
+    print('E ‹ volta à ficha:', sheet_t())
+    pg.click('#sheetPanel button[data-action="ban"]'); pg.wait_for_function("() => !document.getElementById('choiceProg')", timeout=60000); pg.wait_for_timeout(200)
+    pg.go_back(); pg.wait_for_timeout(400); print('E voltar do telemóvel 1:', sheet_t())
+    pg.go_back(); pg.wait_for_timeout(400); print('E voltar do telemóvel 2:', sheet_t(), '· na app:', pg.url, pg.evaluate('!document.getElementById("app").hidden'))
     pg.close()
 
     # ---------- F: jogos de hoje ao vivo e jogos seguidos (relógio no dia 1, a meio do 2.º jogo) ----------

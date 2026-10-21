@@ -183,7 +183,6 @@
  "tab-ajustes": null,
  " sm": null,
  " on": null,
- " mine": null,
  "up": null,
  "V ": null,
  "p-good": null,
@@ -221,18 +220,6 @@
   }
  },
  " PTS": null,
- " dia": {
-  "en": " day",
-  "at": {
-   "'<div class=\"kv\" style=\"padding:0 14px 10px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + closed + '": " day"
-  }
- },
- " fechado": {
-  "en": " closed",
-  "at": {
-   "'<div class=\"kv\" style=\"padding:0 14px 10px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + closed + '": " closed"
-  }
- },
  "proximo": null,
  "sobram": null,
  "semusos": null,
@@ -436,8 +423,6 @@
  "há ": "",
  "Objetivo por definir": "Goal not set",
  " e ": " and ",
- " · <span class=\"up\">em forma ↑</span>": " · <span class=\"up\">in form ↑</span>",
- " · <span class=\"down\">fora de forma ↓</span>": " · <span class=\"down\">out of form ↓</span>",
  "linha ": "line ",
  "linha de ": "line from ",
  "odds + média": "odds + average",
@@ -446,8 +431,6 @@
  "Dúv.": "Q",
  "Prov.": "Prob.",
  " · regresso previsto ": " · expected back ",
- " · <span class=\"warn-t\">2.º seguido</span>": " · <span class=\"warn-t\">back-to-back</span>",
- "\">lesão: ": "\">injury: ",
  "Este é o próximo jogo dele": "This is his next game",
  "Este é o ": "This is his game no. ",
  ".º jogo dele a contar de agora": " from now",
@@ -765,7 +748,6 @@
  " jogadores da coleção</button>": " players from the collection</button>",
  "<button class=\"btn link\" type=\"button\" data-action=\"copy-roster\">Copiar o plantel de outra run</button>": "<button class=\"btn link\" type=\"button\" data-action=\"copy-roster\">Copy the roster from another run</button>",
  "<div class=\"note info\">A calcular o plano…</div>": "<div class=\"note info\">Calculating the plan…</div>",
- "<div class=\"kv\" style=\"padding:0 14px 10px\"><div><div class=\"label\">Usados</div><div class=\"v num\">": "<div class=\"kv\" style=\"padding:0 14px 10px\"><div><div class=\"label\">Used</div><div class=\"v num\">",
  "</div></div><div><div class=\"label\">Restantes</div><div class=\"v num\">": "</div></div><div><div class=\"label\">Left</div><div class=\"v num\">",
  " jogadores</div></div><div><div class=\"label\">No plano</div><div class=\"v num\">": " players</div></div><div><div class=\"label\">In the plan</div><div class=\"v num\">",
  "</div><div class=\"small muted\">até ao fim</div></div></div>": "</div><div class=\"small muted\">until the end</div></div></div>",
@@ -1032,8 +1014,6 @@
  "Blockchain": null,
  " runs lidas": " runs read",
  "à espera da primeira leitura": "waiting for the first read",
- "<button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Voltar</button>": "<button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Back</button>",
- "<button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Fechar</button></div>": "<button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Close</button></div>",
  "Proj.": null,
  "<small>linha ": "<small>line ",
  "O que o plano espera hoje (odds se houver; senão médias com forma e adversário)": "What the plan expects today (odds if available; otherwise averages with form and opponent)",
@@ -1535,7 +1515,6 @@
  " contas na mesma noite": " accounts on the same night",
  "<div class=\"small muted\"><button class=\"btn link small\" type=\"button\" data-action=\"paste-sheet\">Colar uma lista</button> · <button class=\"btn link small\" type=\"button\" data-action=\"custom-player\">Jogador que não aparece</button></div>": "<div class=\"small muted\"><button class=\"btn link small\" type=\"button\" data-action=\"paste-sheet\">Paste a list</button> · <button class=\"btn link small\" type=\"button\" data-action=\"custom-player\">Player not listed</button></div>",
  "<div class=\"row muted small\">O catálogo de jogadores ainda está vazio.</div>": "<div class=\"row muted small\">The player catalogue is still empty.</div>",
- "<div class=\"small muted\">Sem médias, só entra no plano nos dias com odds.</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Cancelar</button><button class=\"btn primary\" type=\"button\" data-action=\"save-custom\">Adicionar</button></div>": "<div class=\"small muted\">Without averages, he only enters the plan on days with odds.</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Cancel</button><button class=\"btn primary\" type=\"button\" data-action=\"save-custom\">Add</button></div>",
  "<h3>Colar lista</h3><div class=\"small muted\">Um por linha, com os usos. Ex.: <span class=\"kbd\">Jokic 2</span> <span class=\"kbd\">Curry 1</span></div>": "<h3>Paste list</h3><div class=\"small muted\">One per line, with the uses. E.g. <span class=\"kbd\">Jokic 2</span> <span class=\"kbd\">Curry 1</span></div>",
  "<h3>Ler carteira</h3><div class=\"small muted\">Falta o endereço Flow (carteira Dapper) no teu perfil.</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Cancelar</button><button class=\"btn primary\" type=\"button\" data-action=\"goto\" data-tab=\"ajustes\" data-sub=\"perfil\">Ir a Ajustes</button></div>": "<h3>Read wallet</h3><div class=\"small muted\">Your profile is missing the Flow address (Dapper wallet).</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Cancel</button><button class=\"btn primary\" type=\"button\" data-action=\"goto\" data-tab=\"ajustes\" data-sub=\"perfil\">Go to Settings</button></div>",
  "<div class=\"note info\">Escalões: ": "<div class=\"note info\">Tiers: ",
@@ -1560,6 +1539,13 @@
  "<div class=\"small muted\">Prémios: ": "<div class=\"small muted\">Prizes: ",
  "sai ": "out: ",
  "Ajuda: ": "Help: ",
+ " <i class=\"fm up\" title=\"Em forma\" aria-label=\"em forma\">▲</i>": " <i class=\"fm up\" title=\"In form\" aria-label=\"in form\">▲</i>",
+ " <i class=\"fm down\" title=\"Fora de forma\" aria-label=\"fora de forma\">▼</i>": " <i class=\"fm down\" title=\"Out of form\" aria-label=\"out of form\">▼</i>",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Usos": "<div class=\"card\"><div class=\"list-head\"><h2>Uses",
+ "<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">": "<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Used</div><div class=\"v num\">",
+ "<button class=\"sheet-ic\" type=\"button\" data-action=\"sheet-back\" aria-label=\"Voltar\">": "<button class=\"sheet-ic\" type=\"button\" data-action=\"sheet-back\" aria-label=\"Back\">",
+ "<div class=\"grab\" aria-hidden=\"true\"></div><button class=\"sheet-ic\" type=\"button\" data-action=\"close-sheet\" aria-label=\"Fechar\">": "<div class=\"grab\" aria-hidden=\"true\"></div><button class=\"sheet-ic\" type=\"button\" data-action=\"close-sheet\" aria-label=\"Close\">",
+ "<div class=\"small muted\">Sem médias, só entra no plano nos dias com odds.</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Cancelar</button><button class=\"btn primary\" type=\"button\" data-action=\"save-custom\">Adicionar</button></div>": "<div class=\"small muted\">Without averages, he only enters the plan on days with odds.</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Cancel</button><button class=\"btn primary\" type=\"button\" data-action=\"save-custom\">Add</button></div>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1617,14 +1603,16 @@
   "at": {
    "run: () => [['premios', 'Prémios'], ['dias', 'Dias']].concat(S.multi ? [['contas', 'Contas']] : []).concat([['analise', 'Análise'], ['historico', 'Histórico']])": false,
    "if (buckets.length > 1) html.push('<div class=\"card\"><div class=\"list-head\"><h2>A previsão acerta?</h2><span class=\"small muted\">dias agrupados pela vitória pre": "days",
-   "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "days"
+   "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "days",
+   "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true
   }
  },
  "dia": {
   "en": "day",
   "at": {
    "if (buckets.length > 1) html.push('<div class=\"card\"><div class=\"list-head\"><h2>A previsão acerta?</h2><span class=\"small muted\">dias agrupados pela vitória pre": "day",
-   "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "day"
+   "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "day",
+   "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true
   }
  },
  "jogo": {
@@ -1644,7 +1632,8 @@
    "if ((day.games || []).length) out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jo": true,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a ca": true,
    "liveHtml = '<div class=\"card panel\" style=\"gap:10px\"><div class=\"label\">Ao vivo</div><div class=\"chips\" role=\"group\" aria-label=\"Estado do jogo\">' + [['por', 'P": false,
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'ao vivo') : p": true
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'ao vivo') : p": true,
+   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true
   }
  },
  "jogos": {
@@ -1660,7 +1649,8 @@
    "return '<li class=\"uses-row' + (accs.length > 1 ? ' multi' : '') + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(id)) + '</span></": "games",
    "if ((day.games || []).length) out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jo": true,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a ca": true,
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'ao vivo') : p": true
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'ao vivo') : p": true,
+   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true
   }
  },
  "usos": {
@@ -1821,7 +1811,8 @@
     "",
     ""
    ],
-   "$('pasteOut').innerHTML = items.length ? '<ul class=\"ops\">' + items.map(x => '<li>' + (x.match ? esc(x.match.name) + ' <span class=\"muted\">(' + esc(x.match.team": "s"
+   "$('pasteOut').innerHTML = items.length ? '<ul class=\"ops\">' + items.map(x => '<li>' + (x.match ? esc(x.match.name) + ' <span class=\"muted\">(' + esc(x.match.team": "s",
+   "openSheet('<h3>Ler carteira' + (accs.length > 1 ? 's' : '') + '</h3><div class=\"small muted\" id=\"wProg\">A ler os teus Moments na blockchain…</div>');": true
   }
  }
 }
