@@ -38,6 +38,9 @@ const injuries = new Map(rows.map(r => [r.id, r]));
 
 // ---------- 2) quem quer avisos ----------
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+// nota visível no resumo da tarefa no GitHub (sem nunca mostrar o token)
+const note = msg => { console.log(msg); if (process.env.GITHUB_ACTIONS) console.log('::notice title=Telegram::' + String(msg).replace(/[\r\n]+/g, ' ')); };
+if (process.env.GITHUB_ACTIONS && !TG_TOKEN) note('sem o segredo TELEGRAM_BOT_TOKEN: não há mensagens no grupo');
 let subs = [];
 try { subs = await must(sb.from('alerts').select('*')); }
 catch (e) { console.log('Sem a tabela alerts (' + e.message + '): sem avisos pessoais.'); }
@@ -55,19 +58,21 @@ async function tgChat() {
   const chats = ((up && up.result) || []).map(u => (u.my_chat_member || u.message || {}).chat).filter(c => c && (c.type === 'group' || c.type === 'supergroup'));
   const last = chats[chats.length - 1];
   if (last && String(last.id) !== String(tgState.chat)) {
-    tgState = { chat: String(last.id), title: last.title || '' }; await setState(sb, 'telegram', tgState); console.log('Telegram: grupo "' + tgState.title + '"');
-    await tg('sendMessage', { chat_id: tgState.chat, text: '🏀 Olá! Sou o bot do Fast Break. A partir de agora mando aqui as lesões dos vossos lineups, o ponto da situação às 23h e o lembrete "já fizeram o lineup?" uma hora antes dos jogos.' });
+    tgState = { chat: String(last.id), title: last.title || '' }; await setState(sb, 'telegram', tgState); note('grupo encontrado: "' + tgState.title + '"');
+    const hi = await tg('sendMessage', { chat_id: tgState.chat, text: '🏀 Olá! Sou o bot do Fast Break. A partir de agora mando aqui as lesões dos vossos lineups, o ponto da situação às 23h e o lembrete "já fizeram o lineup?" uma hora antes dos jogos.' });
+    note(hi && hi.ok ? 'olá enviado ao grupo' : 'o olá falhou: ' + ((hi && hi.description) || '?'));
   }
-  if (!up || !up.ok) console.log('Telegram: não consegui ler as mensagens do bot (' + ((up && up.description) || '?') + ')');
+  if (!up || !up.ok) note('não consegui ler as mensagens do bot (' + ((up && up.description) || '?') + '): confirma o token');
+  else if (!tgState.chat) note('o bot ainda não viu nenhum grupo: junta-o ao grupo e escreve lá /start@nome_do_bot');
   return tgState.chat || null;
 }
 async function sendTg(text) {
   const chat = await tgChat();
-  if (!chat) { console.log('Telegram: ainda não sei o grupo. Junta o bot ao grupo e escreve /start@<nome do bot> lá.'); return false; }
+  if (!chat) { note('ainda não sei o grupo. Junta o bot ao grupo e escreve /start@<nome do bot> lá.'); return false; }
   let r = await tg('sendMessage', { chat_id: chat, text, disable_web_page_preview: true });
   const mig = r && r.parameters && r.parameters.migrate_to_chat_id; // o grupo passou a supergrupo: muda de número
   if (!r.ok && mig) { tgState = Object.assign({}, tgState, { chat: String(mig) }); await setState(sb, 'telegram', tgState); r = await tg('sendMessage', { chat_id: mig, text, disable_web_page_preview: true }); }
-  if (!r.ok) console.log('Telegram falhou:', (r.description || '').slice(0, 120));
+  if (!r.ok) note('mensagem falhou: ' + (r.description || '').slice(0, 120));
   return !!r.ok;
 }
 
