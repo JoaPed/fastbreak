@@ -1722,7 +1722,14 @@
  "<div class=\"small muted\">Já não dá: ": "<div class=\"small muted\">Out of reach: ",
  ". Passa a contar: ": ". Now counting: ",
  "<ul class=\"steps\"><li><b>Lesões</b>: quando alguém de um lineup entra no relatório da NBA, muda de estado ou sai dele (✅ deve jogar), com de quem é o lineup.</li><li><b>Ponto da situação</b>: às 23h (ou 2 h antes do jogo) de quem continua em dúvida.</li><li><b>Especialistas do dia</b>: os melhores na estatística de hoje (os 8 primeiros em cada uma) que estejam em dúvida, mesmo sem estarem em nenhum lineup.</li><li><b>Já fizeram o lineup?</b>: uma hora antes do primeiro jogo do dia, com quem ainda não submeteu.</li><li><b>Última chamada</b>: meia hora antes do primeiro jogo do dia, se alguém continuar em dúvida.</li></ul>": "<ul class=\"steps\"><li><b>Injuries</b>: when someone in a lineup enters the NBA report, changes status or leaves it (✅ should play), with whose lineup it is.</li><li><b>Status update</b>: at 11 pm Lisbon (or 2 h before the game) for anyone still questionable.</li><li><b>Today’s specialists</b>: the best in today’s stat (top 8 in each) who are questionable, even if they aren’t in any lineup.</li><li><b>Done your lineups?</b>: one hour before the first game of the day, with who hasn’t submitted yet.</li><li><b>Last call</b>: half an hour before the first game of the day, if anyone is still questionable.</li></ul>",
- ", cada uma com a sua carta": ", each with its own card",
+ ":</b> cada conta tem ": ":</b> each account has ",
+ "Manda o ": "Send the ",
+ " do <b>": " of <b>",
+ " Moments, ": " Moments, ",
+ ". A 1.ª jogada de cada conta pode ser com qualquer carta": ". Each account’s 1st play can use any card",
+ ", a 2.ª precisa de um Rare ou melhor e a 3.ª e a 4.ª de um Legendary": ", the 2nd needs a Rare or better and the 3rd and 4th a Legendary",
+ ", a 2.ª precisa do ": ", the 2nd needs the ",
+ "; cada carta só joga numa conta por noite (o plano diz quando a passar). ": "; each card plays for one account per night (the plan says when to move it). ",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1864,7 +1871,9 @@
    "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + (": true,
    "box.innerHTML = searchPlayers(qs, 6).map(p => '<div class=\"row\"><span class=\"who\">' + face(p.id, 'sm') + '<div style=\"min-width:0\"><div class=\"pn\"><span class=\"": true,
    "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><span class=\"who\">' + face(t.id, 'sm') + '<div style=\"min-width": true,
-   ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true
+   ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true,
+   "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
+   "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true
   }
  },
  "uso": {
@@ -1886,7 +1895,9 @@
    "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + (": true,
    "box.innerHTML = searchPlayers(qs, 6).map(p => '<div class=\"row\"><span class=\"who\">' + face(p.id, 'sm') + '<div style=\"min-width:0\"><div class=\"pn\"><span class=\"": true,
    "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><span class=\"who\">' + face(t.id, 'sm') + '<div style=\"min-width": true,
-   ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true
+   ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true,
+   "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
+   "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true
   }
  },
  "derrota": {

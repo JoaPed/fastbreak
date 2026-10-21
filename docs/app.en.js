@@ -666,12 +666,13 @@ function usedCount(acc, id) { let n = 0; Object.values(planOf(acc).played || {})
 function usesEff(e, id, acc) {
   if (acc === 'main') return +e.uses || 0;
   if (e.su && e.su[acc] != null) return +e.su[acc];
-  // a conta tem Moments dele: os usos são os da melhor carta que ESTA conta tem (o Rare da principal não joga na smurf)
-  const t = accTierUses(id, acc); if (t != null) return Math.max(0, t - usedCount(acc, id));
   return Math.max(0, (+e.uses || 0) + usedCount('main', id) - usedCount(acc, id));
 }
-// usos por run de uma conta para um jogador: os da melhor carta que essa conta tem (lido das carteiras); null se a
-// conta não tem nenhum Moment dele (aí conta como a principal, e o plano manda-lhe um Moment quando o usar)
+// usos da melhor carta que uma conta tem hoje (lido das carteiras); null se a conta não tem nenhum Moment dele
+function bestTierName(id) {
+  const col = (S.profile || {}).collection || {}, fids = col.items ? Object.keys(col.items).filter(f => String(col.items[f].p) === String(id)) : [];
+  let best = null, bu = -1; fids.forEach(f => { const t = momentTier(col, f), u = TIER_USES[t] || 1; if (u > bu) { bu = u; best = t; } }); return best || 'Moment';
+}
 function accTierUses(id, acc) {
   const col = (S.profile || {}).collection; if (!col || !col.items) return null;
   const fids = Object.keys(col.items).filter(f => String(col.items[f].p) === String(id) && (col.items[f].a || 'main') === acc);
@@ -679,9 +680,20 @@ function accTierUses(id, acc) {
 }
 function setUsesOf(e, acc, n) { if (acc === 'main') e.uses = n; else { e.su = e.su || {}; e.su[acc] = n; } }
 // onde estão os Moments de cada jogador (lido das carteiras)
+// Cada conta tem os usos da melhor carta da coleção (os Moments passam de uma conta para a outra). Numa noite cada
+// carta só joga numa conta, e a k-ésima jogada de uma conta precisa de uma carta com pelo menos k usos: com 1 Rare +
+// 4 Common, as duas contas podem jogá-lo na mesma noite (uma com o Rare, a outra com um Common, se for a 1.ª jogada
+// dela), mas a 2.ª jogada de cada conta precisa do Rare. copies = Moments; cards = usos de cada um; hold = onde estão.
 function collectionInfo(id) {
-  const c = ((((S.profile || {}).collection) || {}).players || {})[id];
+  const col = ((S.profile || {}).collection) || {}, c = (col.players || {})[id];
   if (!c || !c.owners) return { copies: 1, owner: null, hold: null };
+  const fids = col.items ? Object.keys(col.items).filter(f => String(col.items[f].p) === String(id)) : [];
+  if (fids.length) {
+    const u = fids.map(f => TIER_USES[momentTier(col, f)] || 1), top = Math.max(...u), nTop = u.filter(x => x === top).length;
+    const hold = {}; fids.forEach((f, i) => { const a = col.items[f].a || 'main'; (hold[a] = hold[a] || []).push(u[i]); });
+    const keys = Object.keys(hold);
+    return { copies: fids.length, owner: fids.length === 1 ? keys[0] : null, hold, cards: u.slice().sort((x, y) => y - x), moments: fids.length, topUses: top, nTop };
+  }
   const keys = Object.keys(c.owners).filter(k => c.owners[k] > 0), n = keys.reduce((a, k) => a + c.owners[k], 0);
   const hold = {}; keys.forEach(k => { hold[k] = +c.owners[k]; });
   return { copies: Math.max(1, n), owner: n === 1 ? keys[0] : null, hold }; // hold: quantos Moments dele há em cada conta
@@ -772,7 +784,7 @@ function engineInputs(acc) {
     const c = S.players.get(String(id)) || {}, pk = acc + '|' + id;
     const uses = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, acc);
     const ci = collectionInfo(id);
-    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: e.status || 'ok', injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, owner: ci.owner, hold: ci.hold };
+    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: e.status || 'ok', injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, cards: ci.cards || null, owner: ci.owner, hold: ci.hold };
   });
   const odds = { days: {} };
   Object.entries(S.odds).forEach(([d, o]) => { odds.days[d] = { players: o.players || {}, source: o.source, updatedAt: o.updated_at }; });
@@ -1169,7 +1181,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
     else {
       const due = S.multi.transfers.filter(t => t.before <= nd.date), later = S.multi.transfers.filter(t => t.before > nd.date);
       due.forEach(t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team;
-        items.push(btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', 'Send <b>' + esc(nameOf(t.id)) + '</b> to <b>' + esc(accLabel(t.to)) + '</b>', 'From ' + esc(accLabel(t.from)) + ', ' + at(day, team) + '. On Top Shot: gift the Moment to the other account.', 'tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before)); });
+        items.push(btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', (t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? 'Send the ' + (t.uses >= 4 ? 'Legendary' : t.uses >= 2 ? 'Rare' : 'Common') + ' of <b>' : 'Send <b>') + esc(nameOf(t.id)) + '</b> to <b>' + esc(accLabel(t.to)) + '</b>', 'From ' + esc(accLabel(t.from)) + ', ' + at(day, team) + '. On Top Shot: gift the Moment to the other account.', 'tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before)); });
       if (later.length) items.push('<li class="row small muted" style="display:block">Later: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' → ' + esc(accLabel(t.to)) + ' by ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' and another ' + (later.length - 3) : '') + '.</li>');
     }
   }
@@ -1280,7 +1292,7 @@ function transfersCard() {
   const g = S.multi; if (!g) return '';
   if (!(S.profile || {}).collection) return '<div class="note info">Read the wallets (Players → Collection) to know what to send to each account.</div>';
   const list = g.transfers;
-  const row = t => '<li class="row"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(t.id)) + '</span></div><div class="ps">' + esc(accLabel(t.from)) + ' → <b>' + esc(accLabel(t.to)) + '</b> · before ' + dWeek(t.before) + ', ' + dShort(t.before) + '</div></div></span></li>';
+  const row = t => '<li class="row"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(t.id)) + '</span>' + (t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? '<span class="badge">' + (t.uses >= 4 ? 'Legendary' : t.uses >= 2 ? 'Rare' : 'Common') + '</span>' : '') + '</div><div class="ps">' + esc(accLabel(t.from)) + ' → <b>' + esc(accLabel(t.to)) + '</b> · before ' + dWeek(t.before) + ', ' + dShort(t.before) + '</div></div></span></li>';
   return '<div class="card"><div class="list-head"><h2>Transfers ' + helpBtn('transf') + '</h2><span class="small muted">' + (list.length ? list.length + ' in the run' : 'none') + '</span></div>' + (list.length ? '<ul class="list">' + list.map(row).join('') + '</ul>' : '<div class="row small muted">Each account plays with the Moments it has.</div>') + '</div>';
 }
 // ---- a run refeita com uma mudança ao plano (para as opções do dia e para fixar/tirar um jogador) ----
@@ -2877,7 +2889,7 @@ async function momentTierChange(fid, tier) {
 // com smurfs: em que noites cada conta o usa e, com um só Moment, se compensa um 2.º
 function momentsBlock(id) {
   if (!S.multi) return '';
-  const copies = collectionInfo(id).copies;
+  const ci = collectionInfo(id), copies = ci.copies;
   const daysOf = k => { const r = S.multi.byKey[k]; const ds = new Set(r ? r.normal.days.filter(x => x.lineup.includes(id)).map(x => x.idx + 1) : []);
     Object.entries(planOf(k).played || {}).forEach(([dt, pl]) => { if (pl && pl.done && (pl.lineup || []).includes(id)) { const i = S.days.findIndex(x => x.date === dt); if (i >= 0) ds.add(i + 1); } }); return [...ds]; };
   const per = accounts().map(a => ({ a, ds: daysOf(a.id) })).filter(x => x.ds.length);
@@ -2885,7 +2897,9 @@ function momentsBlock(id) {
   const inWallet = !!((((S.profile || {}).collection) || {}).players || {})[id], nAcc = accounts().length;
   return '<div class="note' + (copies === 1 ? ' info' : '') + '" style="display:grid;gap:8px"><div>' + (copies === 1
     ? '<b>1 Moment' + (inWallet ? '' : ' (not in the wallets read)') + ':</b> plays for one account at a time. ' + nights + '.'
-    : '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'every account can use him on the same night' : 'up to ' + copies + ' accounts on the same night') + ', each with its own card' + (() => { const u = accounts().map(a => { const t = accTierUses(id, a.id); return t != null ? esc(a.label) + ' ' + plural(t, 'use', 'uses') : null; }).filter(Boolean); return u.length > 1 ? ' (' + u.join(' · ') + ' per run)' : ''; })() + '. ' + nights + '.') + '</div>' +
+    : ci.nTop && ci.nTop < copies && ci.topUses > 1
+      ? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> each account has ' + plural(ci.topUses, 'use', 'uses') + '. Each account’s 1st play can use any card' + (ci.topUses >= 4 ? ', the 2nd needs a Rare or better and the 3rd and 4th a Legendary' : ', the 2nd needs the ' + esc(bestTierName(id))) + '; each card plays for one account per night (the plan says when to move it). ' + nights + '.'
+      : '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'every account can use him on the same night' : 'up to ' + copies + ' accounts on the same night') + '. ' + nights + '.') + '</div>' +
     (copies === 1 && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">See if a 2nd Moment is worth it</button>' : '') + '</div>';
 }
 function addPlayerSheet() {
@@ -3207,9 +3221,7 @@ async function walletApply() {
   let added = 0, removed = 0;
   if (S.runId && S.mineLoaded) {
     Object.entries(col.players).forEach(([id, c]) => {
-      const own = Object.keys(col.items || {}).filter(f => String(col.items[f].p) === String(id) && (col.items[f].a || 'main') === 'main');
-      // a principal fica com os usos da melhor carta que ELA tem (se não tiver nenhuma, os da melhor da coleção)
-      const info = { moments: c.moments, sets: c.sets }, tot = (own.length ? Math.max(1, ...own.map(f => TIER_USES[momentTier(col, f)] || 1)) : tierUsesOf(col, c)) || 1, left = Math.max(0, tot - usedCount('main', id));
+      const info = { moments: c.moments, sets: c.sets }, tot = tierUsesOf(col, c) || 1, left = Math.max(0, tot - usedCount('main', id));
       const e = S.mine.roster[id];
       if (e) {
         Object.assign(e, info);

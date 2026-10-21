@@ -847,6 +847,33 @@
     // Moments que outra conta já usou nessa noite (dia fechado nessa conta)
     if (opts.taken) Object.entries(opts.taken).forEach(([dt, ps]) => { const nt = night.get(dt); if (nt) ps.forEach(p => { nt[p]++; }); });
     const cap = p => Math.max(1, copies[p] || 1);
+    // escalões dos Moments (cards[p] = usos de cada Moment, do maior para o menor): a k-ésima jogada de uma conta com um
+    // jogador precisa de uma carta com pelo menos k usos (ex.: 1 Rare + Commons → a 1.ª jogada pode ser com um Common,
+    // a 2.ª só com o Rare), e numa noite cada carta só joga numa conta
+    const cards = opts.cards || null;
+    const mixed = p => !!(cards && cards[p] && cards[p].length > 1 && cards[p][0] > cards[p][cards[p].length - 1]);
+    const past = models.map(m => { const c = new Int32Array(P); Object.values(m.played || {}).forEach(pl => { if (pl && pl.done) (pl.lineup || []).forEach(id => { const k = m.pIndex.get(id); if (k != null) c[k]++; }); }); return c; });
+    const accSlots = models.map((m, a) => slots.map((s, i) => i).filter(i => slots[i].a === a).sort((x, y) => slots[x].di - slots[y].di));
+    function tierOk(p, add, rem) {
+      if (!mixed(p)) return true;
+      const req = new Map();
+      for (let a = 0; a < A; a++) {
+        let k = past[a][p];
+        for (const i of accSlots[a]) {
+          const on = (plan[i].has(p) && !(rem && rem.includes(i))) || (add && add.includes(i));
+          if (on) { k++; const di = slots[i].di; (req.get(di) || req.set(di, []).get(di)).push(k); }
+        }
+      }
+      const cd = cards[p];
+      for (const r of req.values()) {
+        if (r.length > cd.length) return false;
+        r.sort((x, y) => y - x);
+        for (let j = 0; j < r.length; j++) if (r[j] > cd[j]) return false;
+      }
+      return true;
+    }
+    // y não pode entrar no lugar i (usos da conta, Moments na noite, escalões)
+    const cantEnter = (i, y) => { const s = slots[i]; return plan[i].has(y) || used[s.a][y] >= uses[s.a][y] || night.get(s.date)[y] >= cap(y) || !tierOk(y, [i]); };
     // conta que usa cada jogador em cada noite (para contar as transferências dos Moments únicos)
     let assign = new Int8Array(P * ND).fill(-1);
     function tcOf(p) {
@@ -874,7 +901,7 @@
     // fixados primeiro (mesmo que passem dos limites: o aviso aparece)
     slots.forEach((s, i) => s.md.locks.forEach(p => { if (plan[i].size < s.md.size) place(i, p); }));
     models.forEach((m, a) => { for (let p = 0; p < P; p++) if (used[a][p] > uses[a][p]) conflicts[a].push({ player: m.players[p].id, used: used[a][p], uses: uses[a][p] }); });
-    const canAdd = (i, p) => { const s = slots[i]; return used[s.a][p] < uses[s.a][p] && night.get(s.date)[p] < cap(p); };
+    const canAdd = (i, p) => { const s = slots[i]; return used[s.a][p] < uses[s.a][p] && night.get(s.date)[p] < cap(p) && tierOk(p, [i]); };
     // ponto de partida dado (p. ex. o melhor plano da conta principal sozinha)
     if (opts.init) slots.forEach((s, i) => ((opts.init[s.a] || [])[s.d] || []).forEach(p => { if (plan[i].size < s.md.size && !plan[i].has(p) && s.md.eligSet.has(p) && canAdd(i, p)) place(i, p); }));
     // gulosa: o melhor par (dia/conta, jogador) primeiro; prefere quem já está na conta
@@ -930,6 +957,7 @@
       if (!si.md.eligSet.has(y) || !sj.md.eligSet.has(x)) return false;
       if (si.a !== sj.a && (used[si.a][y] >= uses[si.a][y] || used[sj.a][x] >= uses[sj.a][x])) return false;
       if (si.date !== sj.date && (night.get(si.date)[y] >= cap(y) || night.get(sj.date)[x] >= cap(x))) return false;
+      if ((mixed(x) || mixed(y)) && !(tierOk(x, [j], [i]) && tierOk(y, [i], [j]))) return false;
       return true;
     }
     function applySwap(i, j, x, y, ri, rj, dT) {
@@ -959,7 +987,7 @@
             if (x >= 0 && !plan[i].has(x)) continue;
             // uma conta pode jogar com menos jogadores (ou não jogar) quando não compensa mandar-lhe Moments
             for (const y of x >= 0 ? md.elig.concat([-1]) : md.elig) {
-              if (y >= 0 && (plan[i].has(y) || used[s.a][y] >= uses[s.a][y] || night.get(s.date)[y] >= cap(y))) continue;
+              if (y >= 0 && cantEnter(i, y)) continue;
               const r = tryReplace(i, x, y), dT = tDelta(replCh(i, x, y));
               if (gain([r]) - TC * dT > EPSV) { applyReplace(i, x, y, r, dT); refreshVals(); improved = true; break; }
             }
@@ -1001,7 +1029,7 @@
             let x;
             if (plan[i].size < md.size && (rand() < 0.5 || !members.length)) x = -1; else if (members.length) x = pick(members); else continue;
             const y = x >= 0 && rand() < 0.1 ? -1 : pick(md.elig); // às vezes só tira
-            if (y >= 0 && (plan[i].has(y) || used[s.a][y] >= uses[s.a][y] || night.get(s.date)[y] >= cap(y))) continue;
+            if (y >= 0 && cantEnter(i, y)) continue;
             const r = tryReplace(i, x, y), dT = tDelta(replCh(i, x, y)), dv = gain([r]) - TC * dT;
             if (dv > 0 || rand() < Math.exp(dv / temp)) { applyReplace(i, x, y, r, dT); refreshVals(); }
           } else {
@@ -1030,7 +1058,7 @@
           const mem = [...plan[i]].filter(p => !isLocked(i, p)), x = mem[Math.floor(krand() * mem.length)];
           let bestY = -1, bestG = -Infinity, bestR = null, bestT = 0;
           for (const y of md.elig.concat([-1])) {
-            if (y === x || (y >= 0 && (plan[i].has(y) || used[s.a][y] >= uses[s.a][y] || night.get(s.date)[y] >= cap(y)))) continue;
+            if (y === x || (y >= 0 && cantEnter(i, y))) continue;
             const r = tryReplace(i, x, y), dT = tDelta(replCh(i, x, y)), g = gain([r]) - TC * dT;
             if (g > bestG) { bestG = g; bestY = y; bestR = r; bestT = dT; }
           }
@@ -1051,7 +1079,10 @@
   // plans: {conta: resultado}, owners: {jogador: conta onde o Moment está agora}
   // holds: { id: { conta: quantos Moments } } (lido das carteiras). Com vários Moments do mesmo jogador, uma conta que
   // o use numa noite sem ter nenhum recebe um de uma conta que nessa noite não o usa (ou que tem dois).
-  function transfersFor(keys, results, owners, copies, holds) {
+  // holds[id] = { conta: [usos de cada Moment] } (ou o número de Moments, sem escalões); past = jogadas já feitas.
+  // Em cada noite, cada conta que joga precisa de uma carta com usos ≥ ao número da jogada dela; se não a tem, recebe-a
+  // de uma conta que não a usa nessa noite (a carta mais pequena que chega).
+  function transfersFor(keys, results, owners, copies, holds, past) {
     const uses = {};
     keys.forEach(k => results[k].days.forEach(d => d.lineup.forEach(id => { (uses[id] = uses[id] || []).push({ date: d.date, acc: k }); })));
     const out = [];
@@ -1059,17 +1090,27 @@
       list.sort((x, y) => x.date.localeCompare(y.date));
       if ((copies[id] || 1) > 1) {
         const h0 = holds && holds[id]; if (!h0) return;
-        const h = {}; Object.entries(h0).forEach(([k, n]) => { if (+n > 0) h[k] = +n; });
+        const h = {}; Object.entries(h0).forEach(([k, v]) => { const arr = Array.isArray(v) ? v.map(Number) : new Array(Math.max(0, +v || 0)).fill(99); if (arr.length) h[k] = arr.sort((x, y) => x - y); });
+        const cnt = {};
         const byDate = {}; list.forEach(u => { (byDate[u.date] = byDate[u.date] || []).push(u.acc); });
         Object.keys(byDate).sort().forEach(date => {
-          const users = byDate[date];
-          users.forEach(acc => {
-            if ((h[acc] || 0) > 0) return;
-            const spare = n => Object.keys(h).filter(k => k !== acc && (h[k] || 0) > (users.includes(k) ? n : 0));
-            const from = spare(0)[0] || spare(1)[0];
-            if (!from) return;
-            h[from]--; h[acc] = (h[acc] || 0) + 1;
-            out.push({ id, before: date, from, to: acc });
+          const users = byDate[date].map(acc => ({ acc, r: (cnt[acc] = (cnt[acc] != null ? cnt[acc] : ((past && past[acc] && past[acc][id]) || 0)) + 1) })).sort((x, y) => y.r - x.r);
+          const busy = {}; // cartas já usadas nesta noite, por conta (índices)
+          const pickOwn = (k, r) => { const arr = h[k] || []; for (let j = 0; j < arr.length; j++) if (arr[j] >= r && !(busy[k] || []).includes(j)) return j; return -1; };
+          users.forEach(u => {
+            let j = pickOwn(u.acc, u.r);
+            if (j < 0) {
+              const playing = new Set(users.map(x => x.acc));
+              const donors = Object.keys(h).filter(k => k !== u.acc).sort((x, y) => (playing.has(x) ? 1 : 0) - (playing.has(y) ? 1 : 0));
+              let from = null, fj = -1;
+              for (const k of donors) { const q = pickOwn(k, u.r); if (q >= 0 && (fj < 0 || h[k][q] < h[from][fj])) { from = k; fj = q; } }
+              if (!from) return;
+              const card = h[from].splice(fj, 1)[0]; (busy[from] || []).forEach((x, n, arr) => { if (x > fj) arr[n] = x - 1; });
+              h[u.acc] = (h[u.acc] || []).concat([card]).sort((x, y) => x - y);
+              j = h[u.acc].lastIndexOf(card);
+              out.push(Object.assign({ id, before: date, from, to: u.acc }, card < 99 ? { uses: card } : {}));
+            }
+            (busy[u.acc] = busy[u.acc] || []).push(j);
           });
         });
         return;
@@ -1090,7 +1131,8 @@
     const keys = accounts.map(a => a.key), byKey = {};
     const copies = players.map(p => Math.max(1, Math.floor(+p.copies || 1)));
     const owners = players.map(p => keys.indexOf(p.owner));
-    const base = Object.assign({}, opts, { owners });
+    const cards = players.map(p => (Array.isArray(p.cards) && p.cards.length ? p.cards.map(Number).sort((a, b) => b - a) : null));
+    const base = Object.assign({}, opts, { owners, cards: cards.some(Boolean) ? cards : null });
     // Moments já usados em dias fechados de cada conta: nessa noite não podem jogar por outra
     const taken = {};
     models.forEach(m => m.allDays.forEach(d => { const pl = m.played[d.date]; if (pl && pl.done) (pl.lineup || []).forEach(id => { const i = m.pIndex.get(id); if (i != null) (taken[d.date] = taken[d.date] || []).push(i); }); }));
@@ -1150,7 +1192,8 @@
     });
     const ownerById = {}, cp = {}, holdById = {};
     players.forEach((p, i) => { cp[p.id] = copies[i]; if (p.owner) ownerById[p.id] = p.owner; if (p.hold) holdById[p.id] = p.hold; });
-    const transfers = transfersFor(keys, Object.fromEntries(keys.map((k, a) => [k, res[a]])), ownerById, cp, holdById);
+    const pastById = {}; models.forEach((m, a) => Object.values(m.played || {}).forEach(pl => { if (pl && pl.done) (pl.lineup || []).forEach(id => { const o = (pastById[keys[a]] = pastById[keys[a]] || {}); o[id] = (o[id] || 0) + 1; }); }));
+    const transfers = transfersFor(keys, Object.fromEntries(keys.map((k, a) => [k, res[a]])), ownerById, cp, holdById, pastById);
     // um Moment em duas contas na mesma noite (só acontece com jogadores fixados à mão)
     const clashes = [];
     const byDate = {};

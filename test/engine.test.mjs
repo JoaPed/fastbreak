@@ -254,6 +254,29 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   ok('prémios: sem a troca ficam os definidos', m2.prizes.map(p => p.wins).join() === [n - 1, n, n + 1].join(), m2.prizes);
 }
 
+// escalões nas contas: 1 Rare + 4 Common do mesmo jogador → cada conta com 2 usos; a 2.ª jogada de cada conta precisa do
+// Rare, que só joga numa conta por noite (a 1.ª pode ser com um Common, mesmo na noite em que a outra usa o Rare)
+{
+  const star = Object.entries(roster.players).map(([id, p]) => [id, run.days.filter(d => d.games.some(g => g.includes(p.team))).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const ro = JSON.parse(JSON.stringify(roster));
+  Object.values(ro.players).forEach(p => { p.uses = 0; });
+  Object.assign(ro.players[star], { uses: 2, copies: 5, cards: [2, 1, 1, 1, 1], hold: { main: [2, 1, 1], s1: [1, 1] }, avg: { pts: 60, reb: 20, ast: 15, fg3: 8, stl: 4, blk: 4 } });
+  const g = FB.planGroup(run, [{ key: 'main', roster: ro, plan: {} }, { key: 's1', roster: ro, plan: {} }], odds, { now: NOW });
+  const plays = {}; ['main', 's1'].forEach(k => g.byKey[k].normal.days.forEach(d => { if (d.lineup.includes(star)) (plays[k] = plays[k] || []).push(d.date); }));
+  const reqs = {}; Object.entries(plays).forEach(([k, ds]) => ds.sort().forEach((dt, i) => { (reqs[dt] = reqs[dt] || []).push(i + 1); }));
+  const bad = Object.entries(reqs).filter(([, r]) => r.filter(x => x >= 2).length > 1);
+  ok('escalões: 4 jogadas nas duas contas (2 + 2)', (plays.main || []).length === 2 && (plays.s1 || []).length === 2, plays);
+  ok('escalões: nunca duas 2.as jogadas na mesma noite (só há 1 Rare)', bad.length === 0, reqs);
+  const rareMoves = g.transfers.filter(t => t.id === star && t.uses === 2);
+  const g3 = FB.planGroup(run, ['main', 's1', 's2'].map(k => ({ key: k, roster: Object.assign({}, ro, { players: Object.assign({}, ro.players, { [star]: Object.assign({}, ro.players[star], { hold: { main: [2, 1, 1], s1: [1], s2: [1] } }) }) }), plan: {} })), odds, { now: NOW });
+  const p3 = {}; g3.keys.forEach(k => g3.byKey[k].normal.days.forEach(d => { if (d.lineup.includes(star)) (p3[k] = p3[k] || []).push(d.date); }));
+  const r3 = {}; Object.values(p3).forEach(ds => ds.sort().forEach((dt, i) => { (r3[dt] = r3[dt] || []).push(i + 1); }));
+  ok('escalões com 3 contas: no máximo uma 2.ª jogada por noite e nunca mais de 5 contas', Object.values(r3).every(r => r.filter(x => x >= 2).length <= 1 && r.length <= 5) && Object.values(p3).every(ds => ds.length <= 2), [p3, r3]);
+  const t3 = g3.transfers.filter(t => t.id === star), hold = { main: [2, 1, 1], s1: [1], s2: [1] };
+  ok('escalões com 3 contas: as transferências dão a cada jogada uma carta que chega', (() => { const h = JSON.parse(JSON.stringify(hold)); const cnt = {}; for (const dt of Object.keys(r3).sort()) { t3.filter(t => t.before === dt).forEach(t => { const j = h[t.from].indexOf(t.uses || 1); if (j < 0) throw 0; h[t.from].splice(j, 1); h[t.to].push(t.uses || 1); }); for (const [k, ds] of Object.entries(p3)) if (ds.includes(dt)) { cnt[k] = (cnt[k] || 0) + 1; if (!h[k].some(c => c >= cnt[k])) return false; } } return true; })(), t3);
+  ok('escalões: a transferência diz que é o Rare que passa de conta', !(plays.s1 || []).length || rareMoves.some(t => t.to === 's1'), g.transfers.filter(t => t.id === star));
+}
+
 // lineup mantido (ao tirar um cadeado): o dia fica como estava, sem aviso de cadeados
 {
   const r0 = FB.planRun(run, roster, odds, {}, { now: NOW });
