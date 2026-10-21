@@ -834,6 +834,39 @@ with sync_playwright() as pw:
     print('L largura:', width(pg))
     pg.close()
 
+    # ---------- M: nunca mais dias fixados do que usos ----------
+    db = seeded(); T = db['tables']
+    T['runs'][0]['fictitious'] = False
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    ids16 = list(roster['players'])[:16]
+    plays = lambda pid, d: any(roster['players'][pid]['team'] in g[:2] for g in d['games'])
+    pm = next(pid for pid in ids16 if plays(pid, run['days'][0]) and sum(plays(pid, d) for d in run['days'][1:]) >= 2)
+    later = [d['date'] for d in run['days'][1:] if plays(pm, d)]
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 1 if pid == pm else 2, 'status': 'ok'} for pid in ids16}, 'plan': {'locks': {later[0]: [pm], later[1]: [pm]}}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T['chain_results'] = []; T['injuries'] = []
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-20T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    nt = pg.locator('#tab-hoje .note').filter(has_text='mais dias do que os usos')
+    print('M aviso (1 uso, 2 dias fixados):', nt.inner_text().replace('\n', ' ')[:200] if nt.count() else 'ERRO sem aviso', '· velho aviso:', pg.locator('#tab-hoje .note').filter(has_text='Fixados mais vezes').count())
+    pg.click('#tab-hoje button[data-action="locks-fix"]'); pg.wait_for_timeout(1500)
+    lk = json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks'))
+    print('M tirar cadeados a mais:', lk, '· ok' if lk.get(later[0]) == [pm] and not lk.get(later[1]) else '· ERRO')
+    lu_idle = "() => { const b = document.getElementById('luBody'); return b && !b.classList.contains('busy') && !document.getElementById('luProg'); }"
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(300)
+    if pg.locator('#luBody button[data-action="lu-all"]').count(): pg.click('#luBody button[data-action="lu-all"]'); pg.wait_for_timeout(300)
+    add = pg.locator('#luBody button[data-action="lu-add"][data-id="' + pm + '"]')
+    if add.count():
+        add.click(); pg.wait_for_timeout(300); toastx = pg.locator('#toast').inner_text(); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1500)
+        lk = json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks')); d1 = run['days'][0]['date']
+        print('M fixar no dia 1 (sem usos para mais):', lk, '·', toastx, '· ok' if lk.get(d1) == [pm] and not lk.get(later[0]) and not lk.get(later[1]) else '· ERRO')
+    else: print('M fixar no dia 1: ERRO sem botão para', pm)
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(400)
+    print('M aviso depois:', pg.locator('#tab-hoje .note').filter(has_text='mais dias do que os usos').count())
+    pg.close()
+
     # ---------- I: dias de combinação (3PM e 3PA), usos pelo melhor Moment, vistas do plantel e sugestões de compra ----------
     db = seeded(); T = db['tables']
     T['runs'][0]['fictitious'] = False

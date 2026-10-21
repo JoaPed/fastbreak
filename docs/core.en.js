@@ -412,8 +412,18 @@
       };
     });
     const uses = players.map(p => Math.max(0, Math.floor(+p.uses || 0)));
+    // nunca mais dias fixados do que usos: ficam os que já começaram, depois o cadeado posto há menos tempo
+    // (plan.lockAt[data|id]) e depois os dias mais perto; os outros cadeados não contam (droppedLocks)
+    const lockAt = plan.lockAt || {}, droppedLocks = [];
+    players.forEach((p, pi) => {
+      const on = []; days.forEach((md, d) => { if (md.locks.includes(pi)) on.push(d); });
+      if (on.length <= uses[pi]) return;
+      const live = d => (days[d].live && days[d].live.liveLocks.includes(p.id) ? 1 : 0), at = d => +lockAt[days[d].day.date + '|' + p.id] || 0;
+      on.sort((a, b) => (live(b) - live(a)) || (at(b) - at(a)) || (a - b));
+      on.slice(uses[pi]).forEach(d => { if (live(d)) return; days[d].locks = days[d].locks.filter(x => x !== pi); droppedLocks.push({ player: p.id, date: days[d].day.date }); });
+    });
     const prizes = (run.prizes || []).map(p => ({ wins: Math.round(+p.wins), value: +p.value > 0 ? +p.value : 1, label: p.label || '' })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
-    return { players, pIndex, allDays, days, uses, played, D: days.length, P: players.length, prizes, winsSoFar, now };
+    return { players, pIndex, allDays, days, uses, played, D: days.length, P: players.length, prizes, winsSoFar, now, droppedLocks };
   }
 
   // ---------- objetivo da run ----------
@@ -490,10 +500,9 @@
     let plan = days.map(() => new Set());
     const lockSets = days.map(md => new Set(md.locks));
 
-    for (let d = 0; d < D; d++) {
-      const base = fixed.has(d) ? fixed.get(d) : days[d].locks;
-      base.forEach(p => { if (!plan[d].has(p) && plan[d].size < days[d].size) { plan[d].add(p); used[p]++; } });
-    }
+    // primeiro os cadeados (o modelo já os limita aos usos), depois os dias decididos, só com usos que sobram
+    for (let d = 0; d < D; d++) if (!fixed.has(d)) days[d].locks.forEach(p => { if (!plan[d].has(p) && plan[d].size < days[d].size) { plan[d].add(p); used[p]++; } });
+    for (const [d, base] of fixed) if (d < D) base.forEach(p => { if (!plan[d].has(p) && plan[d].size < days[d].size && used[p] < uses[p]) { plan[d].add(p); used[p]++; } });
     const frozen = d => fixed.has(d);
     const isLocked = (d, p) => frozen(d) || lockSets[d].has(p);
     const conflicts = [];

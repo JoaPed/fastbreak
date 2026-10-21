@@ -216,6 +216,22 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
 { const m0 = FB.buildModel(run, roster, odds, {}, { now: NOW }), loc = FB.optimize(m0, { now: NOW, local: true, init: m0.days.map(md => { const d = r.normal.days.find(x => x.date === md.day.date); return d ? d.lineupIdx : []; }) });
   ok('compras: melhorias simples a partir do plano não o pioram', loc.objective >= r.normal.objective - 1e-9 && violations(loc, m0).length === 0, [loc.objective, r.normal.objective]); }
 
+// cadeados: nunca mais dias fixados do que usos (fica o cadeado mais recente; sem carimbo, o dia mais perto)
+{
+  const id = Object.keys(roster.players).find(k => { const t = roster.players[k].team; return run.days.filter(d => d.games.some(g => g.includes(t))).length >= 3; });
+  const dts = run.days.filter(d => d.games.some(g => g.includes(roster.players[id].team))).map(d => d.date);
+  const one = JSON.parse(JSON.stringify(roster)); one.players[id].uses = 1;
+  const pl = { locks: { [dts[0]]: [id], [dts[2]]: [id] } };
+  const a = FB.planRun(run, one, odds, pl, { now: NOW });
+  const daysWith = a.normal.days.filter(d => d.lineup.includes(id)).map(d => d.date);
+  ok('cadeados: com 1 uso e 2 dias fixados joga só num', daysWith.length === 1 && daysWith[0] === dts[0] && a.normal.conflicts.length === 0, daysWith);
+  ok('cadeados: o que não conta vem em droppedLocks', a.model.droppedLocks.length === 1 && a.model.droppedLocks[0].date === dts[2] && a.model.droppedLocks[0].player === id, a.model.droppedLocks);
+  const b = FB.planRun(run, one, odds, Object.assign({}, pl, { lockAt: { [dts[2] + '|' + id]: 2, [dts[0] + '|' + id]: 1 } }), { now: NOW });
+  ok('cadeados: o posto há menos tempo é o que fica', b.normal.days.filter(d => d.lineup.includes(id)).map(d => d.date).join() === dts[2] && b.model.droppedLocks[0].date === dts[0], b.model.droppedLocks);
+  const all = FB.planRun(run, one, odds, pl, { now: NOW });
+  ok('cadeados: nenhum plano (nem o tudo pelo dia) passa os usos', [all.normal, all.allIn].every(v => !v || Object.entries(v.usage).every(([k, n]) => n <= (one.players[k].uses || 0))), all.allIn && all.allIn.usage[id]);
+}
+
 // jogos seguidos (back-to-back), regularidade de cada jogador e Moments emprestados (só alguns dias)
 {
   const dates = run.days.map(d => d.date);

@@ -999,6 +999,8 @@ function renderJornada(el) {
   if (d.perPlayer) note('Objetivo por jogador: cada um tem de lá chegar sozinho. Confirma o lineup à mão.');
   if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) note('Pontos na área: estimados a partir dos lançamentos de 2.', true);
   else if (!(nd.games || []).length) note('Os jogos deste dia ainda não chegaram.', true);
+  const drop = (r.model.droppedLocks || []).filter(x => x.date >= nd.date);
+  if (drop.length) { const ids = [...new Set(drop.map(x => x.player))]; note('Fixado em mais dias do que os usos: ' + ids.map(id => '<b>' + esc(nameOf(id)) + '</b> (o cadeado ' + (drop.filter(x => x.player === id).length > 1 ? 'dos dias ' : 'do dia ') + drop.filter(x => x.player === id).map(x => dayNo(x.date)).join(', ') + ' não conta)').join(', ') + '. <button class="btn link small" type="button" data-action="locks-fix">Tirar esses cadeados</button>'); }
   if (r.normal.conflicts.length) note('Fixados mais vezes do que os usos: ' + r.normal.conflicts.map(c => esc(nameOf(c.player)) + ' (' + c.used + ' de ' + c.uses + ')').join(', ') + '.');
   if (d.badLocks && d.badLocks.length) {
     const plays = FB.teamsOn(nd), teamOf = id => (r.model.players[r.model.pIndex.get(id)] || {}).team;
@@ -1251,9 +1253,9 @@ function engineCall(kind, args, key) {
 }
 // como evalAlt / planWith, mas no outro fio (o ecrã continua a responder)
 function evalAltAsync(mod) {
-  if (!S.multi) { const x = engineInputs('main'), plan = clone(x.plan); mod(plan); return engineCall('planRun', [x.run, x.roster, x.odds, plan, engOpts()]); }
+  if (!S.multi) { const x = engineInputs('main'), plan = clone(x.plan); modCap(mod, plan); return engineCall('planRun', [x.run, x.roster, x.odds, plan, engOpts()]); }
   const base = engineInputs('main');
-  const list = accounts().map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); let plan = x.plan; if (a.id === S.acc) { plan = clone(plan); mod(plan); } return { key: a.id, roster: x.roster, plan }; });
+  const list = accounts().map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); let plan = x.plan; if (a.id === S.acc) { plan = clone(plan); modCap(mod, plan); } return { key: a.id, roster: x.roster, plan }; });
   return engineCall('planGroup', [base.run, list, base.odds, engOpts()], S.acc);
 }
 function planWithAsync(mod, kicks) {
@@ -1265,12 +1267,12 @@ function planWithAsync(mod, kicks) {
 function evalAlt(mod) {
   if (!S.multi) {
     // como o plano que se vê (planRun: também experimenta tudo pelo dia e fica com o melhor), para as contas baterem certo
-    const x = engineInputs('main'), plan = clone(x.plan); mod(plan);
+    const x = engineInputs('main'), plan = clone(x.plan); modCap(mod, plan);
     const res = FB.planRun(x.run, x.roster, x.odds, plan, engOpts()).normal;
     return { res, total: res.objective };
   }
   const base = engineInputs('main');
-  const list = accounts().map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); let plan = x.plan; if (a.id === S.acc) { plan = clone(plan); mod(plan); } return { key: a.id, roster: x.roster, plan }; });
+  const list = accounts().map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); let plan = x.plan; if (a.id === S.acc) { plan = clone(plan); modCap(mod, plan); } return { key: a.id, roster: x.roster, plan }; });
   const g = FB.planGroup(base.run, list, base.odds, engOpts());
   return { res: g.byKey[S.acc].normal, total: g.objective, group: g };
 }
@@ -1387,7 +1389,7 @@ function opUse(i) {
   const x = (S.opcoes || [])[+i], nd = nextDay(); if (!x || !nd) return;
   const during = liveOn(nd.date), base = during ? ((liveDoc(nd.date) || {}).lineup || []) : view().days[0].lineup;
   const outs = base.filter(id => !x.a0.lineup.includes(id)), ins = x.a0.lineup.filter(id => !base.includes(id));
-  const plan = curPlan(); x.mod(plan);
+  const plan = curPlan(); modCap(x.mod, plan);
   // durante os jogos, a escolha passa a ser o lineup submetido (faz a mesma mudança no Top Shot)
   if (during) { plan.live = plan.live || {}; plan.live[nd.date] = Object.assign({}, plan.live[nd.date], { lineup: x.a0.lineup.slice() }); }
   closeSheet(); schedule(); saveMine();
@@ -3156,7 +3158,31 @@ function deepMerge(a, b) {
   });
   return a;
 }
-function planPatch(patch) { deepMerge(curPlan(), patch); schedule(); saveMine(); }
+// Nunca mais dias fixados do que usos: o cadeado novo fica (com carimbo em plan.lockAt) e o jogador sai dos
+// cadeados dos outros dias, primeiro os mais antigos e os mais longe. before = plan.locks antes da mudança.
+// Devolve [[data, id], …] dos cadeados tirados.
+function capLocks(plan, before, acc) {
+  const L = plan.locks || {}, pl = plan.played || {}, now = Date.now(), dropped = [];
+  const fresh = [];
+  Object.entries(L).forEach(([d, ids]) => (ids || []).forEach(id => { if (!((before || {})[d] || []).includes(id)) fresh.push([d, id]); }));
+  if (!fresh.length) return dropped;
+  plan.lockAt = Object.assign({}, plan.lockAt);
+  const roster = engineInputs(acc || S.acc).roster.players, today = todayET();
+  fresh.forEach(([d, id]) => {
+    plan.lockAt[d + '|' + id] = now;
+    const u = Math.max(0, Math.floor(+((roster[id] || {}).uses || 0)));
+    const others = Object.keys(L).filter(x => x !== d && x >= today && !(pl[x] && pl[x].done) && (L[x] || []).includes(id))
+      .sort((a, b) => ((plan.lockAt[b + '|' + id] || 0) - (plan.lockAt[a + '|' + id] || 0)) || a.localeCompare(b));
+    others.slice(Math.max(0, u - 1)).forEach(x => { L[x] = L[x].filter(y => y !== id); dropped.push([x, id]); });
+  });
+  Object.keys(plan.lockAt).forEach(k => { const i = k.indexOf('|'); if (!(L[k.slice(0, i)] || []).includes(k.slice(i + 1))) delete plan.lockAt[k]; });
+  return dropped;
+}
+const dayNo = date => S.days.findIndex(d => d.date === date) + 1;
+const capMsg = dr => (dr.length ? ' Sem usos para mais dias: tirei o cadeado de ' + [...new Set(dr.map(([, id]) => id))].map(id => { const n = dr.filter(x => x[1] === id).map(x => dayNo(x[0])).sort((a, b) => a - b); return lastName(id) + (n.length > 1 ? ' nos dias ' : ' no dia ') + n.join(', '); }).join('; ') + '.' : '');
+// muda o plano (cópia ou o verdadeiro) e aplica a regra dos usos aos cadeados novos
+function modCap(mod, plan) { const before = clone(plan.locks || {}); mod(plan); return capLocks(plan, before); }
+function planPatch(patch) { const p = curPlan(), before = clone(p.locks || {}); deepMerge(p, patch); const dr = patch.locks ? capLocks(p, before) : []; schedule(); saveMine(); return dr; }
 // Fixar quem o plano não põe nesse dia (ou tirar quem ele põe): antes de mudar, mostra o que custa — vitória nesse
 // dia, prémios e vitórias esperadas da run, quem sai do lineup e em que dias o jogador deixa de jogar
 async function choiceSheet(id, date, kind) {
@@ -3212,8 +3238,8 @@ function lockToggle(id, date, on) {
     const lim = (S.days.find(d => d.date === date) || {}).numPlayers || 5;
     if (cur.size >= lim) { toast('Já tens ' + lim + ' jogadores fixados neste dia.'); return false; }
     cur.add(id);
-    planPatch({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } });
-    toast(lastName(id) + ' fixado. Plano refeito.');
+    const dr = planPatch({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } });
+    toast(lastName(id) + ' fixado. Plano refeito.' + capMsg(dr));
   } else { cur.delete(id); planPatch({ locks: { [date]: [...cur] } }); }
   return true;
 }
@@ -3684,6 +3710,7 @@ document.addEventListener('click', async e => {
     case 'lu-reset': luBusy(true); planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('De volta à sugestão do plano.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
     case 'buy-more': buyMore(); break;
+    case 'locks-fix': { const r = S.result, L = {}; ((r && r.model.droppedLocks) || []).forEach(x => { L[x.date] = (L[x.date] || (curPlan().locks || {})[x.date] || []).filter(id => id !== x.player); }); if (Object.keys(L).length) { planPatch({ locks: L }); toast('Cadeados a mais tirados. Plano refeito.'); } break; }
     case 'todo-tick': { const k = b.dataset.k; if (TODO_DONE[k]) delete TODO_DONE[k]; else { TODO_DONE[k] = Date.now(); toast('Feito ✓'); } todoSave(); render(); break; }
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
     case 'fold': { const k = b.dataset.k; S.fold[k] = !S.fold[k]; try { localStorage.setItem('fb-fold', JSON.stringify(S.fold)); } catch (e) {} render(); break; }
