@@ -555,9 +555,10 @@ const ALERT_BAD = new Set(['out', 'ofs', 'doubtful', 'questionable', 'dtd']);
 // e uma última vez perto do jogo (lastCallMin) se continuar em dúvida/fora. Só jogos que ainda não começaram.
 // Avisos de lesões do lineup de hoje. Por jogador do lineup: quando entra no relatório ou muda de estado (new/change),
 // quando sai dele (clear: deve jogar), um ponto da situação se continuar em dúvida (status: às 23h de Lisboa ou 2 h
-// antes do jogo, o que vier primeiro) e uma última chamada perto do jogo (last: ≤ lastCallMin minutos).
+// antes do jogo, o que vier primeiro) e, se lastCallMin > 0, uma última chamada antes do primeiro jogo do dia
+// (L.firstTip; sem ele, antes do jogo do jogador).
 // statusAt(tip, date) = quando mandar o ponto da situação (ms); por defeito 2 h antes do jogo.
-export function buildAlerts({ now, lineups, injuries, state, lastCallMin = 30, horizonH = 20, statusAt }) {
+export function buildAlerts({ now, lineups, injuries, state, lastCallMin = 0, horizonH = 20, statusAt }) {
   const next = {}, items = [];
   const sAtOf = statusAt || (tip => tip - 2 * 3600e3);
   for (const [k, v] of Object.entries(state || {})) if (v && now - v.at < 3 * 86400e3) next[k] = v;
@@ -565,7 +566,8 @@ export function buildAlerts({ now, lineups, injuries, state, lastCallMin = 30, h
     if (!p.id || !p.tip || p.tip <= now || p.tip - now > horizonH * 3600e3) continue;
     const key = L.date + '|' + L.uid + '|' + L.acc + '|' + p.id;
     const inj = injuries.get(p.id) || null, s = inj ? inj.status : 'ok', prev = next[key] || null;
-    const close = p.tip - now <= lastCallMin * 60e3, sDue = now >= sAtOf(p.tip, L.date);
+    // última chamada (se pedida): uma só, antes do primeiro jogo do dia (L.firstTip), para quem ainda está em dúvida
+    const t0 = L.firstTip || p.tip, close = lastCallMin > 0 && now < t0 && t0 - now <= lastCallMin * 60e3, sDue = now >= sAtOf(p.tip, L.date);
     let kind = null;
     if (ALERT_BAD.has(s)) {
       if (!prev || prev.s !== s) kind = prev && ALERT_BAD.has(prev.s) ? 'change' : 'new';
@@ -626,7 +628,8 @@ function alertLine(i, hm, plural) {
 export function groupAlertText(items, owners, opts = {}) {
   const tz = opts.tz || 'Europe/Lisbon';
   const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
-  const lines = items.slice().sort((a, b) => a.tip - b.tip).map(i => alertLine(i, hm, true) + ((owners[i.id] || []).length ? ' (lineup de ' + andJoin(owners[i.id]) + ')' : ''));
+  const spec = opts.spec || {};
+  const lines = items.slice().sort((a, b) => a.tip - b.tip).map(i => alertLine(i, hm, true) + ((owners[i.id] || []).length ? ' (lineup de ' + andJoin(owners[i.id]) + ')' : '') + (spec[i.id] ? ' (' + spec[i.id] + ')' : ''));
   return 'Fast Break · lesões\n' + lines.join('\n');
 }
 // "Já fizeram o lineup?" no grupo: quem já submeteu e quem ainda não

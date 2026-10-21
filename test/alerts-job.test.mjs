@@ -50,11 +50,14 @@ db = read();
 ok('sem repetir o lembrete nem o ponto da situação', db.sent.length === 3, db.sent.length);
 run(Date.parse('2026-10-21T22:40:00Z'));
 db = read();
-ok('última chamada para quem continua em dúvida, perto do jogo', db.sent.length === 4 && /Última chamada/.test(db.sent[3].message) && /Gilbert/.test(db.sent[3].message), db.sent.slice(3));
+ok('última chamada meia hora antes do primeiro jogo do dia, com todos os que continuam em dúvida (também os de jogos mais tarde)', db.sent.length === 4 && /Última chamada/.test(db.sent[3].message) && /Gilbert/.test(db.sent[3].message) && /Curry/.test(db.sent[3].message), db.sent.slice(3));
 const dbx = read(); dbx.espn.injuries = dbx.espn.injuries.filter(t => !/Hawks/.test(t.displayName)); fs.writeFileSync(file, JSON.stringify(dbx));
 run(Date.parse('2026-10-21T22:47:00Z'));
 db = read();
 ok('sai do relatório: avisa que deve jogar', db.sent.length === 5 && /Gilbert \(ATL\) saiu do relatório de lesões: deve jogar/.test(db.sent[4].message), db.sent.slice(4));
+run(Date.parse('2026-10-22T01:40:00Z')); // antes do jogo das 02:00 (o 2.º do dia): já não há outra última chamada
+ok('só uma última chamada por dia', read().sent.length === 5, read().sent.slice(5));
+db = read();
 const n0 = db.sent.length;
 run(T, ['--test']);
 db = read();
@@ -64,9 +67,11 @@ ok('modo de teste manda a mensagem de teste a quem tem avisos', db.sent.length =
 const file2 = path.join(path.dirname(file), 'db-tg.json');
 const tgDb = JSON.parse(fs.readFileSync(file, 'utf8'));
 tgDb.sent = []; tgDb.tables.job_state = []; tgDb.tables.alerts = []; // ninguém com avisos pessoais
-tgDb.espn = espn;
 tgDb.tables.profiles = [{ user_id: 'u1', display_name: 'João', smurfs: [{ id: 's1', topshot_username: 'smurfy' }] }, { user_id: 'u2', display_name: 'Marquês', smurfs: [] }, { user_id: 'u3', display_name: 'Rui', smurfs: [] }];
 tgDb.tables.user_runs.push({ user_id: 'u2', run_id: 'run-1', roster: {}, plan: { next: { main: { '2026-10-21': ['keshon-gilbert'] } } } });
+tgDb.tables.run_days = tgDb.tables.run_days.map(d => Object.assign({}, d, { objectives: [{ stat: 'fg3', target: 18 }] }));
+tgDb.tables.nba_players = [{ id: 'stephen-curry', name: 'Stephen Curry', team: 'GSW', avg: { fg3: 4.6, min: 33 } }, { id: 'keshon-gilbert', name: 'Keshon Gilbert', team: 'ATL', avg: { fg3: 0.4, min: 14 } }, { id: 'lebron-james', name: 'LeBron James', team: 'LAL', avg: { fg3: 2.1, min: 34 } }, { id: 'trae-young', name: 'Trae Young', team: 'ATL', avg: { fg3: 3.1, min: 35 } }];
+tgDb.espn = JSON.parse(JSON.stringify(espn)); tgDb.espn.injuries[0].injuries.push({ status: 'Day-To-Day', date: '2026-10-21T15:00Z', athlete: { displayName: 'Trae Young', team: { abbreviation: 'ATL' } }, type: { name: 'INJURY_STATUS_DAYTODAY' }, details: { type: 'Hamstring' } });
 tgDb.telegram = { updates: [{ update_id: 1, my_chat_member: { chat: { id: -1001, type: 'group', title: 'Fast Break' } } }] };
 fs.writeFileSync(file2, JSON.stringify(tgDb));
 const runTg = (now, args = []) => execFileSync(process.execPath, ['--import', path.join(root, 'test/helpers/job-preload.mjs'), path.join(root, 'scripts/sync-injuries.mjs'), ...args], { env: Object.assign({}, process.env, { FB_TEST_DB: file2, FB_TEST_NOW: String(now), SUPABASE_URL: '', TELEGRAM_BOT_TOKEN: 'teste:abc', TELEGRAM_CHAT_ID: '', SITE_URL: '' }), encoding: 'utf8' });
@@ -76,6 +81,7 @@ let g = readTg();
 const hello = g.sent[0] || {}, g0 = g.sent[1] || {};
 ok('Telegram: cumprimenta o grupo da primeira vez', /Olá! Sou o bot do Fast Break/.test(hello.message || ''), hello);
 ok('Telegram: o grupo é descoberto e guardado', (g.tables.job_state.find(r => r.key === 'telegram') || {}).value?.chat === '-1001', g.tables.job_state, lg);
+ok('Telegram: especialista do dia em dúvida também entra (mesmo sem estar em nenhum lineup)', /Trae Young \(ATL\): Dia a dia.*\(especialista em 3PM, 2\.º\)/.test(g0.message || ''), g0.message);
 ok('Telegram: uma mensagem com as lesões dos lineups de toda a gente e de quem é cada um', g.sent.length === 2 && g0.via === 'tg' && g0.chat === '-1001' && /Stephen Curry \(GSW\): Fora/.test(g0.message) && /lineup de João\)/.test(g0.message) && /Keshon Gilbert \(ATL\): Dia a dia.*lineup de João e Marquês/.test(g0.message), g.sent);
 runTg(Date.parse('2026-10-21T22:00:00Z'));
 g = readTg();

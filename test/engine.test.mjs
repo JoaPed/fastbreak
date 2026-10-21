@@ -244,6 +244,16 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   ok('pouco provável continua a contar pouco', out.pPlay === 0.25 && !out.injury.risk, [out.pPlay]);
 }
 
+// patamar de prémio que já não dá: sai e entra o de baixo
+{
+  const n = run.days.length, rp = Object.assign({}, run, { prizes: [{ wins: n - 1 }, { wins: n }, { wins: n + 1 }] });
+  const pl = { played: { [run.days[0].date]: { done: true, result: 'loss', lineup: [] } } }; // uma derrota: o máximo passa a n − 1
+  const m = FB.buildModel(rp, roster, odds, pl, { now: NOW });
+  ok('prémios: os que já não dão saem e entram os de baixo', m.prizes.map(p => p.wins).join() === [n - 3, n - 2, n - 1].join() && m.prizeShift.dropped.join() === [n, n + 1].join() && m.prizes.filter(p => p.auto).length === 2, [m.prizes, m.prizeShift]);
+  const m2 = FB.buildModel(rp, roster, odds, pl, { now: NOW, shiftPrizes: false });
+  ok('prémios: sem a troca ficam os definidos', m2.prizes.map(p => p.wins).join() === [n - 1, n, n + 1].join(), m2.prizes);
+}
+
 // lineup mantido (ao tirar um cadeado): o dia fica como estava, sem aviso de cadeados
 {
   const r0 = FB.planRun(run, roster, odds, {}, { now: NOW });

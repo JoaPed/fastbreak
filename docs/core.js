@@ -429,8 +429,18 @@
       on.sort((a, b) => (live(b) - live(a)) || (soft(a) - soft(b)) || (at(b) - at(a)) || (a - b));
       on.slice(uses[pi]).forEach(d => { if (live(d)) return; days[d].locks = days[d].locks.filter(x => x !== pi); if (!soft(d)) droppedLocks.push({ player: p.id, date: days[d].day.date }); });
     });
-    const prizes = (run.prizes || []).map(p => ({ wins: Math.round(+p.wins), value: +p.value > 0 ? +p.value : 1, label: p.label || '' })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
-    return { players, pIndex, allDays, days, uses, played, D: days.length, P: players.length, prizes, winsSoFar, now, droppedLocks };
+    let prizes = (run.prizes || []).map(p => ({ wins: Math.round(+p.wins), value: +p.value > 0 ? +p.value : 1, label: p.label || '' })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
+    // patamar que já não dá (faltam mais vitórias do que dias): sai e entra o de baixo, para haver sempre um alvo
+    // (ex.: 11/12/13 com 12 dias por jogar e 0 vitórias → 10/11/12); o novo vale o mesmo que o mais baixo que fica
+    const maxW = winsSoFar + open.length, prizeShift = { dropped: [], added: [] };
+    if (prizes.length && opts.shiftPrizes !== false && prizes.some(p => p.wins > maxW)) {
+      const ok = prizes.filter(p => p.wins <= maxW), val = (ok[0] || prizes[0]).value;
+      prizeShift.dropped = prizes.filter(p => p.wins > maxW).map(p => p.wins);
+      let w = ok.length ? ok[0].wins - 1 : maxW;
+      while (ok.length + prizeShift.added.length < prizes.length && w > winsSoFar) { prizeShift.added.push(w); w--; }
+      prizes = prizeShift.added.map(x => ({ wins: x, value: val, label: '', auto: true })).concat(ok).sort((a, b) => a.wins - b.wins);
+    }
+    return { players, pIndex, allDays, days, uses, played, D: days.length, P: players.length, prizes, prizeShift, winsSoFar, now, droppedLocks };
   }
 
   // ---------- objetivo da run ----------

@@ -10,8 +10,11 @@
 // escrever /start@bot) ou vem em TELEGRAM_CHAT_ID.
 // Segredos: SUPABASE_URL, SUPABASE_SERVICE_KEY; para email SMTP_USER e SMTP_PASS (Gmail com palavra-passe de app);
 // para o Telegram TELEGRAM_BOT_TOKEN (e, se quiseres fixar o grupo, TELEGRAM_CHAT_ID).
+import { createRequire } from 'node:module';
 import { supa, must, getState, setState, etDate, fetchJson, upsertChunks, parseEspnInjuries, buildAlerts, alertText, buildReminders, reminderText, groupAlertText, groupReminderText, localTime, playerKey, INJ_LABEL } from './lib.mjs';
 
+const require = createRequire(import.meta.url);
+require('../docs/core.js'); const FB = globalThis.FB; // estatísticas (especialistas do dia)
 const TEST = process.argv.includes('--test');
 const TZ = process.env.ALERT_TZ || 'Europe/Lisbon';
 const STATUS_HOUR = process.env.ALERT_STATUS_HOUR || '23:00'; // ponto da situação (hora local), ou 2 h antes do jogo
@@ -124,13 +127,13 @@ if (TEST) {
 // ---------- 3) lineups de hoje ----------
 const today = etDate(now);
 const runs = (await must(sb.from('runs').select('id,name,chain_run_id,fictitious'))).filter(r => !r.fictitious); // runs de teste têm jogos inventados
-const days = runs.length ? await must(sb.from('run_days').select('run_id,date,games').eq('date', today).in('run_id', runs.map(r => r.id))) : [];
+const days = runs.length ? await must(sb.from('run_days').select('run_id,date,games,objectives').eq('date', today).in('run_id', runs.map(r => r.id))) : [];
 const state = await getState(sb, 'alerts', {});
 if (!days.length) { console.log('Hoje (' + today + ') não há dia de run.'); await setState(sb, 'alerts', buildAlerts({ now, lineups: [], injuries, state }).state); process.exit(0); }
 const uids = TG_TOKEN ? [...memberIds] : subs.map(s => s.user_id); // com o grupo do Telegram, os lineups de toda a gente
 const catalog = new Map();
 for (let from = 0; from < 20000; from += 1000) { // a API devolve no máximo 1000 linhas de cada vez
-  const page = await must(sb.from('nba_players').select('id,name,team').range(from, from + 999));
+  const page = await must(sb.from('nba_players').select(TG_TOKEN ? 'id,name,team,avg' : 'id,name,team').range(from, from + 999));
   page.forEach(p => catalog.set(String(p.id), p));
   if (page.length < 1000) break;
 }
@@ -167,7 +170,7 @@ for (const s of uids.map(user_id => ({ user_id }))) {
         const g = (day.games || []).find(x => Array.isArray(x) && (x[0] === team || x[1] === team));
         return { id: p.id, name: p.name, team, tip: g && g[2] ? Date.parse(g[2]) : null };
       });
-      lineups.push({ uid: s.user_id, acc: acc.id, accLabel: acc.label, date: today, source, players, run: run.name });
+      lineups.push({ uid: s.user_id, acc: acc.id, accLabel: acc.label, date: today, source, players, run: run.name, firstTip: rem.firstTip });
     }
   }
 }
@@ -176,7 +179,8 @@ console.log('Lineups de hoje vistos:', lineups.length, lineups.map(l => l.accLab
 // ---------- 4) avisos ----------
 const statusAt = (tip, date) => Math.min(tip - 2 * 3600e3, localTime(date, STATUS_HOUR, TZ));
 const subIds = new Set(subs.map(x => x.user_id));
-const { items, state: next0 } = buildAlerts({ now, lineups: lineups.filter(L => subIds.has(L.uid)), injuries, state, statusAt });
+const LAST_MIN = 30; // última chamada: meia hora antes do primeiro jogo do dia
+const { items, state: next0 } = buildAlerts({ now, lineups: lineups.filter(L => subIds.has(L.uid)), injuries, state, statusAt, lastCallMin: LAST_MIN });
 const { items: remind, state: next1 } = buildReminders({ now, reminders: reminders.filter(R => subIds.has(R.uid)), state: next0 });
 let next = next1;
 // grupo do Telegram: os jogadores dos lineups de toda a gente (quem não partilha o plano fica de fora)
@@ -185,10 +189,27 @@ if (TG_TOKEN) {
   const shares = uid => (profiles.find(p => p.user_id === uid) || {}).share_plan !== false;
   const owners = {}, union = new Map();
   lineups.filter(L => shares(L.uid)).forEach(L => L.players.forEach(p => { if (!union.has(p.id)) union.set(p.id, p); const o = (owners[p.id] = owners[p.id] || []); if (!o.includes(nameOf(L.uid))) o.push(nameOf(L.uid)); }));
-  const G = buildAlerts({ now, lineups: union.size ? [{ uid: 'grupo', acc: 'tg', date: today, source: 'grupo', players: [...union.values()] }] : [], injuries, state: next, statusAt });
+  // especialistas do dia: os 8 melhores (média por jogo) em cada estatística dos objetivos de hoje, entre quem joga
+  // hoje — se algum estiver no relatório, o grupo também quer saber
+  const spec = {};
+  for (const day of days) {
+    const tipOf = team => { const g = (day.games || []).find(x => Array.isArray(x) && (x[0] === team || x[1] === team)); return g && g[2] ? Date.parse(g[2]) : null; };
+    const playing = [...catalog.values()].filter(p => p.team && tipOf(p.team) && p.avg && (+p.avg.min || 0) >= 12);
+    const terms = [...new Set((day.objectives || []).filter(o => o && o.stat).flatMap(o => FB.statTerms(o.stat).filter(t => t.sign > 0).map(t => t.s)))];
+    for (const st of terms) {
+      const lab = (FB.STATS[st] || {}).short || st.toUpperCase();
+      playing.map(p => ({ p, v: (FB.avgOf({ avg: p.avg }, st) || {}).v })).filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 8).forEach((x, i) => {
+        const id = String(x.p.id); if (!injuries.has(id)) return;
+        if (!union.has(id)) union.set(id, { id, name: x.p.name, team: x.p.team, tip: tipOf(x.p.team) });
+        if (!spec[id]) spec[id] = 'especialista em ' + lab + ', ' + (i + 1) + '.º';
+      });
+    }
+  }
+  const first = Math.min(...reminders.map(R => R.firstTip || Infinity), ...days.flatMap(d => (d.games || []).map(g => (Array.isArray(g) && g[2] ? Date.parse(g[2]) : Infinity))));
+  const G = buildAlerts({ now, lineups: union.size ? [{ uid: 'grupo', acc: 'tg', date: today, source: 'grupo', players: [...union.values()], firstTip: isFinite(first) ? first : null }] : [], injuries, state: next, statusAt, lastCallMin: LAST_MIN });
   next = G.state;
   if (G.items.length) {
-    const okTg = await sendTg(groupAlertText(G.items, owners, { tz: TZ }));
+    const okTg = await sendTg(groupAlertText(G.items, owners, { tz: TZ, spec }));
     console.log('Telegram (lesões):', G.items.map(i => i.kind + ' ' + i.name).join(', '), '→', okTg ? 'enviado' : 'nada enviado');
     if (!okTg) G.items.forEach(i => { const k = i.date + '|grupo|tg|' + i.id; if (state[k]) next[k] = state[k]; else delete next[k]; });
   }

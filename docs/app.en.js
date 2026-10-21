@@ -1508,7 +1508,8 @@ function runBoard(r, v) {
     return '<div class="aro-col">' + aro(x, p.wins, 64, likely(x)) + '<div><div class="pc num">' + pct(x) + '</div><div class="lk">' + likely(x) + '</div><div class="nd small">' + (need <= 0 ? 'secured' : need > left ? 'out of reach' : 'need ' + need + ' in ' + left) + '</div></div></div>'; }).join('');
   const withP = P.map((p, i) => [p, v.prizeProbs[i]]), sure = withP.filter(([, x]) => x >= 0.5).pop(), up = withP.find(([, x]) => x < 0.5);
   const line = sure ? 'On track for the <b>' + sure[0].wins + ' wins</b> prize' + (up ? '; the ' + up[0].wins + '-win prize is at ' + pct(up[1]) + '.' : '.') : up ? 'The closest prize is <b>' + up[0].wins + ' wins</b>: ' + likely(up[1]).toLowerCase() + '.' : '';
-  return '<div class="card hero run-board">' + head + rec + '<div class="aros">' + cols + '</div>' + (line ? '<div class="small">' + line + '</div>' : '') + '</div>';
+  const sh = r.model.prizeShift || {}, shTxt = (sh.dropped || []).length ? '<div class="small muted">Out of reach: ' + sh.dropped.join(' and ') + ' wins' + (sh.added.length ? '. Now counting: ' + sh.added.slice().sort((a, b) => a - b).join(' and ') + ' wins' : '') + '.</div>' : '';
+  return '<div class="card hero run-board">' + head + rec + '<div class="aros">' + cols + '</div>' + (line ? '<div class="small">' + line + '</div>' : '') + shTxt + '</div>';
 }
 // Quantas vitórias no fim da run: probabilidade de cada total, com as zonas de prémio
 function distCard(r, v) {
@@ -2454,8 +2455,10 @@ function renderGrupo() {
   const rows = people.map((x, i) => {
     const strip = S.days.map(d => { const r = x.daysRes[d.date]; return '<i class="' + (r === 'win' ? 'w' : r === 'loss' ? 'l' : (nd && nd.date === d.date ? 'n' : '')) + '" title="' + dShort(d.date) + (r ? (r === 'win' ? ': win' : ': loss') : '') + '"></i>'; }).join('');
     const pr = x.s && Array.isArray(x.s.prize_probs) ? x.s.prize_probs : [];
-    const probs = P.map(p => { const z = pr.find(q => +q.wins === p.wins); return z ? +z.p : null; });
-    const side = x.s ? (P.length && probs.every(v => v != null) ? miniAros(P, probs) : '<span class="grp-wl num">≈ ' + f1(x.exp || 0) + '</span>') + (x.s.next_p != null && nd ? '<span class="today">today ' + pct(+x.s.next_p) + '</span>' : '') : '<span class="today">hasn\'t opened the run</span>';
+    // os patamares de cada um (os que já não dão trocam pelos de baixo, por isso podem ser outros que os da run)
+    const Pi = pr.length ? pr.map(q => ({ wins: +q.wins })).filter(q => q.wins > 0).sort((a, b) => a.wins - b.wins) : P;
+    const probs = Pi.map(p => { const z = pr.find(q => +q.wins === p.wins); return z ? +z.p : null; });
+    const side = x.s ? (Pi.length && probs.every(v => v != null) ? miniAros(Pi, probs) : '<span class="grp-wl num">≈ ' + f1(x.exp || 0) + '</span>') + (x.s.next_p != null && nd ? '<span class="today">today ' + pct(+x.s.next_p) + '</span>' : '') : '<span class="today">hasn\'t opened the run</span>';
     return '<li><button class="grp-row" type="button" data-action="friend" data-id="' + esc(x.uid) + '"><span class="grp-rank">' + (i + 1) + '</span>' + avatar(x.uid, x.name) +
       '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.name) + '</span>' + (x.uid === S.session.user.id ? '<span class="badge">you</span>' : '') + '</span>' +
       '<span class="ps" style="display:block">' + recordTxt(x.wins, x.losses) + (x.exp != null ? ' · expected ' + f1(x.exp) : '') + '</span><span class="strip">' + strip + '</span></span>' +
@@ -2510,7 +2513,7 @@ function renderAjustes() {
 function telegramHtml() {
   return '<div class="card panel"><h2>Telegram alerts</h2>' +
     '<div class="small muted">The Telegram group bot posts to the group, from everyone’s lineups (the one submitted in Top Shot or, if not yet, the plan’s; anyone who turned sharing off in Profile is left out):</div>' +
-    '<ul class="steps"><li><b>Injuries</b>: when someone in a lineup enters the NBA report, changes status or leaves it (✅ should play), with whose lineup it is.</li><li><b>Status update</b>: at 11 pm Lisbon (or 2 h before the game) for anyone still questionable.</li><li><b>Last call</b>: about 15–30 min before the game, if still questionable.</li><li><b>Done your lineups?</b>: one hour before the first game of the day, with who hasn’t submitted yet.</li></ul>' +
+    '<ul class="steps"><li><b>Injuries</b>: when someone in a lineup enters the NBA report, changes status or leaves it (✅ should play), with whose lineup it is.</li><li><b>Status update</b>: at 11 pm Lisbon (or 2 h before the game) for anyone still questionable.</li><li><b>Today’s specialists</b>: the best in today’s stat (top 8 in each) who are questionable, even if they aren’t in any lineup.</li><li><b>Done your lineups?</b>: one hour before the first game of the day, with who hasn’t submitted yet.</li><li><b>Last call</b>: half an hour before the first game of the day, if anyone is still questionable.</li></ul>' +
     (S.role === 'admin' ? '<details class="small"><summary><b>Admin: set up the bot</b></summary><ol class="steps"><li>In Telegram, talk to <b>@BotFather</b>, type <span class="kbd">/newbot</span> and pick a name. It gives you a token.</li><li>On GitHub: Settings → Secrets and variables → Actions → New repository secret, name <span class="kbd">TELEGRAM_BOT_TOKEN</span>, value the token.</li><li>Add the bot to the group and type <span class="kbd">/start@bot_name</span> there.</li><li>In Actions → Lesões → Run workflow: the bot finds the group by itself.</li></ol></details>' : '') + '</div>';
 }
 // avisos antes dos jogos: email e/ou notificações no telemóvel (app ntfy, grátis, sem conta)
