@@ -624,38 +624,39 @@ function alertLine(i, hm, plural) {
   if (i.kind === 'last') return '⏰ Última chamada: ' + who + ' continua ' + lab.toLowerCase() + det + '. Jogo às ' + hm(i.tip) + ': troca antes de fechar se não ' + (plural ? 'quiserem' : 'quiseres') + ' arriscar.';
   return (i.status === 'out' || i.status === 'ofs' ? '🚫 ' : '⚠️ ') + who + ': ' + lab + det + (i.kind === 'change' && i.prev ? ' (antes: ' + (INJ_LABEL[i.prev] || i.prev).toLowerCase() + ')' : '') + '. Jogo às ' + hm(i.tip) + '.' + com;
 }
-// Grupo do Telegram (HTML): um bloco por jogador, separados por uma linha em branco
-// owners: id → nomes de quem o tem no lineup; spec: id → "Especialista em 3PM (1.º)"
+// Grupo do Telegram (HTML, em inglês): um bloco por jogador, separados por uma linha em branco
+// owners: id → nomes de quem o tem no lineup; spec: id → "3PM specialist (#1)"
 const tgEsc = x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const INJ_LABEL_EN = { out: 'Out', ofs: 'Out for the season', doubtful: 'Doubtful', questionable: 'Questionable', dtd: 'Day-to-day', probable: 'Probable' };
+const andJoinEn = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
+const hmEn = tz => t => new Intl.DateTimeFormat('en-GB', { timeZone: tz || 'Europe/Lisbon', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(t));
 function groupBlock(i, hm, owners, spec) {
   const who = '<b>' + tgEsc(i.name) + '</b>' + (i.team ? ' (' + tgEsc(i.team) + ')' : '');
-  const lab = (INJ_LABEL[i.status] || i.status || '').toLowerCase(), det = i.inj && i.inj.detail ? tgEsc(i.inj.detail) + ' · ' : '';
+  const L = st => INJ_LABEL_EN[st] || st || '';
+  const det = i.inj && i.inj.detail ? tgEsc(i.inj.detail) + ' · ' : '';
   const out = [];
-  if (i.kind === 'clear') { out.push('✅ ' + who + ' · <b>deve jogar</b>', 'Saiu do relatório de lesões · jogo às <b>' + hm(i.tip) + '</b>'); }
+  if (i.kind === 'clear') { out.push('✅ ' + who + ' · <b>expected to play</b>', 'Off the injury report · tip-off <b>' + hm(i.tip) + '</b>'); }
   else {
     const icon = i.kind === 'last' ? '⏰' : i.kind === 'status' ? '📋' : i.status === 'out' || i.status === 'ofs' ? '🚫' : '⚠️';
-    const pre = i.kind === 'last' ? 'Última chamada · ' : '';
-    const st = i.kind === 'status' || i.kind === 'last' ? 'continua <b>' + tgEsc(lab) + '</b>' : '<b>' + tgEsc(INJ_LABEL[i.status] || i.status) + '</b>' + (i.kind === 'change' && i.prev ? ' (antes: ' + tgEsc((INJ_LABEL[i.prev] || i.prev).toLowerCase()) + ')' : '');
-    out.push(icon + ' ' + pre + who + ' · ' + st, det + 'jogo às <b>' + hm(i.tip) + '</b>');
+    const pre = i.kind === 'last' ? 'Last call · ' : '';
+    const st = i.kind === 'status' || i.kind === 'last' ? 'still <b>' + tgEsc(L(i.status).toLowerCase()) + '</b>' : '<b>' + tgEsc(L(i.status)) + '</b>' + (i.kind === 'change' && i.prev ? ' (was: ' + tgEsc(L(i.prev).toLowerCase()) + ')' : '');
+    out.push(icon + ' ' + pre + who + ' · ' + st, det + 'tip-off <b>' + hm(i.tip) + '</b>');
     if (i.inj && i.inj.comment) out.push('<i>' + tgEsc(i.inj.comment) + '</i>');
-    if (i.kind === 'last') out.push('<b>Troquem antes de fechar</b> se não quiserem arriscar.');
+    if (i.kind === 'last') out.push('<b>Swap before lock</b> if you don’t want the risk.');
   }
-  if ((owners[i.id] || []).length) out.push('👥 No lineup de <b>' + tgEsc(andJoin(owners[i.id])) + '</b>');
+  if ((owners[i.id] || []).length) out.push('👥 In the lineup of <b>' + tgEsc(andJoinEn(owners[i.id])) + '</b>');
   if (spec[i.id]) out.push('⭐ ' + tgEsc(spec[i.id]));
   return out.join('\n');
 }
 export function groupAlertText(items, owners, opts = {}) {
-  const tz = opts.tz || 'Europe/Lisbon';
-  const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
-  const spec = opts.spec || {}, list = items.slice().sort((a, b) => a.tip - b.tip);
-  const title = list.every(i => i.kind === 'status') ? 'Ponto da situação' : list.every(i => i.kind === 'last') ? 'Última chamada' : 'Lesões';
+  const hm = hmEn(opts.tz), spec = opts.spec || {}, list = items.slice().sort((a, b) => a.tip - b.tip);
+  const title = list.every(i => i.kind === 'status') ? 'Status update' : list.every(i => i.kind === 'last') ? 'Last call' : 'Injuries';
   return '🏀 <b>Fast Break · ' + title + '</b>\n\n' + list.map(i => groupBlock(i, hm, owners || {}, spec)).join('\n\n');
 }
-// "Já fizeram o lineup?" no grupo: só o aviso, sem nomes (o site não sabe ao certo quem já submeteu)
+// "Lineups done?" no grupo: só o aviso, sem nomes (o site não sabe ao certo quem já submeteu)
 export function groupReminderText(R, opts = {}) {
-  const tz = opts.tz || 'Europe/Lisbon';
-  const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
-  return '🏀 <b>Já fizeram o lineup?</b>\n\nOs jogos de hoje começam às <b>' + hm(R.firstTip) + '</b>' + (R.run ? ' · ' + tgEsc(R.run) : '') + '.';
+  const hm = hmEn(opts.tz);
+  return '🏀 <b>Lineups done?</b>\n\nToday’s games start at <b>' + hm(R.firstTip) + '</b>' + (R.run ? ' · ' + tgEsc(R.run) : '') + '.';
 }
 const andJoin = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0] || '');
 export function alertText(items, opts = {}) {

@@ -62,7 +62,7 @@ async function tgChat() {
   const last = chats[chats.length - 1];
   if (last && String(last.id) !== String(tgState.chat)) {
     tgState = { chat: String(last.id), title: last.title || '' }; await setState(sb, 'telegram', tgState); note('grupo encontrado: "' + tgState.title + '"');
-    const hi = await tg('sendMessage', { chat_id: tgState.chat, text: '🏀 Olá! Sou o bot do Fast Break. A partir de agora mando aqui as lesões dos vossos lineups, o ponto da situação às 23h e o lembrete "já fizeram o lineup?" uma hora antes dos jogos.' });
+    const hi = await tg('sendMessage', { chat_id: tgState.chat, text: '🏀 Hi! I’m the Fast Break bot. From now on I’ll post here the injuries in your lineups, a status update at 11 pm and a “lineups done?” reminder an hour before the games.' });
     note(hi && hi.ok ? 'olá enviado ao grupo' : 'o olá falhou: ' + ((hi && hi.description) || '?'));
   }
   if (!up || !up.ok) note('não consegui ler as mensagens do bot (' + ((up && up.description) || '?') + '): confirma o token');
@@ -201,7 +201,7 @@ if (TG_TOKEN) {
       playing.map(p => ({ p, v: (FB.avgOf({ avg: p.avg }, st) || {}).v })).filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 8).forEach((x, i) => {
         const id = String(x.p.id); if (!injuries.has(id)) return;
         if (!union.has(id)) union.set(id, { id, name: x.p.name, team: x.p.team, tip: tipOf(x.p.team) });
-        if (!spec[id]) spec[id] = 'Especialista em ' + lab + ' (' + (i + 1) + '.º)';
+        if (!spec[id]) spec[id] = lab + ' specialist (#' + (i + 1) + ')';
       });
     }
   }
