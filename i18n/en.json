@@ -1730,6 +1730,7 @@
  ", a 2.ª precisa de um Rare ou melhor e a 3.ª e a 4.ª de um Legendary": ", the 2nd needs a Rare or better and the 3rd and 4th a Legendary",
  ", a 2.ª precisa do ": ", the 2nd needs the ",
  "; cada carta só joga numa conta por noite (o plano diz quando a passar). ": "; each card plays for one account per night (the plan says when to move it). ",
+ "<div class=\"small muted\">pela melhor carta: ": "<div class=\"small muted\">from the best card: ",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1873,7 +1874,8 @@
    "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><span class=\"who\">' + face(t.id, 'sm') + '<div style=\"min-width": true,
    ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true,
    "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
-   "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true
+   "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
+   "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true
   }
  },
  "uso": {
@@ -1897,7 +1899,8 @@
    "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><span class=\"who\">' + face(t.id, 'sm') + '<div style=\"min-width": true,
    ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true,
    "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
-   "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true
+   "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
+   "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true
   }
  },
  "derrota": {

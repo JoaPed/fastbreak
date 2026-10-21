@@ -663,9 +663,18 @@ function usedCount(acc, id) { let n = 0; Object.values(planOf(acc).played || {})
 // usos restantes de cada conta: a principal guarda-os em "uses"; as smurf em "su" (se ainda não foram mexidos,
 // têm os mesmos usos por run que a principal, menos os que já gastaram)
 function usesEff(e, id, acc) {
+  // jogador com Moments na coleção: cada conta tem os usos da melhor carta (passa de uma conta para a outra)
+  // menos os que já gastou. Não se muda à mão.
+  const top = colTopUses(id);
+  if (top) return Math.max(0, top - usedCount(acc, id));
   if (acc === 'main') return +e.uses || 0;
-  if (e.su && e.su[acc] != null) return +e.su[acc];
-  return Math.max(0, (+e.uses || 0) + usedCount('main', id) - usedCount(acc, id));
+  return e.su && e.su[acc] != null ? +e.su[acc] : Math.max(0, (+e.uses || 0) + usedCount('main', id) - usedCount(acc, id));
+}
+let colTopMemo = { col: null, m: null };
+function colTopUses(id) {
+  const col = (S.profile || {}).collection; if (!col || !col.items) return null;
+  if (colTopMemo.col !== col) { const m = new Map(); Object.keys(col.items).forEach(f => { const p = String(col.items[f].p), u = TIER_USES[momentTier(col, f)] || 1; if (u > (m.get(p) || 0)) m.set(p, u); }); colTopMemo = { col, m }; }
+  return colTopMemo.m.get(String(id)) || null;
 }
 // usos da melhor carta que uma conta tem hoje (lido das carteiras); null se a conta não tem nenhum Moment dele
 function bestTierName(id) {
@@ -704,9 +713,17 @@ function saveMine() {
   clearTimeout(mineTimer);
   mineTimer = setTimeout(saveNow, 600);
 }
+// jogadores com Moments na coleção: os usos são os da melhor carta, nunca os gravados à mão
+function cleanCollectionUses() {
+  Object.entries(S.mine.roster || {}).forEach(([id, e]) => {
+    const top = colTopUses(id); if (!top) return;
+    e.uses = Math.max(0, top - usedCount('main', id)); e.tierUses = top; delete e.su; delete e.sm; delete e.usesManual;
+  });
+}
 function saveNow() {
   mineTimer = null;
   if (!S.session || !S.runId) return;
+  cleanCollectionUses();
   const row = { user_id: S.session.user.id, run_id: S.runId, roster: S.mine.roster, plan: S.mine.plan };
   mineSaving = mineSaving.then(() => q(sb.from('user_runs').upsert(row, { onConflict: 'user_id,run_id' }))).then(() => { S.mineSeen = Date.now() + 5000; }).catch(e => toast('Não guardou: ' + errText(e)));
   return mineSaving;
@@ -2827,8 +2844,10 @@ function rosterSheet(id) {
   const planOfAcc = k => { const r = S.multi ? S.multi.byKey[k] : S.result; return r ? r.normal.days.filter(x => x.lineup.includes(id)).length : 0; };
   const usesRows = accounts().map(a => {
     const pk = a.id + '|' + id, left = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, a.id), usedN = usedCount(a.id, id);
-    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="label">' + (groupMode() ? esc(a.label) : 'Usos restantes') + '</div><div class="small muted">' + (usedN ? 'usado ' + usedN + '× · ' : '') + 'o plano usa ' + planOfAcc(a.id) + '</div></div>' +
-      '<div class="stepper"><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um uso">−</button><output class="num" id="usesOut-' + esc(a.id) + '" data-uses-out="' + esc(pk) + '">' + left + '</output><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um uso">+</button></div></div>';
+    const top = colTopUses(id); // com Moments na coleção os usos vêm da melhor carta e não se mexem
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="label">' + (groupMode() ? esc(a.label) : 'Usos restantes') + '</div><div class="small muted">' + (usedN ? 'usado ' + usedN + '× · ' : '') + 'o plano usa ' + planOfAcc(a.id) + '</div>' +
+      (top ? '<div class="small muted">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +
+      (top ? '<output class="num uses-fixed" id="usesOut-' + esc(a.id) + '">' + left + '</output></div>' : '<div class="stepper"><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um uso">−</button><output class="num" id="usesOut-' + esc(a.id) + '" data-uses-out="' + esc(pk) + '">' + left + '</output><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um uso">+</button></div></div>');
   }).join('');
   const games = S.days.filter(d => FB.teamsOn(d).has(team)).length;
   const st = e.status || 'ok', avg = e.avg || c.avg;
@@ -3059,6 +3078,13 @@ function syncTierUses() {
   const col = (S.profile || {}).collection; if (!col || !col.players || !S.runId) return;
   let changed = 0;
   Object.entries(S.mine.roster || {}).forEach(([id, e]) => {
+    // com Moments lidos das carteiras os usos são os da melhor carta: apaga o que foi posto à mão (principal e smurfs)
+    const top = colTopUses(id);
+    if (top) {
+      const u = Math.max(0, top - usedCount('main', id));
+      if (e.uses !== u || e.su || e.sm || e.usesManual || e.tierUses !== top) { e.uses = u; e.tierUses = top; delete e.su; delete e.sm; delete e.usesManual; changed++; }
+      return;
+    }
     const c = col.players[id]; if (!c || !c.bySet || e.usesManual || e.tierUses == null) return;
     const tot = tierUsesOf(col, c); if (tot === e.tierUses) return;
     e.uses = Math.max(0, tot - usedCount('main', id)); e.tierUses = tot; c.uses = tot; changed++;
@@ -3483,7 +3509,7 @@ function setStatus(id, status) { if (!S.mine.roster[id]) return; S.mine.roster[i
 const useTimers = {};
 function changeUses(id, delta, acc) {
   acc = acc || S.acc;
-  const e = S.mine.roster[id]; if (!e) return;
+  const e = S.mine.roster[id]; if (!e || colTopUses(id)) return;
   const pk = acc + '|' + id;
   const cur = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, acc);
   const nv = Math.max(0, Math.min(20, cur + delta));

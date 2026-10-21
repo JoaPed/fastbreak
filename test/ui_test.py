@@ -361,8 +361,8 @@ with sync_playwright() as pw:
     pg.locator('#plBody .pl-card').filter(has_text='Jokić').first.click(); pg.wait_for_timeout(300)
     print('C folha Jokić:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:300])
     print('C Jokić nas contas:', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ') if pg.locator('#sheetPanel .note').count() else '-')
-    pg.click('#sheetPanel button[data-action="uses"][data-acc="s1"][data-d="1"]'); pg.wait_for_timeout(1500)
-    print('C usos da smurf mexidos:', store(pg, '__FAKE_DB.tables.user_runs[0].roster.jokic'))
+    # com Moments na coleção os usos de cada conta são os da melhor carta, sem stepper, e o que estava gravado à mão é apagado
+    print('C usos fixos pela coleção:', ' / '.join(pg.locator('#sheetPanel .uses-fixed').all_inner_texts()), '· steppers:', pg.locator('#sheetPanel button[data-action="uses"]').count(), '· gravado:', store(pg, '__FAKE_DB.tables.user_runs[0].roster.jokic'))
     pg.click('#sheetPanel button[data-action="close-sheet"]')
     both = pg.evaluate('(() => { const col = __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.players, r = __FAKE_DB.tables.user_runs[0].roster; return Object.keys(r).find(id => col[id] && col[id].owners && col[id].owners.main && col[id].owners.s1 && !(r[id].su && r[id].su.s1 != null)); })()')
     if both:
