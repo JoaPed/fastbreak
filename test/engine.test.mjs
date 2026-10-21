@@ -274,6 +274,18 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   ok('escalões com 3 contas: no máximo uma 2.ª jogada por noite e nunca mais de 5 contas', Object.values(r3).every(r => r.filter(x => x >= 2).length <= 1 && r.length <= 5) && Object.values(p3).every(ds => ds.length <= 2), [p3, r3]);
   const t3 = g3.transfers.filter(t => t.id === star), hold = { main: [2, 1, 1], s1: [1], s2: [1] };
   ok('escalões com 3 contas: as transferências dão a cada jogada uma carta que chega', (() => { const h = JSON.parse(JSON.stringify(hold)); const cnt = {}; for (const dt of Object.keys(r3).sort()) { t3.filter(t => t.before === dt).forEach(t => { const j = h[t.from].indexOf(t.uses || 1); if (j < 0) throw 0; h[t.from].splice(j, 1); h[t.to].push(t.uses || 1); }); for (const [k, ds] of Object.entries(p3)) if (ds.includes(dt)) { cnt[k] = (cnt[k] || 0) + 1; if (!h[k].some(c => c >= cnt[k])) return false; } } return true; })(), t3);
+  // noite fechada numa conta e aberta na outra: a carta usada na fechada fica ocupada nessa noite
+  const dts = run.days.filter(d => d.games.some(gm => gm.includes(ro.players[star].team))).map(d => d.date);
+  const pm = { played: { [run.days[0].date < dts[0] ? run.days[0].date : dts[0]]: { done: true, result: 'loss', lineup: [] } } };
+  const d0 = dts[0], d1 = dts[1];
+  const planMain = { played: { [d0]: { done: true, result: 'win', lineup: [star] }, [d1]: { done: true, result: 'win', lineup: [star] } } }; // 2.ª jogada da principal = com o Rare, no dia d1
+  const planS1 = { played: { [d0]: { done: true, result: 'win', lineup: [star] } } }; // a smurf já jogou 1 vez; d1 ainda está aberto nela
+  run.days.filter(d => d.date < d1 && d.date !== d0).forEach(d => { planMain.played[d.date] = planMain.played[d.date] || { done: true, result: 'loss', lineup: [] }; });
+  run.days.filter(d => d.date !== d1 && d.date !== d0).forEach(d => { planS1.played[d.date] = { done: true, result: 'loss', lineup: [] }; }); // na smurf só o dia d1 fica aberto
+  const roUsed = JSON.parse(JSON.stringify(ro)); roUsed.players[star].uses = 0; const roS1 = JSON.parse(JSON.stringify(ro)); roS1.players[star].uses = 1;
+  const gc = FB.planGroup(run, [{ key: 'main', roster: roUsed, plan: planMain }, { key: 's1', roster: roS1, plan: planS1 }], odds, { now: NOW });
+  const s1d1 = (gc.byKey.s1.normal.days.find(d => d.date === d1) || { lineup: [] }).lineup.includes(star);
+  ok('escalões: na noite em que a outra conta já usou o Rare, a 2.ª jogada desta conta não pode ser nessa noite', !s1d1, gc.byKey.s1.normal.days.map(d => [d.date, d.lineup.includes(star)]));
   ok('escalões: a transferência diz que é o Rare que passa de conta', !(plays.s1 || []).length || rareMoves.some(t => t.to === 's1'), g.transfers.filter(t => t.id === star));
 }
 

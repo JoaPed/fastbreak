@@ -854,9 +854,16 @@
     const mixed = p => !!(cards && cards[p] && cards[p].length > 1 && cards[p][0] > cards[p][cards[p].length - 1]);
     const past = models.map(m => { const c = new Int32Array(P); Object.values(m.played || {}).forEach(pl => { if (pl && pl.done) (pl.lineup || []).forEach(id => { const k = m.pIndex.get(id); if (k != null) c[k]++; }); }); return c; });
     const accSlots = models.map((m, a) => slots.map((s, i) => i).filter(i => slots[i].a === a).sort((x, y) => slots[x].di - slots[y].di));
+    // noites já fechadas numa conta mas ainda abertas noutra: a carta que essa conta usou (pelo número da jogada dela)
+    // já está ocupada nessa noite
+    const closedReq = new Map(); // p → Map(di → [k...])
+    models.forEach(m => {
+      const byP = new Map();
+      Object.keys(m.played || {}).sort().forEach(dt => { const pl = m.played[dt]; if (!pl || !pl.done) return; (pl.lineup || []).forEach(id => { const k = m.pIndex.get(id); if (k == null) return; const n = (byP.get(k) || 0) + 1; byP.set(k, n); const di = dIdx.get(dt); if (di == null) return; const mp = closedReq.get(k) || closedReq.set(k, new Map()).get(k); (mp.get(di) || mp.set(di, []).get(di)).push(n); }); });
+    });
     function tierOk(p, add, rem) {
       if (!mixed(p)) return true;
-      const req = new Map();
+      const req = new Map(); (closedReq.get(p) || new Map()).forEach((r, di) => req.set(di, r.slice()));
       for (let a = 0; a < A; a++) {
         let k = past[a][p];
         for (const i of accSlots[a]) {

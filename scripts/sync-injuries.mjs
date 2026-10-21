@@ -210,7 +210,7 @@ if (TG_TOKEN) {
   next = G.state;
   if (G.items.length) {
     const okTg = await sendTg(groupAlertText(G.items, owners, { tz: TZ, spec }));
-    console.log('Telegram (lesões):', G.items.map(i => i.kind + ' ' + i.name).join(', '), '→', okTg ? 'enviado' : 'nada enviado');
+    note('lesões: ' + G.items.map(i => i.kind + ' ' + i.name).join(', ') + ' → ' + (okTg ? 'enviado' : 'nada enviado'));
     if (!okTg) G.items.forEach(i => { const k = i.date + '|grupo|tg|' + i.id; if (state[k]) next[k] = state[k]; else delete next[k]; });
   }
   // lembrete: uma vez por dia, a quem joga esta run (com lineup submetido ou não)
@@ -218,7 +218,8 @@ if (TG_TOKEN) {
   const players = reminders.filter((R, i, a) => a.findIndex(x => x.uid === R.uid) === i).map(R => ({ label: nameOf(R.uid), submitted: R.accs.length > 0 && R.accs.every(a => a.submitted) }));
   const GR = buildReminders({ now, reminders: isFinite(firstTip) && players.length ? [{ uid: 'grupo', date: today, firstTip, run: (reminders[0] || {}).run, accs: players }] : [], state: next });
   next = GR.state;
-  for (const R of GR.items) { const okTg = await sendTg(groupReminderText(R, { tz: TZ })); console.log('Telegram (lembrete do lineup):', okTg ? 'enviado' : 'nada enviado'); if (!okTg) delete next['lu|' + R.date + '|grupo']; }
+  for (const R of GR.items) { const okTg = await sendTg(groupReminderText(R, { tz: TZ })); note('lembrete do lineup → ' + (okTg ? 'enviado' : 'nada enviado')); if (!okTg) delete next['lu|' + R.date + '|grupo']; }
+  if (!G.items.length && !GR.items.length) note('nada de novo para o grupo (' + union.size + ' jogadores vistos, ' + Object.keys(spec).length + ' especialistas em dúvida)');
 }
 for (const R of remind) {
   const sub = subs.find(s => s.user_id === R.uid), { title, body } = reminderText(R, { tz: TZ });
