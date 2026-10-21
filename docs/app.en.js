@@ -1099,30 +1099,48 @@ function liveGamesCard(r, md, nd, ids, live, above) {
   return '<div class="card"><div class="list-head"><h2>' + ttl + '</h2><span class="small muted">' + (inWin ? (S.board.err ? 'no connection to ESPN' : 'live') : plural(nd.games.length, 'game', 'games')) + (inWin && live && many ? ' · ' + o.filter(x => x && x.stat).map(x => esc(statShort(x.stat))).join('/') : '') + '</span></div><ul class="list">' + gameRows(nd, r, ids, B, lp, o) + '</ul></div>';
 }
 // O que há para fazer hoje: Moments a mandar entre contas, lesões no lineup, resultados por registar
+// itens marcados como feitos (neste aparelho): somem da lista até mudarem (outra transferência, outra lesão, outro dia)
+let TODO_DONE = {};
+try { TODO_DONE = JSON.parse(localStorage.getItem('fb-todo') || '{}') || {}; } catch (e) {}
+function todoSave() {
+  const lim = Date.now() - 14 * 864e5; for (const k in TODO_DONE) if (!(TODO_DONE[k] > lim)) delete TODO_DONE[k];
+  try { localStorage.setItem('fb-todo', JSON.stringify(TODO_DONE)); } catch (e) {}
+}
+const icoTick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+S.todoShow = false;
 function todoCard(r, v, d, md, nd, live, tips) {
-  const items = [], btn = (attrs, html, sub) => '<li><button class="row" type="button" ' + attrs + '><div style="min-width:0"><div class="todo-t">' + html + '</div>' + (sub ? '<div class="ps">' + sub + '</div>' : '') + '</div><span class="muted" aria-hidden="true">›</span></button></li>';
+  const items = [], done = [];
+  const btn = (attrs, html, sub, key) => {
+    const k = key ? (S.runId || '') + '|' + key : null, on = !!(k && TODO_DONE[k]);
+    const li = '<li class="todo-li' + (on ? ' done' : '') + '">' + (k ? '<button class="todo-ck" type="button" data-action="todo-tick" data-k="' + esc(k) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Done. Unmark' : 'Mark as done') + '">' + icoTick + '</button>' : '') +
+      '<button class="row" type="button" ' + attrs + '><div style="min-width:0"><div class="todo-t">' + html + '</div>' + (sub && !on ? '<div class="ps">' + sub + '</div>' : '') + '</div><span class="muted" aria-hidden="true">›</span></button></li>';
+    return on ? (done.push(li), '') : li;
+  };
   const today = todayET(), at = (day, team) => { const tt = team ? FB.tipTime(day, team) : null; return tt ? 'by ' + hm(new Date(tt).toISOString()) : 'before his game'; };
   if (S.multi) {
-    if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Read the wallets of your accounts', 'To know what to send to each account.'));
+    if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Read the wallets of your accounts', 'To know what to send to each account.', 'wallet|' + today));
     else {
       const due = S.multi.transfers.filter(t => t.before <= nd.date), later = S.multi.transfers.filter(t => t.before > nd.date);
       due.forEach(t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team;
-        items.push(btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', 'Send <b>' + esc(nameOf(t.id)) + '</b> to <b>' + esc(accLabel(t.to)) + '</b>', 'From ' + esc(accLabel(t.from)) + ', ' + at(day, team) + '. On Top Shot: gift the Moment to the other account.')); });
+        items.push(btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', 'Send <b>' + esc(nameOf(t.id)) + '</b> to <b>' + esc(accLabel(t.to)) + '</b>', 'From ' + esc(accLabel(t.from)) + ', ' + at(day, team) + '. On Top Shot: gift the Moment to the other account.', 'tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before)); });
       if (later.length) items.push('<li class="row small muted" style="display:block">Later: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' → ' + esc(accLabel(t.to)) + ' by ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' and another ' + (later.length - 3) : '') + '.</li>');
     }
   }
   d.lineup.forEach(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], j = info.injury;
-    if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(info.pPlay) + ' to play', 'Check ' + at(nd, r.model.players[pi].team) + '; if he’s not playing, remove him on Top Shot.')); });
+    if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(info.pPlay) + ' to play', 'Check ' + at(nd, r.model.players[pi].team) + '; if he’s not playing, remove him on Top Shot.', 'inj|' + id + '|' + nd.date + '|' + j.rec.status)); });
   // run a sério: dia que acabou há mais de 12 h e não fechou sozinho (sem lineup guardado, ou sem estatísticas)
   const run = curRun();
   if (run && !run.fictitious) {
     const lim = new Date(Date.parse(today + 'T12:00:00Z') - 3 * 864e5).toISOString().slice(0, 10), pl = curPlan().played || {};
     skippedDays(S.acc).filter(x => x.date >= lim && !(pl[x.date] && pl[x.date].noAuto) && (x.objectives || []).some(o => o && o.stat) && Date.now() > dayEnd(x) + 12 * 3600e3).forEach(x => {
-      items.push(btn('data-action="result-sheet" data-date="' + x.date + '"', 'Day ' + (S.days.indexOf(x) + 1) + ' without a result', 'It didn’t close by itself. If you played, record it.'));
+      items.push(btn('data-action="result-sheet" data-date="' + x.date + '"', 'Day ' + (S.days.indexOf(x) + 1) + ' without a result', 'It didn’t close by itself. If you played, record it.', 'res|' + x.date));
     });
   }
-  if (!items.length) return '';
-  return '<div class="card todo"><div class="list-head"><h2>To do</h2><span class="small muted">' + items.filter(x => x.indexOf('<button') >= 0).length + '</span></div><ul class="list">' + items.join('') + '</ul></div>';
+  const open = items.filter(x => x), n = open.filter(x => x.indexOf('<button') >= 0).length;
+  if (!open.length && !done.length) return '';
+  const doneRow = done.length ? '<li class="row small muted todo-more" style="display:block"><button class="btn link small" type="button" data-action="todo-show" aria-expanded="' + S.todoShow + '">' + (S.todoShow ? 'Hide' : 'Show') + ' ' + plural(done.length, 'done item', 'done items') + '</button></li>' + (S.todoShow ? done.join('') : '') : '';
+  if (!n) return '<div class="card todo all-done"><div class="list-head"><h2>To do</h2><span class="small muted">all done ✓</span></div><ul class="list">' + open.join('') + doneRow + '</ul></div>';
+  return '<div class="card todo"><div class="list-head"><h2>To do</h2><span class="small muted">' + n + '</span></div><ul class="list">' + open.join('') + doneRow + '</ul></div>';
 }
 // Lesões e forma de quem joga neste dia, e as lesões do plantel na run toda (o resto em Jogadores)
 function todayPlayersCard(r, md, nd, isCur) {
@@ -1220,6 +1238,7 @@ function engineWorker() {
   return EW || null;
 }
 function engineLocal(kind, args, key) {
+  if (kind === 'buyRank') return FB.buyRank.apply(null, args);
   if (kind === 'planRun') { const r = FB.planRun.apply(null, args); return { res: r.normal, total: r.normal.objective }; }
   const g = FB.planGroup.apply(null, args); return { res: g.byKey[key || 'main'].normal, total: g.objective, group: g };
 }
@@ -1798,18 +1817,18 @@ function renderPlantel() {
   const list = r.model.players.filter(p => !qq || norm(p.name).includes(qq) || p.team.toLowerCase().includes(qq));
   const ctx = { r, v, days, nd, planned, played, elsewhere, list };
   const PV = S.plView;
-  const view3 = PV.mode === 'plano' ? plMatrixHtml(ctx) : PV.mode === 'valor' ? plHeatHtml(ctx) : plListHtml(ctx);
+  const view3 = PV.mode === 'valor' ? plHeatHtml(ctx) : plListHtml(ctx);
   const totalU = r.model.uses.reduce((a, b) => a + b, 0), totalP = Object.values(v.usage).reduce((a, b) => a + b, 0);
   let usedTot = 0; Object.values(played).forEach(pl => { if (pl && pl.done) usedTot += (pl.lineup || []).length; });
   const closed = Object.values(played).filter(pl => pl && pl.done).length;
   body.innerHTML = accSwitch() +
     '<div class="card"><div class="list-head"><h2>Uses' + (groupMode() ? ' · ' + esc(accLabel(S.acc)) : '') + ' ' + helpBtn('plantel') + '</h2></div>' +
     '<div class="kv" style="padding:0 16px 12px"><div><div class="label">Used</div><div class="v num">' + usedTot + '</div><div class="small muted">' + plural(closed, 'day', 'days') + '</div></div><div><div class="label">Left</div><div class="v num">' + totalU + '</div><div class="small muted">' + ids.length + ' players</div></div><div><div class="label">In the plan</div><div class="v num">' + totalP + '</div><div class="small muted">until the end</div></div></div>' +
-    '<div class="seg pl-seg" role="group" aria-label="How to view the roster">' + [['lista', 'Players'], ['plano', 'Plan by day'], ['valor', 'Value by day']].map(([k, l]) => '<button type="button" data-action="pl-view" data-v="' + k + '" aria-pressed="' + (PV.mode === k) + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="seg pl-seg" role="group" aria-label="How to view the roster">' + [['plano', 'Plan by day'], ['valor', 'Value by day']].map(([k, l]) => '<button type="button" data-action="pl-view" data-v="' + k + '" aria-pressed="' + ((PV.mode === 'valor') === (k === 'valor')) + '">' + l + '</button>').join('') + '</div>' +
     view3 + '</div>';
 }
-// ---- Plantel: três maneiras de ver (lista de jogadores, plano por dia, valor por dia) ----
-S.plView = { mode: 'lista', sort: 'plano', filter: 'todos' };
+// ---- Plantel: duas maneiras de ver (plano por dia, com as médias de cada jogador; valor por dia) ----
+S.plView = { mode: 'plano', sort: 'plano', filter: 'todos' };
 try { Object.assign(S.plView, JSON.parse(localStorage.getItem('fb-plv') || '{}')); } catch (e) {}
 function setPlView(patch) { Object.assign(S.plView, patch); try { localStorage.setItem('fb-plv', JSON.stringify(S.plView)); } catch (e) {} renderPlantel(); }
 // estatísticas que ainda saem na run (para as médias de cada jogador), as mais frequentes primeiro
@@ -1853,15 +1872,20 @@ function plToolbar(counts, fk, withFilter) {
   return '<div class="pl-tools"><div class="chips scroll" role="group" aria-label="Sort"><span class="chips-lbl">Sort</span>' + PL_SORTS.map(([k, l]) => '<button type="button" data-action="pl-sort" data-v="' + k + '" aria-pressed="' + (PV.sort === k) + '">' + l + '</button>').join('') + '</div>' +
     (withFilter ? '<div class="chips scroll" role="group" aria-label="Show">' + PL_FILTERS.filter(([k]) => k === 'todos' || counts[k] || k === fk).map(([k, l]) => '<button type="button" data-action="pl-filter" data-v="' + k + '" aria-pressed="' + (fk === k) + '">' + l + ' <span class="cnt-s">' + counts[k] + '</span></button>').join('') + '</div>' : '') + '</div>';
 }
-// faixa com os dias da run: usado, no plano, na outra conta, tem jogo, não joga
-function plStrip(ctx, p) {
+// os dias da run numa linha, alinhados com os números do cabeçalho: usado, no plano, na outra conta, tem jogo
+function plDays(ctx, p) {
   const { days, nd, planned, played, elsewhere } = ctx, set = planned[p.id] || new Set();
-  return '<span class="pl-strip" aria-hidden="true">' + days.map(day => {
-    const pl = played[day.date], nx = nd && nd.date === day.date ? ' nx' : '';
-    const k = pl && pl.done ? ((pl.lineup || []).includes(p.id) ? 'u' : 'p') : set.has(day.date) ? 'on' : (elsewhere[p.id] || {})[day.date] ? 'ot' : FB.teamsOn(day).has(p.team) ? 'g' : 'n';
-    return '<i class="s-' + k + nx + '"></i>';
+  return '<span class="pl-days" style="--nd:' + days.length + '">' + days.map(day => {
+    const nx = nd && nd.date === day.date ? ' nx' : '', pl = played[day.date];
+    let dot = '', t = '';
+    if (pl && pl.done) { if ((pl.lineup || []).includes(p.id)) { dot = 'used'; t = 'used'; } }
+    else if (set.has(day.date)) { dot = 'on'; t = 'in the plan'; }
+    else if ((elsewhere[p.id] || {})[day.date]) { dot = 'other'; t = 'plays for ' + elsewhere[p.id][day.date].join(' and '); }
+    else if (FB.teamsOn(day).has(p.team)) { dot = 'off'; t = 'has a game'; }
+    return '<span class="pc' + nx + '"' + (t ? ' title="Day ' + (day.idx + 1) + ': ' + esc(t) + '"' : '') + '>' + (dot ? '<i class="dot ' + dot + '"></i>' : '') + '</span>';
   }).join('') + '</span>';
 }
+const plDayHead = ctx => '<div class="pl-dhead" aria-hidden="true"><span class="pl-days" style="--nd:' + ctx.days.length + '">' + ctx.days.map((d, i) => '<span class="pc' + (ctx.nd && ctx.nd.date === d.date ? ' nx' : '') + '">' + (i + 1) + '</span>').join('') + '</span></div>';
 function plListHtml(ctx) {
   const { rows, counts, fk } = plFilter(ctx), nd = ctx.nd, stats = runStats(ctx.days, nd && nd.date).slice(0, 4);
   const nxt = nd ? 'Day ' + (nd.idx + 1) : '';
@@ -1875,32 +1899,10 @@ function plListHtml(ctx) {
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (f.tier ? '<span class="tpill t-' + TIER_CLS[f.tier] + '">' + f.tier + '</span>' : '') + st + '</div>' +
       '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'game', 'games') + ' until the end' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +
       '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + f.uses + '</b><span>' + (f.uses === 1 ? 'use' : 'uses') + '</span><small>' + (f.plan ? 'plan ' + f.plan : 'not in the plan') + (f.usedN ? ' · used ' + f.usedN : '') + '</small></div>' +
-      plStrip(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</button></li>';
+      plDays(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</button></li>';
   }).join('');
-  return plToolbar(counts, fk, true) + '<ul class="list">' + (items || '<li class="row small muted">No player with this filter.</li>') + '</ul>' +
-    '<div class="legend"><span><i class="ls s-u"></i>used</span><span><i class="ls s-on"></i>in the plan</span>' + (S.multi ? '<span><i class="ls s-ot"></i>in the other account</span>' : '') + '<span><i class="ls s-g"></i>has a game</span><span>▲▼ form over the last 5 games</span></div>';
-}
-function plMatrixHtml(ctx) {
-  const { days, nd, planned, played, elsewhere } = ctx, { rows, counts, fk } = plFilter(ctx);
-  const cols = 'minmax(72px,1fr) repeat(' + days.length + ', 20px) 34px';
-  const head = '<div class="mx-row head" style="grid-template-columns:' + cols + '"><span style="text-align:left">Player</span>' + days.map((d, i) => '<span class="' + (nd && nd.date === d.date ? 'nx' : '') + '">' + (i + 1) + '</span>').join('') + '<span style="text-align:right">Uses</span></div>';
-  const body = rows.map(({ p, f }) => {
-    const set = planned[p.id] || new Set();
-    const cells = days.map(day => {
-      const nx = nd && nd.date === day.date ? ' nx' : '', pl = played[day.date];
-      if (pl && pl.done) return '<span class="cell' + nx + '">' + ((pl.lineup || []).includes(p.id) ? '<i class="dot used"></i>' : '') + '</span>';
-      if (set.has(day.date)) return '<span class="cell' + nx + '"><i class="dot on"></i></span>';
-      const oth = (elsewhere[p.id] || {})[day.date];
-      if (oth) return '<span class="cell' + nx + '" title="Plays for ' + esc(oth.join(' and ')) + ' this night"><i class="dot other"></i></span>';
-      return '<span class="cell' + nx + '">' + (FB.teamsOn(day).has(p.team) ? '<i class="dot off"></i>' : '') + '</span>';
-    }).join('');
-    const st = (p.status && p.status !== 'ok' ? '<span class="pill ' + p.status + '">' + esc(STATUS[p.status].label.slice(0, 3)) + '</span>' : '') +
-      (f.ir ? '<span class="pill ' + INJ_PILL[f.ir.status] + '" title="Injury: ' + esc(INJ_LABEL[f.ir.status]) + '">' + INJ_SHORT[f.ir.status] + '</span>' : '');
-    return '<button class="mx-row" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '" style="grid-template-columns:' + cols + '"><span class="mx-name"><span style="overflow:hidden;text-overflow:ellipsis">' + esc(lastName(p.id)) + '</span>' + st + '</span>' + cells + '<span class="mx-uses num' + (f.plan >= f.uses && f.uses > 0 ? ' full' : '') + '">' + f.plan + '/' + f.uses + '</span></button>';
-  }).join('');
-  return plToolbar(counts, fk, true) + '<div class="mx-wrap"><div class="mx">' + head + (body || '<div class="mx-row muted small">No player found.</div>') + '</div></div>' +
-    '<div class="legend"><span><i class="dot used"></i>already used</span><span><i class="dot on"></i>in the plan</span>' + (S.multi ? '<span><i class="dot other"></i>in the other account</span>' : '') + '<span><i class="dot off"></i>has a game</span><span>uses = in the plan / left' + (S.multi ? ' in this account' : '') + '</span></div>' +
-''; 
+  return plToolbar(counts, fk, true) + (items ? plDayHead(ctx) : '') + '<ul class="list pl-list">' + (items || '<li class="row small muted">No player with this filter.</li>') + '</ul>' +
+    '<div class="legend"><span><i class="dot used"></i>already used</span><span><i class="dot on"></i>in the plan</span>' + (S.multi ? '<span><i class="dot other"></i>in the other account</span>' : '') + '<span><i class="dot off"></i>has a game</span><span>▲▼ form over the last 5 games</span></div>';
 }
 // valor por dia: quanto do alvo de cada dia o jogador faz sozinho (mapa de calor); contorno = no plano
 function plHeatHtml(ctx) {
@@ -2066,11 +2068,12 @@ function perRunUses(id) {
   return t != null ? t : (+e.uses || 0) + usedCount('main', id);
 }
 const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
-async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
+async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refineN }) {
   const r = mainResult(); if (!r || !r.model.days.length) return null;
   const owned = id => !!S.mine.roster[id];
   let pool;
   if (onlyId) pool = [String(onlyId)];
+  else if (ids) pool = ids.map(String); // "Testar mais": estes, já escolhidos
   else if (mode === 'new' || mode === 'mix') {
     const teams = new Set(); r.model.days.forEach(md => { if (md.objs.length) md.teams.forEach(t => teams.add(t)); });
     pool = [...S.players.values()].filter(p => p.team && p.avg && !owned(p.id) && teams.has(p.team)).map(p => String(p.id));
@@ -2083,18 +2086,33 @@ async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
     if (pl[id]) { pl[id].uses = (+pl[id].uses || 0) + usesGain(id, U); pl[id].copies = (pl[id].copies || 1) + 1; pl[id].owner = null; }
     else { const c = S.players.get(String(id)) || {}; pl[id] = { name: c.name || id, team: c.team || '', uses: U, status: 'ok', avg: c.avg || null, copies: 1, owner: 'main' }; }
   };
-  let shortlist = pool;
-  if (pool.length > 1) {
-    // cada conta vê o que ganharia com o candidato nos seus dias (com as smurf, um 2.º Moment de quem já tens
-    // vale sobretudo nas noites em que a outra conta o está a usar)
+  const accs = S.multi ? accounts().map(a => a.id) : ['main'];
+  let shortlist = pool, rank = null;
+  if (!ids && pool.length > 1) {
+    // 1.ª peneira (todos): o ganho direto de cada um no dia em que mais ajuda, com o plano atual
     const score = {};
-    (S.multi ? accounts().map(a => a.id) : ['main']).forEach(k => {
+    accs.forEach(k => {
       const x = engineInputs(k), wide = clone(x.roster), rk = S.multi ? S.multi.byKey[k] : r; if (!rk) return;
       pool.forEach(id => add(id)(wide.players));
       const mw = FB.buildModel(x.run, wide, x.odds, x.plan, engOpts());
       FB.buyScreen(mw, rk.normal, pool.map(id => mw.pIndex.get(id)).filter(i => i != null), U).forEach(z => { score[z.id] = (score[z.id] || 0) + z.score; });
     });
-    shortlist = Object.entries(score).filter(([, v]) => v > 1e-5).sort((a, b) => b[1] - a[1]).slice(0, topN).map(([id]) => id);
+    const pre = Object.entries(score).filter(([, v]) => v > 1e-5).sort((a, b) => b[1] - a[1]).slice(0, refineN || 120).map(([id]) => id);
+    // 2.ª peneira (os melhores da 1.ª): a run de cada um refeita com trocas simples a partir do plano atual, o que
+    // já conta os usos que ele liberta a outros jogadores (no outro fio, o ecrã não congela)
+    const gain = {};
+    if (pre.length > topN) {
+      if (prog) prog('Comparing the ' + pre.length + ' most promising (of ' + pool.length + ')…');
+      for (const k of accs) {
+        if (alive && !alive()) return null;
+        const x = engineInputs(k), wide = clone(x.roster), rk = S.multi ? S.multi.byKey[k] : r; if (!rk) continue;
+        pre.forEach(id => add(id)(wide.players));
+        try { (await engineCall('buyRank', [x.run, wide, x.roster, x.odds, x.plan, { days: rk.normal.days.map(d => ({ date: d.date, lineup: d.lineup })) }, pre, engOpts()])).forEach(z => { gain[z.id] = (gain[z.id] || 0) + z.gain; }); }
+        catch (e) { console.warn('purchases: 2nd pass', e); }
+      }
+    }
+    rank = pre.slice().sort((a, b) => ((gain[b] || 0) - (gain[a] || 0)) || (score[b] - score[a]));
+    shortlist = rank.slice(0, topN);
   }
   const list = [];
   let base = null;
@@ -2110,7 +2128,7 @@ async function computeBuy({ onlyId, mode, U, topN, alive, prog, kicks }) {
     }
   }
   list.sort((a, b) => b.ev.total - a.ev.total);
-  return { list, U, mode, base, single: !!onlyId };
+  return { list, U, mode, base, single: !!onlyId, rank, pool: pool.length };
 }
 async function buyRun(onlyId) {
   const B = S.buy, out = $('buyOut'); if (!out) return;
@@ -2123,6 +2141,21 @@ async function buyRun(onlyId) {
   if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, B.uses) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
+}
+// "Testar mais": a run refeita a sério com os seguintes da lista (pela ordem das peneiras)
+async function buyMore() {
+  const B = S.buy, R = B.results; if (!R || !R.rank || B.moreBusy) return;
+  const seen = new Set(R.list.map(x => String(x.id)).concat(R.skip || [])), next = R.rank.filter(id => !seen.has(id)).slice(0, S.multi ? 5 : 8);
+  if (!next.length) return;
+  B.moreBusy = true;
+  const el = $('buyMoreBox'); if (el) el.innerHTML = '<div class="small muted" id="buyMoreProg">Redoing the run…</div>';
+  try {
+    const res = await computeBuy({ ids: next, mode: R.mode, U: R.U, topN: next.length, alive: () => !!$('buyOut') && B.results === R, prog: t => { const p = $('buyMoreProg'); if (p) p.textContent = t; } });
+    if (!res || B.results !== R) return;
+    R.list = R.list.concat(res.list).sort((a, b) => b.ev.total - a.ev.total);
+    R.skip = (R.skip || []).concat(next.filter(id => !res.list.some(x => String(x.id) === id)));
+  } finally { B.moreBusy = false; }
+  if ($('buyOut') && B.results === R) $('buyOut').innerHTML = buyResultsHtml(R);
 }
 // nome do escalão pelos usos do Moment a comprar (Common 1, Rare 2, Legendary 4)
 const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 4 ? 'Legendary' : n + ' uses');
@@ -2181,9 +2214,12 @@ function buyResultsHtml(R) {
   if (!R.list.length) return '<div class="note info">' + (R.single ? 'He doesn’t play on the remaining days (or has no averages).' : 'No ' + tierTxt(R.U) + ' changes your run.') + '</div>';
   const prizes = mainResult().prizes, keys = R.base.group ? R.base.group.keys : ['main'], multi = keys.length > 1;
   const resOf = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res);
+  const seen = new Set(R.list.map(x => String(x.id)).concat(R.skip || [])), left = R.rank ? R.rank.filter(id => !seen.has(id)).length : 0;
+  const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Looked at the ' + R.pool + ' players with games on the remaining days and fully redid the run with the ' + R.list.length + ' most promising.</div>';
+  const moreBtn = left ? '<div id="buyMoreBox"><button class="btn" type="button" data-action="buy-more">Test the next ' + Math.min(left, S.multi ? 5 : 8) + '</button></div>' : '';
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
-  return R.list.map((x, n) => {
+  return intro + R.list.map((x, n) => {
     const id = String(x.id), c = S.players.get(id) || {}, more = R.mode === 'more' || !!S.mine.roster[id];
     // dias em que passa a jogar (que antes não jogava), com a vitória desse dia antes → depois, por conta
     const byDay = new Map();
@@ -2212,7 +2248,7 @@ function buyResultsHtml(R) {
     return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2nd Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
       head + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Expected wins' + (multi ? ' (all accounts)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
-  }).join('');
+  }).join('') + moreBtn;
 }
 
 // ---- Grupo ----
@@ -3649,6 +3685,9 @@ document.addEventListener('click', async e => {
     case 'lu-unban': luBusy(); banToggle(id, date, false); break;
     case 'lu-reset': luBusy(true); planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
+    case 'buy-more': buyMore(); break;
+    case 'todo-tick': { const k = b.dataset.k; if (TODO_DONE[k]) delete TODO_DONE[k]; else { TODO_DONE[k] = Date.now(); toast('Done ✓'); } todoSave(); render(); break; }
+    case 'todo-show': S.todoShow = !S.todoShow; render(); break;
     case 'fold': { const k = b.dataset.k; S.fold[k] = !S.fold[k]; try { localStorage.setItem('fb-fold', JSON.stringify(S.fold)); } catch (e) {} render(); break; }
     case 'lu-all': if (S.lu) { S.lu.all = true; luRender(); } break;
     case 'lu-player': playerSheet(id, date, () => lineupSheet(date)); break;

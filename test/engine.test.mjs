@@ -210,6 +210,11 @@ const withStar = JSON.parse(JSON.stringify(roster)); withStar.players.star = wid
 const base2 = FB.optimize(FB.buildModel(run, roster, odds, {}, { now: NOW }), { restarts: 2 });
 const buy2 = FB.optimize(FB.buildModel(run, withStar, odds, {}, { now: NOW }), { restarts: 2 });
 ok('compras: refazer a run com ele sobe o valor dos prémios', buy2.objective > base2.objective && buy2.prizeProbs[1] >= base2.prizeProbs[1], [base2.prizeProbs, buy2.prizeProbs]);
+const rk = FB.buyRank(run, wide, roster, odds, {}, r.normal, ['bench', 'star'], { now: NOW });
+ok('compras: a 2.ª peneira põe o mais forte à frente, com ganho', rk[0].id === 'star' && rk[0].gain > 1e-4 && rk[0].gain > rk[1].gain, rk);
+ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[0].gain - (buy2.objective - base2.objective)) < 0.5 * (buy2.objective - base2.objective) + 1e-3, [rk[0].gain, buy2.objective - base2.objective]);
+{ const m0 = FB.buildModel(run, roster, odds, {}, { now: NOW }), loc = FB.optimize(m0, { now: NOW, local: true, init: m0.days.map(md => { const d = r.normal.days.find(x => x.date === md.day.date); return d ? d.lineupIdx : []; }) });
+  ok('compras: melhorias simples a partir do plano não o pioram', loc.objective >= r.normal.objective - 1e-9 && violations(loc, m0).length === 0, [loc.objective, r.normal.objective]); }
 
 // jogos seguidos (back-to-back), regularidade de cada jogador e Moments emprestados (só alguns dias)
 {

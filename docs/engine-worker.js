@@ -7,7 +7,8 @@ onmessage = e => {
   try {
     FB.setForm(form);
     let out;
-    if (kind === 'planRun') { const r = FB.planRun.apply(null, args); out = { res: r.normal, total: r.normal.objective }; }
+    if (kind === 'buyRank') out = FB.buyRank.apply(null, args);
+    else if (kind === 'planRun') { const r = FB.planRun.apply(null, args); out = { res: r.normal, total: r.normal.objective }; }
     else {
       const g = FB.planGroup.apply(null, args);
       out = { res: g.byKey[key || 'main'].normal, total: g.objective, group: { keys: g.keys, objective: g.objective, transfers: g.transfers, clashes: g.clashes, byKey: Object.fromEntries(g.keys.map(k => [k, slim(g.byKey[k])])) } };

@@ -485,7 +485,7 @@
     const D = days.length;
     const obj = makeObjective(model);
     const fixed = opts.fixed || new Map();
-    const uses = model.uses.slice();
+    const uses = (opts.uses || model.uses).slice();
     const used = new Array(P).fill(0);
     let plan = days.map(() => new Set());
     const lockSets = days.map(md => new Set(md.locks));
@@ -499,6 +499,8 @@
     const conflicts = [];
     for (let p = 0; p < P; p++) if (used[p] > uses[p]) conflicts.push({ player: model.players[p].id, used: used[p], uses: uses[p] });
 
+    // ponto de partida dado (lineups por dia, índices no model): entra primeiro, o resto completa-se à gulosa
+    if (opts.init) opts.init.forEach((L, d) => { if (d >= D || frozen(d)) return; (L || []).forEach(p => { if (plan[d].size < days[d].size && !plan[d].has(p) && days[d].eligSet.has(p) && used[p] < uses[p]) { plan[d].add(p); used[p]++; } }); });
     // inicialização gulosa: cada jogador vai para os dias onde pesa mais no alvo
     const cand = [];
     for (let d = 0; d < D; d++) {
@@ -583,7 +585,8 @@
       }
     }
 
-    if (openDays.length) {
+    if (openDays.length && opts.local) hillClimb(); // só melhorias simples a partir do ponto de partida (rápido)
+    else if (openDays.length) {
       const start = snapshot();
       let best = null;
       const iters = opts.iters || Math.min(50000, 4000 + openDays.length * 3500);
@@ -749,6 +752,25 @@
       const top = days.slice(0, Math.max(1, U));
       return { p: c, id: model.players[c].id, score: top.reduce((t, x) => t + x.g, 0), days: top };
     }).sort((a, b) => b.score - a.score);
+  }
+
+  // Compras, 2.ª peneira: para cada candidato, a run refeita só com melhorias simples a partir do plano atual (trocar
+  // um jogador num dia, trocar dois entre dias), o que já apanha os usos que ele liberta a outros jogadores.
+  // model = buildModel com o plantel e todos os candidatos comprados; baseUses = usos sem compra nenhuma (por índice
+  // do model); normal = plano atual; cands = índices no model. Devolve [{ id, gain }], do maior ganho para o menor.
+  function buyRefine(model, baseUses, normal, cands, opts) {
+    const byDate = new Map(normal.days.map(d => [d.date, d]));
+    const init = model.days.map(md => { const d = byDate.get(md.day.date); return d ? d.lineup.map(id => model.pIndex.get(id)).filter(i => i != null) : []; });
+    const value = c => { const u = baseUses.slice(); if (c >= 0) u[c] = model.uses[c]; return optimize(model, Object.assign({}, opts, { init, local: true, uses: u, fixed: null })).objective; };
+    const base = value(-1);
+    return cands.map(c => ({ id: model.players[c].id, gain: value(c) - base })).sort((a, b) => b.gain - a.gain);
+  }
+
+  // buyRefine com os dois plantéis (wide = com todos os candidatos comprados, base = sem compras); ids = candidatos
+  function buyRank(run, wide, base, odds, planDoc, normal, ids, opts) {
+    const mw = buildModel(run, wide, odds, planDoc, opts), mb = buildModel(run, base, odds, planDoc, opts);
+    const baseUses = mw.players.map(p => { const i = mb.pIndex.get(p.id); return i != null ? mb.uses[i] : 0; });
+    return buyRefine(mw, baseUses, normal, ids.map(id => mw.pIndex.get(String(id))).filter(i => i != null), opts);
   }
 
   // Plano normal e plano "tudo pelo próximo dia", para comparar o custo
@@ -1146,7 +1168,7 @@
     return sort(pos).join('+') + sort(neg).map(x => '-' + x).join('');
   }
 
-  const api = { mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  const api = { mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
