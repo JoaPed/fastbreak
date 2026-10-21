@@ -553,27 +553,91 @@ const ALERT_BAD = new Set(['out', 'ofs', 'doubtful', 'questionable', 'dtd']);
 // injuries: Map(id → linha), state: {chave: {s, at, last}} do que já foi avisado.
 // Avisa quando um jogador do lineup entra no relatório ou muda de estado, quando sai dele (liberado),
 // e uma última vez perto do jogo (lastCallMin) se continuar em dúvida/fora. Só jogos que ainda não começaram.
-export function buildAlerts({ now, lineups, injuries, state, lastCallMin = 75, horizonH = 20 }) {
+// Avisos de lesões do lineup de hoje. Por jogador do lineup: quando entra no relatório ou muda de estado (new/change),
+// quando sai dele (clear: deve jogar), um ponto da situação se continuar em dúvida (status: às 23h de Lisboa ou 2 h
+// antes do jogo, o que vier primeiro) e uma última chamada perto do jogo (last: ≤ lastCallMin minutos).
+// statusAt(tip, date) = quando mandar o ponto da situação (ms); por defeito 2 h antes do jogo.
+export function buildAlerts({ now, lineups, injuries, state, lastCallMin = 30, horizonH = 20, statusAt }) {
   const next = {}, items = [];
+  const sAtOf = statusAt || (tip => tip - 2 * 3600e3);
   for (const [k, v] of Object.entries(state || {})) if (v && now - v.at < 3 * 86400e3) next[k] = v;
   for (const L of lineups || []) for (const p of L.players || []) {
     if (!p.id || !p.tip || p.tip <= now || p.tip - now > horizonH * 3600e3) continue;
     const key = L.date + '|' + L.uid + '|' + L.acc + '|' + p.id;
     const inj = injuries.get(p.id) || null, s = inj ? inj.status : 'ok', prev = next[key] || null;
-    const close = p.tip - now <= lastCallMin * 60e3;
+    const close = p.tip - now <= lastCallMin * 60e3, sDue = now >= sAtOf(p.tip, L.date);
     let kind = null;
     if (ALERT_BAD.has(s)) {
       if (!prev || prev.s !== s) kind = prev && ALERT_BAD.has(prev.s) ? 'change' : 'new';
       else if (close && !prev.last) kind = 'last';
+      else if (sDue && !prev.st && !prev.last && s !== 'out' && s !== 'ofs') kind = 'status'; // fora é fora: só a dúvida tem ponto da situação
     } else if (prev && ALERT_BAD.has(prev.s)) kind = 'clear';
     if (!kind) continue;
-    next[key] = { s, at: now, last: !!(close || (prev && prev.last)) };
+    next[key] = { s, at: now, last: !!(close || (prev && prev.last)), st: !!(sDue || (prev && prev.st)) };
     items.push({ uid: L.uid, acc: L.acc, accLabel: L.accLabel, source: L.source, date: L.date, kind, id: p.id, name: p.name || (inj && inj.name) || p.id, team: p.team || (inj && inj.team) || '', tip: p.tip, status: s, prev: prev ? prev.s : null, inj });
   }
   return { items, state: next };
 }
+// Lembrete "já fizeste o lineup?" uma hora antes do primeiro jogo do dia (uma vez por pessoa e dia), a quem ainda
+// não tem lineup submetido em todas as contas. reminders: [{ uid, date, firstTip, run, accs: [{ label, submitted, names }] }]
+export function buildReminders({ now, reminders, state, leadMin = 60 }) {
+  const items = [], next = Object.assign({}, state);
+  for (const R of reminders || []) {
+    if (!R.firstTip || now >= R.firstTip || R.firstTip - now > leadMin * 60e3) continue;
+    const key = 'lu|' + R.date + '|' + R.uid;
+    if (next[key]) continue;
+    next[key] = { at: now, s: 'lu' };
+    if ((R.accs || []).length && R.accs.every(a => a.submitted)) continue; // já submeteu tudo
+    items.push(R);
+  }
+  return { items, state: next };
+}
+export function reminderText(R, opts = {}) {
+  const tz = opts.tz || 'Europe/Lisbon';
+  const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
+  const lines = ['Os jogos de hoje começam às ' + hm(R.firstTip) + (R.run ? ' (' + R.run + ')' : '') + '. Já fizeste o lineup?'];
+  const many = (R.accs || []).length > 1;
+  (R.accs || []).forEach(a => {
+    const who = many ? a.label + ': ' : '';
+    if (a.submitted) lines.push(who + '✓ já submetido.');
+    else if ((a.names || []).length) lines.push(who + 'sugestão do site: ' + a.names.join(', ') + '.');
+  });
+  return { title: 'Fast Break · Já fizeste o lineup?', body: lines.join('\n'), urgent: false };
+}
+// hora local (ex.: 23:00 em Lisboa) desse dia, em ms
+export function localTime(date, hhmm, tz) {
+  const [h, m] = String(hhmm).split(':').map(Number), guess = Date.parse(date + 'T' + String(h).padStart(2, '0') + ':' + String(m || 0).padStart(2, '0') + ':00Z');
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz || 'Europe/Lisbon', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess)).filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+  const shown = Date.parse(parts.year + '-' + parts.month + '-' + parts.day + 'T' + parts.hour + ':' + parts.minute + ':00Z');
+  return guess - (shown - guess);
+}
 const SRC_TXT = { chain: 'lineup submetido no Top Shot', live: 'lineup marcado no site (jogo a jogo)', plan: 'lineup do plano do site' };
 // Texto de um aviso (para o telemóvel e para o email). tz: fuso para as horas (por defeito Lisboa)
+// uma linha de aviso (o mesmo texto no telemóvel, no email e no grupo do Telegram)
+function alertLine(i, hm, plural) {
+  const who = i.name + (i.team ? ' (' + i.team + ')' : '');
+  const lab = INJ_LABEL[i.status] || i.status, det = i.inj && i.inj.detail ? ' · ' + i.inj.detail : '', com = i.inj && i.inj.comment ? ' ' + i.inj.comment : '';
+  if (i.kind === 'clear') return '✅ ' + who + ' saiu do relatório de lesões: deve jogar. Jogo às ' + hm(i.tip) + '.';
+  if (i.kind === 'status') return '📋 Ponto da situação: ' + who + ' continua ' + lab.toLowerCase() + det + '. Jogo às ' + hm(i.tip) + '.' + com;
+  if (i.kind === 'last') return '⏰ Última chamada: ' + who + ' continua ' + lab.toLowerCase() + det + '. Jogo às ' + hm(i.tip) + ': troca antes de fechar se não ' + (plural ? 'quiserem' : 'quiseres') + ' arriscar.';
+  return (i.status === 'out' || i.status === 'ofs' ? '🚫 ' : '⚠️ ') + who + ': ' + lab + det + (i.kind === 'change' && i.prev ? ' (antes: ' + (INJ_LABEL[i.prev] || i.prev).toLowerCase() + ')' : '') + '. Jogo às ' + hm(i.tip) + '.' + com;
+}
+// Grupo do Telegram: uma mensagem com os avisos dos lineups de toda a gente (owners: id → nomes de quem o tem)
+export function groupAlertText(items, owners, opts = {}) {
+  const tz = opts.tz || 'Europe/Lisbon';
+  const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
+  const lines = items.slice().sort((a, b) => a.tip - b.tip).map(i => alertLine(i, hm, true) + ((owners[i.id] || []).length ? ' (lineup de ' + andJoin(owners[i.id]) + ')' : ''));
+  return 'Fast Break · lesões\n' + lines.join('\n');
+}
+// "Já fizeram o lineup?" no grupo: quem já submeteu e quem ainda não
+export function groupReminderText(R, opts = {}) {
+  const tz = opts.tz || 'Europe/Lisbon';
+  const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
+  const done = (R.accs || []).filter(a => a.submitted).map(a => a.label), left = (R.accs || []).filter(a => !a.submitted).map(a => a.label);
+  return '🏀 Fast Break · os jogos de hoje começam às ' + hm(R.firstTip) + (R.run ? ' (' + R.run + ')' : '') + '. Já fizeram o lineup?' +
+    (left.length ? '\n⏳ Ainda não: ' + andJoin(left) : '') + (done.length ? '\n✓ Já submeteram: ' + andJoin(done) : '');
+}
+const andJoin = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0] || '');
 export function alertText(items, opts = {}) {
   const tz = opts.tz || 'Europe/Lisbon';
   const hm = t => new Intl.DateTimeFormat('pt-PT', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(new Date(t));
@@ -581,17 +645,11 @@ export function alertText(items, opts = {}) {
   const groups = accs.map(a => items.filter(i => i.acc === a));
   groups.forEach(g => {
     if (accs.length > 1 || g[0].acc !== 'main') lines.push((g[0].accLabel || g[0].acc) + ':');
-    g.forEach(i => {
-      const who = i.name + (i.team ? ' (' + i.team + ')' : '');
-      const lab = INJ_LABEL[i.status] || i.status, det = i.inj && i.inj.detail ? ' · ' + i.inj.detail : '';
-      if (i.kind === 'clear') lines.push('✅ ' + who + ' saiu do relatório de lesões: deve jogar. Jogo às ' + hm(i.tip) + '.');
-      else if (i.kind === 'last') lines.push('⏰ Última chamada: ' + who + ' continua ' + lab.toLowerCase() + det + '. Jogo às ' + hm(i.tip) + ': troca antes de fechar se não quiseres arriscar.');
-      else lines.push((i.status === 'out' || i.status === 'ofs' ? '🚫 ' : '⚠️ ') + who + ': ' + lab + det + (i.kind === 'change' && i.prev ? ' (antes: ' + (INJ_LABEL[i.prev] || i.prev).toLowerCase() + ')' : '') + '. Jogo às ' + hm(i.tip) + '.' + (i.inj && i.inj.comment ? ' ' + i.inj.comment : ''));
-    });
+    g.forEach(i => lines.push(alertLine(i, hm)));
     lines.push('(' + (SRC_TXT[g[0].source] || 'lineup') + ')');
   });
   const bad = items.filter(i => i.kind !== 'clear');
-  const title = bad.length === 1 ? (bad[0].kind === 'last' ? 'Última chamada: ' : 'Lesão no teu lineup: ') + bad[0].name + ' ' + (INJ_LABEL[bad[0].status] || '').toLowerCase()
+  const title = bad.length === 1 ? (bad[0].kind === 'last' ? 'Última chamada: ' : bad[0].kind === 'status' ? 'Ponto da situação: ' : 'Lesão no teu lineup: ') + bad[0].name + ' ' + (INJ_LABEL[bad[0].status] || '').toLowerCase()
     : bad.length ? bad.length + ' avisos de lesão no teu lineup' : items.length === 1 ? items[0].name + ' deve jogar' : 'Lineup sem lesões';
   return { title: 'Fast Break · ' + title, body: lines.join('\n'), urgent: items.some(i => (i.status === 'out' || i.status === 'ofs') && i.kind !== 'clear') || items.some(i => i.kind === 'last') };
 }

@@ -369,10 +369,14 @@
         const b2b = !!g && yday.has(p.team);
         const mf0 = opts.teams && opp ? (s => { const m = matchup(opts.teams, opp, s); return m ? m.used : 1; }) : null;
         const mf = b2b ? (s => (mf0 ? mf0(s) : 1) * b2bFactor(p, s)) : mf0;
-        const injSt = injK && injK[pi] ? injuryOn(injuries[p.id], day.date, injK[pi][di], now) : null;
+        const injReal = injK && injK[pi] ? injuryOn(injuries[p.id], day.date, injK[pi][di], now) : null;
+        // dúvida no próximo jogo (dia a dia, questionable): entra no plano como se jogasse, porque dá para o trocar
+        // até ao jogo dele se ficar de fora (risk: o aviso no lineup e a alternativa sem riscos)
+        const risk = injReal === 'duv' && opts.riskSwap !== false && injK[pi][di] === 0 && /^(questionable|dtd)$/.test((injuries[p.id] || {}).status || '');
+        const injSt = risk ? null : injReal;
         const status = injSt ? worse(statusFor(p, oddsP), injSt) : statusFor(p, oddsP);
         const dists = objs.map(o => playerDist(p, o.stat, oddsP, mf, status));
-        if (injuries && injuries[p.id]) { const inj = { rec: injuries[p.id], status: injSt, k: injK && injK[pi] ? injK[pi][di] : null, ignored: !!p.injIgnore }; dists.forEach(x => { x.injury = inj; }); }
+        if (injuries && injuries[p.id]) { const inj = { rec: injuries[p.id], status: injReal, risk, k: injK && injK[pi] ? injK[pi][di] : null, ignored: !!p.injIgnore }; dists.forEach(x => { x.injury = inj; if (risk) x.pReal = STATUS.duv.play; }); }
         if (b2b) dists.forEach((x, k) => { x.b2b = { f: b2bFactor(p, objs[k].stat) }; });
         mu[pi] = dists.map(x => x.mu);
         v[pi] = dists.map(x => x.v);

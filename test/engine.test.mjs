@@ -232,6 +232,18 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   ok('cadeados: nenhum plano (nem o tudo pelo dia) passa os usos', [all.normal, all.allIn].every(v => !v || Object.entries(v.usage).every(([k, n]) => n <= (one.players[k].uses || 0))), all.allIn && all.allIn.usage[id]);
 }
 
+// dia a dia (dúvida no próximo jogo): o plano conta com ele a jogar e marca o risco; com riskSwap: false volta aos 50%
+{
+  const iso2 = new Date(NOW).toISOString(), injD = { curry: { status: 'dtd', updated_at: iso2 } };
+  const a = FB.buildModel(run, roster, odds, {}, { now: NOW, injuries: injD }), ci = a.pIndex.get('curry');
+  const d = a.days.findIndex(md => md.teams.has(a.players[ci].team) && md.objs.length), inf = a.days[d].info[ci][0];
+  ok('dia a dia: conta como se jogasse, com o risco marcado', inf.pPlay === 1 && inf.pReal === 0.5 && inf.injury.risk === true && inf.injury.status === 'duv', [inf.pPlay, inf.pReal, inf.injury]);
+  const b = FB.buildModel(run, roster, odds, {}, { now: NOW, injuries: injD, riskSwap: false }), inf2 = b.days[d].info[ci][0];
+  ok('dia a dia: sem a troca, conta 50%', inf2.pPlay === 0.5 && !inf2.injury.risk, [inf2.pPlay]);
+  const out = FB.buildModel(run, roster, odds, {}, { now: NOW, injuries: { curry: { status: 'doubtful', updated_at: iso2 } } }).days[d].info[ci][0];
+  ok('pouco provável continua a contar pouco', out.pPlay === 0.25 && !out.injury.risk, [out.pPlay]);
+}
+
 // lineup mantido (ao tirar um cadeado): o dia fica como estava, sem aviso de cadeados
 {
   const r0 = FB.planRun(run, roster, odds, {}, { now: NOW });

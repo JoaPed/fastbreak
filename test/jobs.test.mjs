@@ -205,7 +205,8 @@ const im3 = new Map(im2); im3.set('keshon-gilbert', Object.assign({}, by['keshon
 let a4 = buildAlerts({ now: T0 + 1.5 * 3600e3, lineups: lu, injuries: im3, state: a3.state });
 let a5 = buildAlerts({ now: tip - 50 * 60e3, lineups: lu, injuries: im3, state: a4.state });
 let a6 = buildAlerts({ now: tip - 20 * 60e3, lineups: lu, injuries: im3, state: a5.state });
-ok('avisos: última chamada perto do jogo, só uma vez', a5.items.length === 1 && a5.items[0].kind === 'last' && a6.items.length === 0, [a4.items.map(i => i.kind), a5.items.map(i => i.kind), a6.items.length]);
+let a7 = buildAlerts({ now: tip - 10 * 60e3, lineups: lu, injuries: im3, state: a6.state });
+ok('avisos: última chamada perto do jogo (≤ 30 min), só uma vez', !a5.items.some(i => i.kind === 'last') && a6.items.length === 1 && a6.items[0].kind === 'last' && a7.items.length === 0, [a4.items.map(i => i.kind), a5.items.map(i => i.kind), a6.items.map(i => i.kind), a7.items.length]);
 ok('avisos: jogo já começado não avisa', buildAlerts({ now: tip + 60e3, lineups: lu, injuries: im, state: {} }).items.length === 0);
 const tx = alertText(a1.items, { tz: 'Europe/Lisbon' });
 ok('avisos: texto com estado, lesão, hora de Lisboa e de onde vem o lineup', /Stephen Curry \(GSW\): Fora · Ankle/.test(tx.body) && /00:30/.test(tx.body) && /submetido no Top Shot/.test(tx.body) && tx.urgent && /2 avisos/.test(tx.title), tx);

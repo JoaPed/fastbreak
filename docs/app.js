@@ -213,7 +213,8 @@ function partBasis(p, part, md, id, opp) {
   return 'Sem dados de ' + u + '.';
 }
 function playBasis(info) {
-  const j = info.injury, pp = info.pPlay;
+  const j = info.injury, pp = pPlayOf(info);
+  if (j && !j.ignored && j.risk) return '<b>Disponibilidade</b>: ' + pct(pp) + ' de jogar — relatório de lesões: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + (j.rec.detail ? ' (' + esc(j.rec.detail) + ')' : '') + '. O plano conta com ele a jogar (100%), porque dá para o trocar até ao jogo se ficar de fora.';
   if (j && !j.ignored && j.status) return '<b>Disponibilidade</b>: ' + pct(pp) + ' de jogar — relatório de lesões: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + (j.rec.detail ? ' (' + esc(j.rec.detail) + ')' : '') + (j.k === 0 ? ', para o próximo jogo dele.' : ', no ' + (j.k + 1) + '.º jogo dele a contar de agora.') + (info.status !== j.status ? ' Puseste-o como ' + esc(STATUS[info.status].label.toLowerCase()) + ' no plantel: conta o pior.' : '');
   if (info.status !== 'ok') return '<b>Disponibilidade</b>: ' + pct(pp) + ' de jogar (estado "' + esc(STATUS[info.status].label) + '" posto por ti no plantel).';
   if (j && j.ignored) return '<b>Disponibilidade</b>: 100% — estás a ignorar o relatório de lesões para ele.';
@@ -241,7 +242,7 @@ const HELP = {
   aovivo: ['Ao vivo', 'Quando o primeiro jogo começa, a app prende quem já jogou, lê os pontos da ESPN de 2 em 2 minutos e refaz o resto da run. Quando os jogos do lineup acabam, o dia fecha sozinho. Se o lineup que submeteste no Top Shot for outro, corrige-o em Sugestões para hoje. Se a ESPN falhar, toca num jogador para pôr os valores à mão.'],
   opcoes: ['Sugestões para hoje', '<b>Antes dos jogos</b>: compara o plano com ir com tudo hoje ou guardar um jogador para outro dia (para escolheres tu jogador a jogador, usa Mudar no lineup).<br><b>Durante os jogos</b>: com os pontos que já entraram, compara manter, tirar ou poupar quem ainda não jogou.<br>Cada opção refaz a run toda com os usos que sobram; “o melhor” é a que mais sobe as hipóteses de prémio. Quem sai antes de o jogo dele começar não gasta o uso.'],
   jogosdia: ['Jogos do dia', 'Hora de cá. Debaixo de cada jogo, os teus jogadores (a negrito os do lineup). Durante os jogos: resultado ao vivo e os valores de quem está no lineup.'],
-  lesoesforma: ['Lesões e forma', '<b>Lesões</b>: relatório da ESPN para quem joga neste dia, com a probabilidade com que o plano conta. <b>Na run</b>: os dias que faltam em que a lesão ainda pesa (fora, ou % de jogar). <b>Forma</b>: média dos últimos 5 jogos face à da época, na estatística do dia.'],
+  lesoesforma: ['Lesões e forma', '<b>Lesões</b>: relatório da ESPN para quem joga neste dia, com a probabilidade com que o plano conta. O relatório para a run toda está em Jogadores → Lesões. <b>Forma</b>: média dos últimos 5 jogos face à da época, na estatística do dia.'],
   porque: ['Em que se baseia', 'Odds das casas de apostas quando há; senão médias da época com a forma e o adversário. O número de cada jogador (pp) é quanto ele soma à vitória do dia: sem ele, entrava o melhor que sobra. “Poupa outros”: está aqui para guardar alguém melhor para outro dia. Os de fora estão guardados para outros dias ou rendem menos.'],
   comparar: ['Comparar', 'Todos os teus jogadores com jogo neste dia. Números grandes: últimos 5 jogos; pequenos: época. Adv.: quanto o adversário concede desta estatística. Toca num título para ordenar e num jogador para abrir a ficha.'],
   transf: ['Transferências', 'Um Moment só joga por uma conta em cada noite. Antes da noite indicada, oferece o Moment à outra conta no Top Shot e depois lê as carteiras outra vez (Jogadores → Coleção).'],
@@ -721,12 +722,11 @@ function publishSummary() {
 let scheduled = false;
 function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); if (S.lu && $('luBody')) luRender(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); ensureLive(); boxTick(); }, 16); }
 function recalcNow() { if (!S.session) return; compute(); render(); publishSummary(); publishNext(); }
-// Lineups dos próximos 3 dias de cada conta, guardados no plano: a tarefa dos avisos usa-os quando ainda não há
-// lineup submetido no Top Shot (só runs a sério)
+// Lineups dos próximos 3 dias de cada conta, guardados no plano: a tarefa dos avisos (grupo do Telegram) usa-os
+// quando ainda não há lineup submetido no Top Shot (só runs a sério)
 function publishNext() {
   const run = curRun();
   if (!S.session || !run || run.fictitious || !S.mineLoaded || !Object.keys(S.mine.roster || {}).length || !S.result) return;
-  if (!S.alerts || !(S.alerts.email || S.alerts.ntfy)) return; // só serve os avisos (desligados por agora)
   const out = {};
   accounts().forEach(a => {
     const r = S.multi ? S.multi.byKey[a.id] : (a.id === 'main' ? S.result : null); if (!r) return;
@@ -806,6 +806,18 @@ function opp(team, day) {
   const g = FB.gameOf(day, team);
   if (!g) return 'sem jogo';
   return (g[0] === team ? '@ ' + g[1] : 'vs ' + g[0]) + (g[2] ? ' · ' + hm(g[2]) : '');
+}
+// dúvida no próximo jogo (dia a dia): o plano conta com ele, mas pode ficar de fora
+const pPlayOf = info => (info && info.pReal != null ? info.pReal : info ? info.pPlay : 1);
+function riskOf(md, id) { const pi = S.result.model.pIndex.get(id), inf = pi != null && md.info[pi] && md.info[pi][0]; return !!(inf && inf.injury && inf.injury.risk && !inf.injury.ignored); }
+// quem entra se ele ficar de fora: joga no mesmo dia, o jogo começa depois (ainda dá para trocar) e rende mais
+function riskSub(md, day, lineup, id) {
+  const r = S.result, team = x => (r.model.players[r.model.pIndex.get(x)] || {}).team, t0 = FB.tipTime(day, team(id)) || 0;
+  let best = null;
+  md.elig.forEach(pi => { const pid = r.model.players[pi].id; if (lineup.includes(pid) || riskOf(md, pid) || !(r.model.uses[pi] > 0)) return;
+    if ((FB.tipTime(day, r.model.players[pi].team) || 0) < t0) return;
+    const P = lineupP(md, lineup.filter(x => x !== id).concat([pid])); if (!best || P > best.P) best = { id: pid, P }; });
+  return best;
 }
 function lineupP(md, ids) {
   const idx = ids.map(id => S.result.model.pIndex.get(id)).filter(i => i != null);
@@ -1036,8 +1048,12 @@ function renderJornada(el) {
     // Moment que ainda está noutra conta: tem de ser mandado antes deste jogo
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Mandar de ' + esc(accLabel(tr.from)) + '</span> ' + ps;
-    const stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
-    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div></div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
+    let stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
+    let rl = '';
+    if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);
+      stp += '<span class="pill duv risk" title="' + esc((INJ_LABEL[info.injury.rec.status] || '') + ': conta como se jogasse; se ficar de fora, troca-o antes do jogo') + '">⚠ ' + esc(INJ_LABEL[info.injury.rec.status] || 'Dúvida') + '</span>';
+      rl = '<div class="risk-sub">se não jogar: ' + (sb ? '<b>' + esc(lastName(sb.id)) + '</b> (hoje ' + pct(sb.P) + ')' : 'não há troca depois do jogo dele') + '</div>'; }
+    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div>' + rl + '</div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
   // antes dos jogos: Mudar (fixar, tirar e pôr jogadores um a um, com o que muda face à sugestão)
@@ -1067,9 +1083,7 @@ function ensureLive() {
 // a melhor compra, numa linha (as outras em Jogadores → Comprar)
 function buyLine() {
   const A = S.autoBuy, key = autoBuyKey(); if (!key || !A || A.key !== key || !A.list.length) return '';
-  const t = buySummary(A, A.list[0]); if (!t.worth) return '';
-  const c = S.players.get(t.id) || {}, gain = t.byPrize ? '+' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + ' pp nas ' + t.best.p.wins + ' vitórias' : '+' + f1(t.e1 - t.e0) + ' vitórias esperadas';
-  return '<div class="card"><button class="cta-row row" type="button" data-action="goto" data-tab="plantel" data-sub="comprar"><span><span class="t">Melhor compra: ' + esc(c.name || t.id) + '</span><span class="s" style="display:block">Moment Rare · ' + gain + '</span></span><span class="muted" aria-hidden="true">›</span></button></div>';
+  return buyTipsCard(3, true);
 }
 // ---- jogos de hoje ao vivo (placar da ESPN) ----
 function gamesWindow(nd) {
@@ -1084,6 +1098,11 @@ async function refreshBoard(date) {
   finally { S.boardBusy = false; }
 }
 // linhas dos jogos de um dia: equipas, hora (ou placar ao vivo) e os teus jogadores em cada jogo (os do lineup a negrito)
+// emblema da equipa (ESPN), com a bolinha da cor por baixo se a imagem não carregar
+const LOGO_CODE = { GSW: 'gs', NYK: 'ny', NOP: 'no', SAS: 'sa', UTA: 'utah', WAS: 'wsh' };
+const teamLogo = t => '<span class="tlogo" style="--tc:' + (TEAM_COLOR[t] || 'var(--faint)') + '" aria-hidden="true"><img src="https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/' + (LOGO_CODE[t] || String(t || '').toLowerCase()) + '.png&amp;w=80&amp;h=80" width="36" height="36" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>';
+// um jogo: equipas com emblema, hora (ou placar ao vivo) e os teus jogadores; os do lineup em destaque com cara e
+// valor ao vivo, os outros numa fila de caras; tocar abre a lista de nomes
 function gameRows(day, r, ids, B, lp, objs) {
   objs = (objs || []).filter(x => x && x.stat);
   const inLine = new Set(ids || []);
@@ -1091,12 +1110,17 @@ function gameRows(day, r, ids, B, lp, objs) {
   return games.map(g => {
     const bg = B ? B.find(x => (x.away === g[0] && x.home === g[1]) || (x.home === g[0] && x.away === g[1])) || null : null;
     const mine = r.model.players.filter(p => p.team === g[0] || p.team === g[1]).map(p => p.id).sort((a, b) => (inLine.has(b) ? 1 : 0) - (inLine.has(a) ? 1 : 0));
-    // uma linha por jogo: as equipas (e o resultado) à esquerda, a hora ou o estado à direita; os meus jogadores por baixo
     const started = bg && bg.state !== 'pre', st = !started ? '' : bg.state === 'post' ? 'Final' : bg.detail;
-    const teams = teamTag(g[0]) + (started ? ' <b class="gsc num">' + esc(bg.as) + '–' + esc(bg.hs) + '</b> ' : ' <span class="muted">@</span> ') + teamTag(g[1]);
+    const tm = (t, sc) => '<span class="g-tm">' + teamLogo(t) + '<b>' + esc(t) + '</b>' + (sc != null ? '<span class="g-sc num">' + esc(sc) + '</span>' : '') + '</span>';
+    const teams = tm(g[0], started ? bg.as : null) + '<span class="g-at">' + (started ? '–' : '@') + '</span>' + tm(g[1], started ? bg.hs : null);
     const right = started ? esc(st) : (g[2] ? hm(bg && bg.start || g[2]) : '–');
-    return '<li class="game-row' + (bg && bg.state === 'in' ? ' on' : '') + '"><span class="gl">' + teams + '</span><span class="gs num">' + right + '</span>' +
-      (mine.length ? '<span class="gm">' + mine.map(id => { const e = lp && lp[id], on = inLine.has(id); return (on ? '<b>' : '<span>') + esc(lastName(id)) + (e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : '') + (on ? '</b>' : '</span>'); }).join(' · ') + '</span>' : '') + '</li>';
+    const val = id => { const e = lp && lp[id]; return e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : ''; };
+    const lu = mine.filter(id => inLine.has(id)), rest = mine.filter(id => !inLine.has(id));
+    const chips = lu.map(id => '<span class="g-chip">' + face(id, 'xs') + esc(lastName(id)) + val(id) + '</span>').join('') +
+      (rest.length ? '<span class="g-stack">' + rest.slice(0, 5).map(id => face(id, 'xs')).join('') + '</span><span class="g-more">' + (lu.length ? '+' : '') + plural(rest.length, 'teu', 'teus') + '</span>' : '');
+    const top = '<span class="g-teams">' + teams + '</span><span class="g-time num">' + right + '</span>' + (mine.length ? '<span class="g-mine">' + chips + '</span>' : '');
+    const all = rest.length ? '<div class="g-all">' + rest.map(id => esc(lastName(id)) + val(id)).join(' · ') + '</div>' : '';
+    return '<li class="gcard' + (bg && bg.state === 'in' ? ' on' : '') + '">' + (all ? '<details><summary class="g-top">' + top + '</summary>' + all + '</details>' : '<div class="g-top">' + top + '</div>') + '</li>';
   }).join('');
 }
 // Jogos do dia: durante os jogos ficam por cima do lineup, com o placar da ESPN; antes, por baixo, com as horas
@@ -1140,7 +1164,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
     }
   }
   d.lineup.forEach(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], j = info.injury;
-    if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>: ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(info.pPlay) + ' de jogar', 'Confirma ' + at(nd, r.model.players[pi].team) + '; se não jogar, tira-o no Top Shot.', 'inj|' + id + '|' + nd.date + '|' + j.rec.status)); });
+    if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>' + (j.risk ? ' ⚠' : '') + ': ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(pPlayOf(info)) + ' de jogar', (() => { const sb = j.risk ? riskSub(md, nd, d.lineup, id) : null; return 'Confirma ' + at(nd, r.model.players[pi].team) + '; se não jogar, ' + (sb ? 'troca-o por <b>' + esc(nameOf(sb.id)) + '</b> no Top Shot (hoje ' + pct(sb.P) + ').' : 'tira-o no Top Shot.'); })(), 'inj|' + id + '|' + nd.date + '|' + j.rec.status)); });
   // run a sério: dia que acabou há mais de 12 h e não fechou sozinho (sem lineup guardado, ou sem estatísticas)
   const run = curRun();
   if (run && !run.fictitious) {
@@ -1161,26 +1185,37 @@ function todayPlayersCard(r, md, nd, isCur) {
   const mine = r.model.players.map((p, pi) => ({ p, pi, info: md.info[pi] && md.info[pi][0] })).filter(x => x.info && md.teams.has(x.p.team));
   if (!mine.length) return '';
   const runInj = injuryHits(r);
-  const link = x => '<button class="lnk" type="button" data-action="player" data-id="' + esc(x.p.id) + '" data-date="' + nd.date + '">' + esc(lastName(x.p.id)) + '</button>';
   const inj = mine.filter(x => x.info.injury && !x.info.injury.ignored && x.info.injury.status);
   const fm = mine.map(x => ({ x, fi: FB.formInfo(x.p, o.stat) })).filter(z => z.fi && (z.fi.n5 || 0) >= 3 && z.fi.season && z.fi.l5 != null).map(z => Object.assign(z, { d: (z.fi.l5 - z.fi.season) / Math.max(1, Math.abs(z.fi.season)) }));
   const hot = fm.filter(z => z.d >= 0.08).sort((a, b) => b.d - a.d).slice(0, 3), cold = fm.filter(z => z.d <= -0.08).sort((a, b) => a.d - b.d).slice(0, 3);
-  const pcs = z => ' <span class="' + (z.d > 0 ? 'up' : 'down') + '">' + (z.d > 0 ? '+' : '−') + Math.abs(Math.round(z.d * 100)) + '%</span>';
-  const lines = [['Lesões', inj.length ? inj.map(x => link(x) + ' ' + esc((INJ_LABEL[x.info.injury.rec.status] || '').toLowerCase()) + (x.info.injury.status === 'fora' ? '' : ' (' + pct(x.info.pPlay) + ')')).join(' · ') : (S.injOk ? 'ninguém' : 'relatório ainda não ligado')]];
-  // na run toda: quem do plantel está no relatório e em que dias que faltam isso pesa
-  if (S.injOk && runInj.length) lines.push(['Na run', runInj.map(x => '<button class="lnk" type="button" data-action="pl-sheet" data-id="' + esc(x.p.id) + '">' + esc(lastName(x.p.id)) + '</button> ' + esc((INJ_LABEL[x.rec.status] || '').toLowerCase()) +
-    (x.hits.length ? ': ' + (x.hits.length > 1 ? 'dias ' : 'dia ') + x.hits.map(h => h.n + (h.out ? '' : ' (' + pct(h.p) + ')')).join(', ') : ': já não pesa') + (x.p.injIgnore ? ' (ignorado)' : '')).join(' · ')]);
-  if (hot.length) lines.push(['Em forma', hot.map(z => link(z.x) + pcs(z)).join(' · ')]);
-  if (cold.length) lines.push(['Fora de forma', cold.map(z => link(z.x) + pcs(z)).join(' · ')]);
+  const pcs = z => '<span class="' + (z.d > 0 ? 'up' : 'down') + '">' + (z.d > 0 ? '▲ +' : '▼ −') + Math.abs(Math.round(z.d * 100)) + '%</span>';
+  const SEV = { fora: 0, dout: 1, duv: 2, prov: 3 };
+  const inLu = new Set(((view() || { days: [] }).days.find(x => x.date === nd.date) || { lineup: [] }).lineup);
+  const pill = rec => '<span class="pill ' + INJ_PILL[rec.status] + '">' + esc(INJ_LABEL[rec.status] || rec.status) + '</span>';
+  // hoje: quem joga neste dia e está no relatório (os do lineup primeiro), com cara, estado, lesão e % de jogar
+  const injToday = inj.slice().sort((x, y) => ((inLu.has(y.p.id) ? 1 : 0) - (inLu.has(x.p.id) ? 1 : 0)) || ((SEV[x.info.injury.status] || 9) - (SEV[y.info.injury.status] || 9)));
+  const rowT = x => { const rec = x.info.injury.rec, out = x.info.injury.status === 'fora';
+    return '<li><button class="inj-row" type="button" data-action="player" data-id="' + esc(x.p.id) + '" data-date="' + nd.date + '">' + face(x.p.id, 'sm') +
+      '<span class="inj-n"><span class="pn"><span class="nm">' + esc(nameOf(x.p.id)) + '</span>' + pill(rec) + (inLu.has(x.p.id) ? '<span class="badge">no lineup</span>' : '') + '</span>' +
+      '<span class="ps">' + teamTag(x.p.team) + (rec.detail ? ' · ' + esc(rec.detail) : '') + (rec.return_date ? ' · volta ' + dShort(rec.return_date) : '') + '</span></span>' +
+      '<span class="inj-p num' + (out ? ' c-bad' : '') + '">' + (out ? '0%' : pct(pPlayOf(x.info))) + '<small>joga</small></span></button></li>'; };
+  // na run: cada jogador do relatório com a faixa dos dias que faltam (vermelho fora, amarelo em dúvida, azul claro provável)
+  const runRows = runInj.filter(x => x.hits.length).sort((a, b) => b.hits.length - a.hits.length);
+  const sec = (t, n, body) => '<div class="inj-sec"><div class="inj-h">' + t + (n != null ? ' <span class="muted">' + n + '</span>' : '') + '</div>' + body + '</div>';
+  const formChips = (l, cls) => l.map(z => '<button class="f-chip ' + cls + '" type="button" data-action="player" data-id="' + esc(z.x.p.id) + '" data-date="' + nd.date + '">' + face(z.x.p.id, 'xs') + esc(lastName(z.x.p.id)) + ' ' + pcs(z) + '</button>').join('');
+  let body = '<div class="small muted fold-sub">' + plural(mine.length, 'jogador teu joga', 'jogadores teus jogam') + '</div>';
+  body += sec('Hoje', inj.length || null, !S.injOk ? '<div class="small muted inj-empty">O relatório de lesões ainda não está ligado.</div>' : inj.length ? '<ul class="list inj-list">' + injToday.map(rowT).join('') + '</ul>' : '<div class="small muted inj-empty">Ninguém teu que jogue está no relatório. ✓</div>');
+  if (hot.length || cold.length) body += sec('Forma', null, '<div class="f-chips">' + formChips(hot, 'hot') + formChips(cold, 'cold') + '</div>');
+  // o relatório todo (a run inteira) fica em Jogadores → Lesões
+  if (S.injOk) body += '<button class="btn link small inj-all" type="button" data-action="goto" data-tab="plantel" data-sub="lesoes">' + (runRows.length ? 'Lesões na run toda (' + runRows.length + ') ›' : 'Relatório de lesões ›') + '</button>';
   const sum = [inj.length ? plural(inj.length, 'lesão', 'lesões') : 'sem lesões', (hot.length ? hot.length + ' ▲' : '') + (hot.length && cold.length ? ' ' : '') + (cold.length ? cold.length + ' ▼' : '')].filter(Boolean).join(' · ');
-  return foldCard('lesoes', 'Lesões e forma', helpBtn('lesoesforma'), sum, '<div class="small muted fold-sub">' + plural(mine.length, 'jogador teu joga', 'jogadores teus jogam') + '</div>' +
-    lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join(''));
+  return foldCard('lesoes', 'Lesões e forma', helpBtn('lesoesforma'), sum, body);
 }
 // lesões do plantel na run toda: para cada jogador no relatório, os dias que faltam em que conta (fora ou com X% de jogar)
 function injuryHits(r) {
   return r.model.players.filter(p => injRec(p.id)).map(p => {
     const pi = r.model.pIndex.get(p.id), rec = injRec(p.id);
-    const hits = r.model.days.map(md => { const inf = md.info[pi] && md.info[pi][0]; return inf && inf.injury && inf.injury.status && md.teams.has(p.team) ? { n: md.day.idx + 1, out: inf.injury.status === 'fora', p: inf.pPlay } : null; }).filter(Boolean);
+    const hits = r.model.days.map(md => { const inf = md.info[pi] && md.info[pi][0]; return inf && inf.injury && inf.injury.status && md.teams.has(p.team) ? { n: md.day.idx + 1, out: inf.injury.status === 'fora', p: pPlayOf(inf) } : null; }).filter(Boolean);
     return { p, rec, hits };
   });
 }
@@ -1195,7 +1230,7 @@ function basisDayCard(r, v, d, md, nd) {
   const bb = rows.filter(x => x.info.b2b);
   const lines = [
     ['Odds', hasOdds ? withOdds + ' de ' + rows.length + ' do lineup · ' + esc(ago(od.updated_at)) : 'ainda não há (chegam à tarde): usa as médias'],
-    ['Lesões', S.injOk ? (injured.length ? injured.map(x => '<b>' + esc(lastName(x.id)) + '</b> ' + pct(x.info.pPlay) + ' de jogar').join(' · ') : 'ninguém do lineup') : 'relatório ainda não ligado'],
+    ['Lesões', S.injOk ? (injured.length ? injured.map(x => '<b>' + esc(lastName(x.id)) + '</b> ' + pct(pPlayOf(x.info)) + ' de jogar').join(' · ') : 'ninguém do lineup') : 'relatório ainda não ligado'],
     ['Seguidos', bb.length ? bb.map(x => '<b>' + esc(lastName(x.id)) + '</b>').join(', ') + ' jogou ontem' + (!b2bOn ? ' (sem ajuste)' : '') : 'ninguém jogou ontem'],
     ['Run', r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + pct(v.prizeProbs[i])).join(' · ') : 'o máximo de vitórias na run toda'],
   ];
@@ -1351,6 +1386,9 @@ async function opcoesSheet(fetchLive) {
     const fixed = (((curPlan().locks || {})[date]) || []).length + (((curPlan().bans || {})[date]) || []).length;
     opts.push({ title: 'O plano' + (fixed ? ' (com as tuas escolhas)' : ''), mod: () => {}, plan: true, now: true });
     if (fixed) opts.push({ title: 'O plano sem as tuas escolhas', mod: altMods.clear(date) });
+    // alternativa sem riscos: sem quem está em dúvida hoje (o plano conta com eles a jogar)
+    const md0 = r.model.days[0], risky = md0 ? md0.elig.map(pi => r.model.players[pi].id).filter(id => riskOf(md0, id)) : [];
+    if (risky.length && d0.lineup.some(id => risky.includes(id))) opts.push({ title: 'Sem riscos de lesão (sem ' + risky.map(lastName).join(', ') + ')', mod: plan => { plan.bans = plan.bans || {}; plan.bans[date] = [...new Set((plan.bans[date] || []).concat(risky))]; if (plan.locks && plan.locks[date]) plan.locks[date] = plan.locks[date].filter(x => !risky.includes(x)); } });
     FB.alternativeSeeds(r.model, cur).forEach(sd => {
       if (sd.kind === 'allin') opts.push({ title: 'Tudo pelo dia', mod: altMods.fix(date, sd.lineupIdx.map(i => r.model.players[i].id)) });
       else { const id = r.model.players[sd.player].id; opts.push({ title: 'Guardar ' + nameOf(id), mod: altMods.ban(date, id) }); }
@@ -1376,6 +1414,7 @@ async function opcoesSheet(fetchLive) {
       return '<div class="card panel op-card' + (x === best ? ' best' : '') + '"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + tag + '</div>' +
         '<div class="small">Hoje <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run ≈ <b class="num">' + f1(r.wins + x.ev.res.expected) + '</b> vitórias</div>' +
         (r.prizes.length ? '<div class="small muted">Prémios: ' + prizeTxt(x.ev.res) + '</div>' : '') +
+        (() => { const rk = !during && r.model.days[0] ? x.a0.lineup.filter(id => riskOf(r.model.days[0], id)) : []; return rk.length ? '<div class="small c-warn">⚠ Conta com ' + rk.map(id => esc(lastName(id))).join(', ') + ' a jogar (' + esc((INJ_LABEL[(injRec(rk[0]) || {}).status] || 'dúvida').toLowerCase()) + ').</div>' : ''; })() +
         ((ins.length || outs.length) ? '<div class="small muted">' + cap([outs.length ? 'sai ' + outs.map(id => esc(lastName(id)) + (during && tipOf(nd, id) ? ' (' + tipOf(nd, id) + ')' : '')).join(', ') : '', ins.length ? 'entra ' + ins.map(id => esc(lastName(id))).join(', ') : ''].filter(Boolean).join(' · ')) + (later.length ? '. ' + later.join(' · ') : '') + '.</div>' : '') +
         (isNow(x) ? '' : '<button class="btn' + (x === best ? ' primary' : '') + '" type="button" data-action="op-use" data-i="' + k + '">Escolher</button>') + '</div>';
     }).join('') + (busy || list.length ? '' : '<div class="note info">Não deu para refazer a run.</div>');
@@ -2208,10 +2247,10 @@ function buySummary(R, x) {
   return { id, best, e0, e1, byPrize, worth: byPrize || e1 - e0 >= 0.15, days: [...days].sort((a, b) => a - b), multi: keys.length > 1 };
 }
 // lista curta de sugestões (Hoje e Run)
-function buyTipsCard(limit) {
+function buyTipsCard(limit, jornada) {
   const A = S.autoBuy, key = autoBuyKey();
   if (!key) return '';
-  const head = '<div class="list-head"><h2>Os Rare que mais compensam</h2><span class="small muted">' + (A && A.key !== key ? 'a atualizar…' : 'Moment Rare') + '</span></div>';
+  const head = '<div class="list-head"><h2>' + (jornada ? 'Melhores compras' : 'Os Rare que mais compensam') + '</h2><span class="small muted">' + (A && A.key !== key ? 'a atualizar…' : 'Moment Rare') + '</span></div>';
   if (S.autoBuyErr === key) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Não deu para calcular. <button class="btn link small" type="button" data-action="buy-retry">Tentar outra vez</button></div></div>';
   if (!A) return '<div class="card">' + head + '<div class="row small muted" style="display:block">A testar cada Rare na tua run…</div></div>';
   // os melhores primeiro, mesmo os que mudam pouco (assim vês sempre qual é o Rare que mais compensa)
@@ -2219,7 +2258,7 @@ function buyTipsCard(limit) {
   if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'Não há candidatos com jogos nos dias que faltam.' : 'Nenhum Rare muda a tua run.') + '</div></div>';
   return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' vitórias' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'vitórias esperadas ' + f1(t.e0) + ' → <b class="' + (t.worth ? 'up' : '') + '">' + f1(t.e1) + '</b>';
     return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">' + (usesGain(t.id, A.U) > 0 ? 'já tens · +' + plural(usesGain(t.id, A.U), 'uso', 'usos') : '2.º Moment') + '</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div></span><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
-    '</ul></div>';
+    '</ul>' + (jornada ? '<button class="btn link small buy-more-link" type="button" data-action="goto" data-tab="plantel" data-sub="comprar">Ver mais compras ›</button>' : '') + '</div>';
 }
 function buyResultsHtml(R) {
   const usesTxt = n => n + ' uso' + (n > 1 ? 's' : '');
@@ -2460,22 +2499,31 @@ function renderAjustes() {
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Cálculo sem odds ' + helpBtn('avancado') + '</h2>' +
     '<div class="label">Jogos seguidos</div><div class="seg acc-seg" role="group" aria-label="Jogos seguidos"><button type="button" data-action="b2b" data-v="1" aria-pressed="' + b2bOn + '">Ajustar</button><button type="button" data-action="b2b" data-v="0" aria-pressed="' + !b2bOn + '">Não ajustar</button></div>' +
     '<div class="label">Peso da forma recente</div><div class="seg acc-seg" role="group" aria-label="Peso da forma">' + FORM_LEVELS.map(([k, l]) => '<button type="button" data-action="form-level" data-level="' + k + '" aria-pressed="' + (formLevel === k) + '">' + l + '</button>').join('') + '</div></div>');
-  // (avisos por email/telemóvel: prontos em alertsHtml(), desligados por agora)
+  if (sub === 'prefs') html.push(telegramHtml()); // avisos no grupo do Telegram (os avisos pessoais, alertsHtml, ficam guardados)
   if (sub === 'admin') html.push(adminHtml(run));
   if (sub === 'dados') html.push(dataHtml());
   el.innerHTML = html.join('');
   if (sub === 'admin' && S.role === 'admin' && S.invite == null) { sb.rpc('get_invite_code').then(({ data }) => { S.invite = data || ''; if (S.tab === 'ajustes' && !typingIn('tab-ajustes')) renderAjustes(); }); }
 }
+// avisos no grupo do Telegram: a tarefa "Lesões" manda-os com o bot do grupo (segredo TELEGRAM_BOT_TOKEN no GitHub)
+function telegramHtml() {
+  return '<div class="card panel"><h2>Avisos no Telegram</h2>' +
+    '<div class="small muted">O bot do grupo do Telegram manda para o grupo, a partir dos lineups de toda a gente (o submetido no Top Shot ou, se ainda não, o do plano; quem desligou a partilha em Perfil fica de fora):</div>' +
+    '<ul class="steps"><li><b>Lesões</b>: quando alguém de um lineup entra no relatório da NBA, muda de estado ou sai dele (✅ deve jogar), com de quem é o lineup.</li><li><b>Ponto da situação</b>: às 23h (ou 2 h antes do jogo) de quem continua em dúvida.</li><li><b>Última chamada</b>: cerca de 15–30 min antes do jogo, se continuar em dúvida.</li><li><b>Já fizeram o lineup?</b>: uma hora antes do primeiro jogo do dia, com quem ainda não submeteu.</li></ul>' +
+    (S.role === 'admin' ? '<details class="small"><summary><b>Admin: ligar o bot</b></summary><ol class="steps"><li>No Telegram, fala com <b>@BotFather</b>, escreve <span class="kbd">/newbot</span> e escolhe um nome. Ele dá-te um token.</li><li>No GitHub: Settings → Secrets and variables → Actions → New repository secret, nome <span class="kbd">TELEGRAM_BOT_TOKEN</span>, valor o token.</li><li>Junta o bot ao grupo e escreve lá <span class="kbd">/start@nome_do_bot</span>.</li><li>Em Actions → Lesões → Run workflow: na meia hora seguinte o bot encontra o grupo sozinho.</li></ol></details>' : '') + '</div>';
+}
 // avisos antes dos jogos: email e/ou notificações no telemóvel (app ntfy, grátis, sem conta)
 function alertsHtml() {
   const a = S.alerts || {}, email = ((S.session || {}).user || {}).email || '';
-  const head = '<div class="card panel"><h2>Avisos de lesões</h2>';
+  const head = '<div class="card panel"><h2>Avisos no telemóvel</h2>';
   if (S.alertsOk === false) return head + '<div class="small muted">Para ligar avisos, o admin tem de correr o supabase/schema.sql novo no Supabase (SQL Editor).</div></div>';
-  return head + '<div class="small muted">Antes de cada jogo, uma tarefa automática vê o relatório de lesões da NBA e avisa-te se alguém do teu lineup de hoje estiver fora ou em dúvida: o lineup que submeteste no Top Shot (lido da blockchain) ou, se ainda não submeteste, o do plano. Volta a avisar se o estado mudar, se ele sair do relatório, e uma última vez cerca de uma hora antes do jogo se continuar em dúvida.</div>' +
-    '<button class="switch" type="button" data-action="alerts-email" aria-pressed="' + !!a.email + '"><i></i>Por email' + (email ? ' (' + esc(email) + ')' : '') + '</button>' +
+  return head + '<div class="small muted">Uma tarefa automática vê o relatório de lesões da NBA de 15 em 15 minutos à noite e manda-te:</div>' +
+    '<ul class="steps"><li><b>Lesão no lineup</b>: quando alguém do teu lineup de hoje entra no relatório, muda de estado ou sai dele (✅ deve jogar).</li><li><b>Ponto da situação</b>: às 23h (ou 2 h antes do jogo) de quem continua em dúvida.</li><li><b>Última chamada</b>: cerca de 15–30 min antes do jogo, se continuar em dúvida.</li><li><b>Já fizeste o lineup?</b>: uma hora antes do primeiro jogo do dia, com a sugestão do site (não chega se já submeteste em todas as contas).</li></ul>' +
+    '<div class="small muted">O lineup é o que submeteste no Top Shot (lido da blockchain) ou, se ainda não submeteste, o do plano.</div>' +
     (a.ntfy ? '<div class="label">No telemóvel</div><ol class="steps small"><li>Instala a app <b>ntfy</b> (grátis, Android e iPhone).</li><li>Carrega em <b>+</b> e subscreve este tópico: <span class="kbd" id="ntfyTopic">' + esc(a.ntfy) + '</span> <button class="btn link small" type="button" data-action="copy-topic">copiar</button></li><li>Carrega em <b>Testar</b>: deve chegar uma notificação.</li></ol>' +
       '<div class="small muted">Quem souber o tópico também recebe as tuas mensagens: não o partilhes.</div><div class="btns"><button class="btn" type="button" data-action="alerts-test">Testar</button><button class="btn quiet" type="button" data-action="alerts-ntfy-off">Desligar</button></div>'
       : '<button class="btn" type="button" data-action="alerts-ntfy-on">Ligar notificações no telemóvel</button>') +
+    '<button class="switch" type="button" data-action="alerts-email" aria-pressed="' + !!a.email + '"><i></i>Por email' + (email ? ' (' + esc(email) + ')' : '') + '</button>' +
     (S.role === 'admin' ? '<div class="small muted">Admin: os emails precisam dos segredos SMTP_USER e SMTP_PASS no GitHub e da tarefa "Lesões" (ver README).</div>' : '') + '</div>';
 }
 async function saveAlerts(patch) {

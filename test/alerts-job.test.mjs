@@ -40,11 +40,50 @@ ok('o que foi avisado fica guardado', Object.keys((db.tables.job_state.find(r =>
 run(T + 1800e3);
 db = read();
 ok('meia hora depois, sem novidades, não manda nada', db.sent.length === 1, db.sent.length);
-run(Date.parse('2026-10-21T22:00:00Z'));
+run(Date.parse('2026-10-21T22:00:00Z')); // 23h em Lisboa, uma hora antes do primeiro jogo
 db = read();
-ok('última chamada para quem continua em dúvida, perto do jogo', db.sent.length === 2 && /Última chamada/.test(db.sent[1].message) && /Gilbert/.test(db.sent[1].message), db.sent.slice(1));
+const lu = db.sent[1] || {}, st = db.sent[2] || {};
+ok('lembrete do lineup uma hora antes do primeiro jogo (com a sugestão da conta que ainda não submeteu)', /Já fizeste o lineup/.test(lu.title) && /Conta principal: ✓ já submetido/.test(lu.message) && /smurfy: sugestão do site: Keshon Gilbert, LeBron James/.test(lu.message), lu);
+ok('ponto da situação às 23h de quem continua em dúvida (quem está fora não)', /Ponto da situação/.test(st.title) && /Gilbert \(ATL\) continua dia a dia/.test(st.message) && !/Curry/.test(st.message), st);
+run(Date.parse('2026-10-21T22:15:00Z'));
+db = read();
+ok('sem repetir o lembrete nem o ponto da situação', db.sent.length === 3, db.sent.length);
+run(Date.parse('2026-10-21T22:40:00Z'));
+db = read();
+ok('última chamada para quem continua em dúvida, perto do jogo', db.sent.length === 4 && /Última chamada/.test(db.sent[3].message) && /Gilbert/.test(db.sent[3].message), db.sent.slice(3));
+const dbx = read(); dbx.espn.injuries = dbx.espn.injuries.filter(t => !/Hawks/.test(t.displayName)); fs.writeFileSync(file, JSON.stringify(dbx));
+run(Date.parse('2026-10-21T22:47:00Z'));
+db = read();
+ok('sai do relatório: avisa que deve jogar', db.sent.length === 5 && /Gilbert \(ATL\) saiu do relatório de lesões: deve jogar/.test(db.sent[4].message), db.sent.slice(4));
+const n0 = db.sent.length;
 run(T, ['--test']);
 db = read();
-ok('modo de teste manda a mensagem de teste a quem tem avisos', db.sent.length === 4 && db.sent.slice(2).every(x => /teste/i.test(x.title)), db.sent.slice(2).map(x => x.topic));
+ok('modo de teste manda a mensagem de teste a quem tem avisos', db.sent.length === n0 + 2 && db.sent.slice(n0).every(x => /teste/i.test(x.title)), db.sent.slice(n0).map(x => x.topic));
+
+// ---------- grupo do Telegram: avisos dos lineups de toda a gente e o lembrete do lineup ----------
+const file2 = path.join(path.dirname(file), 'db-tg.json');
+const tgDb = JSON.parse(fs.readFileSync(file, 'utf8'));
+tgDb.sent = []; tgDb.tables.job_state = []; tgDb.tables.alerts = []; // ninguém com avisos pessoais
+tgDb.espn = espn;
+tgDb.tables.profiles = [{ user_id: 'u1', display_name: 'João', smurfs: [{ id: 's1', topshot_username: 'smurfy' }] }, { user_id: 'u2', display_name: 'Marquês', smurfs: [] }, { user_id: 'u3', display_name: 'Rui', smurfs: [] }];
+tgDb.tables.user_runs.push({ user_id: 'u2', run_id: 'run-1', roster: {}, plan: { next: { main: { '2026-10-21': ['keshon-gilbert'] } } } });
+tgDb.telegram = { updates: [{ update_id: 1, my_chat_member: { chat: { id: -1001, type: 'group', title: 'Fast Break' } } }] };
+fs.writeFileSync(file2, JSON.stringify(tgDb));
+const runTg = (now, args = []) => execFileSync(process.execPath, ['--import', path.join(root, 'test/helpers/job-preload.mjs'), path.join(root, 'scripts/sync-injuries.mjs'), ...args], { env: Object.assign({}, process.env, { FB_TEST_DB: file2, FB_TEST_NOW: String(now), SUPABASE_URL: '', TELEGRAM_BOT_TOKEN: 'teste:abc', TELEGRAM_CHAT_ID: '', SITE_URL: '' }), encoding: 'utf8' });
+const readTg = () => JSON.parse(fs.readFileSync(file2, 'utf8'));
+const lg = runTg(T);
+let g = readTg();
+const hello = g.sent[0] || {}, g0 = g.sent[1] || {};
+ok('Telegram: cumprimenta o grupo da primeira vez', /Olá! Sou o bot do Fast Break/.test(hello.message || ''), hello);
+ok('Telegram: o grupo é descoberto e guardado', (g.tables.job_state.find(r => r.key === 'telegram') || {}).value?.chat === '-1001', g.tables.job_state, lg);
+ok('Telegram: uma mensagem com as lesões dos lineups de toda a gente e de quem é cada um', g.sent.length === 2 && g0.via === 'tg' && g0.chat === '-1001' && /Stephen Curry \(GSW\): Fora/.test(g0.message) && /lineup de João\)/.test(g0.message) && /Keshon Gilbert \(ATL\): Dia a dia.*lineup de João e Marquês/.test(g0.message), g.sent);
+runTg(Date.parse('2026-10-21T22:00:00Z'));
+g = readTg();
+const gl = g.sent.find(x => /Já fizeram o lineup/.test(x.message)) || {}, gs = g.sent.find(x => /Ponto da situação/.test(x.message)) || {};
+ok('Telegram: lembrete do lineup com quem ainda não submeteu', /Ainda não: João e Marquês/.test(gl.message || '') || /Ainda não: Marquês/.test(gl.message || ''), g.sent.map(x => x.message));
+ok('Telegram: ponto da situação às 23h de quem está em dúvida', /Keshon Gilbert \(ATL\) continua dia a dia/.test(gs.message || ''), g.sent.map(x => x.message));
+const nTg = g.sent.length;
+runTg(Date.parse('2026-10-21T22:15:00Z'));
+ok('Telegram: não repete', readTg().sent.length === nTg, readTg().sent.length);
 console.log(fails ? fails + ' falha(s)' : 'avisos: tudo certo');
 process.exit(fails ? 1 : 0);

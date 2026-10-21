@@ -653,6 +653,7 @@ p, .note { text-wrap: pretty; }
 .face { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .85); } /* linha preta fina à volta da cara */
 .face b { font-size: 13px; font-weight: 700; color: var(--muted); }
 .face img { position: absolute; left: 50%; bottom: 0; width: 56px; height: auto; transform: translateX(-50%); }
+.face.xs { width: 22px; height: 22px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .85); } .face.xs b { font-size: 8px; } .face.xs img { width: 31px; }
 .face.sm { width: 34px; height: 34px; } .face.sm b { font-size: 11px; } .face.sm img { width: 48px; }
 .face.md { width: 52px; height: 52px; } .face.md b { font-size: 15px; } .face.md img { width: 73px; }
 .face.lg { width: 60px; height: 60px; } .face.lg b { font-size: 18px; } .face.lg img { width: 84px; }
@@ -706,3 +707,61 @@ p, .note { text-wrap: pretty; }
 .lu-gap .gapb-keep { flex: none; color: var(--muted); }
 .gapb-go:active { background: rgba(0, 0, 0, .04); }
 @media (hover: hover) and (pointer: fine) { .gapb-go:hover .gapb-t b { text-decoration: underline; } }
+
+/* jogos do dia: emblemas, hora e os teus jogadores com cara */
+.gcard { list-style: none; }
+.gcard .g-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; align-items: center; padding: 14px 16px; cursor: pointer; list-style: none; }
+.gcard .g-top::-webkit-details-marker { display: none; }
+.gcard details[open] .g-top { padding-bottom: 6px; }
+.gcard .g-teams { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 14.5px; }
+.gcard .g-tm { display: inline-flex; align-items: center; gap: 6px; }
+.gcard .g-tm b { font-family: var(--font-display); font-weight: 800; font-size: 21px; letter-spacing: .02em; }
+.gcard .g-sc { font-family: var(--font-display); font-weight: 800; font-size: 20px; margin-left: 2px; }
+.gcard .g-at { color: var(--muted); font-size: 13px; }
+.gcard .g-time { font-family: var(--font-display); font-weight: 700; font-size: 19px; color: var(--muted); }
+.gcard.on .g-time { color: var(--ball-ink); }
+.tlogo { position: relative; width: 36px; height: 36px; flex: none; display: inline-grid; place-items: center; }
+.tlogo::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: var(--tc); }
+.tlogo img { position: absolute; inset: 0; width: 36px; height: 36px; object-fit: contain; }
+.gcard .g-mine { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.g-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 2px 2px; border-radius: 99px; background: var(--accent-soft); color: var(--ink); font-size: 12.5px; font-weight: 600; }
+.g-chip b { color: var(--accent); }
+.g-stack { display: inline-flex; padding-left: 6px; }
+.g-stack .face { margin-left: -6px; box-shadow: 0 0 0 2px var(--surface); }
+.g-more { font-size: 12px; color: var(--muted); }
+.gcard .g-all { padding: 0 16px 11px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.gcard .g-all b { color: var(--ink); font-weight: 600; }
+@media (hover: hover) and (pointer: fine) { .gcard .g-top:hover { background: var(--surface-2); } }
+
+/* lesões e forma: hoje (com cara e % de jogar), na run (faixa dos dias) e forma (chips) */
+.inj-sec { padding: 4px 0 6px; }
+.inj-sec + .inj-sec { border-top: 1px solid var(--rule); margin-top: 4px; padding-top: 8px; }
+.inj-h { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 4px 16px 4px; }
+.inj-empty { padding: 4px 16px 8px; }
+.inj-row { width: 100%; border: 0; background: none; text-align: left; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 16px; color: inherit; }
+.inj-row.run { grid-template-columns: auto minmax(0, 1fr); }
+.inj-n { display: grid; gap: 3px; min-width: 0; }
+.inj-n .pn { flex-wrap: wrap; row-gap: 3px; }
+.inj-n .ps { font-size: 12.5px; color: var(--muted); white-space: normal; }
+.inj-p { text-align: right; font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1; }
+.inj-p small { display: block; font-family: var(--font-body); font-size: 10.5px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+.inj-days { margin-top: 2px; }
+.inj-days .pc { height: 14px; }
+.inj-days .pc > i { width: 100%; max-width: 22px; height: 10px; border-radius: 3px; display: block; box-sizing: border-box; }
+.inj-dhead { padding: 0 16px 0 calc(16px + 34px + 12px); }
+.inj-dhead .pc { height: 18px; padding: 0; }
+.inj-dhead .pc.nx { color: var(--ball-ink); }
+.i-fora { background: var(--bad); } .i-duv { background: var(--warn); } .i-prov { background: color-mix(in srgb, var(--warn) 40%, transparent); }
+.legend .ls.i-fora, .legend .ls.i-duv, .legend .ls.i-prov { border: 0; }
+.inj-all { margin: 2px 16px 0; }
+.f-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 16px 8px; }
+.f-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 2px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 12.5px var(--font-body); cursor: pointer; }
+.f-chip.hot { border-color: color-mix(in srgb, var(--good) 45%, transparent); } .f-chip.cold { border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+@media (hover: hover) and (pointer: fine) { .inj-row:hover, .f-chip:hover { background: var(--surface-2); } }
+.buy-more-link { margin: 0 16px 10px; }
+.risk-sub { font-size: 12.5px; color: var(--warn); margin-top: 1px; } .risk-sub b { color: inherit; }
+.row .pn:has(.pill.risk) { flex-wrap: wrap; row-gap: 3px; }
+.gcard > .g-top { cursor: default; }
+/* emblemas escuros (Nets, Spurs…) no tema escuro: um contorno claro e fino para não desaparecerem */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tlogo img { filter: drop-shadow(0 0 .6px rgba(255, 255, 255, .9)) drop-shadow(0 0 .6px rgba(255, 255, 255, .5)); } }
+:root[data-theme="dark"] .tlogo img { filter: drop-shadow(0 0 .6px rgba(255, 255, 255, .9)) drop-shadow(0 0 .6px rgba(255, 255, 255, .5)); }

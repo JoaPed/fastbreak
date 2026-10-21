@@ -39,6 +39,8 @@ globalThis.__FB_TEST_SB = { from: t => new Q(t), auth: { admin: { getUserById: a
 globalThis.fetch = async (url, opts = {}) => {
   url = String(url);
   if (/site\.api\.espn\.com.*\/injuries/.test(url)) return new Response(JSON.stringify(db.espn || { injuries: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  if (/^https:\/\/api\.telegram\.org\/bot[^/]+\/getUpdates/.test(url)) return new Response(JSON.stringify({ ok: true, result: (db.telegram || {}).updates || [] }), { status: 200 });
+  if (/^https:\/\/api\.telegram\.org\/bot[^/]+\/sendMessage/.test(url)) { const b = JSON.parse(opts.body); db.sent.push({ via: 'tg', chat: String(b.chat_id), message: b.text }); return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 }); }
   if (/^https:\/\/ntfy\.sh\//.test(url)) { db.sent.push(Object.assign({ via: 'ntfy' }, JSON.parse(opts.body))); return new Response('{}', { status: 200 }); }
   if (/onflow\.org/.test(url) && db.flow) return flowFake(url, opts);
   if (/site\.api\.espn\.com.*scoreboard/.test(url)) { const dt = (url.match(/dates=(\d{8})/) || [])[1]; return new Response(JSON.stringify({ events: (db.scoreboard || {})[dt] || [] }), { status: 200 }); }
