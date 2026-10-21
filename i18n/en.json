@@ -228,6 +228,7 @@
  "lesao": null,
  " nx": null,
  "on": null,
+ "ot": null,
  " none": null,
  " full": null,
  "nx": null,
@@ -771,10 +772,11 @@
  "fora do plano": "not in the plan",
  " · usado ": " · used ",
  "<li class=\"row small muted\">Nenhum jogador com este filtro.</li>": "<li class=\"row small muted\">No player with this filter.</li>",
+ "<div class=\"legend\"><span><i class=\"ls s-u\"></i>usado</span><span><i class=\"ls s-on\"></i>no plano</span>": "<div class=\"legend\"><span><i class=\"ls s-u\"></i>used</span><span><i class=\"ls s-on\"></i>in the plan</span>",
+ "<span><i class=\"ls s-ot\"></i>na outra conta</span>": "<span><i class=\"ls s-ot\"></i>on the other account</span>",
+ "<span><i class=\"ls s-g\"></i>tem jogo</span><span>▲▼ forma nos últimos 5 jogos</span></div>": "<span><i class=\"ls s-g\"></i>has a game</span><span>▲▼ form over the last 5 games</span></div>",
  "\"><span style=\"text-align:left\">Jogador</span>": "\"><span style=\"text-align:left\">Player</span>",
  "<div class=\"mx-row muted small\">Nenhum jogador encontrado.</div>": "<div class=\"mx-row muted small\">No player found.</div>",
- "<div class=\"legend\"><span><i class=\"dot used\"></i>já usado</span><span><i class=\"dot on\"></i>no plano</span>": "<div class=\"legend\"><span><i class=\"dot used\"></i>already used</span><span><i class=\"dot on\"></i>in the plan</span>",
- "<span><i class=\"dot other\"></i>na outra conta</span>": "<span><i class=\"dot other\"></i>in the other account</span>",
  "minmax(80px,96px) repeat(": null,
  ", 25px)": null,
  "u</small></span>": null,
@@ -823,7 +825,6 @@
  "\">Juntar ao plantel</button></div>": "\">Add to roster</button></div>",
  "A run já terminou.": "The run has already finished.",
  "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"O que comprar\"><button type=\"button\" data-action=\"buy-mode\" data-mode=\"new\" aria-pressed=\"": "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"What to buy\"><button type=\"button\" data-action=\"buy-mode\" data-mode=\"new\" aria-pressed=\"",
- "\">Jogador novo</button><button type=\"button\" data-action=\"buy-mode\" data-mode=\"more\" aria-pressed=\"": "\">New player</button><button type=\"button\" data-action=\"buy-mode\" data-mode=\"more\" aria-pressed=\"",
  "\">Reforçar os teus</button></div>": "\">Upgrade yours</button></div>",
  "Procurar as melhores compras": "Find the best buys",
  "Ver quem vale a pena reforçar": "See who is worth upgrading",
@@ -856,7 +857,6 @@
  "Moment Rare": "Rare Moment",
  " vitórias": " wins",
  "vitórias esperadas ": "expected wins ",
- "<span class=\"badge\">2.º Moment</span>": "<span class=\"badge\">2nd Moment</span>",
  "<span class=\"badge\">muda pouco</span>": "<span class=\"badge\">small change</span>",
  " · joga ": " · plays ",
  "Nenhum Moment ": "No ",
@@ -1262,7 +1262,6 @@
  "As tuas cartas": "Your cards",
  "O escalão de cada Moment: o site adivinha-o pelo set e pela tiragem. Se estiver mal, escolhe o certo: as outras cartas do mesmo set aprendem (as tuas e as do grupo). O jogador fica com os usos da melhor carta.": "The tier of each Moment: the site guesses it from the set and the mint size. If it’s wrong, pick the right one: the other cards of the same set learn from it (yours and the group’s). The player gets the uses of his best card.",
  "Os teus Moments lidos da blockchain (todas as contas), guardados no perfil para todas as runs. Usos por run de cada jogador: os da melhor carta. Moments de jogadores fora da NBA desta época não contam.": "Your Moments read from the blockchain (all accounts), saved in your profile for every run. Uses per run of each player: those of the best card. Moments of players outside this NBA season don’t count.",
- "A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.": "The run is redone with each candidate: you see how much the prizes go up and on which days he would play. Uses per run: Common 1 (2 if the ASP is over $10), Rare 2, Legendary 4. For a player you already have, it only helps if the new one is a tier higher. Prices aren’t included: check those on the marketplace.",
  "Especialistas": "Specialists",
  "Os melhores da NBA em cada estatística (época atual misturada com a passada). % = quantas vezes a estatística sai nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.": "The NBA’s best in each stat (this season mixed with last). % = how often the stat comes up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.",
  "Média dos últimos 5 jogos face à da época. As barras são os últimos 5 jogos (o mais recente à direita); a linha é a média da época.": "Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.",
@@ -1426,7 +1425,6 @@
  "<div class=\"list-head\"><h2>Os Rare que mais compensam</h2><span class=\"small muted\">": "<div class=\"list-head\"><h2>The Rares worth the most</h2><span class=\"small muted\">",
  "<div class=\"row small muted\" style=\"display:block\">Não deu para calcular. <button class=\"btn link small\" type=\"button\" data-action=\"buy-retry\">Tentar outra vez</button></div></div>": "<div class=\"row small muted\" style=\"display:block\">Couldn’t calculate. <button class=\"btn link small\" type=\"button\" data-action=\"buy-retry\">Try again</button></div></div>",
  "<div class=\"row small muted\" style=\"display:block\">A testar cada Rare na tua run…</div></div>": "<div class=\"row small muted\" style=\"display:block\">Testing each Rare in your run…</div></div>",
- "Não há jogadores novos com jogos nos dias que faltam.": "No new players with games on the remaining days.",
  "Nenhum Rare muda a tua run.": "No Rare changes your run.",
  "Não joga nos dias que faltam (ou não tem médias).": "He doesn’t play on the remaining days (or has no averages).",
  " muda a tua run.": " changes your run.",
@@ -1668,15 +1666,18 @@
  "<div id=\"buyMoreBox\"><button class=\"btn\" type=\"button\" data-action=\"buy-more\">Testar os próximos ": "<div id=\"buyMoreBox\"><button class=\"btn\" type=\"button\" data-action=\"buy-more\">Test the next ",
  "Feito ✓": "Done ✓",
  "Ver": "Show",
- "used": null,
- "other": null,
- "off": null,
  "usado": "used",
  "no plano": "in the plan",
  "joga pela ": "plays for ",
  "tem jogo": "has a game",
  " title=\"Dia ": " title=\"Day ",
- "<span><i class=\"dot off\"></i>tem jogo</span><span>▲▼ forma nos últimos 5 jogos</span></div>": "<span><i class=\"dot off\"></i>has a game</span><span>▲▼ form over the last 5 games</span></div>",
+ "A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.": "A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.",
+ "\">Todos</button><button type=\"button\" data-action=\"buy-mode\" data-mode=\"more\" aria-pressed=\"": "\">All</button><button type=\"button\" data-action=\"buy-mode\" data-mode=\"more\" aria-pressed=\"",
+ "já tens · +": "you have him · +",
+ "2.º Moment": "2nd Moment",
+ "p": null,
+ "g": null,
+ "md": null,
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1768,7 +1769,8 @@
    "out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + (board ? '' : ": true,
    "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true,
    "players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false,
-   "if (!inWin) { const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort(); return foldCard('jogos', nd.date === (nextDay() || {}).date ? 'Jogos de hoje'": true
+   "if (!inWin) { const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort(); return foldCard('jogos', nd.date === (nextDay() || {}).date ? 'Jogos de hoje'": true,
+   "const prow = x => '<li><button class=\"row\" type=\"button\" data-action=\"pform\" data-id=\"' + esc(x.id) + '\"><span class=\"who\">' + face(x.id, 'sm') + '<div style=\"m": true
   }
  },
  "jogos": {
@@ -1793,7 +1795,8 @@
     true
    ],
    "const games = gamesTable(p.avg), PT = [['res', 'Resumo'], ['porque', 'Porquê']].concat(games ? [['jogos', 'Últimos jogos']] : []);": false,
-   "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (games ? pa": false
+   "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (games ? pa": false,
+   "const prow = x => '<li><button class=\"row\" type=\"button\" data-action=\"pform\" data-id=\"' + esc(x.id) + '\"><span class=\"who\">' + face(x.id, 'sm') + '<div style=\"m": true
   }
  },
  "usos": {
@@ -1812,7 +1815,10 @@
    "'<div class=\"row small muted\" style=\"display:block\">Escolhe o escalão de cada carta; o set e a tiragem são só um palpite. Cada carta que marcas ensina as outras": true,
    "toast(nameOf(id) + ': ' + plural(c ? c.uses : 1, 'uso', 'usos') + ' por run (melhor carta ' + (bestTier(col, c) || tier) + ')' + (learned.length ? ' · aprendido": true,
    "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + [1, 2, 4].map(n => ": true,
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>As tuas cartas ' + helpBtn('cartas') + '</h2><span class=\"small muted\">' + plural(u || 1, 'uso', 'usos') + ": true
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>As tuas cartas ' + helpBtn('cartas') + '</h2><span class=\"small muted\">' + plural(u || 1, 'uso', 'usos') + ": true,
+   "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + (": true,
+   "box.innerHTML = searchPlayers(qs, 6).map(p => '<div class=\"row\"><span class=\"who\">' + face(p.id, 'sm') + '<div style=\"min-width:0\"><div class=\"pn\"><span class=\"": true,
+   "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><span class=\"who\">' + face(t.id, 'sm') + '<div style=\"min-width": true
   }
  },
  "uso": {
@@ -1830,7 +1836,10 @@
    "'<div class=\"row small muted\" style=\"display:block\">Escolhe o escalão de cada carta; o set e a tiragem são só um palpite. Cada carta que marcas ensina as outras": true,
    "toast(nameOf(id) + ': ' + plural(c ? c.uses : 1, 'uso', 'usos') + ' por run (melhor carta ' + (bestTier(col, c) || tier) + ')' + (learned.length ? ' · aprendido": true,
    "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + [1, 2, 4].map(n => ": true,
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>As tuas cartas ' + helpBtn('cartas') + '</h2><span class=\"small muted\">' + plural(u || 1, 'uso', 'usos') + ": true
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>As tuas cartas ' + helpBtn('cartas') + '</h2><span class=\"small muted\">' + plural(u || 1, 'uso', 'usos') + ": true,
+   "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + (": true,
+   "box.innerHTML = searchPlayers(qs, 6).map(p => '<div class=\"row\"><span class=\"who\">' + face(p.id, 'sm') + '<div style=\"min-width:0\"><div class=\"pn\"><span class=\"": true,
+   "return '<li><button class=\"row\" type=\"button\" data-action=\"buy-open\" data-id=\"' + esc(t.id) + '\"><span class=\"who\">' + face(t.id, 'sm') + '<div style=\"min-width": true
   }
  },
  "derrota": {

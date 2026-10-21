@@ -473,29 +473,32 @@ table.cmp { border-collapse: separate; border-spacing: 0; width: 100%; font-size
 .col-uses .v { font-size: 24px; }
 
 /* ---- Plantel: lista de jogadores, plano por dia e valor por dia ---- */
-.pl-seg { margin: 0 14px 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pl-seg { margin: 0 14px 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pl-seg button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pl-tools { display: grid; gap: 6px; padding: 0 14px 10px; }
 .chips-lbl { font-size: 12.5px; font-weight: 600; color: var(--muted); align-self: center; flex: none; margin-right: 2px; }
 .cnt-s { font-weight: 700; opacity: .55; margin-left: 2px; font-variant-numeric: tabular-nums; }
-.pl-card { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: start; }
+.pl-card { grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; }
+.pl-card > .face { align-self: start; }
+.pl-card .pn { flex-wrap: wrap; row-gap: 3px; }
+.pl-card .pn .nm { flex: 0 1 auto; }
 .pl-card > .pl-days, .pl-card > .pl-avgs { grid-column: 1 / -1; margin-top: 0; }
 .pl-days { display: grid; grid-template-columns: repeat(var(--nd), minmax(0, 1fr)); }
-.pl-days .pc { display: grid; place-items: center; height: 22px; font-size: 11px; font-weight: 700; color: var(--muted); }
-.pl-days .pc.nx { background: color-mix(in srgb, var(--ball) 9%, transparent); border-radius: 6px; }
+.pl-days .pc { display: grid; place-items: center; height: 18px; padding: 0 1.5px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.pl-days .pc > i { width: 100%; max-width: 24px; height: 14px; border-radius: 4px; display: block; box-sizing: border-box; }
+.pl-days .pc > i.nx { outline: 2px solid color-mix(in srgb, var(--ball) 60%, transparent); outline-offset: 1px; }
+.pl-dhead .pc.nx { background: color-mix(in srgb, var(--ball) 9%, transparent); border-radius: 6px; }
 .pl-dhead { padding: 2px 16px 0; position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--rule); }
-.pl-dhead .pc { height: 24px; }
+.pl-dhead .pc { height: 24px; padding: 0; }
 .pl-dhead .pc.nx { color: var(--ball-ink); }
 .pl-card .ps { white-space: normal; }
-.pl-strip { display: flex; gap: 3px; margin-top: 7px; }
-:where(.pl-strip) i, .ls { width: 12px; height: 12px; border-radius: 3px; display: block; flex: none; box-sizing: border-box; }
+.ls { width: 12px; height: 12px; border-radius: 3px; display: block; flex: none; box-sizing: border-box; }
 .s-n { background: color-mix(in srgb, var(--ink) 6%, transparent); }
 .s-p { background: color-mix(in srgb, var(--ink) 4%, transparent); }
 .s-g { border: 1.5px solid var(--faint); }
 .s-on { background: var(--accent); }
 .s-u { background: var(--faint); }
 .s-ot { border: 2px solid var(--ball); }
-.pl-strip i.nx { outline: 2px solid color-mix(in srgb, var(--ball) 55%, transparent); outline-offset: 1px; }
 .legend .ls { display: inline-block; }
 .pl-avgs { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .pl-avgs b { color: var(--ink); font-weight: 600; }
@@ -634,6 +637,7 @@ p, .note { text-wrap: pretty; }
 .face b { font-size: 13px; font-weight: 700; color: var(--muted); }
 .face img { position: absolute; left: 50%; bottom: 0; width: 56px; height: auto; transform: translateX(-50%); }
 .face.sm { width: 34px; height: 34px; } .face.sm b { font-size: 11px; } .face.sm img { width: 48px; }
+.face.md { width: 52px; height: 52px; } .face.md b { font-size: 15px; } .face.md img { width: 73px; }
 .face.lg { width: 60px; height: 60px; } .face.lg b { font-size: 18px; } .face.lg img { width: 84px; }
 .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .lu-main { display: flex; align-items: center; gap: 10px; }

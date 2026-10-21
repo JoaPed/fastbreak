@@ -244,7 +244,7 @@ const HELP = {
   plantel: ['Plantel', 'Os teus jogadores nesta run. Usos: quantos dias ainda podem jogar (os da melhor carta: Common 1, Rare 2, Legendary 4; mais cartas do mesmo jogador não somam). A faixa são os dias da run: usado, no plano, na outra conta, tem jogo. Toca num jogador para mudar os usos, as cartas ou o estado.'],
   cartas: ['As tuas cartas', 'O escalão de cada Moment: o site adivinha-o pelo set e pela tiragem. Se estiver mal, escolhe o certo: as outras cartas do mesmo set aprendem (as tuas e as do grupo). O jogador fica com os usos da melhor carta.'],
   colecao: ['Coleção', 'Os teus Moments lidos da blockchain (todas as contas), guardados no perfil para todas as runs. Usos por run de cada jogador: os da melhor carta. Moments de jogadores fora da NBA desta época não contam.'],
-  comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
+  comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
   especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). % = quantas vezes a estatística sai nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
   forma: ['Forma', 'Média dos últimos 5 jogos face à da época. As barras são os últimos 5 jogos (o mais recente à direita); a linha é a média da época.'],
   lesoes: ['Lesões', 'Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA só aparecem os importantes (20+ minutos ou 12+ pontos).'],
@@ -1204,7 +1204,7 @@ function basisDayCard(r, v, d, md, nd) {
     return { id, info, reason, swapP, swapOut };
   });
   const pp = x => Math.round(x * 100), signed = n => (n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0');
-  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div><div class="pv"><div class="v num">' + val + '</div><div class="u">pp</div></div></button></li>';
+  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div></span><div class="pv"><div class="v num">' + val + '</div><div class="u">pp</div></div></button></li>';
   return '<div class="card basis-day"><div class="list-head"><h2>Em que se baseia ' + helpBtn('porque') + '</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div>' +
     lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') +
     '<div class="list-head sub-head"><h3>Quanto vale cada um</h3></div><ul class="list">' +
@@ -1221,7 +1221,7 @@ function transfersCard() {
   const g = S.multi; if (!g) return '';
   if (!(S.profile || {}).collection) return '<div class="note info">Lê as carteiras (Jogadores → Coleção) para saber o que mandar para cada conta.</div>';
   const list = g.transfers;
-  const row = t => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(t.id)) + '</span></div><div class="ps">' + esc(accLabel(t.from)) + ' → <b>' + esc(accLabel(t.to)) + '</b> · antes de ' + dWeek(t.before) + ', ' + dShort(t.before) + '</div></div></li>';
+  const row = t => '<li class="row"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(t.id)) + '</span></div><div class="ps">' + esc(accLabel(t.from)) + ' → <b>' + esc(accLabel(t.to)) + '</b> · antes de ' + dWeek(t.before) + ', ' + dShort(t.before) + '</div></div></span></li>';
   return '<div class="card"><div class="list-head"><h2>Transferências ' + helpBtn('transf') + '</h2><span class="small muted">' + (list.length ? list.length + ' na run' : 'nenhuma') + '</span></div>' + (list.length ? '<ul class="list">' + list.map(row).join('') + '</ul>' : '<div class="row small muted">Cada conta joga com os Moments que tem.</div>') + '</div>';
 }
 // ---- a run refeita com uma mudança ao plano (para as opções do dia e para fixar/tirar um jogador) ----
@@ -1302,7 +1302,7 @@ function liveHead(nd) {
     const ps = st === 'fim' ? '<span class="pill fim">Fim</span>'
       : st === 'jogo' || st === 'jogo?' ? '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Em jogo') + '</span> ' + md.objs.map((o, k) => f0((md.info[pi][k] || {}).known || 0) + (md.objs.length > 1 ? ' ' + esc(statShort(o.stat)) : '')).join(' · ') + ' até agora'
       : (tipOf(nd, id) ? 'jogo às ' + tipOf(nd, id) : '');
-    return '<li class="row"><div style="min-width:0"><div class="pn">' + (started.has(id) ? icoLock : '') + '<span class="nm">' + esc(nameOf(id)) + '</span></div><div class="ps">' + ps + '</div></div>' + pvHtml(objVals(md, pi, true)) + '</li>';
+    return '<li class="row"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn">' + (started.has(id) ? icoLock : '') + '<span class="nm">' + esc(nameOf(id)) + '</span></div><div class="ps">' + ps + '</div></div></span>' + pvHtml(objVals(md, pi, true)) + '</li>';
   }).join('');
   const chips = '<div class="chips" role="group" aria-label="Lineup submetido">' + eligIds.map(id => '<button type="button" data-action="op-pick" data-id="' + esc(id) + '" aria-pressed="' + sub.includes(id) + '">' + (started.has(id) ? icoLock : '') + esc(lastName(id)) + '</button>').join('') + '</div>';
   const html = '<div class="kv" style="grid-template-columns:1fr 1fr"><div><div class="label">Feito até agora</div><div class="v num">' + done + '</div></div><div><div class="label">Vitória hoje assim</div><div class="v num c-' + tone(pSub) + '">' + pct(pSub) + '</div></div></div>' +
@@ -1598,7 +1598,7 @@ function analiseHtml() {
     const byP = new Map(); obs.forEach(x => { (byP.get(x.id) || byP.set(x.id, []).get(x.id)).push(x); });
     const pr = [...byP.entries()].map(([id, l]) => ({ id, R: ratioOf(l), dnp: l.filter(x => x.act == null).length, n: l.length })).filter(x => x.R && x.R.n >= 2);
     const up = pr.filter(x => x.R.r >= 1.12).sort((a, b) => b.R.r - a.R.r).slice(0, 6), down = pr.filter(x => x.R.r <= 0.88).sort((a, b) => a.R.r - b.R.r).slice(0, 6);
-    const prow = x => '<li><button class="row" type="button" data-action="pform" data-id="' + esc(x.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span></div><div class="ps">' + plural(x.R.n, 'jogo', 'jogos') + (x.dnp ? ' · faltou a ' + x.dnp : '') + '</div></div><span class="delta ' + (x.R.r >= 1 ? 'up' : 'down') + ' num">' + signPct(x.R.r - 1) + '<small>vs previsto</small></span></button></li>';
+    const prow = x => '<li><button class="row" type="button" data-action="pform" data-id="' + esc(x.id) + '"><span class="who">' + face(x.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span></div><div class="ps">' + plural(x.R.n, 'jogo', 'jogos') + (x.dnp ? ' · faltou a ' + x.dnp : '') + '</div></div></span><span class="delta ' + (x.R.r >= 1 ? 'up' : 'down') + ' num">' + signPct(x.R.r - 1) + '<small>vs previsto</small></span></button></li>';
     if (up.length || down.length) html.push('<div class="card"><div class="list-head"><h2>Jogadores</h2><span class="small muted">o que fizeram face ao previsto</span></div><ul class="list">' + up.map(prow).join('') + down.map(prow).join('') + '</ul></div>');
     const odds = ratioOf(obs.filter(x => x.src === 'o')), avgs = ratioOf(obs.filter(x => x.src === 'a')), b2b = ratioOf(obs.filter(x => x.b2b)), rest = ratioOf(obs.filter(x => !x.b2b));
     const miss = obs.filter(x => x.act == null), missQ = miss.length ? miss.reduce((s, x) => s + x.q, 0) / miss.length : null;
@@ -1871,17 +1871,15 @@ function plToolbar(counts, fk, withFilter) {
   return '<div class="pl-tools"><div class="chips scroll" role="group" aria-label="Ordenar"><span class="chips-lbl">Ordenar</span>' + PL_SORTS.map(([k, l]) => '<button type="button" data-action="pl-sort" data-v="' + k + '" aria-pressed="' + (PV.sort === k) + '">' + l + '</button>').join('') + '</div>' +
     (withFilter ? '<div class="chips scroll" role="group" aria-label="Mostrar">' + PL_FILTERS.filter(([k]) => k === 'todos' || counts[k] || k === fk).map(([k, l]) => '<button type="button" data-action="pl-filter" data-v="' + k + '" aria-pressed="' + (fk === k) + '">' + l + ' <span class="cnt-s">' + counts[k] + '</span></button>').join('') + '</div>' : '') + '</div>';
 }
-// os dias da run numa linha, alinhados com os números do cabeçalho: usado, no plano, na outra conta, tem jogo
+// os dias da run numa faixa de quadradinhos, alinhada com os números do cabeçalho: usado, no plano, na outra conta,
+// tem jogo, não joga
 function plDays(ctx, p) {
   const { days, nd, planned, played, elsewhere } = ctx, set = planned[p.id] || new Set();
   return '<span class="pl-days" style="--nd:' + days.length + '">' + days.map(day => {
-    const nx = nd && nd.date === day.date ? ' nx' : '', pl = played[day.date];
-    let dot = '', t = '';
-    if (pl && pl.done) { if ((pl.lineup || []).includes(p.id)) { dot = 'used'; t = 'usado'; } }
-    else if (set.has(day.date)) { dot = 'on'; t = 'no plano'; }
-    else if ((elsewhere[p.id] || {})[day.date]) { dot = 'other'; t = 'joga pela ' + elsewhere[p.id][day.date].join(' e '); }
-    else if (FB.teamsOn(day).has(p.team)) { dot = 'off'; t = 'tem jogo'; }
-    return '<span class="pc' + nx + '"' + (t ? ' title="Dia ' + (day.idx + 1) + ': ' + esc(t) + '"' : '') + '>' + (dot ? '<i class="dot ' + dot + '"></i>' : '') + '</span>';
+    const pl = played[day.date], nx = nd && nd.date === day.date ? ' nx' : '', oth = (elsewhere[p.id] || {})[day.date];
+    const k = pl && pl.done ? ((pl.lineup || []).includes(p.id) ? 'u' : 'p') : set.has(day.date) ? 'on' : oth ? 'ot' : FB.teamsOn(day).has(p.team) ? 'g' : 'n';
+    const t = { u: 'usado', on: 'no plano', ot: oth ? 'joga pela ' + oth.join(' e ') : '', g: 'tem jogo' }[k];
+    return '<span class="pc"' + (t ? ' title="Dia ' + (day.idx + 1) + ': ' + esc(t) + '"' : '') + '><i class="s-' + k + nx + '"></i></span>';
   }).join('') + '</span>';
 }
 const plDayHead = ctx => '<div class="pl-dhead" aria-hidden="true"><span class="pl-days" style="--nd:' + ctx.days.length + '">' + ctx.days.map((d, i) => '<span class="pc' + (ctx.nd && ctx.nd.date === d.date ? ' nx' : '') + '">' + (i + 1) + '</span>').join('') + '</span></div>';
@@ -1894,14 +1892,14 @@ function plListHtml(ctx) {
     const avgs = stats.map(s => { const a = FB.avgOf({ avg: p.avg }, s); if (!a) return ''; const fi = FB.formInfo(p, s), d = fi && (fi.n5 || 0) >= 3 && fi.season ? (fi.l5 - fi.season) / Math.max(1, Math.abs(fi.season)) : 0;
       return '<span>' + esc(statShort(s)) + ' <b class="num">' + f1(a.v) + '</b>' + (d >= 0.08 ? '<i class="up">▲</i>' : d <= -0.08 ? '<i class="down">▼</i>' : '') + '</span>'; }).filter(Boolean).join('');
     const full = f.uses > 0 && f.plan >= f.uses, none = f.uses <= 0;
-    return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '">' +
+    return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '">' + face(p.id, 'md') +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (f.tier ? '<span class="tpill t-' + TIER_CLS[f.tier] + '">' + f.tier + '</span>' : '') + st + '</div>' +
       '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +
       '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + f.uses + '</b><span>' + (f.uses === 1 ? 'uso' : 'usos') + '</span><small>' + (f.plan ? 'plano ' + f.plan : 'fora do plano') + (f.usedN ? ' · usado ' + f.usedN : '') + '</small></div>' +
       plDays(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</button></li>';
   }).join('');
   return plToolbar(counts, fk, true) + (items ? plDayHead(ctx) : '') + '<ul class="list pl-list">' + (items || '<li class="row small muted">Nenhum jogador com este filtro.</li>') + '</ul>' +
-    '<div class="legend"><span><i class="dot used"></i>já usado</span><span><i class="dot on"></i>no plano</span>' + (S.multi ? '<span><i class="dot other"></i>na outra conta</span>' : '') + '<span><i class="dot off"></i>tem jogo</span><span>▲▼ forma nos últimos 5 jogos</span></div>';
+    '<div class="legend"><span><i class="ls s-u"></i>usado</span><span><i class="ls s-on"></i>no plano</span>' + (S.multi ? '<span><i class="ls s-ot"></i>na outra conta</span>' : '') + '<span><i class="ls s-g"></i>tem jogo</span><span>▲▼ forma nos últimos 5 jogos</span></div>';
 }
 // valor por dia: quanto do alvo de cada dia o jogador faz sozinho (mapa de calor); contorno = no plano
 function plHeatHtml(ctx) {
@@ -1958,8 +1956,8 @@ function formaHtml() {
   if (!rows.length) return head + '<div class="note info">' + (pool.length ? 'A forma aparece depois de 3 jogos desta época.' : F.scope === 'mine' ? 'Ainda não tens jogadores.' : 'Ainda não há jogos desta época.') + '</div>';
   const u = esc(statName(stat));
   const row = x => { const pc = Math.round(x.d * 100), cls = pc >= 8 ? 'up' : pc <= -8 ? 'down' : '', ir = injRec(x.p.id);
-    return '<li><button class="frow" type="button" data-action="pform" data-id="' + esc(x.p.id) + '"><span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.p.name) + '</span>' + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + (F.scope === 'all' && S.mine.roster[x.p.id] ? '<span class="badge">teu</span>' : '') + '</span>' +
-      '<span class="ps">' + teamTag(x.p.team) + ' · últimos 5: <b class="num">' + f1(x.fi.l5) + '</b> · época ' + f1(x.fi.season) + ' ' + u + '</span></span>' + sparkSvg(((x.p.avg || {}).form || {}).games, stat, x.p.avg, x.fi.season) +
+    return '<li><button class="frow" type="button" data-action="pform" data-id="' + esc(x.p.id) + '"><span class="who">' + face(x.p.id, 'sm') + '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.p.name) + '</span>' + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + (F.scope === 'all' && S.mine.roster[x.p.id] ? '<span class="badge">teu</span>' : '') + '</span>' +
+      '<span class="ps">' + teamTag(x.p.team) + ' · últimos 5: <b class="num">' + f1(x.fi.l5) + '</b> · época ' + f1(x.fi.season) + ' ' + u + '</span></span></span>' + sparkSvg(((x.p.avg || {}).form || {}).games, stat, x.p.avg, x.fi.season) +
       '<span class="delta ' + cls + ' num">' + (pc > 0 ? '+' : pc < 0 ? '−' : '') + Math.abs(pc) + '%<small>vs época</small></span></button></li>'; };
   const hot = rows.filter(x => x.d >= 0.08), cold = rows.filter(x => x.d <= -0.08).reverse(), steady = rows.filter(x => x.d > -0.08 && x.d < 0.08);
   const lim = F.scope === 'all' ? 12 : 99;
@@ -1970,8 +1968,8 @@ function formaHtml() {
 const INJ_ORDER = { ofs: 0, out: 1, doubtful: 2, questionable: 3, dtd: 4, probable: 5 };
 function injRow(rec, action) {
   const c = S.players.get(rec.id) || {};
-  return '<li><button class="row" type="button" data-action="' + action + '" data-id="' + esc(rec.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || rec.name) + '</span><span class="pill ' + INJ_PILL[rec.status] + '">' + esc(INJ_LABEL[rec.status]) + '</span>' + (((S.mine.roster || {})[rec.id] || {}).injIgnore ? '<span class="badge">ignorado</span>' : '') + '</div>' +
-    '<div class="ps">' + teamTag(c.team || rec.team) + (rec.detail ? ' · ' + esc(rec.detail) : '') + (rec.return_date ? ' · regresso previsto ' + dShort(rec.return_date) : '') + (rec.comment ? ' · ' + esc(rec.comment) : '') + '</div></div></button></li>';
+  return '<li><button class="row" type="button" data-action="' + action + '" data-id="' + esc(rec.id) + '"><span class="who">' + face(rec.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || rec.name) + '</span><span class="pill ' + INJ_PILL[rec.status] + '">' + esc(INJ_LABEL[rec.status]) + '</span>' + (((S.mine.roster || {})[rec.id] || {}).injIgnore ? '<span class="badge">ignorado</span>' : '') + '</div>' +
+    '<div class="ps">' + teamTag(c.team || rec.team) + (rec.detail ? ' · ' + esc(rec.detail) : '') + (rec.return_date ? ' · regresso previsto ' + dShort(rec.return_date) : '') + (rec.comment ? ' · ' + esc(rec.comment) : '') + '</div></div></span></button></li>';
 }
 function lesoesHtml() {
   if (!S.injOk) return '<div class="note info">O relatório de lesões ainda não está ligado (admin: supabase/schema.sql novo e a tarefa "Lesões").</div>';
@@ -1997,7 +1995,7 @@ function buyHtml() {
   const r = mainResult(), B = S.buy;
   if (!S.runId || !r || !r.model.days.length) return '<div class="note info">' + (S.runId ? 'A run já terminou.' : 'Ainda não há runs.') + '</div>' + specHtml();
   return buyTipsCard(6) + '<div class="card panel"><h2>Procurar compras ' + helpBtn('comprar') + '</h2>' +
-    '<div class="seg acc-seg" role="group" aria-label="O que comprar"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">Jogador novo</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Reforçar os teus</button></div>' +
+    '<div class="seg acc-seg" role="group" aria-label="O que comprar"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">Todos</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Reforçar os teus</button></div>' +
     '<div><div class="label" style="margin-bottom:6px">Escalão do Moment</div><div class="chips" role="group" aria-label="Escalão do Moment">' + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + (B.uses === n) + '">' + tierName(n) + ' · ' + plural(n, 'uso', 'usos') + '</button>').join('') + '</div></div>' +
     '<button class="btn primary" type="button" data-action="buy-run">' + (B.mode === 'new' ? 'Procurar as melhores compras' : 'Ver quem vale a pena reforçar') + '</button>' +
     '<label class="small muted">Avaliar um jogador<input class="field" id="buySearch" type="search" placeholder="Nome, ex.: Curry…" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
@@ -2027,8 +2025,8 @@ function specHtml() {
     const p = x.p, i = rank.get(p.id) - 1, mine = !!(S.mine.roster || {})[p.id], pr = ptsRank.get(p.id) || 999, d = ((p.avg.hist || {}).d || {})[stat], ir = injRec(p.id);
     const reg = d > 0 && dMed ? (d <= dMed * 0.85 ? '<span class="badge" title="Varia pouco de jogo para jogo (época passada)">regular</span>' : d >= dMed * 1.2 ? '<span class="pill duv" title="Varia muito de jogo para jogo (época passada)">irregular</span>' : '') : '';
     const spec = stat !== 'pts' && i < 30 && pr > 75 ? '<span class="pill ok" title="No topo desta estatística mas fora dos 75 melhores marcadores">especialista</span>' : '';
-    return '<li><button class="row spec-row" type="button" data-action="pform" data-id="' + esc(p.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(p.name) + '</span>' + (mine ? '<span class="badge">teu</span>' : '') + spec + reg + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + p.gp + ' jogos esta época' : ' · época passada') + '</div></div><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
+    return '<li><button class="row spec-row" type="button" data-action="pform" data-id="' + esc(p.id) + '"><span class="who">' + face(p.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(p.name) + '</span>' + (mine ? '<span class="badge">teu</span>' : '') + spec + reg + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + '</div>' +
+      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + p.gp + ' jogos esta época' : ' · época passada') + '</div></div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
   }).join('');
   const rd = runDays[stat];
   return '<div class="card"><div class="list-head"><h2>Especialistas ' + helpBtn('especialistas') + '</h2><span class="small muted">por jogo</span></div>' +
@@ -2041,7 +2039,7 @@ function renderBuySearch(qs) {
   const box = $('buyFound'); if (!box) return;
   box.hidden = !String(qs || '').trim();
   if (box.hidden) { box.innerHTML = ''; return; }
-  box.innerHTML = searchPlayers(qs, 6).map(p => '<div class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (S.mine.roster[p.id] ? ' · já tens (' + plural(perRunUses(p.id), 'uso', 'usos') + ' por run)' : '') + '</div></div><button class="btn small" type="button" data-action="buy-pick" data-id="' + esc(p.id) + '">Avaliar</button></div>').join('') || '<div class="row muted small">Nenhum jogador com esse nome.</div>';
+  box.innerHTML = searchPlayers(qs, 6).map(p => '<div class="row"><span class="who">' + face(p.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (S.mine.roster[p.id] ? ' · já tens (' + plural(perRunUses(p.id), 'uso', 'usos') + ' por run)' : '') + '</div></div></span><button class="btn small" type="button" data-action="buy-pick" data-id="' + esc(p.id) + '">Avaliar</button></div>').join('') || '<div class="row muted small">Nenhum jogador com esse nome.</div>';
 }
 // plano refeito com o plantel mudado (mod), da mesma maneira que o plano que vês: conta principal, ou o plano
 // conjunto com as smurf
@@ -2075,9 +2073,10 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
   else if (ids) pool = ids.map(String); // "Testar mais": estes, já escolhidos
   else if (mode === 'new' || mode === 'mix') {
     const teams = new Set(); r.model.days.forEach(md => { if (md.objs.length) md.teams.forEach(t => teams.add(t)); });
-    pool = [...S.players.values()].filter(p => p.team && p.avg && !owned(p.id) && teams.has(p.team)).map(p => String(p.id));
+    // jogadores novos e também um Moment de escalão acima de quem já tens (p. ex. um Rare de quem só tem um Common)
+    pool = [...S.players.values()].filter(p => p.team && p.avg && teams.has(p.team) && (!owned(p.id) || (r.model.pIndex.get(String(p.id)) != null && usesGain(p.id, U) > 0))).map(p => String(p.id));
     // com smurfs: também um 2.º Moment de quem só tens um (para as duas contas o usarem na mesma noite)
-    if (mode === 'mix') pool = pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && collectionInfo(id).copies === 1));
+    if (mode === 'mix') pool = [...new Set(pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && collectionInfo(id).copies === 1)))];
   } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && (usesGain(id, U) > 0 || (S.multi && collectionInfo(id).copies === 1)));
   if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true };
   // compra: jogador novo com U usos (fica na conta principal), ou mais U usos (e mais um Moment) para quem já tens
@@ -2203,9 +2202,9 @@ function buyTipsCard(limit) {
   if (!A) return '<div class="card">' + head + '<div class="row small muted" style="display:block">A testar cada Rare na tua run…</div></div>';
   // os melhores primeiro, mesmo os que mudam pouco (assim vês sempre qual é o Rare que mais compensa)
   const tips = A.list.map(x => buySummary(A, x)).slice(0, limit);
-  if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'Não há jogadores novos com jogos nos dias que faltam.' : 'Nenhum Rare muda a tua run.') + '</div></div>';
+  if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'Não há candidatos com jogos nos dias que faltam.' : 'Nenhum Rare muda a tua run.') + '</div></div>';
   return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' vitórias' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'vitórias esperadas ' + f1(t.e0) + ' → <b class="' + (t.worth ? 'up' : '') + '">' + f1(t.e1) + '</b>';
-    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">2.º Moment</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
+    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">' + (usesGain(t.id, A.U) > 0 ? 'já tens · +' + plural(usesGain(t.id, A.U), 'uso', 'usos') : '2.º Moment') + '</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div></span><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
     '</ul></div>';
 }
 function buyResultsHtml(R) {
@@ -2244,7 +2243,7 @@ function buyResultsHtml(R) {
       return '<li><b>Dia ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'vitória ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prémios que mudam: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
-    return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2.º Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
+    return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><span class="who">' + face(id) + '<h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2></span><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2.º Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
       head + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Vitórias esperadas' + (multi ? ' (todas as contas)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
   }).join('') + moreBtn;
@@ -2829,7 +2828,7 @@ function renderSearch(qs) {
   const box = $('apResults'); if (!box) return;
   if (!S.players.size) { box.innerHTML = '<div class="row muted small">O catálogo de jogadores ainda está vazio.</div>'; return; }
   const res = searchPlayers(qs, 30);
-  box.innerHTML = res.map(p => { const inR = !!S.mine.roster[p.id]; return '<div class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS · ' + f1(+p.avg.reb || 0) + ' REB · ' + f1(+p.avg.ast || 0) + ' AST' : '') + '</div></div>' + (inR ? '<span class="small muted">no plantel</span>' : '<button class="btn small" type="button" data-action="add-id" data-id="' + esc(p.id) + '">Adicionar</button>') + '</div>'; }).join('') || '<div class="row muted small">Nenhum jogador com esse nome.</div>';
+  box.innerHTML = res.map(p => { const inR = !!S.mine.roster[p.id]; return '<div class="row"><span class="who">' + face(p.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team || '—') + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS · ' + f1(+p.avg.reb || 0) + ' REB · ' + f1(+p.avg.ast || 0) + ' AST' : '') + '</div></div></span>' + (inR ? '<span class="small muted">no plantel</span>' : '<button class="btn small" type="button" data-action="add-id" data-id="' + esc(p.id) + '">Adicionar</button>') + '</div>'; }).join('') || '<div class="row muted small">Nenhum jogador com esse nome.</div>';
 }
 function customPlayerSheet() {
   openSheet('<h3>Adicionar à mão</h3><input class="field" id="cpName" placeholder="Nome" aria-label="Nome do jogador"><div class="grid2"><select class="field" id="cpTeam" aria-label="Equipa">' + TEAMS.map(t => '<option>' + t + '</option>').join('') + '</select><input class="field num" id="cpUses" type="number" min="0" max="20" value="1" aria-label="Usos"></div>' +
