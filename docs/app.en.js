@@ -1000,6 +1000,7 @@ function renderJornada(el) {
   if (d.perPlayer) note('Per-player goal: each one has to get there alone. Check the lineup by hand.');
   if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) note('Points in the paint: estimated from made 2-pointers.', true);
   else if (!(nd.games || []).length) note('This day’s games haven’t arrived yet.', true);
+  if (((curPlan().keep || {})[nd.date] || []).length) note('Lineup kept as it was when you removed the lock. <button class="btn link small" type="button" data-action="keep-clear" data-date="' + nd.date + '">Let the plan choose</button>', true);
   const drop = (r.model.droppedLocks || []).filter(x => x.date >= nd.date);
   if (drop.length) { const ids = [...new Set(drop.map(x => x.player))]; note('Locked on more days than uses: ' + ids.map(id => '<b>' + esc(nameOf(id)) + '</b> (the lock ' + (drop.filter(x => x.player === id).length > 1 ? 'on days ' : 'on day ') + drop.filter(x => x.player === id).map(x => dayNo(x.date)).join(', ') + ' doesn’t count)').join(', ') + '. <button class="btn link small" type="button" data-action="locks-fix">Remove those locks</button>'); }
   if (r.normal.conflicts.length) note('Locked more times than uses: ' + r.normal.conflicts.map(c => esc(nameOf(c.player)) + ' (' + c.used + ' of ' + c.uses + ')').join(', ') + '.');
@@ -3098,22 +3099,19 @@ async function walletSheet() {
   const gone = hasRun ? Object.keys(S.mine.roster || {}).filter(id => !inWallet.has(String(id)) && S.players.has(String(id))) : [];
   const fresh = hasRun ? found.filter(e => !S.mine.roster[e.p.id]) : [];
   S.walletGone = gone;
-  const where = e => groupMode() ? ' · ' + Object.entries(e.owners).map(([k, n]) => esc(accLabel(k)) + (n > 1 ? ' ×' + n : '')).join(', ') : '';
-  const setsTxt = e => Object.entries(e.sets).sort((a, b) => b[1] - a[1]).map(([n, c]) => esc(n) + (c > 1 ? ' ×' + c : '')).join(', ') + ' · ' + esc(usesWhy(S.walletCol, players[e.p.id]));
   // usos que mudam no plantel (os que acertaste à mão ficam)
   const ups = hasRun ? found.map(e => { const r0 = S.mine.roster[e.p.id]; if (!r0 || r0.usesManual) return null; const nv = Math.max(0, players[e.p.id].uses - usedCount('main', e.p.id)), cur = +r0.uses || 0; const to = r0.tierUses != null ? nv : Math.max(cur, nv); return to !== cur ? { e, cur, to } : null; }).filter(Boolean) : [];
   const tierCount = {}; Object.keys(items).forEach(f => { const t = momentTier(S.walletCol, f); tierCount[t] = (tierCount[t] || 0) + 1; });
-  const li = e => { const inR = hasRun && S.mine.roster[e.p.id];
-    return '<li><b>' + esc(e.p.name) + '</b> <span class="muted">(' + esc(e.p.team || '—') + ')</span> · ' + e.n + ' Moment' + (e.n > 1 ? 's' : '') + (e.sale ? ' (' + e.sale + ' for sale)' : '') + where(e) +
-      (hasRun ? ' · ' + (inR ? '<span class="muted">in roster</span>' : '<span class="up">new</span>') : '') + '<div class="small muted">' + setsTxt(e) + '</div></li>'; };
   const tot = Object.entries(accTot).map(([k, t]) => (groupMode() ? esc(accLabel(k)) + ' ' : '') + t.moments + ' Moments' + (t.listed ? ' (' + t.listed + ' for sale)' : '')).join(' · ');
   openSheet('<h3>Your collection</h3><div class="small muted">' + tot + ' · ' + found.length + ' NBA players this season</div>' +
     (failed.length ? '<div class="note">Couldn\'t read: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' has the same Flow address as another account: I only read that wallet once. Check the addresses in Settings → Profile.</div>' : '') +
-    '<div class="note info">Tiers: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '. Each player gets the uses of his best card. If a card is wrong, fix it in the player’s card.</div>' +
-    (ups.length ? '<div class="note">Uses that change: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' and another ' + (ups.length - 12) : '') + '.</div>' : '') +
-    (found.length ? '<ul class="ops">' + found.map(li).join('') + '</ul>' : '<div class="small muted">No Moment of a player with an NBA team this season.</div>') +
-    (outside.size ? '<div class="small muted">Not included (WNBA, retired): ' + [...outside.values()].slice(0, 25).map(esc).join(', ') + (outside.size > 25 ? ' and another ' + (outside.size - 25) : '') + '.</div>' : '') +
+    '<div class="small muted">Tiers: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '</div>' +
+    (ups.length ? '<div class="small">Uses that change: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' and another ' + (ups.length - 12) : '') + '.</div>' : '') +
+    // só o que muda (a lista toda fica em Jogadores → Coleção)
+    (!found.length ? '<div class="small muted">No Moment of a player with an NBA team this season.</div>'
+      : fresh.length ? '<div class="small"><b>' + plural(fresh.length, 'new player', 'new players') + ':</b> ' + fresh.slice(0, 12).map(e => esc(e.p.name)).join(', ') + (fresh.length > 12 ? ' and another ' + (fresh.length - 12) : '') + '.</div>'
+      : hasRun && !ups.length ? '<div class="small muted">Nothing changed in your roster.</div>' : '') +
     (gone.length ? '<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wGone"> <span>Remove from the roster whoever is no longer in the wallet: ' + gone.map(id => esc(nameOf(id))).join(', ') + '</span></label>' : '') +
     '<button class="btn primary" type="button" data-action="wallet-apply" style="width:100%">' + (hasRun ? (fresh.length ? 'Save and add ' + fresh.length + ' player' + (fresh.length > 1 ? 's' : '') + ' to the roster' : 'Save and update the roster') : 'Save the collection') + '</button>');
 }
@@ -3182,8 +3180,19 @@ function capLocks(plan, before, acc) {
 const dayNo = date => S.days.findIndex(d => d.date === date) + 1;
 const capMsg = dr => (dr.length ? ' No uses for more days: removed the lock of ' + [...new Set(dr.map(([, id]) => id))].map(id => { const n = dr.filter(x => x[1] === id).map(x => dayNo(x[0])).sort((a, b) => a - b); return lastName(id) + (n.length > 1 ? ' on days ' : ' on day ') + n.join(', '); }).join('; ') + '.' : '');
 // muda o plano (cópia ou o verdadeiro) e aplica a regra dos usos aos cadeados novos
-function modCap(mod, plan) { const before = clone(plan.locks || {}); mod(plan); return capLocks(plan, before); }
-function planPatch(patch) { const p = curPlan(), before = clone(p.locks || {}); deepMerge(p, patch); const dr = patch.locks ? capLocks(p, before) : []; schedule(); saveMine(); return dr; }
+function modCap(mod, plan) {
+  const before = clone(plan.locks || {}), bb = clone(plan.bans || {}); mod(plan);
+  const same = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
+  if (plan.keep) Object.keys(plan.keep).forEach(d => { if (!same((plan.locks || {})[d], before[d]) || !same((plan.bans || {})[d], bb[d])) delete plan.keep[d]; });
+  return capLocks(plan, before);
+}
+// keepDay: mudança que mantém o lineup do dia (tirar um cadeado); as outras mudanças num dia (fixar, tirar, voltar à
+// sugestão) deixam o plano voltar a escolher esse dia
+function planPatch(patch, keepDay) {
+  const p = curPlan(), before = clone(p.locks || {}), today = todayET();
+  if (p.keep) { Object.keys(p.keep).forEach(d => { if (d < today || (!keepDay && ((patch.locks && d in patch.locks) || (patch.bans && d in patch.bans)))) delete p.keep[d]; }); }
+  deepMerge(p, patch); const dr = patch.locks ? capLocks(p, before) : []; schedule(); saveMine(); return dr;
+}
 // Fixar quem o plano não põe nesse dia (ou tirar quem ele põe): antes de mudar, mostra o que custa — vitória nesse
 // dia, prémios e vitórias esperadas da run, quem sai do lineup e em que dias o jogador deixa de jogar
 async function choiceSheet(id, date, kind) {
@@ -3241,7 +3250,12 @@ function lockToggle(id, date, on) {
     cur.add(id);
     const dr = planPatch({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } });
     toast(lastName(id) + ' locked. Plan redone.' + capMsg(dr));
-  } else { cur.delete(id); planPatch({ locks: { [date]: [...cur] } }); }
+  } else {
+    // tirar o cadeado não muda o lineup desse dia: fica como está (o plano só volta a escolher se mudares outra coisa)
+    const v = view(), dd = v && v.days.find(x => x.date === date);
+    cur.delete(id); planPatch({ locks: { [date]: [...cur] }, keep: { [date]: dd ? dd.lineup.slice() : null } }, true);
+    toast(lastName(id) + ' unlocked. The lineup stays the same.');
+  }
   return true;
 }
 function banToggle(id, date, on) {
@@ -3711,6 +3725,7 @@ document.addEventListener('click', async e => {
     case 'lu-reset': luBusy(true); planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
     case 'buy-more': buyMore(); break;
+    case 'keep-clear': planPatch({ keep: { [b.dataset.date]: null } }, true); toast('The plan picks this day again.'); break;
     case 'locks-fix': { const r = S.result, L = {}; ((r && r.model.droppedLocks) || []).forEach(x => { L[x.date] = (L[x.date] || (curPlan().locks || {})[x.date] || []).filter(id => id !== x.player); }); if (Object.keys(L).length) { planPatch({ locks: L }); toast('Extra locks removed. Plan redone.'); } break; }
     case 'todo-tick': { const k = b.dataset.k; if (TODO_DONE[k]) delete TODO_DONE[k]; else { TODO_DONE[k] = Date.now(); toast('Done ✓'); } todoSave(); render(); break; }
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;

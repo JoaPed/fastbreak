@@ -999,6 +999,7 @@ function renderJornada(el) {
   if (d.perPlayer) note('Objetivo por jogador: cada um tem de lá chegar sozinho. Confirma o lineup à mão.');
   if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) note('Pontos na área: estimados a partir dos lançamentos de 2.', true);
   else if (!(nd.games || []).length) note('Os jogos deste dia ainda não chegaram.', true);
+  if (((curPlan().keep || {})[nd.date] || []).length) note('Lineup mantido como estava quando tiraste o cadeado. <button class="btn link small" type="button" data-action="keep-clear" data-date="' + nd.date + '">Deixar o plano escolher</button>', true);
   const drop = (r.model.droppedLocks || []).filter(x => x.date >= nd.date);
   if (drop.length) { const ids = [...new Set(drop.map(x => x.player))]; note('Fixado em mais dias do que os usos: ' + ids.map(id => '<b>' + esc(nameOf(id)) + '</b> (o cadeado ' + (drop.filter(x => x.player === id).length > 1 ? 'dos dias ' : 'do dia ') + drop.filter(x => x.player === id).map(x => dayNo(x.date)).join(', ') + ' não conta)').join(', ') + '. <button class="btn link small" type="button" data-action="locks-fix">Tirar esses cadeados</button>'); }
   if (r.normal.conflicts.length) note('Fixados mais vezes do que os usos: ' + r.normal.conflicts.map(c => esc(nameOf(c.player)) + ' (' + c.used + ' de ' + c.uses + ')').join(', ') + '.');
@@ -3097,22 +3098,19 @@ async function walletSheet() {
   const gone = hasRun ? Object.keys(S.mine.roster || {}).filter(id => !inWallet.has(String(id)) && S.players.has(String(id))) : [];
   const fresh = hasRun ? found.filter(e => !S.mine.roster[e.p.id]) : [];
   S.walletGone = gone;
-  const where = e => groupMode() ? ' · ' + Object.entries(e.owners).map(([k, n]) => esc(accLabel(k)) + (n > 1 ? ' ×' + n : '')).join(', ') : '';
-  const setsTxt = e => Object.entries(e.sets).sort((a, b) => b[1] - a[1]).map(([n, c]) => esc(n) + (c > 1 ? ' ×' + c : '')).join(', ') + ' · ' + esc(usesWhy(S.walletCol, players[e.p.id]));
   // usos que mudam no plantel (os que acertaste à mão ficam)
   const ups = hasRun ? found.map(e => { const r0 = S.mine.roster[e.p.id]; if (!r0 || r0.usesManual) return null; const nv = Math.max(0, players[e.p.id].uses - usedCount('main', e.p.id)), cur = +r0.uses || 0; const to = r0.tierUses != null ? nv : Math.max(cur, nv); return to !== cur ? { e, cur, to } : null; }).filter(Boolean) : [];
   const tierCount = {}; Object.keys(items).forEach(f => { const t = momentTier(S.walletCol, f); tierCount[t] = (tierCount[t] || 0) + 1; });
-  const li = e => { const inR = hasRun && S.mine.roster[e.p.id];
-    return '<li><b>' + esc(e.p.name) + '</b> <span class="muted">(' + esc(e.p.team || '—') + ')</span> · ' + e.n + ' Moment' + (e.n > 1 ? 's' : '') + (e.sale ? ' (' + e.sale + ' à venda)' : '') + where(e) +
-      (hasRun ? ' · ' + (inR ? '<span class="muted">no plantel</span>' : '<span class="up">novo</span>') : '') + '<div class="small muted">' + setsTxt(e) + '</div></li>'; };
   const tot = Object.entries(accTot).map(([k, t]) => (groupMode() ? esc(accLabel(k)) + ' ' : '') + t.moments + ' Moments' + (t.listed ? ' (' + t.listed + ' à venda)' : '')).join(' · ');
   openSheet('<h3>A tua coleção</h3><div class="small muted">' + tot + ' · ' + found.length + ' jogadores na NBA esta época</div>' +
     (failed.length ? '<div class="note">Não consegui ler: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' tem o mesmo endereço Flow de outra conta: só li essa carteira uma vez. Confirma os endereços em Ajustes → Perfil.</div>' : '') +
-    '<div class="note info">Escalões: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '. Cada jogador tem os usos da melhor carta. Se uma carta estiver mal, corrige-a na ficha do jogador.</div>' +
-    (ups.length ? '<div class="note">Usos que mudam: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' e mais ' + (ups.length - 12) : '') + '.</div>' : '') +
-    (found.length ? '<ul class="ops">' + found.map(li).join('') + '</ul>' : '<div class="small muted">Nenhum Moment de um jogador com equipa NBA esta época.</div>') +
-    (outside.size ? '<div class="small muted">Não entram (WNBA, retirados): ' + [...outside.values()].slice(0, 25).map(esc).join(', ') + (outside.size > 25 ? ' e mais ' + (outside.size - 25) : '') + '.</div>' : '') +
+    '<div class="small muted">Escalões: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '</div>' +
+    (ups.length ? '<div class="small">Usos que mudam: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' e mais ' + (ups.length - 12) : '') + '.</div>' : '') +
+    // só o que muda (a lista toda fica em Jogadores → Coleção)
+    (!found.length ? '<div class="small muted">Nenhum Moment de um jogador com equipa NBA esta época.</div>'
+      : fresh.length ? '<div class="small"><b>' + plural(fresh.length, 'jogador novo', 'jogadores novos') + ':</b> ' + fresh.slice(0, 12).map(e => esc(e.p.name)).join(', ') + (fresh.length > 12 ? ' e mais ' + (fresh.length - 12) : '') + '.</div>'
+      : hasRun && !ups.length ? '<div class="small muted">Nada mudou no plantel.</div>' : '') +
     (gone.length ? '<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="wGone"> <span>Tirar do plantel quem já não está na carteira: ' + gone.map(id => esc(nameOf(id))).join(', ') + '</span></label>' : '') +
     '<button class="btn primary" type="button" data-action="wallet-apply" style="width:100%">' + (hasRun ? (fresh.length ? 'Guardar e juntar ' + fresh.length + ' jogador' + (fresh.length > 1 ? 'es' : '') + ' ao plantel' : 'Guardar e atualizar o plantel') : 'Guardar a coleção') + '</button>');
 }
@@ -3181,8 +3179,19 @@ function capLocks(plan, before, acc) {
 const dayNo = date => S.days.findIndex(d => d.date === date) + 1;
 const capMsg = dr => (dr.length ? ' Sem usos para mais dias: tirei o cadeado de ' + [...new Set(dr.map(([, id]) => id))].map(id => { const n = dr.filter(x => x[1] === id).map(x => dayNo(x[0])).sort((a, b) => a - b); return lastName(id) + (n.length > 1 ? ' nos dias ' : ' no dia ') + n.join(', '); }).join('; ') + '.' : '');
 // muda o plano (cópia ou o verdadeiro) e aplica a regra dos usos aos cadeados novos
-function modCap(mod, plan) { const before = clone(plan.locks || {}); mod(plan); return capLocks(plan, before); }
-function planPatch(patch) { const p = curPlan(), before = clone(p.locks || {}); deepMerge(p, patch); const dr = patch.locks ? capLocks(p, before) : []; schedule(); saveMine(); return dr; }
+function modCap(mod, plan) {
+  const before = clone(plan.locks || {}), bb = clone(plan.bans || {}); mod(plan);
+  const same = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
+  if (plan.keep) Object.keys(plan.keep).forEach(d => { if (!same((plan.locks || {})[d], before[d]) || !same((plan.bans || {})[d], bb[d])) delete plan.keep[d]; });
+  return capLocks(plan, before);
+}
+// keepDay: mudança que mantém o lineup do dia (tirar um cadeado); as outras mudanças num dia (fixar, tirar, voltar à
+// sugestão) deixam o plano voltar a escolher esse dia
+function planPatch(patch, keepDay) {
+  const p = curPlan(), before = clone(p.locks || {}), today = todayET();
+  if (p.keep) { Object.keys(p.keep).forEach(d => { if (d < today || (!keepDay && ((patch.locks && d in patch.locks) || (patch.bans && d in patch.bans)))) delete p.keep[d]; }); }
+  deepMerge(p, patch); const dr = patch.locks ? capLocks(p, before) : []; schedule(); saveMine(); return dr;
+}
 // Fixar quem o plano não põe nesse dia (ou tirar quem ele põe): antes de mudar, mostra o que custa — vitória nesse
 // dia, prémios e vitórias esperadas da run, quem sai do lineup e em que dias o jogador deixa de jogar
 async function choiceSheet(id, date, kind) {
@@ -3240,7 +3249,12 @@ function lockToggle(id, date, on) {
     cur.add(id);
     const dr = planPatch({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } });
     toast(lastName(id) + ' fixado. Plano refeito.' + capMsg(dr));
-  } else { cur.delete(id); planPatch({ locks: { [date]: [...cur] } }); }
+  } else {
+    // tirar o cadeado não muda o lineup desse dia: fica como está (o plano só volta a escolher se mudares outra coisa)
+    const v = view(), dd = v && v.days.find(x => x.date === date);
+    cur.delete(id); planPatch({ locks: { [date]: [...cur] }, keep: { [date]: dd ? dd.lineup.slice() : null } }, true);
+    toast(lastName(id) + ' sem cadeado. O lineup fica igual.');
+  }
   return true;
 }
 function banToggle(id, date, on) {
@@ -3710,6 +3724,7 @@ document.addEventListener('click', async e => {
     case 'lu-reset': luBusy(true); planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('De volta à sugestão do plano.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
     case 'buy-more': buyMore(); break;
+    case 'keep-clear': planPatch({ keep: { [b.dataset.date]: null } }, true); toast('O plano volta a escolher este dia.'); break;
     case 'locks-fix': { const r = S.result, L = {}; ((r && r.model.droppedLocks) || []).forEach(x => { L[x.date] = (L[x.date] || (curPlan().locks || {})[x.date] || []).filter(id => id !== x.player); }); if (Object.keys(L).length) { planPatch({ locks: L }); toast('Cadeados a mais tirados. Plano refeito.'); } break; }
     case 'todo-tick': { const k = b.dataset.k; if (TODO_DONE[k]) delete TODO_DONE[k]; else { TODO_DONE[k] = Date.now(); toast('Feito ✓'); } todoSave(); render(); break; }
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;

@@ -305,6 +305,7 @@
     const played = plan.played || {};
     const locks = plan.locks || {};
     const bans = plan.bans || {};
+    const keep = plan.keep || {}; // lineup mantido de propósito (ao tirar um cadeado): fica como estava, sem cadeados
     const banAll = new Set(bans['*'] || []);
     const players = Object.entries((roster && roster.players) || {})
       .map(([id, p]) => Object.assign({ id }, p))
@@ -403,10 +404,12 @@
       const eligSet = new Set(elig);
       const size = Math.max(1, Math.min(10, Math.round(+day.numPlayers) || 5)); // jogadores por lineup (5 no Classic)
       const lockAll = (locks[day.date] || []).map(id => pIndex.get(id)).filter(i => i != null);
-      const lockIdx = Array.from(new Set(liveLocks.concat(lockAll.filter(i => eligSet.has(i))))).slice(0, size);
+      const keepIdx = (keep[day.date] || []).map(id => pIndex.get(id)).filter(i => i != null && eligSet.has(i));
+      const lockIdx = Array.from(new Set(liveLocks.concat(lockAll.filter(i => eligSet.has(i))).concat(keepIdx))).slice(0, size);
+      const kept = new Set(keepIdx.filter(i => !liveLocks.includes(i) && !lockAll.includes(i)));
       const badLocks = lockAll.filter(i => !eligSet.has(i)).map(i => players[i].id);
       return {
-        day, objs, T: objs.map(o => +o.target), size, mu, v, info, elig, eligSet, locks: lockIdx, badLocks, teams, oddsDay, offset,
+        day, objs, T: objs.map(o => +o.target), size, mu, v, info, elig, eligSet, locks: lockIdx, kept, badLocks, teams, oddsDay, offset,
         perPlayer: objs.some(o => o.each), // objetivo que cada jogador tem de cumprir sozinho (o plano trata-o como total)
         live: live ? { submitted, startedTeams: [...startedTeams], liveLocks: liveLocks.map(i => players[i].id) } : null,
       };
@@ -419,8 +422,9 @@
       const on = []; days.forEach((md, d) => { if (md.locks.includes(pi)) on.push(d); });
       if (on.length <= uses[pi]) return;
       const live = d => (days[d].live && days[d].live.liveLocks.includes(p.id) ? 1 : 0), at = d => +lockAt[days[d].day.date + '|' + p.id] || 0;
-      on.sort((a, b) => (live(b) - live(a)) || (at(b) - at(a)) || (a - b));
-      on.slice(uses[pi]).forEach(d => { if (live(d)) return; days[d].locks = days[d].locks.filter(x => x !== pi); droppedLocks.push({ player: p.id, date: days[d].day.date }); });
+      const soft = d => (days[d].kept.has(pi) ? 1 : 0); // lineup mantido: sai primeiro, sem aviso
+      on.sort((a, b) => (live(b) - live(a)) || (soft(a) - soft(b)) || (at(b) - at(a)) || (a - b));
+      on.slice(uses[pi]).forEach(d => { if (live(d)) return; days[d].locks = days[d].locks.filter(x => x !== pi); if (!soft(d)) droppedLocks.push({ player: p.id, date: days[d].day.date }); });
     });
     const prizes = (run.prizes || []).map(p => ({ wins: Math.round(+p.wins), value: +p.value > 0 ? +p.value : 1, label: p.label || '' })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
     return { players, pIndex, allDays, days, uses, played, D: days.length, P: players.length, prizes, winsSoFar, now, droppedLocks };

@@ -331,6 +331,14 @@ with sync_playwright() as pw:
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
     print('C compras com smurf (%.1f s):' % (__import__('time').time() - t0), ' // '.join(x.replace('\n', ' | ')[:400] for x in pg.locator('#buyOut .card').all_inner_texts()[:2]))
     pg.screenshot(path=str(shots / 'compras-smurf.png'), full_page=True)
+    pg.click('#plSub button[data-action="buy-mode"][data-mode="new"]'); pg.wait_for_timeout(200)
+    pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
+    names2 = [x.split('\n')[0] for x in pg.locator('#buyOut .buy-card h2').all_inner_texts()]
+    two = [x for x in pg.locator('#buyOut .buy-card').all_inner_texts() if '2.º Moment' in x or 'mesmo dia' in x]
+    print('C compras Todos com smurf:', len(names2), 'candidatos ·', ', '.join(names2), '· 2.º Moment:', len(two))
+    pg.wait_for_function("() => { const c = [...document.querySelectorAll('#plSub .card')].find(x => /Os Rare que mais compensam/.test(x.textContent)); return c && !/A testar|a atualizar/.test(c.textContent); }", timeout=180000)
+    tips = pg.locator('#plSub .card').filter(has_text='Os Rare que mais compensam').inner_text().replace('\n', ' | ')
+    print('C sugestões Rare com smurf:', tips[:400], '· 2.º Moment:', tips.count('2.º Moment'))
     pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(300); 
     pg.click('#t-plantel'); pg.wait_for_timeout(500)
     pg.click('#plBody button[data-action="pl-view"][data-v="plano"]'); pg.wait_for_timeout(400)
@@ -832,6 +840,21 @@ with sync_playwright() as pw:
     print('L seta ← volta:', pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '))
     print('L fotos no lineup:', lineup_card(pg).locator('.face').count(), '· motor noutro fio:', pg.evaluate('window.FB_WORKER || "não usado"'))
     print('L largura:', width(pg))
+    # tirar um cadeado não muda o lineup desse dia
+    ids_now = lambda: lineup_card(pg).locator('button[data-action="player"]').evaluate_all('els => els.map(e => e.dataset.id)')
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(300)
+    w3 = pg.locator('#luBody button[data-action="lu-add"]:not([disabled])').first.get_attribute('data-id')
+    pg.locator('#luBody button[data-action="lu-add"]:not([disabled])').first.click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(500)
+    before = ids_now()
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(300)
+    pg.click('#luBody button[data-action="lu-lock"][data-id="' + w3 + '"]'); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(500)
+    after = ids_now(); kp = json.loads(store(pg, '{l: __FAKE_DB.tables.user_runs[0].plan.locks, k: __FAKE_DB.tables.user_runs[0].plan.keep}'))
+    nt = pg.locator('#tab-hoje .note').filter(has_text='Lineup mantido')
+    print('L tirar o cadeado de', w3 + ':', before, '→', after, '·', kp, '· aviso:', nt.count(), '· ok' if sorted(before) == sorted(after) and w3 in after and nt.count() else '· ERRO')
+    pg.click('#tab-hoje button[data-action="keep-clear"]'); pg.wait_for_timeout(1500)
+    print('L deixar o plano escolher:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.keep'), '· aviso:', pg.locator('#tab-hoje .note').filter(has_text='Lineup mantido').count())
     pg.close()
 
     # ---------- M: nunca mais dias fixados do que usos ----------

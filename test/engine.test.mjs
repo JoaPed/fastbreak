@@ -232,6 +232,20 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   ok('cadeados: nenhum plano (nem o tudo pelo dia) passa os usos', [all.normal, all.allIn].every(v => !v || Object.entries(v.usage).every(([k, n]) => n <= (one.players[k].uses || 0))), all.allIn && all.allIn.usage[id]);
 }
 
+// lineup mantido (ao tirar um cadeado): o dia fica como estava, sem aviso de cadeados
+{
+  const r0 = FB.planRun(run, roster, odds, {}, { now: NOW });
+  const d = r0.normal.days[1], alt = r0.model.days[1].elig.map(i => r0.model.players[i].id).filter(id => !d.lineup.includes(id));
+  const want = d.lineup.slice(0, d.lineup.length - 1).concat(alt.slice(0, 1));
+  const k = FB.planRun(run, roster, odds, { keep: { [d.date]: want } }, { now: NOW });
+  const got = k.normal.days.find(x => x.date === d.date).lineup;
+  ok('lineup mantido: o dia fica com os jogadores guardados', want.every(id => got.includes(id)) && k.model.droppedLocks.length === 0, [want, got]);
+  const id = want[0], one = JSON.parse(JSON.stringify(roster)); one.players[id].uses = 1;
+  const other = run.days.find(x => x.date !== d.date && x.games.some(g => g.includes(one.players[id].team)));
+  const k2 = FB.planRun(run, one, odds, { keep: { [d.date]: want }, locks: { [other.date]: [id] } }, { now: NOW });
+  ok('lineup mantido: um cadeado de verdade ganha ao lineup mantido (sem aviso)', k2.normal.days.find(x => x.date === other.date).lineup.includes(id) && !k2.normal.days.find(x => x.date === d.date).lineup.includes(id) && k2.model.droppedLocks.length === 0, k2.model.droppedLocks);
+}
+
 // jogos seguidos (back-to-back), regularidade de cada jogador e Moments emprestados (só alguns dias)
 {
   const dates = run.days.map(d => d.date);
