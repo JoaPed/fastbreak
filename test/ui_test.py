@@ -276,6 +276,8 @@ with sync_playwright() as pw:
     print('C contas:', pg.locator('#tab-hoje .acc-seg').inner_text().replace('\n', ' | ') if pg.locator('#tab-hoje .acc-seg').count() else 'sem seletor')
     print('C a fazer (sem carteiras):', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
     print('C hoje (sem carteiras):', pg.locator('.hero .impact').inner_text().replace('\n', ' ')[:160], '//', ' / '.join(pg.locator('#tab-hoje .note').all_inner_texts())[:200])
+    try: pg.wait_for_function('() => { const p = (__FAKE_DB.tables.user_runs[0] || {}).plan || {}; return p.smurfs && p.smurfs.s1 && p.smurfs.s1.played; }', timeout=15000)  # gravação atrasada pelo cálculo
+    except Exception: pass
     print('C resultado da smurf lido:', store(pg, '{played: __FAKE_DB.tables.user_runs[0].plan.smurfs && __FAKE_DB.tables.user_runs[0].plan.smurfs.s1.played, jokic: __FAKE_DB.tables.user_runs[0].roster.jokic}'))
     pg.click('#t-plantel'); pg.wait_for_timeout(600)
     pg.click('#tab-plantel button[data-action="sub"][data-sub="colecao"]'); pg.wait_for_timeout(300); 
@@ -671,6 +673,101 @@ with sync_playwright() as pw:
     print('H jogos do dia 3:', jg.first.inner_text().replace('\n', ' | ')[:300] if jg.count() else 'sem cartão')
     pg.close()
 
+    # ---------- K: os dias fecham sozinhos com as fichas dos jogos (ESPN), sem registar à mão ----------
+    ESPN_AB = {'NYK': 'NY', 'SAS': 'SA', 'GSW': 'GS', 'UTA': 'UTAH', 'WAS': 'WSH', 'NOP': 'NO'}
+    KEYS = ['minutes', 'points', 'fieldGoalsMade-fieldGoalsAttempted', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'freeThrowsMade-freeThrowsAttempted', 'rebounds', 'assists', 'turnovers', 'steals', 'blocks', 'offensiveRebounds', 'defensiveRebounds', 'fouls', 'plusMinus']
+    LABELS = ['MIN', 'PTS', 'FG', '3PT', 'FT', 'REB', 'AST', 'TO', 'STL', 'BLK', 'OREB', 'DREB', 'PF', '+/-']
+    def ath(name, pts, fg3='1-4', reb=5, dnp=False):
+        if dnp: return {'athlete': {'displayName': name}, 'didNotPlay': True, 'reason': "COACH'S DECISION", 'stats': []}
+        return {'athlete': {'displayName': name}, 'stats': ['30', str(pts), '8-17', fg3, '3-4', str(reb), '4', '2', '1', '0', '1', str(reb - 1), '2', '+3']}
+    g_by_id, g_by_date = {}, {}
+    for i_, d_ in enumerate(run['days']):
+        for j_, g_ in enumerate(d_['games']):
+            gid_ = '4019%05d' % (i_ * 20 + j_ + 1); g_by_id[gid_] = g_; g_by_date.setdefault(d_['date'].replace('-', ''), []).append((gid_, g_))
+    def k_route(lines, calls):
+        # placar e fichas como os da ESPN (siglas NY, SA…; 5 suplentes em cada equipa; jogos acabados)
+        def h(r):
+            url = r.request.url; hdr = {'access-control-allow-origin': '*'}; calls.append(url.split('/nba/')[1])
+            if 'scoreboard' in url:
+                evs = [{'id': gid, 'date': g[2], 'status': {'type': {'state': 'post', 'shortDetail': 'Final', 'completed': True}, 'period': 4},
+                        'competitions': [{'competitors': [{'homeAway': 'away', 'team': {'abbreviation': ESPN_AB.get(g[0], g[0])}, 'score': '104'}, {'homeAway': 'home', 'team': {'abbreviation': ESPN_AB.get(g[1], g[1])}, 'score': '116'}]}]}
+                       for gid, g in g_by_date.get(url.split('dates=')[1][:8], [])]
+                return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'events': evs}))
+            g = g_by_id[url.split('event=')[1][:9]]
+            teams = [{'team': {'abbreviation': ESPN_AB.get(t, t)}, 'statistics': [{'keys': KEYS, 'labels': LABELS, 'athletes': lines.get(t, []) + [ath('Suplente %s %d' % (t, k), 2 + k) for k in range(5)]}]} for t in g[:2]]
+            return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'header': {'competitions': [{'status': {'type': {'state': 'post', 'completed': True}}}]}, 'boxscore': {'players': teams}}))
+        return h
+    seedK = json.loads((root / 'data' / 'seed' / 'runs' / 'run-1-classic-2026-27.json').read_text())
+    d1, d2 = run['days'][0]['date'], run['days'][1]['date']
+    lu1 = ['sga', 'brunson', 'wemby', 'cade', 'maxey']
+    def k_db(plan, uses):
+        db = seeded(); T = db['tables']
+        T['runs'][0]['fictitious'] = False
+        for i_, d_ in enumerate(T['run_days']): d_['objectives'] = seedK['days'][i_]['objectives']  # dia 1: 120 PTS; dia 2: 18 3PM + 30 3PA
+        T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+        T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+        T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': uses.get(pid, 2), 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': plan, 'updated_at': '2026-10-21T08:00:00Z'}]
+        T['chain_results'] = []; T['injuries'] = []
+        return db
+    # K1 (o caso do utilizador): dia 1 registado à mão como derrota; o ao vivo só leu o 1.º jogo (Cade) e o Maxey a meio;
+    # os outros jogos acabaram com a app fechada. Ao abrir de manhã, lê as fichas que faltam e completa o dia.
+    pl1 = {'sga': [[29.5], 7, 'o', 0, 1], 'brunson': [[26.0], 6.8, 'o', 0, 1], 'wemby': [[26.1], 7, 'o', 0, 1], 'cade': [[24.0], 6.5, 'o', 0, 1], 'maxey': [[26.4], 7, 'o', 0, 1], 'kat': [[20.0], 6, 'a', 0, 1], 'lebron': [[21.0], 6, 'a', 1, 1]}
+    plan1 = {'proj': {d1: {'P': 0.76, 'lineup': lu1, 'o': [{'stat': 'pts', 'T': 120, 'mu': 132, 'sd': 18}], 'pl': pl1, 'at': '2026-10-20T18:35:00Z'}},
+             'live': {d1: {'active': True, 'lineup': lu1, 'players': {'cade': {'state': 'fim', 'vals': {'pts': 22}}, 'maxey': {'state': 'jogo', 'q': 3, 'vals': {'pts': 15}}}}},
+             'played': {d1: {'done': True, 'result': 'loss', 'lineup': lu1}}}
+    calls = []
+    pg = new_page(b, k_db(plan1, {pid: 1 for pid in lu1}))
+    pg.route('https://site.api.espn.com/**', k_route({'OKC': [ath('Shai Gilgeous-Alexander', 35), ath('Chet Holmgren', 0, dnp=True)], 'SAS': [ath('Victor Wembanyama', 12)],
+        'NYK': [ath('Jalen Brunson', 21), ath('Karl-Anthony Towns', 19)], 'PHI': [ath('Tyrese Maxey', 28), ath('LeBron James', 14)], 'DET': [ath('Cade Cunningham', 22)]}, calls))
+    pg.clock.set_fixed_time('2026-10-21T08:10:00Z')  # 9:10 em Lisboa: os jogos do dia 1 acabaram de madrugada
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).box' % d1, timeout=15000); pg.wait_for_timeout(800)
+    print('K1 dia 1 completo:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1), '· reais:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.proj["%s"].act' % d1))
+    print('K1 usos (sem descontar outra vez):', store(pg, 'Object.fromEntries(%s.map(id => [id, __FAKE_DB.tables.user_runs[0].roster[id].uses]))' % json.dumps(lu1)), '· pedidos à ESPN:', sorted(set(calls)))
+    pg.locator('#tab-hoje .day-strip .ds').nth(0).click(); pg.wait_for_timeout(600)
+    print('K1 dia 1 (Jornada):', pg.locator('.hero').inner_text().replace('\n', ' | ')[:200])
+    pva = pg.locator('#tab-hoje .card').filter(has_text='Previsto vs real')
+    print('K1 previsto vs real:', pva.inner_text().replace('\n', ' | ')[:420])
+    print('K1 jogos do dia:', pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Jogos do dia')).inner_text().replace('\n', ' | ')[:300])
+    pg.screenshot(path=str(shots / 'dia-fechado-estatisticas.png'), full_page=True)
+    # mudar à mão para vitória: os usos não mudam outra vez e aparece o que dizem as estatísticas
+    pg.click('#tab-hoje button[data-action="result-sheet"]'); pg.wait_for_timeout(300)
+    print('K1 folha (dia fechado):', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:260])
+    pg.click('#sheetPanel button[data-action="result"][data-res="win"]'); pg.wait_for_timeout(1500)
+    print('K1 mudado à mão:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu1)))
+    print('K1 aviso:', ' / '.join(pg.locator('#tab-hoje .note').all_inner_texts())[:200], '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
+    pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="dias"]'); pg.wait_for_timeout(400)
+    print('K1 run → dias:', ' // '.join(x.replace('\n', ' ') for x in pg.locator('#tab-run .drow').all_inner_texts()[:4]), '·', pg.locator('#tab-run .drow').count(), 'dias')
+    pg.screenshot(path=str(shots / 'run-dias.png'), full_page=True)
+    pg.locator('#tab-run .drow').nth(2).click(); pg.wait_for_timeout(400)
+    print('K1 tocar no dia 3:', pg.locator('#t-hoje').get_attribute('aria-selected'), pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '))
+    print('K1 largura:', width(pg))
+    pg.close()
+    # K2: dia 2 (3PM + 3PA) sem nada registado e sem ao vivo (app fechada durante os jogos): fecha sozinho com o lineup
+    # guardado antes do 1.º jogo, desconta os usos; "Não joguei" desfaz e não volta a fechar
+    lu2 = ['curry', 'luka', 'ant', 'mitchell', 'jokic']
+    plan2 = {'proj': {d2: {'P': 0.55, 'lineup': lu2, 'o': [{'stat': 'fg3', 'T': 18, 'mu': 17.1, 'sd': 3.9}, {'stat': 'fg3a', 'T': 30, 'mu': 41, 'sd': 6}], 'pl': {pid: [[3.5, 9], 1.8, 'o', 0, 1] for pid in lu2}, 'at': '2026-10-21T22:40:00Z'}},
+             'played': {d1: {'done': True, 'result': 'loss', 'lineup': lu1, 'box': True, 'points': 118, 'tot': [118]}}}
+    calls = []
+    pg = new_page(b, k_db(plan2, {pid: 1 for pid in lu1}))
+    pg.route('https://site.api.espn.com/**', k_route({'GSW': [ath('Stephen Curry', 30, '7-14')], 'LAL': [ath('Luka Dončić', 33, '5-11')], 'MIN': [ath('Anthony Edwards', 27, '4-9')], 'CLE': [ath('Donovan Mitchell', 25, '2-6')], 'DEN': [ath('Nikola Jokić', 26, '1-2')]}, calls))
+    pg.clock.set_fixed_time('2026-10-22T08:30:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).done' % d2, timeout=15000); pg.wait_for_timeout(300)
+    print('K2 aviso:', pg.locator('#toast').inner_text())
+    print('K2 dia 2 fechado sozinho:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, 'Object.fromEntries(%s.map(id => [id, __FAKE_DB.tables.user_runs[0].roster[id].uses]))' % json.dumps(lu2)))
+    print('K2 pedidos à ESPN:', len([c for c in calls if 'summary' in c]), 'fichas ·', len([c for c in calls if 'scoreboard' in c]), 'placares')
+    pg.wait_for_timeout(700)
+    print('K2 cabeçalho:', pg.locator('#runMeta').inner_text(), '· faixa:', ' · '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .day-strip .ds').all_inner_texts()[:3]))
+    pg.locator('#tab-hoje .day-strip .ds').nth(1).click(); pg.wait_for_timeout(500)
+    print('K2 dia 2:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:200])
+    pg.click('#tab-hoje button[data-action="result-sheet"]'); pg.wait_for_timeout(300)
+    pg.click('#sheetPanel button[data-action="undo-result"]'); pg.wait_for_timeout(2500)
+    print('K2 não joguei:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu2)), '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
+    pg.close()
+
     # ---------- I: dias de combinação (3PM e 3PA), usos pelo melhor Moment, vistas do plantel e sugestões de compra ----------
     db = seeded(); T = db['tables']
     T['runs'][0]['fictitious'] = False
@@ -795,7 +892,7 @@ with sync_playwright() as pw:
             print('J português em', where + ':', bad, '·', ' | '.join(l[:90] for l in lines))
         return bad
     left = []
-    for tab, subs in [('hoje', ['lineup', 'porque', 'comparar']), ('run', ['premios', 'analise', 'historico']), ('plantel', ['plantel', 'forma', 'lesoes', 'comprar', 'colecao']), ('grupo', ['classif', 'lineups', 'emprestimos']), ('ajustes', ['perfil', 'prefs', 'admin', 'dados'])]:
+    for tab, subs in [('hoje', ['lineup', 'porque', 'comparar']), ('run', ['premios', 'dias', 'analise', 'historico']), ('plantel', ['plantel', 'forma', 'lesoes', 'comprar', 'colecao']), ('grupo', ['classif', 'lineups', 'emprestimos']), ('ajustes', ['perfil', 'prefs', 'admin', 'dados'])]:
         pg.click('#t-' + tab); pg.wait_for_timeout(400)
         for sub in subs:
             loc = pg.locator('#tab-' + tab + ' button[data-action="sub"][data-sub="' + sub + '"]')

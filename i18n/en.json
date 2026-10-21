@@ -158,7 +158,8 @@
   "at": {
    "const objOne = o => o.target + '+ ' + statShort(o.stat) + (o.each ? ' cada' : '');": " each",
    "'<div class=\"score\"><div class=\"goal\">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ?": " each",
-   "'<div class=\"score\"><div class=\"goal\">' + ((day.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' ": true
+   "'<div class=\"score\"><div class=\"goal\">' + ((day.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' ": true,
+   "'<div class=\"score\"><div class=\"goal\">' + (objs.map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>').join('<small> e <": true
   }
  },
  "down": null,
@@ -383,6 +384,7 @@
  "Porquê": "Why",
  "Comparar": "Compare",
  "Prémios": "Prizes",
+ "Dias": "Days",
  "Contas": "Accounts",
  "Análise": "Analysis",
  "Histórico": "History",
@@ -602,7 +604,6 @@
  "<b class=\"down\">perdeste</b>": "<b class=\"down\">you lost</b>",
  "Final": null,
  "sem ligação à ESPN": "no connection to ESPN",
- "Regista o resultado do dia ": "Record the result of day ",
  "Lê as carteiras das tuas contas": "Read the wallets of your accounts",
  "<li class=\"row small muted\" style=\"display:block\">Depois: ": "<li class=\"row small muted\" style=\"display:block\">Later: ",
  " até ": " by ",
@@ -1043,7 +1044,6 @@
  "Vitória": "Win",
  "Derrota": "Loss",
  "<li class=\"row muted small\">Sem jogadores registados.</li>": "<li class=\"row muted small\">No players recorded.</li>",
- " · hora de cá</span></div><ul class=\"list\">": " · local time</span></div><ul class=\"list\">",
  "\">repor</button>": "\">restore</button>",
  "Por jogar": "Not started",
  "Terminado": "Finished",
@@ -1126,7 +1126,6 @@
  "usesOut-": null,
  "Sem lineup guardado para esse dia: acerta os usos à mão.": "No lineup saved for that day: set the uses by hand.",
  " registada. Usos descontados e plano refeito.": " recorded. Uses deducted and plan redone.",
- "Resultado desfeito. Usos repostos.": "Result undone. Uses restored.",
  "Lineup atualizado.": "Lineup updated.",
  "threePointFieldGoalsMade": null,
  "offensiveRebounds": null,
@@ -1138,9 +1137,6 @@
  "Perfil guardado.": "Profile saved.",
  "Código mudado.": "Code changed.",
  "Tirado do plantel.": "Removed from the roster.",
- "<h3>Fechar o dia ": "<h3>Close day ",
- "que submeteste": "you submitted",
- "do plano": "from the plan",
  "\" data-res=\"loss\">Perdi</button><button class=\"btn primary\" type=\"button\" data-action=\"result\" data-date=\"": "\" data-res=\"loss\">I lost</button><button class=\"btn primary\" type=\"button\" data-action=\"result\" data-date=\"",
  "\" data-res=\"win\">Ganhei</button></div>": "\" data-res=\"win\">I won</button></div>",
  "liveVal-": null,
@@ -1221,8 +1217,6 @@
  "lido da blockchain": "read from the blockchain",
  "registado à mão": "entered by hand",
  "sem resultado": "no result",
- "por registar": "not entered",
- "<div class=\"impact\"><div>Feitos: <b class=\"num\">": "<div class=\"impact\"><div>Scored: <b class=\"num\">",
  "<div class=\"card\"><div class=\"list-head\"><h2>Lineup</h2></div><ul class=\"list\">": "<div class=\"card\"><div class=\"list-head\"><h2>Lineup</h2></div><ul class=\"list\">",
  "<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">": "<div class=\"card\"><div class=\"list-head\"><h2>Games that day</h2><span class=\"small muted\">",
  "Mudar o resultado": "Change the result",
@@ -1265,7 +1259,6 @@
  "<div class=\"small\"><b>Relatório ignorado</b>: o plano conta com ele.</div>": "<div class=\"small\"><b>Report ignored</b>: the plan counts on him.</div>",
  "varia muito de jogo para jogo": "varies a lot from game to game",
  "O lineup que o plano sugere para este dia, a pensar na run toda: pode guardar jogadores para dias em que valem mais. O número à direita é o que cada um deve fazer. Toca num jogador para ver em que se baseia, fixá-lo ou tirá-lo do dia.": "The lineup the plan suggests for this day, with the whole run in mind: it may save players for days when they are worth more. The number on the right is what each one should score. Tap a player to see what it is based on, lock him or remove him from the day.",
- "Quando o primeiro jogo começa, a app prende quem já jogou, lê os pontos da ESPN de 2 em 2 minutos e refaz o resto da run. Se o lineup que submeteste no Top Shot for outro, corrige-o em Opções para hoje. Se a ESPN falhar, toca num jogador para pôr os valores à mão.": "When the first game starts, the app locks in whoever has played, reads the points from ESPN every 2 minutes and redoes the rest of the run. If the lineup you submitted on Top Shot is different, fix it in Options for today. If ESPN fails, tap a player to enter the numbers by hand.",
  "Opções para hoje": "Options for today",
  "<b>Antes dos jogos</b>: compara o plano com ir com tudo hoje ou guardar um jogador para outro dia.<br><b>Durante os jogos</b>: com os pontos que já entraram, compara manter, tirar ou poupar quem ainda não jogou.<br>Cada opção refaz a run toda com os usos que sobram; “o melhor” é a que mais sobe as hipóteses de prémio. Quem sai antes de o jogo dele começar não gasta o uso.": "<b>Before the games</b>: compares the plan with going all in today or saving a player for another day.<br><b>During the games</b>: with the points already in, compares keeping, removing or saving whoever hasn’t played yet.<br>Each option redoes the whole run with the uses left; “the best” is the one that raises your prize chances the most. Removing a player before his game starts doesn’t spend the use.",
  "Hora de cá. Debaixo de cada jogo, os teus jogadores (a negrito os do lineup). Durante os jogos: resultado ao vivo e os valores de quem está no lineup.": "Local time. Under each game, your players (the lineup in bold). During the games: live score and the numbers of the players in the lineup.",
@@ -1291,7 +1284,6 @@
  "Os melhores da NBA em cada estatística (época atual misturada com a passada). % = quantas vezes a estatística sai nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.": "The NBA’s best in each stat (this season mixed with last). % = how often the stat comes up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.",
  "Média dos últimos 5 jogos face à da época. As barras são os últimos 5 jogos (o mais recente à direita); a linha é a média da época.": "Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.",
  "Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA só aparecem os importantes (20+ minutos ou 12+ pontos).": "ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).",
- "Vitórias e derrotas vêm da blockchain (com o utilizador do Top Shot no perfil); senão, do que cada um regista. Os aros são a probabilidade de cada um chegar aos prémios. O admin convida amigos em Ajustes → Admin.": "Wins and losses come from the blockchain (with your Top Shot username in the profile); otherwise from what each one records. The rings are each one’s chance of reaching the prizes. The admin invites friends in Settings → Admin.",
  "Lineups do grupo": "Group lineups",
  "O lineup que o plano de cada um sugere para cada dia (muda até ao jogo). Cadeado: já fixado ou já em jogo. Sublinhado: jogador que também tens.": "The lineup each one’s plan suggests for each day (it changes until the game). Lock: already locked or already playing. Underlined: a player you also have.",
  "Refaz a tua run com Moments dos amigos, só nos dias em que o plano deles não os usa. Conta com os usos de um Moment dele numa run. No Top Shot ele oferece-te o Moment e tu devolves depois de jogares esse dia.": "Redoes your run with your friends’ Moments, only on days their plan doesn’t use them. It counts the uses of one of their Moments in a run. On Top Shot they gift you the Moment and you give it back after you play that day.",
@@ -1347,7 +1339,6 @@
  "ao vivo": "live",
  "até às ": "by ",
  "antes do jogo dele": "before his game",
- "Entra sozinho da blockchain se tiveres o utilizador do Top Shot no perfil.": "Comes in automatically from the blockchain if your Top Shot username is in your profile.",
  "Para saber o que mandar para cada conta.": "To know what to send to each account.",
  "Manda <b>": "Send <b>",
  "</b> para a <b>": "</b> to <b>",
@@ -1355,7 +1346,6 @@
  ". No Top Shot: oferecer o Moment à outra conta.": ". On Top Shot: gift the Moment to the other account.",
  "Confirma ": "Check ",
  "; se não jogar, tira-o no Top Shot.": "; if he’s not playing, remove him on Top Shot.",
- "Não chegou da blockchain. Se jogaste, regista-o.": "It didn’t come from the blockchain. If you played, record it.",
  "ninguém": "nobody",
  ": já não pesa": ": no longer matters",
  "<div class=\"card\"><div class=\"list-head\"><h2>Lesões e forma ": "<div class=\"card\"><div class=\"list-head\"><h2>Injuries and form ",
@@ -1527,11 +1517,6 @@
  "<div class=\"note info\"><b>Sobe</b> as tuas hipóteses. Vale a pena.</div>": "<div class=\"note info\">It <b>raises</b> your chances. Worth it.</div>",
  "<div class=\"note info\">Quase não muda nada.</div>": "<div class=\"note info\">Barely changes anything.</div>",
  "Ainda sem estatísticas ao vivo. Tenta daqui a pouco ou põe os valores à mão.": "No live stats yet. Try again shortly or enter the numbers by hand.",
- "Com o lineup ": "With the lineup ",
- "previsto": "as predicted",
- ": os usos destes jogadores são descontados.": ": these players’ uses are deducted.",
- "Sem lineup guardado: depois acerta os usos de quem jogou (toca no jogador em Jogadores).": "No saved lineup: then fix the uses of whoever played (tap the player in Players).",
- " Com o utilizador do Top Shot no perfil, isto entra sozinho da blockchain.</div>": " With your Top Shot username in the profile, this comes in automatically from the blockchain.</div>",
  " adicionado com 1 uso.": " added with 1 use.",
  "<div class=\"bar-note\">Vitória: todos os alvos ao mesmo tempo.</div>": "<div class=\"bar-note\">Win: every target at once.</div>",
  "</b> · Run ≈ <b class=\"num\">": null,
@@ -1546,6 +1531,34 @@
  "<button class=\"sheet-ic\" type=\"button\" data-action=\"sheet-back\" aria-label=\"Voltar\">": "<button class=\"sheet-ic\" type=\"button\" data-action=\"sheet-back\" aria-label=\"Back\">",
  "<div class=\"grab\" aria-hidden=\"true\"></div><button class=\"sheet-ic\" type=\"button\" data-action=\"close-sheet\" aria-label=\"Fechar\">": "<div class=\"grab\" aria-hidden=\"true\"></div><button class=\"sheet-ic\" type=\"button\" data-action=\"close-sheet\" aria-label=\"Close\">",
  "<div class=\"small muted\">Sem médias, só entra no plano nos dias com odds.</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Cancelar</button><button class=\"btn primary\" type=\"button\" data-action=\"save-custom\">Adicionar</button></div>": "<div class=\"small muted\">Without averages, he only enters the plan on days with odds.</div><div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Cancel</button><button class=\"btn primary\" type=\"button\" data-action=\"save-custom\">Add</button></div>",
+ "Quando o primeiro jogo começa, a app prende quem já jogou, lê os pontos da ESPN de 2 em 2 minutos e refaz o resto da run. Quando os jogos do lineup acabam, o dia fecha sozinho. Se o lineup que submeteste no Top Shot for outro, corrige-o em Opções para hoje. Se a ESPN falhar, toca num jogador para pôr os valores à mão.": "When the first game starts, the app locks in whoever has played, reads the points from ESPN every 2 minutes and redoes the rest of the run. When the lineup’s games end, the day closes by itself. If the lineup you submitted on Top Shot is different, fix it in Options for today. If ESPN fails, tap a player to enter the numbers by hand.",
+ "A run toda: o objetivo de cada dia, o lineup do plano e a vitória prevista. Nos dias que passaram, o resultado e o total feito, que entram sozinhos com as estatísticas dos jogos. Toca num dia para o abrir na Jornada.": "The whole run: each day’s goal, the plan’s lineup and the predicted win. For days already played, the result and the total made, which come in by themselves from the game stats. Tap a day to open it in Matchday.",
+ "Vitórias e derrotas de cada um: os dias fecham sozinhos com as estatísticas dos jogos (e a blockchain confirma, quando os traz). Os aros são a probabilidade de cada um chegar aos prémios. O admin convida amigos em Ajustes → Admin.": "Each one’s wins and losses: days close by themselves with the game stats (and the blockchain confirms them when it brings them). The rings are each one’s chance of reaching the prizes. The admin invites friends in Settings → Admin.",
+ "pelas estatísticas": "from the box scores",
+ "à espera dos jogos": "waiting for the games",
+ "à espera": "waiting",
+ "</b> acima do alvo": "</b> over the target",
+ "Faltaram <b class=\"num\">": "Short by <b class=\"num\">",
+ "<div class=\"impact\"><div>Feito: ": "<div class=\"impact\"><div>Made: ",
+ "<div class=\"note\">Pelas estatísticas deste lineup: ": "<div class=\"note\">By this lineup’s stats: ",
+ "). Se foi este o lineup, muda o resultado.</div>": "). If this was the lineup, change the result.</div>",
+ " · hora de cá": " · local time",
+ "Não fechou sozinho. Se jogaste, regista-o.": "It didn’t close by itself. If you played, record it.",
+ "<span class=\"pill duv\">lesão</span>": "<span class=\"pill duv\">injury</span>",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Dias ": "<div class=\"card\"><div class=\"list-head\"><h2>Days ",
+ " registada.": " recorded.",
+ "Dia sem resultado. Usos repostos.": "Day without a result. Uses restored.",
+ "Dia sem resultado.": "Day without a result.",
+ "post": null,
+ " dias fechados pelas estatísticas.": " days closed from the box scores.",
+ "Mudar o resultado do dia ": "Change the result of day ",
+ "Fechar o dia ": "Close day ",
+ "Os usos ficam como estão.": "Uses stay as they are.",
+ "Os usos destes jogadores são descontados.": "These players’ uses are deducted.",
+ "Sem lineup guardado: depois acerta os usos de quem jogou.": "No saved lineup: afterwards, adjust the uses of whoever played.",
+ " Normalmente não é preciso: quando os jogos do lineup acabam, o dia fecha sozinho com as estatísticas.</div>": " Usually not needed: when the lineup’s games end, the day closes by itself with the stats.</div>",
+ "\">Não joguei este dia</button>": "\">I didn’t play this day</button>",
+ "à espera das estatísticas": "waiting for the stats",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1604,7 +1617,8 @@
    "run: () => [['premios', 'Prémios'], ['dias', 'Dias']].concat(S.multi ? [['contas', 'Contas']] : []).concat([['analise', 'Análise'], ['historico', 'Histórico']])": false,
    "if (buckets.length > 1) html.push('<div class=\"card\"><div class=\"list-head\"><h2>A previsão acerta?</h2><span class=\"small muted\">dias agrupados pela vitória pre": "days",
    "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "days",
-   "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true
+   "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true,
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>Dias ' + helpBtn('dias') + '</h2><span class=\"small muted\">' + recordTxt(r.wins, r.losses) + '</span></div>": false
   }
  },
  "dia": {
@@ -1633,7 +1647,10 @@
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a ca": true,
    "liveHtml = '<div class=\"card panel\" style=\"gap:10px\"><div class=\"label\">Ao vivo</div><div class=\"chips\" role=\"group\" aria-label=\"Estado do jogo\">' + [['por', 'P": false,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'ao vivo') : p": true,
-   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true
+   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true,
+   "out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + (board ? '' : ": true,
+   "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true,
+   "players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false
   }
  },
  "jogos": {
@@ -1650,7 +1667,9 @@
    "if ((day.games || []).length) out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jo": true,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a ca": true,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'ao vivo') : p": true,
-   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true
+   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true,
+   "out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + (board ? '' : ": true,
+   "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true
   }
  },
  "usos": {
@@ -1695,7 +1714,13 @@
   "at": {
    "const recordTxt = (w, l) => (w + l === 0 ? 'ainda sem resultados' : plural(w, 'vitória', 'vitórias') + ', ' + plural(l, 'derrota', 'derrotas'));": "loss",
    "const rec = '<div class=\"rec-big num\">' + r.wins + '<small>' + (r.wins === 1 ? 'vitória' : 'vitórias') + '</small>' + r.losses + '<small>' + (r.losses === 1 ? '": "loss",
-   "'<div class=\"pbig ' + (res === 'win' ? 'c-good' : res === 'loss' ? 'c-bad' : '') + '\">' + (res === 'win' ? 'V' : res === 'loss' ? 'D' : '–') + '<span>' + (res =": true
+   "'<div class=\"pbig ' + (res === 'win' ? 'c-good' : res === 'loss' ? 'c-bad' : '') + '\">' + (res === 'win' ? 'V' : res === 'loss' ? 'D' : '–') + '<span>' + (res =": true,
+   "val = tot ? tot.map(f0).join('·') : resMark(p.result); cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' :": true,
+   "'<div class=\"pbig num ' + (res === 'win' ? 'c-good' : res === 'loss' ? 'c-bad' : '') + '\">' + (res && tot && objs.length === 1 ? f0(tot[0]) : res ? resMark(res)": true,
+   "if (done && !pl.chain && !pl.box && calc && calc.res !== res) out.push('<div class=\"note\">Pelas estatísticas deste lineup: ' + (calc.res === 'win' ? 'vitória' :": true,
+   "meta += ' · ' + (win ? 'vitória' : 'derrota') + (tot && objs.length > 1 ? ' · ' + madeTxt(objs, tot) : '');": true,
+   "if (closed.length === 1) { const { a, i, c } = closed[0]; toast((a !== 'main' ? accLabel(a) + ' · ' : '') + 'Dia ' + (i + 1) + ': ' + (c.res === 'win' ? 'vitóri": true,
+   "chip = '<span class=\"pchip num ' + (win ? 'p-good' : 'p-bad') + '\">' + (tot ? tot.map(f0).join('·') : resMark(pl.result)) + '<span class=\"vh\"> ' + (win ? 'vitór": true
   }
  },
  "derrotas": {
