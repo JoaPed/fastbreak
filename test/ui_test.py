@@ -364,6 +364,11 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="uses"][data-acc="s1"][data-d="1"]'); pg.wait_for_timeout(1500)
     print('C usos da smurf mexidos:', store(pg, '__FAKE_DB.tables.user_runs[0].roster.jokic'))
     pg.click('#sheetPanel button[data-action="close-sheet"]')
+    both = pg.evaluate('(() => { const col = __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.players, r = __FAKE_DB.tables.user_runs[0].roster; return Object.keys(r).find(id => col[id] && col[id].owners && col[id].owners.main && col[id].owners.s1 && !(r[id].su && r[id].su.s1 != null)); })()')
+    if both:
+        pg.locator('#plSub .pl-card[data-id="' + both + '"]').click(); pg.wait_for_timeout(300)
+        print('C Moments nas duas contas (' + both + '):', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ')[:300] if pg.locator('#sheetPanel .note').count() else '-', '· usos por conta:', ' / '.join(pg.locator('#sheetPanel .stepper .v, #sheetPanel [data-action="uses"] ~ .v').all_inner_texts())[:80])
+        pg.click('#sheetPanel button[data-action="close-sheet"]')
     one = pg.evaluate('(() => { const col = __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.players; return Object.keys(__FAKE_DB.tables.user_runs[0].roster).find(id => !col[id]); })()')
     if one:
         pg.locator('#plSub .pl-card[data-id="' + one + '"]').click(); pg.wait_for_timeout(300)
