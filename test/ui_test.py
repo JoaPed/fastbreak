@@ -69,6 +69,7 @@ def new_page(b, db):
     pg.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(status=200, content_type='application/javascript', body=fake))
     pg.route('https://fonts.googleapis.com/**', lambda r: r.abort())
     pg.route('https://fonts.gstatic.com/**', lambda r: r.abort())
+    pg.route('https://a.espncdn.com/**', lambda r: r.abort())  # fotos dos jogadores: sem rede no teste (fica a inicial)
     box = {'game': {'gameStatus': 2, 'period': 2, 'homeTeam': {'teamTricode': 'SAC', 'players': [{'personId': 1627734, 'name': 'Domantas Sabonis', 'statistics': {'reboundsTotal': 7, 'points': 9}}]}, 'awayTeam': {'teamTricode': 'X', 'players': []}}}
     def espn(r):
         url = r.request.url
@@ -394,6 +395,8 @@ with sync_playwright() as pw:
     print('E lineup dia 1:', ' / '.join(lineup_card(pg).locator('.row .nm').all_inner_texts()))
     pg.wait_for_timeout(5000)
     print('E a fazer:', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
+    print('E lesões e forma (fechado):', pg.locator('#tab-hoje .card').filter(has_text='Lesões e forma').inner_text().replace('\n', ' | ')[:200])
+    pg.click('#tab-hoje button[data-action="fold"][data-k="lesoes"]'); pg.wait_for_timeout(300)
     print('E lesões e forma:', pg.locator('#tab-hoje .card').filter(has_text='Lesões e forma').inner_text().replace('\n', ' | ')[:400])
     # Jornada: faixa com os dias da run; um dia mais à frente mostra a previsão do plano para esse dia
     print('E faixa dos dias:', ' · '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .day-strip .ds').all_inner_texts()), '· com lesão:', pg.locator('#tab-hoje .ds .ds-inj').count())
@@ -428,6 +431,8 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'hoje-baseia.png'), full_page=True)
     print('E próximos lineups publicados:', store(pg, 'Object.keys((__FAKE_DB.tables.user_runs[0].plan.next || {}).main || {})'))
     pg.locator('#tab-hoje .basis-day button[data-action="player"]').first.click(); pg.wait_for_timeout(300)
+    print('E ficha (partes):', ' | '.join(pg.locator('#sheetPanel .ptabs button').all_inner_texts()), '· resumo visível:', pg.locator('#sheetPanel .ptab[data-ptab="res"]').is_visible(), '· foto:', pg.locator('#sheetPanel .face').count())
+    pg.click('#sheetPanel button[data-action="ptab"][data-v="porque"]'); pg.wait_for_timeout(200)
     print('E ficha (em que se baseia):', pg.locator('#sheetPanel .basis').inner_text().replace('\n', ' | ')[:700])
     pg.screenshot(path=str(shots / 'ficha-baseia.png'), full_page=True)
     pg.click('#sheetPanel button[data-action="close-sheet"]')
@@ -693,6 +698,7 @@ with sync_playwright() as pw:
                         'competitions': [{'competitors': [{'homeAway': 'away', 'team': {'abbreviation': ESPN_AB.get(g[0], g[0])}, 'score': '104'}, {'homeAway': 'home', 'team': {'abbreviation': ESPN_AB.get(g[1], g[1])}, 'score': '116'}]}]}
                        for gid, g in g_by_date.get(url.split('dates=')[1][:8], [])]
                 return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'events': evs}))
+            if 'event=' not in url: return r.fulfill(status=200, content_type='application/json', headers=hdr, body='{}')  # plantéis (fotos): nada
             g = g_by_id[url.split('event=')[1][:9]]
             teams = [{'team': {'abbreviation': ESPN_AB.get(t, t)}, 'statistics': [{'keys': KEYS, 'labels': LABELS, 'athletes': lines.get(t, []) + [ath('Suplente %s %d' % (t, k), 2 + k) for k in range(5)]}]} for t in g[:2]]
             return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'header': {'competitions': [{'status': {'type': {'state': 'post', 'completed': True}}}]}, 'boxscore': {'players': teams}}))
@@ -794,6 +800,12 @@ with sync_playwright() as pw:
     pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000)
     pg.click('#sheetPanel button[data-action="lu-reset"]'); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
     print('L voltar à sugestão:', store(pg, '{l: __FAKE_DB.tables.user_runs[0].plan.locks, b: __FAKE_DB.tables.user_runs[0].plan.bans}'), '· botão:', pg.locator('#tab-hoje button[data-action="opcoes"]').inner_text())
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(400)
+    pg.keyboard.press('ArrowRight'); pg.wait_for_timeout(400)
+    print('L seta → dia seguinte:', pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '), '·', pg.locator('.hero .eyebrow').inner_text())
+    pg.keyboard.press('ArrowLeft'); pg.wait_for_timeout(400)
+    print('L seta ← volta:', pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '))
+    print('L fotos no lineup:', lineup_card(pg).locator('.face').count())
     print('L largura:', width(pg))
     pg.close()
 

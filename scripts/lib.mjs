@@ -147,7 +147,7 @@ export function addEspnRoster(state, team, json, date) {
   let n = 0;
   for (const a of list) {
     const p = entry(state, a.displayName || a.fullName || [a.firstName, a.lastName].filter(Boolean).join(' ')); if (!p) continue;
-    p.rosterTeam = team; p.rosterDate = date; n++;
+    p.rosterTeam = team; p.rosterDate = date; if (a.id) p.espnId = String(a.id); n++;
   }
   return n;
 }

@@ -137,6 +137,7 @@ for (const [id, p] of Object.entries(state.players)) {
   const avg = b ? Object.assign({}, b.avg) : (f ? {} : null);
   if (avg && f) avg.form = f; // últimos 5 e 10 jogos
   if (avg && p.hist && p.hist.n >= 5) avg.hist = { n: p.hist.n, d: p.hist.d, b2b: p.hist.b2b }; // época passada: regularidade e jogos seguidos
+  if (avg && p.espnId) avg.espn = p.espnId; // foto do jogador no site (a.espncdn.com/i/headshots/nba/players/full/<id>.png)
   rows.push({ id, name: p.name, team: teamOf(p), avg, gp: b ? b.gp : 0, updated_at: new Date().toISOString() });
 }
 if (!rows.length) throw new Error('A ESPN não devolveu jogadores. Tenta outra vez mais tarde.');

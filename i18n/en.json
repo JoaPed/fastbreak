@@ -159,7 +159,8 @@
    "const objOne = o => o.target + '+ ' + statShort(o.stat) + (o.each ? ' cada' : '');": " each",
    "'<div class=\"score\"><div class=\"goal\">' + (o ? (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ?": " each",
    "'<div class=\"score\"><div class=\"goal\">' + ((day.objectives || []).filter(x => x && x.stat).map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' ": true,
-   "'<div class=\"score\"><div class=\"goal\">' + (objs.map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>').join('<small> e <": true
+   "'<div class=\"score\"><div class=\"goal\">' + (objs.map(x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>').join('<small> e <": true,
+   "const one = x => x.target + '<small>' + esc(statShort(x.stat)) + (x.each ? ' cada' : '') + '</small>';": true
   }
  },
  "down": null,
@@ -591,7 +592,6 @@
  "<span class=\"small muted\">1.º jogo ": "<span class=\"small muted\">1st game ",
  "<div class=\"card hero\"><div class=\"hero-top\"><span class=\"eyebrow\">Dia ": "<div class=\"card hero\"><div class=\"hero-top\"><span class=\"eyebrow\">Day ",
  "<small> e </small>": "<small> and </small>",
- "<small>Objetivo por definir</small>": "<small>Goal not set</small>",
  "<span>vitória</span></div>": "<span>win</span></div>",
  "<span class=\"pill fim\">Fim</span> ": "<span class=\"pill fim\">Final</span> ",
  "Em jogo": "Playing",
@@ -1176,7 +1176,6 @@
  "<div class=\"err\">O site ainda não está ligado ao Supabase.</div><p class=\"small muted\" style=\"margin:0\">Põe o Project URL e a chave anon/publishable em <span class=\"kbd\">docs/config.js</span>.</p>": "<div class=\"err\">The site isn't connected to Supabase yet.</div><p class=\"small muted\" style=\"margin:0\">Put the Project URL and the anon/publishable key in <span class=\"kbd\">docs/config.js</span>.</p>",
  "Fixar ": "Lock ",
  "Tirar ": "Remove ",
- "Não consegui calcular: ": "Couldn't calculate: ",
  "Entra": "In",
  "Sai": "Out",
  "no plano jogava ": "in the plan he played ",
@@ -1342,7 +1341,6 @@
  "; se não jogar, tira-o no Top Shot.": "; if he’s not playing, remove him on Top Shot.",
  "ninguém": "nobody",
  ": já não pesa": ": no longer matters",
- "<div class=\"card\"><div class=\"list-head\"><h2>Lesões e forma ": "<div class=\"card\"><div class=\"list-head\"><h2>Injuries and form ",
  "lesoesforma": null,
  " do lineup · ": " in the lineup · ",
  "ainda não há (chegam à tarde): usa as médias": "none yet (they arrive in the afternoon): using averages",
@@ -1565,7 +1563,6 @@
  "<div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Cancelar</button><button class=\"btn ": "<div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"sheet-back\">Cancel</button><button class=\"btn ",
  "<h3>Lineup do dia ": "<h3>Lineup for day ",
  "</h3><div class=\"note info\" id=\"luBody\">Os jogos deste dia já começaram: as mudanças fazem-se em Sugestões para hoje.</div>": "</h3><div class=\"note info\" id=\"luBody\">This day’s games have already started: changes are made in Suggestions for today.</div>",
- "Não consegui calcular a sugestão do plano.": "Couldn’t work out the plan’s suggestion.",
  "A calcular a sugestão do plano…": "Working out the plan’s suggestion…",
  "<div class=\"kv lu-kv\"><div><div class=\"label\">Vitória hoje</div><div class=\"v num c-": "<div class=\"kv lu-kv\"><div><div class=\"label\">Win today</div><div class=\"v num c-",
  "a sugestão do plano": "the plan’s suggestion",
@@ -1618,6 +1615,32 @@
  "\">Repor</button></li>": "\">Restore</button></li>",
  "\">Voltar à sugestão do plano</button>": "\">Back to the plan’s suggestion</button>",
  "De volta à sugestão do plano.": "Back to the plan’s suggestion.",
+ " shut": null,
+ "mute": null,
+ "null": null,
+ "var(--muted)": null,
+ "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/": null,
+ "/roster": null,
+ "sm": null,
+ "res": null,
+ " hidden": null,
+ "lg": null,
+ "(prefers-reduced-motion: reduce)": null,
+ "translateY(": null,
+ "px)": null,
+ "transform .16s ease-in": null,
+ "translateY(100%)": null,
+ "transform .18s ease-out": null,
+ "<div class=\"goal\"><small>Objetivo por definir</small></div>": "<div class=\"goal\"><small>Goal not set</small></div>",
+ " · 1.º às ": " · 1st at ",
+ "lesão": "injury",
+ "lesões": "injuries",
+ "sem lesões": "no injuries",
+ "Resumo": "Summary",
+ "Últimos jogos": "Last games",
+ "<div class=\"seg ptabs\" role=\"tablist\" aria-label=\"Partes da ficha\">": "<div class=\"seg ptabs\" role=\"tablist\" aria-label=\"Card sections\">",
+ "<span class=\"down\">Não consegui calcular:</span> ": "<span class=\"down\">Couldn’t calculate:</span> ",
+ "<span class=\"down\">Não consegui calcular a sugestão do plano.</span>": "<span class=\"down\">Couldn’t work out the plan’s suggestion.</span>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1711,7 +1734,8 @@
    "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true,
    "out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + (board ? '' : ": true,
    "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true,
-   "players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false
+   "players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false,
+   "if (!inWin) { const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort(); return foldCard('jogos', nd.date === (nextDay() || {}).date ? 'Jogos de hoje'": true
   }
  },
  "jogos": {
@@ -1730,7 +1754,13 @@
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'ao vivo') : p": true,
    "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true,
    "out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + (board ? '' : ": true,
-   "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true
+   "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true,
+   "if (!inWin) { const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort(); return foldCard('jogos', nd.date === (nextDay() || {}).date ? 'Jogos de hoje'": [
+    false,
+    true
+   ],
+   "const games = gamesTable(p.avg), PT = [['res', 'Resumo'], ['porque', 'Porquê']].concat(games ? [['jogos', 'Últimos jogos']] : []);": false,
+   "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (games ? pa": false
   }
  },
  "usos": {
