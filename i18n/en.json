@@ -244,7 +244,9 @@
   "en": " uses",
   "at": {
    "const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 4 ? 'Legendary' : n + ' usos');": " uses",
-   "const tierTxt = n => ([1, 2, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": " uses"
+   "const tierTxt = n => ([1, 2, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": " uses",
+   "const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 3 ? 'Rare+' : n === 4 ? 'Legendary' : n + ' usos');": true,
+   "const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": true
   }
  },
  " uso": {
@@ -252,7 +254,8 @@
   "at": {
    "const tierTxt = n => ([1, 2, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": " use",
    "const usesTxt = n => n + ' uso' + (n > 1 ? 's' : '');": " use",
-   "$('pasteOut').innerHTML = items.length ? '<ul class=\"ops\">' + items.map(x => '<li>' + (x.match ? esc(x.match.name) + ' <span class=\"muted\">(' + esc(x.match.team": " use"
+   "$('pasteOut').innerHTML = items.length ? '<ul class=\"ops\">' + items.map(x => '<li>' + (x.match ? esc(x.match.name) + ' <span class=\"muted\">(' + esc(x.match.team": " use",
+   "const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": true
   }
  },
  "mix": null,
@@ -1615,7 +1618,6 @@
  " mais prometedores (de ": " most promising (of ",
  "<div class=\"small muted\" id=\"buyMoreProg\">A refazer a run…</div>": "<div class=\"small muted\" id=\"buyMoreProg\">Redoing the run…</div>",
  "<div class=\"small muted buy-intro\">Vi os ": "<div class=\"small muted buy-intro\">Looked at the ",
- " jogadores com jogos nos dias que faltam e refiz a run a sério com os ": " players with games on the remaining days and fully redid the run with the ",
  " mais prometedores.</div>": " most promising.</div>",
  "<div id=\"buyMoreBox\"><button class=\"btn\" type=\"button\" data-action=\"buy-more\">Testar os próximos ": "<div id=\"buyMoreBox\"><button class=\"btn\" type=\"button\" data-action=\"buy-more\">Test the next ",
  "Feito ✓": "Done ✓",
@@ -1741,12 +1743,7 @@
  "Escolher os jogadores": "Pick the players",
  "mercado": "mercado",
  "à venda desde <b class=\"num\">": "listed from <b class=\"num\">",
- "última venda ": "last sale ",
- "nada à venda visto": "nothing listed seen",
- " vendas em 30 dias": " sales in 30 days",
- "sem vendas em 30 dias": "no sales in 30 days",
  "><div class=\"label\" style=\"margin-bottom:4px\">Mercado do Top Shot</div>": "><div class=\"label\" style=\"margin-bottom:4px\">Top Shot marketplace</div>",
- "<div class=\"small muted\">Sem vendas nem Moments à venda vistos nos últimos 30 dias.</div>": "<div class=\"small muted\">No sales or listed Moments seen in the last 30 days.</div>",
  "<div class=\"small muted\">A ler os preços…</div>": "<div class=\"small muted\">Reading prices…</div>",
  "Lugares atualizados: ": "Ranks updated: ",
  " contas na classificação do Top Shot.": " accounts on the Top Shot leaderboard.",
@@ -1796,6 +1793,19 @@
  " · <b class=\"dz\">+$</b> prémio do dia · lugar da run <b class=\"z-p\">a laranja</b>: com prémio (até ": " · <b class=\"dz\">+$</b> daily prize · run rank <b class=\"z-p\">in orange</b>: in the prizes (up to ",
  "<tr class=\"tot\"><td class=\"who2\"><span><b>Grupo</b></span></td><td></td>": "<tr class=\"tot\"><td class=\"who2\"><span><b>Group</b></span></td><td></td>",
  "<th>Ganho</th></tr>": "<th>Won</th></tr>",
+ "<label class=\"small muted\">Preço máximo (opcional, em $)<input class=\"field\" id=\"buyMax\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"ex.: 6\" value=\"": "<label class=\"small muted\">Max price (optional, in $)<input class=\"field\" id=\"buyMax\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"e.g. 6\" value=\"",
+ "A ver os preços do mercado…": "Checking marketplace prices…",
+ "Nenhum ": "No ",
+ " com jogos nos dias que faltam está à venda até ": " with games in the remaining days is listed up to ",
+ " (dos Moments à venda que a tarefa do mercado já viu). Sobe o preço máximo.": " (among the listings the marketplace job has seen). Raise the max price.",
+ "Rare+": "Rare+",
+ " jogadores com jogos nos dias que faltam": " players with games in the remaining days",
+ " e um ": " and a ",
+ " à venda até ": " listed up to ",
+ " e refiz a run a sério com os ": " and fully re-ran the run with the ",
+ "</b></span><span class=\"small\" style=\"text-align:right\">à venda desde <b class=\"num\">": "</b></span><span class=\"small\" style=\"text-align:right\">listed from <b class=\"num\">",
+ "<div class=\"small muted\">Nenhum Moment dele à venda visto.</div>": "<div class=\"small muted\">None of his Moments seen listed.</div>",
+ ", a 2.ª e a 3.ª precisam do ": ", the 2nd and 3rd need the ",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2099,7 +2109,8 @@
     ""
    ],
    "$('pasteOut').innerHTML = items.length ? '<ul class=\"ops\">' + items.map(x => '<li>' + (x.match ? esc(x.match.name) + ' <span class=\"muted\">(' + esc(x.match.team": "s",
-   "openSheet('<h3>Ler carteira' + (accs.length > 1 ? 's' : '') + '</h3><div class=\"small muted\" id=\"wProg\">A ler os teus Moments na blockchain…</div>');": true
+   "openSheet('<h3>Ler carteira' + (accs.length > 1 ? 's' : '') + '</h3><div class=\"small muted\" id=\"wProg\">A ler os teus Moments na blockchain…</div>');": true,
+   "const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": true
   }
  }
 }

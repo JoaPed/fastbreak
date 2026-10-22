@@ -259,6 +259,8 @@ with sync_playwright() as pw:
         print('B ajuda das cartas (na folha):', pg.locator('#sheetPanel #help-cartas').inner_text()[:120])
         pg.evaluate('document.querySelector("#sheetPanel .mo-row").scrollIntoView()'); pg.wait_for_timeout(100)
         pg.screenshot(path=str(shots / 'cartas.png'))
+        pg.select_option('#sheetPanel select[data-mo-tier="%s"]' % fid, 'Rare+'); pg.wait_for_timeout(900)
+        print('B carta → Rare+ (3 usos):', pg.locator('#toast').inner_text())
         pg.select_option('#sheetPanel select[data-mo-tier="%s"]' % fid, 'Legendary'); pg.wait_for_timeout(900)
         print('B carta', fid, '→ Legendary:', store(pg, '{mt: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.mt, usos: __FAKE_DB.tables.user_runs[0].roster["%s"].uses}' % pid1))
         print('B aprendido (Luka, 2 Holo Icon):', store(pg, '{usos: __FAKE_DB.tables.user_runs[0].roster["luka"] && __FAKE_DB.tables.user_runs[0].roster["luka"].uses, tl: __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection.tl}'), '·', pg.locator('#toast').inner_text())
@@ -357,6 +359,10 @@ with sync_playwright() as pw:
     names2 = [x.split('\n')[0] for x in pg.locator('#buyOut .buy-card h2').all_inner_texts()]
     two = [x for x in pg.locator('#buyOut .buy-card').all_inner_texts() if '2.º Moment' in x or 'mesmo dia' in x]
     print('C compras Todos com smurf:', len(names2), 'candidatos ·', ', '.join(names2), '· 2.º Moment:', len(two))
+    # preço máximo: só quem tem um Moment Rare à venda até esse preço (o Jokić Rare está a $89)
+    pg.fill('#buyMax', '50'); pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
+    print('C compras até $50:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:240])
+    pg.fill('#buyMax', ''); pg.evaluate("document.getElementById('buyMax').dispatchEvent(new Event('input', {bubbles: true}))")
     pg.wait_for_function("() => { const c = [...document.querySelectorAll('#plSub .card')].find(x => /Os Rare que mais compensam/.test(x.textContent)); return c && !/A testar|a atualizar/.test(c.textContent); }", timeout=180000)
     tips = pg.locator('#plSub .card').filter(has_text='Os Rare que mais compensam').inner_text().replace('\n', ' | ')
     print('C sugestões Rare com smurf:', tips[:400], '· 2.º Moment:', tips.count('2.º Moment'))

@@ -12,7 +12,7 @@ const TS_NFT = 'A.0b2a3299cc857e29.TopShot.NFT';
 const T_AV = 'A.4eb8a10cb9f87357.NFTStorefrontV2.ListingAvailable';
 const T_CO = 'A.4eb8a10cb9f87357.NFTStorefrontV2.ListingCompleted';
 const T_DEP = 'A.0b2a3299cc857e29.TopShot.Deposit';
-const CHUNK = 250, MAX = +(process.env.MARKET_MAX_BLOCKS || 60000), BACKFILL = +(process.env.MARKET_BACKFILL || 150000);
+const CHUNK = 250, MAX = +(process.env.MARKET_MAX_BLOCKS || 60000), BACKFILL = +(process.env.MARKET_BACKFILL || 1200000); // ~14 dias: os anúncios mais antigos só entram quando mudam ou se vendem
 const note = m => console.log('::notice title=Mercado::' + String(m).slice(0, 3000));
 
 // Moments de uma carteira: [jogador, set, série, id, setID, playID, escalão (metadados), subedição, número]

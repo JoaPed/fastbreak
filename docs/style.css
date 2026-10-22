@@ -814,3 +814,7 @@ p, .note { text-wrap: pretty; }
 .gc tr.tot td { border-top: 1px solid var(--line); border-radius: 0; padding-top: 8px; }
 .gc tr.tot td small { display: block; font-size: 10px; color: var(--muted); }
 .gc tr.tot td.who2 { background: var(--surface); }
+/* as minhas contas (principal e smurfs) destacadas na grelha */
+.gc tr.me td.who2, .gc tr.me td.rr { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.gc tr.me td.who2 { box-shadow: inset 3px 0 0 var(--accent); border-radius: 8px; }
+.gc tr.me td.who2 b { color: var(--accent); }

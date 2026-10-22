@@ -4,6 +4,7 @@ on:
     - cron: '11,41 * * * *'   # de meia em meia hora (o GitHub salta alguns; a tarefa apanha o que falta)
   workflow_dispatch:
 concurrency: { group: mercado, cancel-in-progress: false }
+permissions: { contents: read, actions: write }
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -16,10 +17,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci --omit=dev
-      # lê o mercado até ficar em dia (cada volta até 60 000 blocos, ~17 h)
+      # lê o mercado até ficar em dia (cada volta até 60 000 blocos, ~17 h); se ainda faltar, lança-se outra vez
       - name: Preços do mercado
+        env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          for i in 1 2 3 4 5 6; do
+          for i in $(seq 1 12); do
             rm -f .loop; LOOP_FILE=.loop node scripts/sync-market.mjs || exit 1
-            [ "$(cat .loop 2>/dev/null)" = 1 ] || break
+            [ "$(cat .loop 2>/dev/null)" = 1 ] || exit 0
           done
+          gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/mercado.yml/dispatches" -f ref="$GITHUB_REF_NAME" || true

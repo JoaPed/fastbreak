@@ -1887,7 +1887,7 @@ function collectionCard(compact) {
   return colSummary(col) + '<div class="card"><div class="list-head"><h2>Players</h2><span class="small muted" id="colCount">' + S.colN + ' players</span></div>' + colToolbar() + '<ul class="list" id="colList">' + rows + '</ul></div>';
 }
 // ---- coleção: resumo (Moments, jogadores, usos por run e escalões) ----
-const TIER_CLS = { Common: 'c', Fandom: 'f', Rare: 'r', Legendary: 'l', Ultimate: 'u' };
+const TIER_CLS = { Common: 'c', Fandom: 'f', Rare: 'r', 'Rare+': 'r', Legendary: 'l', Ultimate: 'u' };
 function tierCounts(col, c) { const o = {}; momentTiers(col, c).forEach(t => { o[t] = (o[t] || 0) + 1; }); return o; }
 const tierPills = o => TIERS.slice().reverse().filter(t => o[t]).map(t => '<span class="tpill t-' + TIER_CLS[t] + '">' + t + (o[t] > 1 ? ' <b>×' + o[t] + '</b>' : '') + '</span>').join('');
 function colSummary(col) {
@@ -2163,6 +2163,7 @@ function buyHtml() {
   return buyTipsCard(6) + '<div class="card panel"><h2>Look for buys ' + helpBtn('comprar') + '</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="What to buy"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">All</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Upgrade yours</button></div>' +
     '<div><div class="label" style="margin-bottom:6px">Moment tier</div><div class="chips" role="group" aria-label="Moment tier">' + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + (B.uses === n) + '">' + tierName(n) + ' · ' + plural(n, 'use', 'uses') + '</button>').join('') + '</div></div>' +
+    (B.mode !== 'more' ? '<label class="small muted">Max price (optional, in $)<input class="field" id="buyMax" type="number" inputmode="decimal" min="0" step="1" placeholder="e.g. 6" value="' + (B.max || '') + '" autocomplete="off"></label>' : '') +
     '<button class="btn primary" type="button" data-action="buy-run">' + (B.mode === 'new' ? 'Find the best buys' : 'See who is worth upgrading') + '</button>' +
     '<label class="small muted">Check a player<input class="field" id="buySearch" type="search" placeholder="Name, e.g. Curry…" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
     '<div id="buyOut" class="stack">' + (B.results ? buyResultsHtml(B.results) : '') + '</div>' + specHtml();
@@ -2231,7 +2232,7 @@ function perRunUses(id) {
   return t != null ? t : (+e.uses || 0) + usedCount('main', id);
 }
 const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
-async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refineN }) {
+async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refineN, maxPrice }) {
   const r = mainResult(); if (!r || !r.model.days.length) return null;
   const owned = id => !!S.mine.roster[id];
   let pool;
@@ -2244,7 +2245,10 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
     // com smurfs: também um 2.º Moment de quem só tens um (para as duas contas o usarem na mesma noite)
     if (mode === 'mix') pool = [...new Set(pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && collectionInfo(id).copies === 1)))];
   } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && (usesGain(id, U) > 0 || (S.multi && collectionInfo(id).copies === 1)));
-  if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true };
+  // preço máximo: só quem tem um Moment desse escalão à venda até esse preço (mercado do Top Shot)
+  let priced = null;
+  if (maxPrice > 0 && !onlyId && !ids) { if (prog) prog('Checking marketplace prices…'); if (await mktLoad(pool)) { priced = pool.length; pool = pool.filter(id => { const p = mktOf(id, U); return p && p.ask != null && p.ask <= maxPrice; }); } }
+  if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true, priced, maxPrice };
   // compra: jogador novo com U usos (fica na conta principal), ou mais U usos (e mais um Moment) para quem já tens
   const add = id => pl => {
     if (pl[id]) { pl[id].uses = (+pl[id].uses || 0) + usesGain(id, U); pl[id].copies = (pl[id].copies || 1) + 1; pl[id].owner = null; }
@@ -2292,16 +2296,17 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
     }
   }
   list.sort((a, b) => b.ev.total - a.ev.total);
-  return { list, U, mode, base, single: !!onlyId, rank, pool: pool.length };
+  return { list, U, mode, base, single: !!onlyId, rank, pool: pool.length, maxPrice: priced != null ? maxPrice : null };
 }
 async function buyRun(onlyId) {
   const B = S.buy, out = $('buyOut'); if (!out) return;
   const mode = onlyId ? (S.mine.roster[onlyId] ? 'more' : 'new') : B.mode;
   out.innerHTML = '<div class="small muted" id="buyProg">Picking candidates…</div>';
   await tick(30);
-  const res = await computeBuy({ onlyId, mode, U: B.uses, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog: t => { const el = $('buyProg'); if (el) el.textContent = t; } });
+  const mx = parseFloat(String((($('buyMax') || {}).value) || B.max || '').replace(',', '.')); B.max = mx > 0 ? mx : null;
+  const res = await computeBuy({ onlyId, mode, U: B.uses, maxPrice: B.max, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog: t => { const el = $('buyProg'); if (el) el.textContent = t; } });
   if (!res || !$('buyOut')) return;
-  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (mode === 'more' ? 'Nobody in your roster gains uses with a ' + tierName(B.uses) + '. Try a tier higher.' : 'There are no candidates with games in the remaining days.') + '</div>'; return; }
+  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (res.priced != null ? 'No ' + tierName(B.uses) + ' with games in the remaining days is listed up to ' + usd(res.maxPrice) + ' (among the listings the marketplace job has seen). Raise the max price.' : mode === 'more' ? 'Nobody in your roster gains uses with a ' + tierName(B.uses) + '. Try a tier higher.' : 'There are no candidates with games in the remaining days.') + '</div>'; return; }
   if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, B.uses) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
@@ -2322,8 +2327,8 @@ async function buyMore() {
   if ($('buyOut') && B.results === R) $('buyOut').innerHTML = buyResultsHtml(R);
 }
 // nome do escalão pelos usos do Moment a comprar (Common 1, Rare 2, Legendary 4)
-const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 4 ? 'Legendary' : n + ' uses');
-const tierTxt = n => ([1, 2, 4].includes(n) ? tierName(n) + ' (' + n + ' use' + (n > 1 ? 's' : '') + ')' : n + ' uses');
+const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 3 ? 'Rare+' : n === 4 ? 'Legendary' : n + ' uses');
+const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' use' + (n > 1 ? 's' : '') + ')' : n + ' uses');
 // Sugestões de compra calculadas sozinhas (jogadores novos, Moment Rare = 2 usos), para Hoje e Run
 S.autoBuy = null;
 let autoBuyTimer = null, autoBuyBusy = null;
@@ -2379,7 +2384,7 @@ function buyResultsHtml(R) {
   const prizes = mainResult().prizes, keys = R.base.group ? R.base.group.keys : ['main'], multi = keys.length > 1;
   const resOf = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res);
   const seen = new Set(R.list.map(x => String(x.id)).concat(R.skip || [])), left = R.rank ? R.rank.filter(id => !seen.has(id)).length : 0;
-  const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Looked at the ' + R.pool + ' players with games on the remaining days and fully redid the run with the ' + R.list.length + ' most promising.</div>';
+  const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Looked at the ' + R.pool + ' players with games in the remaining days' + (R.maxPrice ? ' and a ' + tierName(R.U) + ' listed up to ' + usd(R.maxPrice) : '') + ' and fully re-ran the run with the ' + R.list.length + ' most promising.</div>';
   const moreBtn = left ? '<div id="buyMoreBox"><button class="btn" type="button" data-action="buy-more">Test the next ' + Math.min(left, S.multi ? 5 : 8) + '</button></div>' : '';
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
@@ -2570,7 +2575,7 @@ function renderGrupo() {
   const rows = people.map(x => {
     const rk = x.rk && x.rk.found ? x.rk : null, pz = rk ? prizeAt(rk.rank) : '';
     const won = rdays.reduce((t, d) => t + dayPrize(d, x.addr ? (d.accs || {})[addrKey(x.addr)] : null), 0);
-    return '<tr data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
+    return '<tr' + (x.uid === S.session.user.id ? ' class="me"' : '') + ' data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
       '<span><b>' + esc(x.name) + '</b>' + (x.acc !== 'main' ? '<small>smurf' + (x.owner ? ' of ' + esc(x.owner) : '') + '</small>' : x.uid === S.session.user.id ? '<small>you</small>' : '') + '</span></td>' +
       '<td class="rr' + (rk ? zone(rk.rank) : '') + '">' + (rk ? '<b>' + rk.rank.toLocaleString('en-GB') + '.º</b><small>' + plural(rk.wins != null ? rk.wins : x.wins, 'win', 'wins') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + plural(x.wins, 'win', 'wins') + '</small>') + '</td>' +
       days.map(d => cell(x, d)).join('') + '<td class="money">' + (won ? money(won) : '—') + '</td></tr>';
@@ -3009,16 +3014,27 @@ async function mktFetch() {
   mktFill();
   if (mktWant.size) mktNeed([]);
 }
+async function mktLoad(ids) {
+  if (S.mktOff) return false;
+  const keys = [...new Set(ids.map(mktKey))].filter(k => { const m = S.mkt.get(k); return !m || Date.now() - m.at > 10 * 60e3; });
+  try {
+    for (let i = 0; i < keys.length; i += 150) {
+      const part = keys.slice(i, i + 150), asks = await q(sb.from('market_asks').select('player_id,price,tier,serial,minted,set_name').in('player_id', part).eq('active', true).order('price', { ascending: true }).limit(5000));
+      part.forEach(k => S.mkt.set(k, { at: Date.now(), asks: (asks || []).filter(r => r.player_id === k), sales: [] }));
+    }
+    return true;
+  } catch (e) { if (/market_|relation|does not exist|schema cache/i.test(String(e && e.message))) S.mktOff = true; return false; }
+}
 // preço de um jogador num escalão (uses: 1, 2 ou 4): {ask, serial, last, lastAt, n}
 function mktOf(id, uses) {
   const m = S.mkt.get(mktKey(id)); if (!m) return null;
   const ts = MKT_TIER[uses] || ['Common', 'Fandom'], a = m.asks.filter(r => ts.includes(r.tier)), sl = m.sales.filter(r => ts.includes(r.tier));
   return { ask: a.length ? +a[0].price : null, serial: a.length ? a[0].serial : null, last: sl.length ? +sl[0].price : null, lastAt: sl.length ? sl[0].sold_at : null, n: sl.length };
 }
-const usd = x => '$' + (x >= 100 ? f0(x) : (Math.round(x * 100) / 100).toFixed(2)).replace('.', ',');
+const usd = x => '$' + (x >= 100 || Math.abs(x - Math.round(x)) < 0.005 ? f0(x) : (Math.round(x * 100) / 100).toFixed(2).replace('.', ','));
 function mktTxt(id, uses) {
-  const p = mktOf(id, uses); if (!p || (p.ask == null && p.last == null)) return '';
-  return [p.ask != null ? 'listed from <b class="num">' + usd(p.ask) + '</b>' : '', p.last != null ? 'last sale ' + usd(p.last) : ''].filter(Boolean).join(' · ');
+  const p = mktOf(id, uses); if (!p || p.ask == null) return '';
+  return p.ask != null ? 'listed from <b class="num">' + usd(p.ask) + '</b>' : '';
 }
 // marcador que se preenche quando os preços chegam
 function mktSpan(id, uses) { if (S.mktOff) return ''; mktNeed([id]); return '<span class="mkt" data-mk="' + esc(id) + '" data-u="' + uses + '">' + mktTxt(id, uses) + '</span>'; }
@@ -3030,8 +3046,8 @@ function mktFill() {
 function mktBlock(id) {
   if (S.mktOff) return '';
   const m = S.mkt.get(mktKey(id)); mktNeed([id]);
-  const rows = m ? [1, 2, 4].map(u => { const p = mktOf(id, u); return p && (p.ask != null || p.last != null) ? '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">' + (p.ask != null ? 'listed from <b class="num">' + usd(p.ask) + '</b>' + (p.serial ? ' (#' + p.serial + ')' : '') : 'nothing listed seen') + '<br><span class="muted">' + (p.last != null ? 'last sale ' + usd(p.last) + ' · ' + ago(p.lastAt) + (p.n > 1 ? ' · ' + p.n + ' sales in 30 days' : '') : 'no sales in 30 days') + '</span></span></div>' : ''; }).join('') : '';
-  return '<div class="mkt-box"' + (m ? '' : ' data-mk="' + esc(id) + '"') + '><div class="label" style="margin-bottom:4px">Top Shot marketplace</div>' + (m ? rows || '<div class="small muted">No sales or listed Moments seen in the last 30 days.</div>' : '<div class="small muted">Reading prices…</div>') + '</div>';
+  const rows = m ? [1, 2, 4].map(u => { const p = mktOf(id, u); return p && p.ask != null ? '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">listed from <b class="num">' + usd(p.ask) + '</b>' + (p.serial ? ' (#' + p.serial + ')' : '') + '</span></div>' : ''; }).join('') : '';
+  return '<div class="mkt-box"' + (m ? '' : ' data-mk="' + esc(id) + '"') + '><div class="label" style="margin-bottom:4px">Top Shot marketplace</div>' + (m ? rows || '<div class="small muted">None of his Moments seen listed.</div>' : '<div class="small muted">Reading prices…</div>') + '</div>';
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
 // (p. ex. dos dois Luka, só um é Rare); os usos por run do jogador são os da melhor carta
@@ -3087,7 +3103,7 @@ function momentsBlock(id) {
   return '<div class="note' + (copies === 1 ? ' info' : '') + '" style="display:grid;gap:8px"><div>' + (copies === 1
     ? '<b>1 Moment' + (inWallet ? '' : ' (not in the wallets read)') + ':</b> plays for one account at a time. ' + nights + '.'
     : ci.nTop && ci.nTop < copies && ci.topUses > 1
-      ? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> each account has ' + plural(ci.topUses, 'use', 'uses') + '. Each account’s 1st play can use any card' + (ci.topUses >= 4 ? ', the 2nd needs a Rare or better and the 3rd and 4th a Legendary' : ', the 2nd needs the ' + esc(bestTierName(id))) + '; each card plays for one account per night (the plan says when to move it). ' + nights + '.'
+      ? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> each account has ' + plural(ci.topUses, 'use', 'uses') + '. Each account’s 1st play can use any card' + (ci.topUses >= 4 ? ', the 2nd needs a Rare or better and the 3rd and 4th a Legendary' : ci.topUses === 3 ? ', the 2nd and 3rd need the ' + esc(bestTierName(id)) : ', the 2nd needs the ' + esc(bestTierName(id))) + '; each card plays for one account per night (the plan says when to move it). ' + nights + '.'
       : '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'every account can use him on the same night' : 'up to ' + copies + ' accounts on the same night') + '. ' + nights + '.') + '</div>' +
     (copies === 1 && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">See if a 2nd Moment is worth it</button>' : '') + '</div>';
 }
@@ -3188,8 +3204,8 @@ async function flowRun(code, args) {
 // ---------- escalões: deduzidos da blockchain (set, tiragem da edição, subedição) ----------
 // O contrato do Top Shot não guarda o escalão nem o ASP. Cada set é de um escalão e a tiragem confirma-o; o que for
 // deduzido mal corrige-se uma vez por set em Jogadores → Coleção → Escalões. Usos por Moment em cada run:
-const TIERS = ['Common', 'Fandom', 'Rare', 'Legendary', 'Ultimate'];
-const TIER_USES = { Common: 1, Fandom: 1, Rare: 2, Legendary: 4, Ultimate: 4 };
+const TIERS = ['Common', 'Fandom', 'Rare', 'Rare+', 'Legendary', 'Ultimate']; // Rare+: os Rare que dão 3 usos
+const TIER_USES = { Common: 1, Fandom: 1, Rare: 2, 'Rare+': 3, Legendary: 4, Ultimate: 4 };
 const TIER_SETS = { 'base set': 'Common', 'metallic gold le': 'Rare' }; // sets conhecidos
 function tierAuto(setName, meta, counts) {
   const m = String(meta || '').toLowerCase();
@@ -4031,6 +4047,7 @@ document.addEventListener('submit', async e => {
   if (f.id === 'newRunForm') createRun(f);
 });
 // linhas de tabela que abrem fichas: Enter também abre
+document.addEventListener('input', e => { if (e.target && e.target.id === 'buyMax') { const v = parseFloat(String(e.target.value).replace(',', '.')); S.buy.max = v > 0 ? v : null; } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('tr[data-action]')) e.target.click(); });
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-action], [data-tab]');
