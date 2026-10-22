@@ -2,7 +2,7 @@ name: Sonda Top Shot
 on:
   workflow_dispatch:
     inputs:
-      addrs: { description: "Endereços Flow separados por vírgulas", default: "0xe7fb03955ade55fa", required: false }
+      methods: { description: "Métodos (Serviço/Método, separados por vírgulas); vazio = lista base", default: "", required: false }
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -12,4 +12,4 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm ci --omit=dev
-      - run: node scripts/probe-topshot.mjs "${{ inputs.addrs }}"
+      - run: node scripts/probe-topshot.mjs "${{ inputs.methods }}"
