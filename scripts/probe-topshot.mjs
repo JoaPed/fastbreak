@@ -1,29 +1,36 @@
-// Sonda (manual): o que a API pública do Top Shot (GraphQL) tem sobre o Fast Break (classificação, posição).
-// Resultado nas notas da tarefa. Uso: node scripts/probe-topshot.mjs [utilizador]
-const USER = process.argv[2] || 'gandapanasco';
-const headers = { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', origin: 'https://nbatopshot.com', referer: 'https://nbatopshot.com/' };
+// Sonda (manual): onde está o Fast Break desta época? Contratos da conta do Top Shot, NFTs do Fast Break na
+// blockchain e o último dia de cada conta. Resultado nas notas da tarefa.
+import { flowScript, cadence } from './lib.mjs';
 const note = (t, m) => console.log('::notice title=' + t + '::' + String(m).replace(/\n/g, ' ').slice(0, 3800));
-async function gql(url, query, variables) {
+const ADDRS = (process.argv[2] || '').split(',').filter(Boolean);
+try {
+  const r = await fetch('https://rest-mainnet.onflow.org/v1/accounts/0x0b2a3299cc857e29?expand=contracts');
+  const js = await r.json();
+  note('Contratos do Top Shot', Object.keys(js.contracts || {}).join(', '));
+} catch (e) { note('Contratos do Top Shot', 'erro ' + e.message); }
+try {
+  const s = await flowScript(`import FastBreakV1 from 0x0b2a3299cc857e29
+access(all) fun main(): [UInt64] { return [FastBreakV1.totalSupply, FastBreakV1.nextPlayerId] }`, []);
+  note('FastBreakV1', 'NFTs já criados: ' + s[0] + ' · jogadores: ' + s[1]);
+} catch (e) { note('FastBreakV1', 'erro ' + e.message.slice(0, 300)); }
+for (const a of ADDRS) {
   try {
-    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ query, variables }) });
-    const text = await res.text();
-    if (!text.trim().startsWith('{')) return { http: res.status, raw: text.slice(0, 200) };
-    return JSON.parse(text);
-  } catch (e) { return { err: e.message }; }
-}
-const URLS = ['https://public-api.nbatopshot.com/graphql', 'https://nbatopshot.com/marketplace/graphql'];
-for (const url of URLS) {
-  const host = url.split('/')[2] + url.slice(url.indexOf('/', 8));
-  // 1) introspeção: nomes das queries
-  const r = await gql(url, '{ __schema { queryType { fields { name args { name type { name kind ofType { name } } } } } } }');
-  const fields = (((r.data || {}).__schema || {}).queryType || {}).fields || [];
-  if (fields.length) {
-    note('Top Shot ' + host, fields.length + ' queries · Fast Break/leaderboard: ' + fields.filter(f => /fast|break|leader|rank|run|contest|challenge/i.test(f.name)).map(f => f.name + '(' + f.args.map(a => a.name + ':' + (a.type.name || (a.type.ofType || {}).name || a.type.kind)).join(',') + ')').join(' · '));
-    note('Top Shot ' + host + ' (todas)', fields.map(f => f.name).join(', '));
-  } else note('Top Shot ' + host, 'sem introspeção: ' + JSON.stringify(r).slice(0, 400));
-  // 2) palpites (os erros do GraphQL costumam sugerir nomes: "Did you mean ...")
-  for (const q of ['{ searchFastBreaks { __typename } }', '{ getFastBreakRun { __typename } }', '{ fastBreakLeaderboard { __typename } }', '{ getFastBreakLeaderboard { __typename } }', '{ searchLeaderboards { __typename } }', '{ getLeaderboard { __typename } }', '{ fastBreak { __typename } }', '{ getFastBreakRuns { __typename } }']) {
-    const g = await gql(url, q);
-    note('Palpite ' + host, q + ' → ' + JSON.stringify(g.errors ? g.errors.map(e => e.message) : g.data || g).slice(0, 500));
+    const s = await flowScript(`import FastBreakV1 from 0x0b2a3299cc857e29
+access(all) fun main(addr: Address): [String] {
+  let col = getAccount(addr).capabilities.borrow<&{FastBreakV1.FastBreakNFTCollectionPublic}>(FastBreakV1.CollectionPublicPath)
+  if col == nil { return ["sem coleção"] }
+  var last: UInt64 = 0
+  var name = ""
+  var run = ""
+  for id in col!.getIDs() {
+    if let nft = col!.borrowFastBreakNFT(id: id) {
+      if let g = FastBreakV1.getFastBreakGame(id: nft.fastBreakGameID) {
+        if g.submissionDeadline > last { last = g.submissionDeadline; name = g.name; run = g.fastBreakRunID }
+      }
+    }
   }
+  return [col!.getIDs().length.toString(), last.toString(), name, run]
+}`, [cadence.address(a)]);
+    note('Conta ' + a, 'NFTs: ' + s[0] + ' · último dia: ' + (s[1] ? new Date(+s[1] * 1000).toISOString() : '-') + ' ' + (s[2] || '') + ' · run ' + (s[3] || ''));
+  } catch (e) { note('Conta ' + a, 'erro ' + e.message.slice(0, 300)); }
 }
