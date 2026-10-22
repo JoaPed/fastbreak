@@ -583,7 +583,16 @@ async function loadGroup() {
   ]);
   groupTierLabels(profiles || []);
   takeRanksHash();
-  S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [] };
+  S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [], loaded: true };
+  adoptMine();
+}
+// os lugares e preços que eu li noutro sítio (o Safari e a app do ecrã principal guardam coisas à parte, ou outro
+// aparelho) vêm do meu resumo publicado; sem isto, o resumo seguinte publicava-se sem eles e desapareciam para todos
+function adoptMine() {
+  const me = S.session && S.session.user.id, own = ((S.group || {}).summaries || []).find(x => x.user_id === me), sh = own && own.share;
+  if (!sh) return;
+  if (sh.px && sh.px.at && sh.px.p && (!S.pxMine || !S.pxMine.at || sh.px.at > S.pxMine.at)) { S.pxMine = sh.px; S.pxIdx = null; try { localStorage.setItem('fb-px', JSON.stringify(sh.px)); } catch (e) {} }
+  if (sh.ranks && sh.ranks.at && (!S.ranksMine || !S.ranksMine.at || sh.ranks.at > S.ranksMine.at)) { S.ranksMine = sh.ranks; try { localStorage.setItem('fb-ranks', JSON.stringify(sh.ranks)); } catch (e) {} }
 }
 
 // ---------- lugares na run do Top Shot (script "FB lugares" na página do Fast Break, com a sessão de quem o corre) ----------
@@ -840,7 +849,7 @@ function accSummaries() {
 }
 let sumTimer = null;
 function publishSummary() {
-  if (!S.session) return;
+  if (!S.session || !(S.group && S.group.loaded)) return; // antes de ler o grupo não: perdia os lugares e preços que só estão no resumo
   const r = mainResult(); if (!r || !S.runId) return;
   const v = r.normal; // o grupo vê a conta principal
   const days = {};

@@ -912,6 +912,7 @@ with sync_playwright() as pw:
     pg.locator('#plBody .pl-card').filter(has_text='Curry').first.click(); pg.wait_for_timeout(500)
     print('K3 mercado Curry (Top Shot):', pg.locator('#sheetPanel .mkt-box').inner_text().replace('\n', ' | ') if pg.locator('#sheetPanel .mkt-box').count() else '-')
     print('K3 preços publicados:', store(pg, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return x && x.share && x.share.px ? x.share.px.p : null; })()'))
+    tables_k3 = pg.evaluate('JSON.stringify(__FAKE_DB.tables)')
     pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     # com preços lidos (≥50 jogadores): as compras só sugerem quem tem um Rare à venda, e mostram o preço
     pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
@@ -921,6 +922,14 @@ with sync_playwright() as pw:
     pg.click('#t-grupo'); pg.wait_for_timeout(400); pg.click('#tab-grupo button[data-action="ranks-go"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
     job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
     print('K3 pedido ao Top Shot:', len(job['accs']), 'contas ·', len(job.get('pl') or []), 'jogadores para preços · 1.º:', (job.get('pl') or [None])[0])
+    # a app do ecrã principal (ou outro aparelho) não tem o que o Safari guardou: os preços e lugares vêm do meu resumo
+    # e não se perdem quando ela publica o resumo dela
+    db2 = dict(dbk); db2['tables'] = json.loads(tables_k3)
+    pg2 = new_page(b, db2); pg2.route('https://site.api.espn.com/**', lambda r: r.fulfill(status=404, body='')); pg2.clock.set_fixed_time('2026-10-22T08:40:00Z')
+    pg2.goto('https://site.test/'); pg2.wait_for_timeout(500)
+    pg2.fill('#auEmail', 'eu@x.pt'); pg2.fill('#auPass', 'segredo1'); pg2.click('#auSubmit'); pg2.wait_for_timeout(4000)
+    print('K3 outro aparelho: preços no resumo:', store(pg2, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return !!(x && x.share && x.share.px && x.share.px.p.curry); })()'), '· lugares no resumo:', store(pg2, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return !!(x && x.share && x.share.ranks); })()'), '· guardados aqui:', pg2.evaluate("!!localStorage.getItem('fb-px')"))
+    pg2.close()
     pg.close()
 
     # ---------- L: Mudar o lineup antes dos jogos (fixar, tirar e pôr um a um, com o que muda face à sugestão) ----------
