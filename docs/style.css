@@ -839,3 +839,26 @@ p, .note { text-wrap: pretty; }
 .hero.past .acc-res .c-ok { color: var(--board-good); } .hero.past .acc-res .c-no { color: var(--board-bad); }
 
 .lu-sort { padding: 0 16px 8px; }
+
+/* compras numa linha: à direita a chance nova (grande), por cima o prémio, por baixo quanto sobe */
+.buy-row { align-items: center; }
+.buy-row .bg { display: grid; justify-items: end; text-align: right; flex: none; white-space: nowrap; gap: 1px; }
+.buy-row .bg-top { font-size: 12px; color: var(--muted); }
+.buy-row .bg-big { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.buy-row .bg-big.up { color: var(--good); }
+.buy-row .bg-was { font-size: 12px; color: var(--muted); }
+.buy-row .mkt { display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--good-bg); color: var(--good); }
+.buy-row .mkt:empty { display: none; }
+.buy-row .mkt b { color: inherit; }
+.buy-row .mkt .muted { color: var(--muted); }
+
+.buy-row .who { min-width: 0; flex: 1; }
+.buy-row .pn .nm { white-space: normal; overflow: visible; }
+.buy-row .bg { max-width: 42%; }
+.bd-head { display: flex; gap: 12px; align-items: center; }
+.bd-head h3 { margin: 0; font-size: 22px; line-height: 1.15; }
+.bd-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.bd-tile { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; display: grid; gap: 3px; }
+.bd-tile b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.bd-prizes { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; color: var(--muted); }
+.bd-prizes > b { color: var(--ink); }

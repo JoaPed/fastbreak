@@ -848,7 +848,6 @@
  "Moment Rare": "Rare Moment",
  " vitórias": " wins",
  "vitórias esperadas ": "expected wins ",
- "<span class=\"badge\">muda pouco</span>": "<span class=\"badge\">small change</span>",
  " · joga ": " · plays ",
  "Nenhum Moment ": "No ",
  "<div class=\"buy-gain muted\">Não compensa: a run quase não muda.</div>": "<div class=\"buy-gain muted\">Not worth it: the run barely changes.</div>",
@@ -1628,7 +1627,6 @@
  " title=\"Dia ": " title=\"Day ",
  "A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.": "A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.",
  "\">Todos</button><button type=\"button\" data-action=\"buy-mode\" data-mode=\"more\" aria-pressed=\"": "\">All</button><button type=\"button\" data-action=\"buy-mode\" data-mode=\"more\" aria-pressed=\"",
- "já tens · +": "you have him · +",
  "2.º Moment": "2nd Moment",
  "p": null,
  "g": null,
@@ -1822,6 +1820,22 @@
  "c-no": null,
  "<div class=\"chips lu-sort\" role=\"group\" aria-label=\"Ordenar por\">": "<div class=\"chips lu-sort\" role=\"group\" aria-label=\"Sort by\">",
  "Juntos": "Combined",
+ "</b> · era ": "</b> · was ",
+ "\">Ver a ficha do jogador</button>": "\">Player sheet</button>",
+ "<span class=\"bg-top\">esperadas</span><span class=\"bg-big": "<span class=\"bg-top\">expected</span><span class=\"bg-big",
+ "todas as contas": "all accounts",
+ "na run": "in the run",
+ ", o mais barato": ", cheapest",
+ "por ler": "not read yet",
+ "<div class=\"label\" style=\"margin-top:4px\">Prémios que mudam</div><div class=\"bd-prizes\">": "<div class=\"label\" style=\"margin-top:4px\">Prizes that change</div><div class=\"bd-prizes\">",
+ "V</b><span>": "W</b><span>",
+ "<div class=\"note\">Não compensa: a run quase não muda.</div>": "<div class=\"note\">Not worth it: the run barely changes.</div>",
+ "Dias novos em que joga": "New days he plays",
+ "era ": "was ",
+ "Prémio": "Prize",
+ "Preço": "Price",
+ "nenhum ": "no ",
+ " à venda": " for sale",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1853,7 +1867,6 @@
  "todos": null,
  "nome": null,
  "min": null,
- "pp": null,
  "por": null,
  "blockchain": null,
  "tiragem": null,
@@ -1967,7 +1980,8 @@
    ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true,
    "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
    "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
-   "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true
+   "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true,
+   "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "uses"
   }
  },
  "uso": {
@@ -1992,7 +2006,8 @@
    ": '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + ', cada um": true,
    "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
    "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
-   "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true
+   "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true,
+   "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "use"
   }
  },
  "derrota": {

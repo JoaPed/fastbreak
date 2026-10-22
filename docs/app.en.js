@@ -2421,6 +2421,22 @@ function buySummary(R, x) {
   const byPrize = !!best && Math.round(best.to * 100) - Math.round(best.from * 100) >= 1;
   return { id, best, e0, e1, byPrize, worth: byPrize || e1 - e0 >= 0.15, days: [...days].sort((a, b) => a - b), multi: keys.length > 1 };
 }
+// uma compra numa linha: cara, nome, equipa e dias, preço; à direita a chance nova do prémio que mais sobe (grande)
+// e por baixo quanto sobe e quanto era. Tocar abre os detalhes.
+function buyRow(R, t, i, src) {
+  const c = S.players.get(t.id) || {}, own = !!S.mine.roster[t.id], g = usesGain(t.id, R.U);
+  const badge = own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'use', 'uses') : '2nd Moment') + '</span>' : '';
+  const sub = teamTag(c.team) + (t.days.length ? ' · plays ' + (t.days.length > 1 ? 'days ' : 'day ') + t.days.join(', ') : '');
+  const right = t.byPrize
+    ? '<span class="bg-top">' + t.best.p.wins + ' wins' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · was ' + pct(t.best.from) + '</span>'
+    : '<span class="bg-top">expected</span><span class="bg-big' + (t.worth ? ' up' : ' muted') + '">' + f1(t.e1) + '</span><span class="bg-was">' + (t.worth ? '<b class="up">▲ ' + f1(t.e1 - t.e0) + '</b> · ' : '') + 'was ' + f1(t.e0) + '</span>';
+  return '<li><button class="row buy-row" type="button" data-action="buy-detail" data-id="' + esc(t.id) + '" data-src="' + src + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || nameOf(t.id)) + '</span>' + badge + '</div><div class="ps">' + sub + '</div><div class="ps">' + mktSpan(t.id, R.U) + '</div></div></span><span class="bg">' + right + '</span></button></li>';
+}
+// detalhes de uma compra (folha): o que muda na run, dia a dia e nos prémios, e o preço
+function buyDetailSheet(src, id) {
+  const R = src === 'auto' ? S.autoBuy : S.buy.results, x = R && R.list.find(z => String(z.id) === String(id)); if (!x) return;
+  openSheet(buyResultsHtml(Object.assign({}, R, { list: [x], single: true, detail: true })) + '<button class="btn" type="button" data-action="buy-player" data-id="' + esc(id) + '" data-src="' + src + '">Player sheet</button>');
+}
 // lista curta de sugestões (Hoje e Run)
 function buyTipsCard(limit, jornada) {
   const A = S.autoBuy, key = autoBuyKey();
@@ -2431,8 +2447,7 @@ function buyTipsCard(limit, jornada) {
   // os melhores primeiro, mesmo os que mudam pouco (assim vês sempre qual é o Rare que mais compensa)
   const tips = A.list.map(x => buySummary(A, x)).slice(0, limit);
   if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'There are no candidates with games in the remaining days.' : 'No Rare changes your run.') + '</div></div>';
-  return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' wins' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'expected wins ' + f1(t.e0) + ' → <b class="' + (t.worth ? 'up' : '') + '">' + f1(t.e1) + '</b>';
-    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">' + (usesGain(t.id, A.U) > 0 ? 'you have him · +' + plural(usesGain(t.id, A.U), 'use', 'uses') : '2nd Moment') + '</span>' : '') + (t.worth ? '' : '<span class="badge">small change</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · plays ' + (t.days.length > 1 ? 'days ' : 'day ') + t.days.join(', ') : '') + '</div><div class="ps">' + mktSpan(t.id, A.U) + '</div></div></span><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'wins') + '</div></div></button></li>'; }).join('') +
+  return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => buyRow(A, t, i, 'auto')).join('') +
     '</ul>' + (jornada ? '<button class="btn link small buy-more-link" type="button" data-action="goto" data-tab="plantel" data-sub="comprar">See more buys ›</button>' : '') + '</div>';
 }
 function buyResultsHtml(R) {
@@ -2445,7 +2460,8 @@ function buyResultsHtml(R) {
   const moreBtn = left ? '<div id="buyMoreBox"><button class="btn" type="button" data-action="buy-more">Test the next ' + Math.min(left, S.multi ? 5 : 8) + '</button></div>' : '';
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
-  return intro + R.list.map((x, n) => {
+  if (!R.single) return intro + '<div class="card"><ul class="list">' + R.list.map((x, n) => buyRow(R, buySummary(R, x), n, 'res')).join('') + '</ul></div>' + moreBtn;
+  return R.list.map((x, n) => {
     const id = String(x.id), c = S.players.get(id) || {}, more = R.mode === 'more' || !!S.mine.roster[id];
     // dias em que passa a jogar (que antes não jogava), com a vitória desse dia antes → depois, por conta
     const byDay = new Map();
@@ -2471,10 +2487,23 @@ function buyResultsHtml(R) {
       return '<li><b>Day ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'win ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prizes that change: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
-    return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><span class="who">' + face(id) + '<h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2></span><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2nd Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
+    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2nd Moment') : 'Moment ' + tierTxt(R.U);
+    if (R.detail) {
+      // folha: cabeçalho, três caixas (prémio, vitórias esperadas, preço), dias novos e prémios que mudam
+      const mk = mktOf(id, R.U);
+      const tile = (lab, v, sub) => '<div class="bd-tile"><span class="label">' + lab + '</span><b>' + v + '</b><span class="small muted">' + sub + '</span></div>';
+      const tiles = '<div class="bd-tiles">' +
+        (byPrize ? tile('Prize', pct(best.from) + ' → <span class="up">' + pct(best.to) + '</span>', best.p.wins + ' wins' + (multi ? ' · ' + esc(accLabel(best.k)) : '')) : '') +
+        tile('Expected wins', f1(e0) + ' → <span class="' + (e1 - e0 >= 0.15 ? 'up' : '') + '">' + f1(e1) + '</span>', multi ? 'all accounts' : 'in the run') +
+        tile('Price', mk && mk.ask != null ? '<span class="up">' + usd(mk.ask) + '</span>' : '—', mk && mk.ask != null ? tierName(R.U) + ', cheapest' : mk && mk.ts ? 'no ' + tierName(R.U) + ' for sale' : 'not read yet') + '</div>';
+      const prizeRows = tiers.length ? '<div class="label" style="margin-top:4px">Prizes that change</div><div class="bd-prizes">' + tiers.map(w => '<b>' + w + 'W</b><span>' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → <b class="' + (m.a > m.b ? 'up' : '') + '">' + pct(m.a) + '</b>').join(' · ') + '</span>').join('') + '</div>' : '';
+      return '<div class="buy-detail stack"><div class="bd-head">' + face(id, 'lg') + '<div style="min-width:0"><h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + teamTag(c.team) + ' · ' + tierLab + '</div></div></div>' + (worth ? '' : '<div class="note">Not worth it: the run barely changes.</div>') + tiles +
+        '<div><div class="label">' + (days.length ? 'New days he plays' : 'Days') + '</div><div class="small" style="margin:4px 0">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') + '</div>' + prizeRows + '</div>';
+    }
+    return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><span class="who">' + face(id) + '<h2>' + esc(nameOf(id)) + '</h2></span><span class="small muted">' + esc(c.team || '') + ' · ' + tierLab + '</span></div>' +
       head + '<div class="small">' + mktSpan(id, R.U) + '</div>' + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Expected wins' + (multi ? ' (all accounts)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
-  }).join('') + moreBtn;
+  }).join('');
 }
 
 // ---- Grupo ----
@@ -4253,6 +4282,8 @@ document.addEventListener('click', async e => {
     case 'copy-topic': try { await navigator.clipboard.writeText((S.alerts || {}).ntfy || ''); toast('Topic copied.'); } catch (err) { toast('Couldn\'t copy: select the text.'); } break;
     case 'buy-sheet': closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
     case 'buy-retry': S.autoBuyErr = null; S.autoBuy = null; autoBuyBusy = null; render(); scheduleAutoBuy(); break;
+    case 'buy-detail': buyDetailSheet(b.dataset.src, id); break;
+    case 'buy-player': S.mine.roster[id] ? rosterSheet(id) : catalogSheet(id); break;
     case 'buy-open': if (S.autoBuy) { S.buy.uses = S.autoBuy.U; S.buy.mode = 'new'; S.buy.results = S.autoBuy; } closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
     case 'buy-eval': closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); await buyRun(id); break;
     case 'buy-mode': S.buy.mode = b.dataset.mode; S.buy.results = null; renderPlantel(); break;

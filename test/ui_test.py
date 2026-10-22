@@ -356,8 +356,8 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'compras-smurf.png'), full_page=True)
     pg.click('#plSub button[data-action="buy-mode"][data-mode="new"]'); pg.wait_for_timeout(200)
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
-    names2 = [x.split('\n')[0] for x in pg.locator('#buyOut .buy-card h2').all_inner_texts()]
-    two = [x for x in pg.locator('#buyOut .buy-card').all_inner_texts() if '2.º Moment' in x or 'mesmo dia' in x]
+    names2 = [x.split('. ', 1)[-1] for x in pg.locator('#buyOut .buy-row .nm').all_inner_texts()]
+    two = [x for x in pg.locator('#buyOut .buy-row').all_inner_texts() if '2.º Moment' in x or 'mesmo dia' in x]
     print('C compras Todos com smurf:', len(names2), 'candidatos ·', ', '.join(names2), '· 2.º Moment:', len(two))
     # preço máximo: só quem tem um Moment Rare à venda até esse preço (o Jokić Rare está a $89)
     pg.fill('#buyMax', '50'); pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
@@ -545,11 +545,11 @@ with sync_playwright() as pw:
     t0 = __import__('time').time()
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
     print('E compras (%.1f s):' % (__import__('time').time() - t0), ' // '.join(x.replace('\n', ' | ')[:330] for x in pg.locator('#buyOut .card').all_inner_texts()[:3]))
-    nb = pg.locator('#buyOut .buy-card').count()
+    nb = pg.locator('#buyOut .buy-row').count()
     print('E compras, resumo:', pg.locator('#buyOut .buy-intro').inner_text() if pg.locator('#buyOut .buy-intro').count() else 'ERRO sem resumo', '· botão:', pg.locator('#buyOut button[data-action="buy-more"]').inner_text() if pg.locator('#buyOut button[data-action="buy-more"]').count() else 'sem mais')
     if pg.locator('#buyOut button[data-action="buy-more"]').count():
         pg.click('#buyOut button[data-action="buy-more"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyMoreProg', state='detached', timeout=90000); pg.wait_for_timeout(200)
-        print('E testar mais:', nb, '→', pg.locator('#buyOut .buy-card').count(), '·', pg.locator('#buyOut .buy-intro').inner_text(), '· ok' if pg.locator('#buyOut .buy-card').count() > nb else '· ERRO')
+        print('E testar mais:', nb, '→', pg.locator('#buyOut .buy-row').count(), '·', pg.locator('#buyOut .buy-intro').inner_text(), '· ok' if pg.locator('#buyOut .buy-row').count() > nb else '· ERRO')
     pg.screenshot(path=str(shots / 'compras.png'), full_page=True)
     pg.fill('#buySearch', 'Curry'); pg.wait_for_timeout(200)
     pg.click('#buyFound button[data-action="buy-pick"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
@@ -904,7 +904,7 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     # com preços lidos (≥50 jogadores): as compras só sugerem quem tem um Rare à venda, e mostram o preço
     pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
-    pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-card, #buyOut .note', timeout=30000); pg.wait_for_timeout(300)
+    pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-row, #buyOut .note', timeout=30000); pg.wait_for_timeout(300)
     print('K3 compras com preços:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:420])
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
     pg.click('#t-grupo'); pg.wait_for_timeout(400); pg.click('#tab-grupo button[data-action="ranks-go"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
@@ -1086,8 +1086,10 @@ with sync_playwright() as pw:
     pg.wait_for_function("() => { const c = [...document.querySelectorAll('#plSub .card')].find(x => /Os Rare que mais compensam/.test(x.textContent)); return c && !/A refazer a run/.test(c.textContent); }", timeout=120000)
     print('I comprar (sugestões):', pg.locator('#plSub .card').first.inner_text().replace('\n', ' | ')[:400])
     pg.screenshot(path=str(shots / 'comprar-sugestoes.png'), full_page=True)
-    pg.locator('#plSub button[data-action="buy-open"]').first.click(); pg.wait_for_timeout(500)
-    print('I abrir sugestão:', pg.locator('#buyOut .card').first.inner_text().replace('\n', ' | ')[:200] if pg.locator('#buyOut .card').count() else 'sem detalhes')
+    pg.locator('#plSub button[data-action="buy-detail"]').first.click(); pg.wait_for_timeout(500)
+    print('I abrir sugestão (folha):', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:260])
+    pg.screenshot(path=str(shots / 'compra-detalhe.png'))
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     pg.click('#plSub button[data-action="buy-mode"][data-mode="more"]'); pg.wait_for_timeout(200)
     pg.click('#plSub button[data-action="buy-uses"][data-n="1"]'); pg.wait_for_timeout(200)
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
