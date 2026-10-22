@@ -882,6 +882,7 @@ with sync_playwright() as pw:
     if not any(m['user_id'] == 'u-rui' for m in Tk['members']): Tk['members'].append({'user_id': 'u-rui', 'role': 'member'})
     Tk['profiles'] = [x for x in Tk['profiles'] if x['user_id'] != 'u-rui'] + [{'user_id': 'u-rui', 'display_name': 'Rui', 'topshot_username': 'rui_ts', 'flow_address': '0x00000000000000c1', 'smurfs': [{'id': 's9', 'topshot_username': 'rui_smurf', 'flow_address': '0x00000000000000c2'}]}]
     Tk['runs'][0]['chain_run_id'] = 'c1'
+    [m.update({'role': 'admin'}) for m in Tk['members'] if m['user_id'] == 'u-eu']  # só quem gere o grupo lê lugares e preços
     Tk['summaries'] = [{'user_id': 'u-rui', 'run_id': 'run-1', 'wins': 0, 'losses': 1, 'expected': 4.2, 'prize_probs': [], 'days': {d1: 'loss'}, 'next_p': 0.5, 'updated_at': '2026-10-21T22:00:00Z',
                         'share': {'accs': {'main': {'days': {d1: 'loss'}, 'lu': {d2: lu2}}, 's9': {'label': 'rui_smurf', 'wins': 0, 'losses': 0, 'expected': 3.1, 'prize_probs': [], 'days': {}, 'next_p': 0.4, 'lu': {d2: ['jokic', 'mitchell', 'ant', 'luka', 'curry']}}}}}]
     Tk['chain_results'] = [{'user_id': 'u-rui', 'account': 's9', 'game_id': 'g1', 'chain_run_id': 'c1', 'date': d1, 'points': 101, 'win': False, 'lineup': ['Jalen Brunson']}]
@@ -925,10 +926,13 @@ with sync_playwright() as pw:
     # a app do ecrã principal (ou outro aparelho) não tem o que o Safari guardou: os preços e lugares vêm do meu resumo
     # e não se perdem quando ela publica o resumo dela
     db2 = dict(dbk); db2['tables'] = json.loads(tables_k3)
+    [m.update({'role': 'member'}) for m in db2['tables']['members'] if m['user_id'] == 'u-eu']
     pg2 = new_page(b, db2); pg2.route('https://site.api.espn.com/**', lambda r: r.fulfill(status=404, body='')); pg2.clock.set_fixed_time('2026-10-22T08:40:00Z')
     pg2.goto('https://site.test/'); pg2.wait_for_timeout(500)
     pg2.fill('#auEmail', 'eu@x.pt'); pg2.fill('#auPass', 'segredo1'); pg2.click('#auSubmit'); pg2.wait_for_timeout(4000)
     print('K3 outro aparelho: preços no resumo:', store(pg2, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return !!(x && x.share && x.share.px && x.share.px.p.curry); })()'), '· lugares no resumo:', store(pg2, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return !!(x && x.share && x.share.ranks); })()'), '· guardados aqui:', pg2.evaluate("!!localStorage.getItem('fb-px')"))
+    pg2.click('#t-grupo'); pg2.wait_for_timeout(800)
+    print('K3 membro sem o botão dos lugares:', pg2.locator('#tab-grupo button[data-action="ranks-go"]').count() == 0)
     pg2.close()
     pg.close()
 

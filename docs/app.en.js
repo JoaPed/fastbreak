@@ -2772,8 +2772,9 @@ function renderGrupo() {
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">No members yet.</td></tr>') + totRow + '</tbody></table></div>' +
     '<div class="small muted gc-leg"><i class="lg w"></i> won the day · <i class="lg l"></i> lost' + (lastPaid ? ' · <b class="dz">+$</b> daily prize · run rank <b class="z-p">in orange</b>: in the prizes (up to ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">in gold</b>: top ' + qual + ' (goes to the final)' : '') : '') +
       (R && R.cut && Object.keys(R.cut).length ? ' · wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
-    '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Update ranks and prices</button><button class="btn" type="button" data-action="group-refresh">Refresh</button></div>' +
-    '<div class="small muted" style="padding:0 4px">“Update ranks and prices” opens Fast Break on Top Shot: there tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. It reads the ranks and also the market prices of every player (it takes 1–2 minutes). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div>';
+    // lugares e preços: só quem gere o grupo (admin) os vai ler ao Top Shot; os outros veem o que ele leu
+    '<div class="foot" style="padding:0;border:0">' + (S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go">Update ranks and prices</button>' : '') + '<button class="btn" type="button" data-action="group-refresh">Refresh</button></div>' +
+    (S.role !== 'admin' ? '' : '<div class="small muted" style="padding:0 4px">“Update ranks and prices” opens Fast Break on Top Shot: there tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. It reads the ranks and also the market prices of every player (it takes 1–2 minutes). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div>');
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
@@ -3233,7 +3234,7 @@ function mktFill() {
 }
 // ficha do jogador: um preço por escalão
 function mktBlock(id) {
-  const x = pxOf(id), upd = '<button class="btn sm" type="button" data-action="ranks-go" style="margin-top:6px">Update on Top Shot</button>';
+  const x = pxOf(id), upd = S.role === 'admin' ? '<button class="btn sm" type="button" data-action="ranks-go" style="margin-top:6px">Update on Top Shot</button>' : '';
   if (x) {
     const rows = [1, 2, 4].map((u, i) => '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">' + (x.c[i] != null ? 'listed from <b class="num">' + usd(x.c[i] / 100) + '</b>' : '<span class="muted">none for sale</span>') + '</span></div>').join('');
     return '<div class="mkt-box"><div class="list-head" style="margin-bottom:4px"><span class="label">Top Shot market</span><span class="small muted">' + esc(ago(x.at)) + '</span></div>' + rows + (Date.now() - Date.parse(x.at) > 6 * 3600e3 ? upd : '') + '</div>';
