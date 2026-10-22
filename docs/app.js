@@ -4005,7 +4005,10 @@ document.addEventListener('click', async e => {
     case 'hd': S.hd = date; S.hdCenter = true; renderHoje(); break;
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id, b.dataset.acc); break;
-    case 'ranks-go': { const J = rankJob(); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
+    case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Endereço copiado: cola-o no Safari.'), () => toast(u)); break; }
+    case 'ranks-go': { const J = rankJob(); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; }
+      // na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem favoritos: tem de ser no Safari
+      if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Abre no Safari</h3><div class="small">Na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem os favoritos. Abre <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> no <b>Safari</b> (entra com a tua conta da primeira vez) e carrega lá em <b>Atualizar lugares</b>.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copiar o endereço</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
     case 'lock-yes': lockToggle(id, date, true); luBack(date); break;
     case 'unlock': lockToggle(id, date, false); luBack(date); break;

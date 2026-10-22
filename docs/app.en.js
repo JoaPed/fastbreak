@@ -4006,7 +4006,10 @@ document.addEventListener('click', async e => {
     case 'hd': S.hd = date; S.hdCenter = true; renderHoje(); break;
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id, b.dataset.acc); break;
-    case 'ranks-go': { const J = rankJob(); if (!J.accs.length) { toast('Nobody in the group has a Flow address in their profile.'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
+    case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Address copied: paste it in Safari.'), () => toast(u)); break; }
+    case 'ranks-go': { const J = rankJob(); if (!J.accs.length) { toast('Nobody in the group has a Flow address in their profile.'); break; }
+      // na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem favoritos: tem de ser no Safari
+      if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Open in Safari</h3><div class="small">In the home-screen app, Top Shot opens in a separate window, without your session and without your bookmarks. Open <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> in <b>Safari</b> (sign in the first time) and tap <b>Update ranks</b> there.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copy the address</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
     case 'lock-yes': lockToggle(id, date, true); luBack(date); break;
     case 'unlock': lockToggle(id, date, false); luBack(date); break;
