@@ -21,8 +21,11 @@ const grab = (n, v) => { try { if (String(n).toLowerCase() === 'authorization' &
 const hs = Headers.prototype.set, ha = Headers.prototype.append;
 Headers.prototype.set = function (n, v) { grab(n, v); return hs.apply(this, arguments); };
 Headers.prototype.append = function (n, v) { grab(n, v); return ha.apply(this, arguments); };
-const call = async (m, body) => {
+const wait = ms => new Promise(f => setTimeout(f, ms));
+const call = async (m, body, tries = 0) => {
   const r = await fetch(API + m, { method: 'POST', headers: { 'content-type': 'application/json', 'connect-protocol-version': '1', authorization: S.tok }, body: JSON.stringify(body) });
+  // muitos pedidos seguidos: o Top Shot pode pedir para abrandar → espera e tenta outra vez (até 4 vezes)
+  if ((r.status === 429 || r.status === 503) && tries < 4) { await wait(1500 * (tries + 1)); return call(m, body, tries + 1); }
   if (!r.ok) throw new Error(m.split('/').pop() + ' ' + r.status);
   return r.json();
 };
@@ -80,11 +83,11 @@ async function prices(pl) {
       const row = [];
       for (const t of PX_TIERS) { try { row.push(await cheapest(x[1], t)); } catch (e) { row.push(undefined); fails++; } }
       if (row.some(v => v !== undefined)) px.p[x[0]] = row.map(v => v === undefined ? null : v);
-      done++; if (done % 5 === 0) say('A ler os preços… ' + done + ' de ' + (done + todo.length));
-      if (fails > 30 && !Object.keys(px.p).length) throw new Error('o mercado não respondeu');
+      done++; if (done % 5 === 0) say('A ler os preços… ' + done + ' de ' + (done + todo.length) + ' jogadores');
+      if (fails > 30 && Object.keys(px.p).length < 3) throw new Error('o mercado não respondeu');
     }
   };
-  await Promise.all([1, 2, 3, 4, 5, 6].map(work));
+  await Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map(work));
   if (fails) px.fails = fails;
   return px;
 }

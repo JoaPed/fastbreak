@@ -654,17 +654,19 @@ function pxIndex() {
 }
 const pxOf = id => { const x = pxIndex().get(String(canon(id))) || pxIndex().get(String(id)); return x && Date.now() - Date.parse(x.at) < 3 * 864e5 ? x : null; };
 const pxCol = uses => (uses >= 4 ? 2 : uses >= 2 ? 1 : 0);
-// os jogadores a ler: o teu plantel e coleção, as sugestões de compra, os especialistas e os melhores marcadores (até 220)
+// os jogadores a ler: todos os que podem aparecer nas compras (os da NBA com médias), primeiro o teu plantel e a
+// coleção, as sugestões de compra e os especialistas, depois por minutos. Os que alguém do grupo leu há menos de
+// 6 h ficam de fora (menos o plantel e as sugestões), para a 2.ª atualização do dia ser rápida.
 function pxWanted() {
-  const out = new Set(), add = id => { if (id != null && out.size < 220) out.add(String(canon(id))); };
-  Object.keys(S.mine.roster || {}).forEach(add);
-  Object.keys(((S.profile || {}).collection || {}).players || {}).forEach(add);
-  [S.buy && S.buy.results, S.autoBuy].forEach(R => { if (R) { (R.list || []).forEach(x => add(x.id)); (R.rank || []).slice(0, 40).forEach(x => add(x && x.id != null ? x.id : x)); } });
-  const pool = [...S.players.values()].filter(p => p.team && p.avg && (+p.avg.min || 0) >= 12);
+  const out = new Set(), must = new Set(), add = (id, m) => { if (id == null) return; id = String(canon(id)); out.add(id); if (m) must.add(id); };
+  Object.keys(S.mine.roster || {}).forEach(id => add(id, 1));
+  Object.keys(((S.profile || {}).collection || {}).players || {}).forEach(id => add(id, 1));
+  [S.buy && S.buy.results, S.autoBuy].forEach(R => { if (R) { (R.list || []).forEach(x => add(x.id, 1)); (R.rank || []).slice(0, 40).forEach(x => add(x && x.id != null ? x.id : x, 1)); } });
+  const pool = [...S.players.values()].filter(p => p.team && p.avg);
   const val = (p, k) => { const a = FB.avgOf({ avg: p.avg }, k); return a ? a.v : 0; };
-  SPEC_STATS.forEach(k => pool.slice().sort((a, b) => val(b, k) - val(a, k)).slice(0, 12).forEach(p => add(p.id)));
-  pool.slice().sort((a, b) => val(b, 'pts') - val(a, 'pts')).forEach(p => add(p.id));
-  return [...out].filter(id => S.players.has(id) || (S.mine.roster || {})[id]);
+  SPEC_STATS.forEach(k => pool.filter(p => (+p.avg.min || 0) >= 12).sort((a, b) => val(b, k) - val(a, k)).slice(0, 12).forEach(p => add(p.id)));
+  pool.sort((a, b) => (+b.avg.min || 0) - (+a.avg.min || 0)).forEach(p => add(p.id));
+  return [...out].filter(id => (S.players.has(id) || (S.mine.roster || {})[id]) && (must.has(id) || !pxOf(id) || Date.now() - Date.parse(pxOf(id).at) > 6 * 3600e3)).slice(0, 650);
 }
 // escalões que os amigos marcaram carta a carta, juntos por set (servem para os sets que tu não marcaste)
 function groupTierLabels(profiles) {
@@ -2627,7 +2629,7 @@ function renderGrupo() {
     '<div class="small muted gc-leg"><i class="lg w"></i> ganhou o dia · <i class="lg l"></i> perdeu' + (lastPaid ? ' · <b class="dz">+$</b> prémio do dia · lugar da run <b class="z-p">a laranja</b>: com prémio (até ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">a dourado</b>: top ' + qual + ' (vai à final)' : '') : '') +
       (R && R.cut && Object.keys(R.cut).length ? ' · vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
     '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares e preços</button><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
-    '<div class="small muted" style="padding:0 4px">«Atualizar lugares e preços» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. Lê os lugares e também os preços do mercado (o teu plantel, os especialistas e as sugestões de compra). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
+    '<div class="small muted" style="padding:0 4px">«Atualizar lugares e preços» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. Lê os lugares e também os preços do mercado de todos os jogadores (da 1.ª vez no dia demora 1–2 minutos). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
