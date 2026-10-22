@@ -320,6 +320,7 @@ console.log('Runs na blockchain:', runList.length, '· dias:', games.length);
 }
 const named = await must(sb.from('chain_runs').select('name,run_start').order('run_start', { ascending: false }).limit(8));
 if (named.length) console.log('Runs conhecidas:', named.map(r => r.name).join(' | '));
+console.log('::notice title=Runs na blockchain::' + (named.length ? named.map(r => r.name + ' (' + etDate(r.run_start * 1000) + ')').join(' | ') : 'nenhuma lida') + ' · runs do site ligadas: ' + linked.length);
 const statNames = [...new Set(games.flatMap(g => (g.stats || []).map(s => s.name + (s.type === 0 ? ' (cada jogador)' : ''))))];
 if (statNames.length) console.log('Estatísticas usadas nos dias lidos:', statNames.join(', '));
 
@@ -332,6 +333,7 @@ const espnGames = async date => { try { const { json } = await fetchJson('https:
     .filter(c => /classic/i.test(c.name || '') && !linkedIds.has(c.id) && c.run_end && c.run_end > nowS && c.run_start && c.run_start < nowS + 30 * 86400);
   const others = (await must(sb.from('chain_runs').select('id,name,run_start,run_end'))).filter(c => !/classic/i.test(c.name || '') && !linkedIds.has(c.id) && c.run_end > nowS && c.run_start < nowS + 30 * 86400);
   if (others.length) console.log('Runs na blockchain que não são Classic (importam-se à mão em Ajustes → Admin):', others.map(c => c.name).join(' | '));
+  console.log('::notice title=Runs na blockchain::por ligar: Classic ' + fresh.map(c => c.name).join(' | ') + ' · outras ' + others.map(c => c.name).join(' | ') + ' · runs do site: ' + allRuns.map(r => r.name + (r.chain_run_id ? ' (ligada)' : '') + (r.fictitious ? ' (teste)' : '') + ' ' + r.start_date).join(' | '));
   for (const c of fresh) {
     const start = etDate(c.run_start * 1000), end = etDate((c.run_end - 12 * 3600) * 1000); // o fim costuma ser de madrugada do dia seguinte
     // run criada à mão no site para as mesmas datas (sem ligação): liga-a em vez de criar outra
