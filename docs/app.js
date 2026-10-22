@@ -139,12 +139,12 @@ function goalBig(objs) {
 const COURT = '<svg class="court-b" viewBox="0 0 400 150" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><path d="M20 150V112A180 180 0 0 1 380 112V150"/><rect x="140" y="40" width="120" height="110"/><path d="M140 40A60 60 0 0 1 260 40"/><path d="M140 40A60 60 0 0 0 260 40" stroke-dasharray="6 7"/><path d="M176 150V135M224 150V135M184 128h32"/><circle class="rim" cx="200" cy="120" r="7"/></svg>';
 const BALL = '<svg viewBox="0 0 40 40" width="22" height="22" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="#E8742F" stroke="#1a1208" stroke-width="1.6"/><path d="M1.5 20h37M20 1.5v37M7 7c6 5 6 21 0 26M33 7c-6 5-6 21 0 26" stroke="#1a1208" stroke-width="1.6" fill="none" stroke-linecap="round"/><ellipse cx="13" cy="11" rx="6" ry="3.5" fill="#fff" opacity=".18" transform="rotate(-30 13 11)"/></svg>';
 // vitória do dia num anel que enche até à percentagem, com a bola na ponta
-function winRing(P, tn) {
+function winRing(P, tn, big, label) {
   const r = 40, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, P || 0)), a = -Math.PI / 2 + 2 * Math.PI * p;
   return '<div class="win-ring t-' + tn + '"><svg width="100" height="100" viewBox="0 0 100 100" aria-hidden="true"><circle class="wr-bg" cx="50" cy="50" r="47"/><circle class="wr-tr" cx="50" cy="50" r="40"/>' +
     (p > 0.004 ? '<circle class="wr-on" cx="50" cy="50" r="40" stroke-dasharray="' + (c * p).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 50 50)"/>' : '') + '</svg>' +
     '<span class="wr-ball" style="left:' + (50 + r * Math.cos(a) - 11).toFixed(1) + 'px;top:' + (50 + r * Math.sin(a) - 11).toFixed(1) + 'px">' + BALL + '</span>' +
-    '<div class="wr-v"><b class="num">' + pct(P) + '</b><span>vitória</span></div></div>';
+    '<div class="wr-v"><b class="num">' + (big != null ? big : pct(P)) + '</b><span>' + (label || 'vitória') + '</span></div></div>';
 }
 // tom de um dia: cinzento quando o plano o dá por perdido (guarda os usos para outros dias)
 const dTone = P => (P < 0.05 ? 'mute' : tone(P));
@@ -1020,11 +1020,19 @@ function pastDayHtml(J) {
   // placar desse dia (uma leitura): os resultados ao lado das equipas
   const B = S.box[J.date], run = curRun();
   if (run && !run.fictitious && (!B || (!B.board && !B.busy && Date.now() - B.at > 120e3))) setTimeout(() => { boxLoad(J.date, new Set()).then(() => { if (S.tab === 'hoje') renderHoje(); }); }, 0);
-  const out = ['<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Dia ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + src + '</span></div>' +
-    '<div class="score">' + goalBig(objs) +
-    '<div class="pbig num ' + (res === 'win' ? 'c-good' : res === 'loss' ? 'c-bad' : '') + '">' + (res && tot && objs.length === 1 ? f0(tot[0]) : res ? resMark(res) : wait ? '…' : '–') + '<span>' + (res === 'win' ? 'vitória' : res === 'loss' ? 'derrota' : wait ? 'à espera' : 'sem resultado') + '</span></div></div>' +
-    (tot && objs.length === 1 && res ? '<div class="impact"><div>' + (tot[0] >= +objs[0].target ? '<b class="num">' + f0(tot[0] - objs[0].target) + '</b> acima do alvo' : 'Faltaram <b class="num">' + f0(objs[0].target - tot[0]) + '</b>') + '</div></div>'
-      : tot && objs.length > 1 ? '<div class="impact"><div>Feito: ' + objs.map((o, k) => '<b class="num">' + f0(tot[k] || 0) + '</b> ' + esc(statShort(o.stat))).join(' · ') + '</div></div>' : '') + '</div>'];
+  // o mesmo cartão da previsão: feito / alvo em cima (verde se chegou, vermelho se não), anel com ✓ ou ✕ e as barras do feito
+  const made = tot && objs.length && tot.length >= objs.length ? tot : calc && calc.tot && (!res || calc.res === res) ? calc.tot : null;
+  const ok = (o, k) => +made[k] >= +o.target;
+  const goal = made ? '<div class="goal res' + (objs.length > 1 ? ' multi' : '') + '">' + objs.map((o, k) => '<span class="' + (ok(o, k) ? 'g-ok' : 'g-no') + '">' + f0(made[k]) + '<i>/' + o.target + '</i><small>' + esc(statShort(o.stat)) + '</small></span>').join('') + '</div>' : goalBig(objs);
+  const ring = res ? winRing(1, res === 'win' ? 'good' : 'bad', res === 'win' ? '✓' : '✕', res === 'win' ? 'vitória' : 'derrota') : winRing(0, 'mute', wait ? '…' : '–', wait ? 'à espera' : 'sem resultado');
+  const bars = made ? objs.map((o, k) => {
+    const M = Math.max(+o.target * 1.25, +made[k] * 1.12, 1), w = Math.min(100, made[k] / M * 100), tl = Math.min(99, o.target / M * 100), d = Math.round(made[k] - o.target);
+    return '<div class="obj-bar"><div class="bar" aria-hidden="true"><i class="k ' + (ok(o, k) ? 'kok' : 'kno') + '" style="width:' + w.toFixed(1) + '%"></i><i class="t" style="left:' + tl.toFixed(1) + '%"></i></div>' +
+      '<div class="bar-cap"><span><b class="bs">' + esc(statShort(o.stat)) + '</b> feito <b class="num">' + f0(made[k]) + '</b></span><span>alvo <b class="num">' + o.target + '</b> ' + (ok(o, k) ? '<b class="ok">✓ +' + d + '</b>' : '<b class="no">✕ −' + (-d) + '</b>') + '</span></div></div>';
+  }).join('') + '<div class="bar-note">' + (objs.every(ok) ? (objs.length > 1 ? 'Todos os alvos cumpridos.' : 'Alvo cumprido.') : 'Falhou: ' + objs.filter((o, k) => !ok(o, k)).map(o => esc(statShort(o.stat))).join(', ') + '.') + '</div>' : '';
+  const accs = groupMode() ? accounts().map(a => { const p2 = ((planOf(a.id).played || {})[J.date]) || null, r2 = p2 && p2.done ? p2.result : null; return esc(a.label) + ' ' + (r2 === 'win' ? '<b class="c-ok">✓ vitória</b>' : r2 === 'loss' ? '<b class="c-no">✕ derrota</b>' : '<b>–</b>'); }).join(' · ') : '';
+  const out = ['<div class="card hero day-hero past">' + COURT + '<div class="hero-top"><span class="eyebrow">Dia ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + src + '</span></div>' +
+    '<div class="score">' + goal + ring + '</div>' + bars + (accs ? '<div class="impact"><div>' + accs + '</div></div>' : '') + '</div>'];
   if (done && !pl.chain && !pl.box && calc && calc.res !== res) out.push('<div class="note">Pelas estatísticas deste lineup: ' + (calc.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(calc.objs, calc.tot) + '). Se foi este o lineup, muda o resultado.</div>');
   out.push(predVsActualHtml(J.date) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineup.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">Sem jogadores registados.</li>') + '</ul></div>');
   if ((day.games || []).length) {

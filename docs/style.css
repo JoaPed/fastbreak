@@ -768,3 +768,8 @@ p, .note { text-wrap: pretty; }
 :root[data-theme="dark"] .tlogo img { filter: drop-shadow(0 0 .6px rgba(255, 255, 255, .9)) drop-shadow(0 0 .6px rgba(255, 255, 255, .5)); }
 .uses-fixed { font-family: var(--font-display); font-weight: 800; font-size: 24px; min-width: 44px; text-align: center; }
 .strip i.p { opacity: .45; }
+/* dia acabado: o mesmo cartão da previsão, com o feito */
+.hero.past .bar .k.kok { background: var(--board-good); opacity: 1; } .hero.past .bar .k.kno { background: var(--board-bad); opacity: 1; }
+.hero.past .bar-cap .ok, .hero.past .c-ok, .goal.res .g-ok { color: var(--board-good); }
+.hero.past .bar-cap .no, .hero.past .c-no, .goal.res .g-no { color: var(--board-bad); }
+.goal.res i { font-style: normal; font-size: .55em; color: var(--board-muted); margin-left: 2px; }

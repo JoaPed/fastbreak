@@ -301,6 +301,7 @@
    "toast(added + ' jogador' + (added === 1 ? '' : 'es') + ' da coleção no plantel.');": true
   }
  },
+ " multi": " multi",
  "FG": null,
  "3PT": null,
  "FT": null,
@@ -1177,8 +1178,6 @@
  " loss": null,
  " c-": null,
  " now": null,
- "c-good": null,
- "c-bad": null,
  "<i class=\"ds-inj\" title=\"Lesão no lineup\"></i>": "<i class=\"ds-inj\" title=\"Injury in the lineup\"></i>",
  "lido da blockchain": "read from the blockchain",
  "registado à mão": "entered by hand",
@@ -1478,9 +1477,6 @@
  "pelas estatísticas": "from the box scores",
  "à espera dos jogos": "waiting for the games",
  "à espera": "waiting",
- "</b> acima do alvo": "</b> over the target",
- "Faltaram <b class=\"num\">": "Short by <b class=\"num\">",
- "<div class=\"impact\"><div>Feito: ": "<div class=\"impact\"><div>Made: ",
  "<div class=\"note\">Pelas estatísticas deste lineup: ": "<div class=\"note\">By this lineup’s stats: ",
  "). Se foi este o lineup, muda o resultado.</div>": "). If this was the lineup, change the result.</div>",
  " · hora de cá": " · local time",
@@ -1670,7 +1666,6 @@
  "<div class=\"small muted\">Os usos no plantel ficam iguais.</div>": "<div class=\"small muted\">Uses in your roster stay the same.</div>",
  "px;top:": null,
  "px\">": null,
- "</b><span>vitória</span></div></div>": "</b><span>win</span></div></div>",
  " na coleção. ": " in your collection. ",
  "tirado": "removed",
  "<div class=\"hero-top\"><span class=\"eyebrow\">Dia ": "<div class=\"hero-top\"><span class=\"eyebrow\">Day ",
@@ -1738,6 +1733,17 @@
  " · por confirmar": " · to be confirmed",
  "Smurf de ": "Smurf of ",
  "&nbsp;": "&nbsp;",
+ "g-ok": "g-ok",
+ "g-no": "g-no",
+ "kok": "kok",
+ "kno": "kno",
+ "</b> feito <b class=\"num\">": "</b> made <b class=\"num\">",
+ "</b></span><span>alvo <b class=\"num\">": "</b></span><span>target <b class=\"num\">",
+ "Todos os alvos cumpridos.": "Every target reached.",
+ "Alvo cumprido.": "Target reached.",
+ "Falhou: ": "Missed: ",
+ "<b class=\"c-ok\">✓ vitória</b>": "<b class=\"c-ok\">✓ win</b>",
+ "<b class=\"c-no\">✕ derrota</b>": "<b class=\"c-no\">✕ loss</b>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1922,7 +1928,8 @@
    "meta += ' · ' + (win ? 'vitória' : 'derrota') + (tot && objs.length > 1 ? ' · ' + madeTxt(objs, tot) : '');": true,
    "if (closed.length === 1) { const { a, i, c } = closed[0]; toast((a !== 'main' ? accLabel(a) + ' · ' : '') + 'Dia ' + (i + 1) + ': ' + (c.res === 'win' ? 'vitóri": true,
    "chip = '<span class=\"pchip num ' + (win ? 'p-good' : 'p-bad') + '\">' + (tot ? tot.map(f0).join('·') : resMark(pl.result)) + '<span class=\"vh\"> ' + (win ? 'vitór": true,
-   "val = '&nbsp;'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</span>';": true
+   "val = '&nbsp;'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</span>';": true,
+   "const ring = res ? winRing(1, res === 'win' ? 'good' : 'bad', res === 'win' ? '✓' : '✕', res === 'win' ? 'vitória' : 'derrota') : winRing(0, 'mute', wait ? '…' ": true
   }
  },
  "derrotas": {
