@@ -209,12 +209,37 @@ for (const acc of accounts) {
   try { rows = await flowScript(PLAYER_SCRIPT, [cadence.address(addr), cadence.strings(linked), { type: 'UInt64', value: String(since) }]); }
   catch (e) { console.log('Erro a ler', label, String(e.message).slice(0, 300)); continue; }
   const out = (rows || []).map(r => {
-    runIds.add(r.runId); gameIds.add(r.gameId);
+    runIds.add(r.runId); gameIds.add(r.gameId); (acc.runs = acc.runs || new Set()).add(r.runId);
     return { user_id: acc.user_id, account: acc.account, game_id: r.gameId, chain_run_id: r.runId, date: etDate(r.deadline * 1000), points: r.points, win: !!r.win, lineup: (r.names || []).filter(Boolean), updated_at: new Date().toISOString() };
   });
   if (!hasAccounts) out.forEach(o => { delete o.account; });
   if (out.length) await must(sb.from('chain_results').upsert(out, { onConflict: hasAccounts ? 'user_id,game_id,account' : 'user_id,game_id' }));
   console.log(label + ':', out.length, 'dias lidos,', out.filter(x => x.win).length, 'vitórias');
+}
+
+// ---------- 2a) posição na run (sonda): vitórias de todos os jogadores da run (runWinCount) ----------
+// Só a contagem de vitórias é pública; o desempate do Top Shot não. Fica nas notas da tarefa para ver se dá.
+const RANK_SCRIPT = `
+import FastBreakV1 from 0x0b2a3299cc857e29
+access(all) fun main(runId: String, addrs: [Address]): {String: AnyStruct} {
+  let run = FastBreakV1.getFastBreakRun(id: runId)
+  if run == nil { return {} }
+  var hist: {UInt64: Int} = {}
+  for k in run!.runWinCount.keys { let w = run!.runWinCount[k]!; hist[w] = (hist[w] ?? 0) + 1 }
+  let mine: [UInt64] = []
+  for a in addrs { mine.append(run!.runWinCount[FastBreakV1.getPlayerIdByAccount(accountAddress: a)] ?? 0) }
+  return {"name": run!.name, "hist": hist, "mine": mine}
+}`;
+for (const runId of linked.slice(-2)) {
+  const accs = accounts.filter(a => a.addr && a.runs && a.runs.has(runId));
+  if (!accs.length) continue;
+  try {
+    const r = await flowScript(RANK_SCRIPT, [{ type: 'String', value: runId }, { type: 'Array', value: accs.map(a => cadence.address(a.addr)) }]);
+    const hist = Object.entries((r && r.hist) || {}).map(([w, n]) => [+w, +n]), total = hist.reduce((t, [, n]) => t + n, 0);
+    const pos = w => 1 + hist.filter(([x]) => x > w).reduce((t, [, n]) => t + n, 0);
+    const txt = accs.map((a, i) => { const w = +((r.mine || [])[i] || 0); return a.label + ' ' + w + 'V → ' + (w ? pos(w) + '.º (empatados ' + (hist.find(([x]) => x === w) || [0, 0])[1] + ')' : 'sem vitórias'); }).join(' · ');
+    console.log('::notice title=Posição na run::' + ((r && r.name) || runId) + ': ' + total + ' jogadores com vitórias · ' + hist.sort((x, y) => y[0] - x[0]).map(([w, n]) => w + 'V: ' + n).join(', ') + ' · ' + txt);
+  } catch (e) { console.log('::notice title=Posição na run::não deu: ' + String(e.message).slice(0, 300)); }
 }
 
 // ---------- 2b) histórico: dias de todas as runs (também as passadas), aos poucos ----------
