@@ -196,6 +196,7 @@ for (const p of profiles) {
   for (const sm of Array.isArray(p.smurfs) ? p.smurfs : []) if (sm && sm.id) accounts.push({ user_id: p.user_id, account: sm.id, username: sm.topshot_username, addr: sm.flow_address });
 }
 if (!accounts.some(a => a.username || a.addr)) console.log('Nenhum membro com utilizador do Top Shot no perfil: não há resultados para ler.');
+const accNotes = [];
 for (const acc of accounts) {
   let addr = acc.addr;
   if (!addr && acc.username) {
@@ -203,11 +204,11 @@ for (const acc of accounts) {
     if (addr && acc.account === 'main') await must(sb.from('profiles').update({ flow_address: addr }).eq('user_id', acc.user_id));
   }
   const label = (acc.username || addr || '?') + (acc.account !== 'main' ? ' (smurf)' : '');
-  if (!addr) { if (acc.username) console.log('Sem endereço Flow para', label); continue; }
+  if (!addr) { if (acc.username) console.log('Sem endereço Flow para', label); accNotes.push(label + ': sem endereço'); continue; }
   acc.addr = addr; acc.label = label;
   let rows;
   try { rows = await flowScript(PLAYER_SCRIPT, [cadence.address(addr), cadence.strings(linked), { type: 'UInt64', value: String(since) }]); }
-  catch (e) { console.log('Erro a ler', label, String(e.message).slice(0, 300)); continue; }
+  catch (e) { console.log('Erro a ler', label, String(e.message).slice(0, 300)); accNotes.push(label + ': erro ' + String(e.message).slice(0, 80)); continue; }
   const out = (rows || []).map(r => {
     runIds.add(r.runId); gameIds.add(r.gameId); (acc.runs = acc.runs || new Set()).add(r.runId);
     return { user_id: acc.user_id, account: acc.account, game_id: r.gameId, chain_run_id: r.runId, date: etDate(r.deadline * 1000), points: r.points, win: !!r.win, lineup: (r.names || []).filter(Boolean), updated_at: new Date().toISOString() };
@@ -215,7 +216,9 @@ for (const acc of accounts) {
   if (!hasAccounts) out.forEach(o => { delete o.account; });
   if (out.length) await must(sb.from('chain_results').upsert(out, { onConflict: hasAccounts ? 'user_id,game_id,account' : 'user_id,game_id' }));
   console.log(label + ':', out.length, 'dias lidos,', out.filter(x => x.win).length, 'vitórias');
+  accNotes.push(label + ': ' + out.length + ' dias (' + [...new Set(out.map(o => o.date))].sort().slice(-3).join(', ') + ')');
 }
+console.log('::notice title=Contas lidas::' + accNotes.join(' · '));
 
 // ---------- 2a) posição na run (sonda): vitórias de todos os jogadores da run (runWinCount) ----------
 // Só a contagem de vitórias é pública; o desempate do Top Shot não. Fica nas notas da tarefa para ver se dá.
