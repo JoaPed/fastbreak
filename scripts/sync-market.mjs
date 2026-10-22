@@ -79,6 +79,19 @@ await pool([...want.entries()], 6, async ([addr, ids]) => {
     catch (e) { if (++metaErr < 3) console.log('Erro a ler a carteira', addr, String(e.message).slice(0, 150)); }
   }
 });
+// 2.ª volta: Moments que já não estavam na carteira de quem os pôs à venda (vendidos ou passados entretanto):
+// lê-se de quem os recebeu depois (Deposit), do mais recente para o mais antigo
+{
+  const miss = new Set(asks.map(e => String(e.data.nftID)).concat(done.filter(e => e.data.purchased).map(e => String(e.data.nftID))).filter(id => !meta.has(id)));
+  const again = new Map();
+  miss.forEach(id => { const ds = (depBy.get(id) || []).slice().sort((a, b) => b.h - a.h); if (ds[0]) (again.get(ds[0].to) || again.set(ds[0].to, new Set()).get(ds[0].to)).add(id); });
+  await pool([...again.entries()], 6, async ([addr, ids]) => {
+    const list = [...ids];
+    for (let i = 0; i < list.length; i += 100) {
+      try { (await flowScript(META_SCRIPT, [cadence.address(addr), cadence.uint64s(list.slice(i, i + 100))]) || []).forEach(r => { if (!meta.has(r[3])) meta.set(r[3], r); }); } catch (e) {}
+    }
+  });
+}
 // tiragem das edições (para o escalão quando os metadados não dizem), guardada para não voltar a ler
 const minted = Object.assign({}, await getState(sb, 'market_minted', {}));
 const needSets = [...new Set([...meta.values()].filter(r => !tierKnown(r) && !minted[r[4]]).map(r => r[4]))];
