@@ -1,0 +1,14 @@
+name: Sonda Top Shot
+on:
+  workflow_dispatch:
+    inputs:
+      user: { description: 'Utilizador do Top Shot', default: 'gandapanasco', required: false }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node scripts/probe-topshot.mjs "${{ inputs.user }}"
