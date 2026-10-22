@@ -590,6 +590,8 @@ async function loadGroup() {
 const b64u = { enc: o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), dec: x => JSON.parse(decodeURIComponent(escape(atob(x.replace(/-/g, '+').replace(/_/g, '/'))))) };
 const addrKey = a => String(a || '').replace(/^0x/, '').toLowerCase();
 try { S.ranksMine = JSON.parse(localStorage.getItem('fb-ranks') || 'null'); } catch (e) { S.ranksMine = null; }
+// endereço da pasta do site (funciona com e sem a barra no fim: …/fastbreak e …/fastbreak/)
+const siteBase = () => location.origin + (/\.[a-z]+$/i.test(location.pathname) ? location.pathname.replace(/[^/]*$/, '') : location.pathname.replace(/\/?$/, '/'));
 function takeRanksHash() {
   const m = location.hash.match(/fbranks=([A-Za-z0-9_-]+)/); if (!m) return;
   try {
@@ -613,7 +615,7 @@ function rankJob() {
     if (p.flow_address) accs.push({ a: addrKey(p.flow_address), uid: p.user_id, acc: 'main' });
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
-  return { accs, back: location.origin + location.pathname };
+  return { accs, back: siteBase() };
 }
 // escalões que os amigos marcaram carta a carta, juntos por set (servem para os sets que tu não marcaste)
 function groupTierLabels(profiles) {
@@ -2554,7 +2556,7 @@ function renderGrupo() {
   el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2><span class="small muted">' + esc(run.name || '') + (P.length ? ' · aros: ' + tiersTxt.join(', ') + ' V' : '') + '</span></div><ul class="list">' + (rows || '<li class="row muted small">Ainda não há ninguém no grupo.</li>') + '</ul></div>' +
     (R ? '<div class="small muted" style="padding:0 4px">Lugares na ' + esc((R.run || {}).name || 'run') + ' do Top Shot' + (R.total ? ' (' + R.total.toLocaleString('pt-PT') + ' jogadores)' : '') + ', ' + ago(R.at) + '.' + (R.cut && Object.keys(R.cut).length ? ' Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(' · ') + '.' : '') + '</div>' : '') +
     '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares</button><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
-    '<div class="small muted" style="padding:0 4px">«Atualizar lugares» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
+    '<div class="small muted" style="padding:0 4px">«Atualizar lugares» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
