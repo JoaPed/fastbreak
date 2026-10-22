@@ -1042,7 +1042,7 @@ function pastDayHtml(J) {
     const board = B && B.board && B.board.length ? B.board : null;
     out.push('<div class="card"><div class="list-head"><h2>Jogos do dia</h2><span class="small muted">' + plural(day.games.length, 'jogo', 'jogos') + (board ? '' : ' · hora de cá') + '</span></div><ul class="list">' + gameRows(day, r, lineup, board, lp, day.objectives) + '</ul></div>');
   }
-  out.push('<div class="foot" style="grid-template-columns:1fr"><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + J.date + '">' + (done ? 'Mudar o resultado' : 'Registar o resultado') + '</button></div>');
+  out.push('<div class="foot"><button class="btn' + (lineup.length ? ' quiet' : ' primary') + '" type="button" data-action="past-lu" data-date="' + J.date + '">' + (lineup.length ? 'Mudar os jogadores' : 'Escolher os jogadores') + '</button><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + J.date + '">' + (done ? 'Mudar o resultado' : 'Registar o resultado') + '</button></div>');
   return out.join('');
 }
 function renderJornada(el) {
@@ -3585,6 +3585,8 @@ function sheetLineup(date) {
 function luEditSheet() {
   const E = S.luEdit, day = S.days.find(d => d.date === E.date); if (!day) return;
   const lim = day.numPlayers || 5, teams = new Set((day.games || []).flatMap(g => [g[0], g[1]]));
+  // lê já as fichas dos jogos desse dia, para o resultado sair logo ao guardar
+  const run = curRun(), B = S.box[E.date]; if (run && !run.fictitious && (!B || (!B.busy && Date.now() - B.at > 120e3))) boxLoad(E.date, new Set([...teams].filter(t => Object.keys(S.mine.roster || {}).some(id => pTeam(id) === t))));
   const ids = Object.keys(S.mine.roster || {}).filter(id => E.ids.includes(id) || teams.has(pTeam(id))).sort((a, b) => (E.ids.includes(b) - E.ids.includes(a)) || nameOf(a).localeCompare(nameOf(b)));
   openSheet('<h3>Quem jogou no dia ' + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">Escolhe os ' + lim + ' que submeteste. O resultado é refeito pelas estatísticas dos jogos e os usos acertam-se.</div>' +
     '<div class="label" style="margin-top:12px">' + E.ids.length + ' de ' + lim + '</div><div class="chips" role="group" aria-label="Jogadores do dia">' + ids.map(id => '<button type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-pressed="' + E.ids.includes(id) + '">' + esc(nameOf(id)) + '</button>').join('') + '</div>' +
@@ -3599,11 +3601,14 @@ function luEditSave() {
     E.ids.filter(id => !old.includes(id)).forEach(id => { const e = S.mine.roster[id]; if (e && !colTopUses(id)) setUsesOf(e, S.acc, Math.max(0, usesEff(e, id, S.acc) - 1)); });
   }
   const c = day ? dayCalc(S.acc, day, E.ids) : null;
+  // dia que ainda não estava fechado (ex.: começaste a usar o site a meio da run) e fecha agora: desconta os usos
+  if (!cur.done && c) E.ids.forEach(id => { const e = S.mine.roster[id]; if (e && !colTopUses(id)) setUsesOf(e, S.acc, Math.max(0, usesEff(e, id, S.acc) - 1)); });
   const patch = { lineup: E.ids.slice(), edited: true, chain: false, noAuto: false };
   if (c) Object.assign(patch, { done: true, result: c.res, box: true, tot: c.tot, points: c.objs.length === 1 ? c.tot[0] : null });
   else if (cur.done) Object.assign(patch, { box: false, tot: null, points: null });
   planPatch({ played: { [date]: patch } });
   S.luEdit = null; closeSheet();
+  if (!c) setTimeout(() => { const B = S.box[date]; if (B) B.at = 0; boxTick(); }, 0);
   toast(c ? 'Lineup mudado: ' + (c.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup mudado. O resultado é refeito quando houver as estatísticas dos jogos.');
 }
 function recordResult(date, res) {

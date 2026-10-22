@@ -837,6 +837,20 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="undo-result"]'); pg.wait_for_timeout(2500)
     print('K2 não joguei:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu2)), '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
     pg.close()
+    # K4: quem começa a usar o site a meio da run: o dia 1 não tem lineup nem resultado; escolhe os jogadores e o dia fecha
+    calls = []
+    pg = new_page(b, k_db({}, {}))
+    pg.route('https://site.api.espn.com/**', k_route({'OKC': [ath('Shai Gilgeous-Alexander', 35)], 'SAS': [ath('Victor Wembanyama', 12)], 'NYK': [ath('Jalen Brunson', 21)], 'PHI': [ath('Tyrese Maxey', 28)], 'DET': [ath('Cade Cunningham', 22)]}, calls))
+    pg.clock.set_fixed_time('2026-10-22T08:30:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(1500)
+    pg.locator('#tab-hoje .day-strip .ds').nth(0).click(); pg.wait_for_timeout(500)
+    print('K4 dia 1 sem nada:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:120], '· botões:', ' / '.join(pg.locator('#tab-hoje .foot button').all_inner_texts()))
+    pg.click('#tab-hoje button[data-action="past-lu"]'); pg.wait_for_timeout(300)
+    for pid in lu1: pg.click('#sheetPanel button[data-action="past-lu-pick"][data-id="%s"]' % pid); pg.wait_for_timeout(80)
+    pg.click('#sheetPanel button[data-action="past-lu-save"]'); pg.wait_for_timeout(1500)
+    print('K4 dia 1 escolhido:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu1)), '· aviso:', pg.locator('#toast').inner_text())
+    pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
     dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']
