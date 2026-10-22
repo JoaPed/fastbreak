@@ -3027,6 +3027,8 @@ function rosterSheet(id) {
 // ---------- mercado do Top Shot (tarefa "Mercado", lido da blockchain): preço mais baixo à venda e últimas vendas ----------
 // S.mkt: pk → {at, asks: [{price, tier, serial, minted, set_name}], sales: [{price, tier, sold_at}]}; pk = nome normalizado
 S.mkt = new Map();
+// a tarefa Mercado (blockchain) foi desligada a 22 out: os preços vêm só do Top Shot (pxOf); as tabelas antigas não se leem
+S.mktOff = true;
 const mktKey = id => norm(nameOf(id)).replace(/ /g, '-');
 const MKT_TIER = { 1: ['Common', 'Fandom'], 2: ['Rare'], 4: ['Legendary', 'Ultimate'] };
 let mktBusy = null, mktWant = new Set();
