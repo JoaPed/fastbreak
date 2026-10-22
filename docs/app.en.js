@@ -261,7 +261,7 @@ const HELP = {
   especialistas: ['Specialists', 'The NBA’s best in each stat (this season mixed with last). % = how often the stat comes up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.'],
   forma: ['Form', 'Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.'],
   lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).'],
-  classif: ['Standings', 'Each one’s wins and losses: days close by themselves with the game stats (and the blockchain confirms them when it brings them). The rings are each one’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
+  classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared (lighter square: still to be confirmed), and the blockchain confirms them when it brings them. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
   lineups: ['Group lineups', 'The lineup each one’s plan suggests for each day (it changes until the game). Lock: already locked or already playing. Underlined: a player you also have.'],
   emprestimos: ['Loans', 'Redoes your run with your friends’ Moments, only on days their plan doesn’t use them. It counts the uses of one of their Moments in a run. On Top Shot they gift you the Moment and you give it back after you play that day.'],
   partilha: ['Sharing', 'The group sees the lineup your plan suggests and your players’ uses, and can ask you for Moments on days you don’t use them. Your roster and plan stay yours.'],
@@ -729,6 +729,25 @@ function saveNow() {
   mineSaving = mineSaving.then(() => q(sb.from('user_runs').upsert(row, { onConflict: 'user_id,run_id' }))).then(() => { S.mineSeen = Date.now() + 5000; }).catch(e => toast('Not saved: ' + errText(e)));
   return mineSaving;
 }
+// cada conta para a Classificação do grupo: vitórias, aros, hoje e (se partilhas o plano) o lineup de cada dia já
+// começado e do próximo, para os outros verem o resultado pelas estatísticas mal os jogos acabem
+function accSummaries() {
+  const out = {}, share = (S.profile || {}).share_plan !== false, now = Date.now();
+  accounts().forEach(a => {
+    const r = S.multi ? S.multi.byKey[a.id] : (a.id === 'main' ? S.result : null); if (!r) return;
+    const v = r.normal, days = {}, lu = {};
+    Object.entries(planOf(a.id).played || {}).forEach(([d, pl]) => { if (pl && pl.done) days[d] = pl.result; });
+    if (share) {
+      S.days.forEach(day => { const tip = firstTipOf(day); if (tip == null || now < tip || days[day.date]) return; const ids = lineupFor(a.id, day.date); if (ids && ids.length) lu[day.date] = ids; });
+      const d0 = v.days[0]; if (d0 && !lu[d0.date]) { const ids = lineupFor(a.id, d0.date) || d0.lineup; if (ids && ids.length) lu[d0.date] = ids.slice(); }
+    }
+    const o = { wins: r.wins, losses: r.losses, expected: Math.round((r.wins + v.expected) * 100) / 100, prize_probs: r.prizes.map((p, i) => ({ wins: p.wins, p: Math.round(v.prizeProbs[i] * 1000) / 1000 })), days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null };
+    if (Object.keys(lu).length) o.lu = lu;
+    if (a.id !== 'main') o.label = a.label;
+    out[a.id] = o;
+  });
+  return out;
+}
 let sumTimer = null;
 function publishSummary() {
   if (!S.session) return;
@@ -742,8 +761,9 @@ function publishSummary() {
     prize_probs: r.prizes.map((p, i) => ({ wins: p.wins, p: Math.round(v.prizeProbs[i] * 1000) / 1000 })),
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
-  const share = shareDoc();
-  if (share) row.share = share; else if (!S.noShareCol) row.share = null;
+  const share = shareDoc(), accs = accSummaries();
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {});
+  if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
   clearTimeout(sumTimer);
@@ -2476,29 +2496,17 @@ function renderGrupo() {
   const gsub = subOf('grupo');
   if (gsub === 'lineups') { el.innerHTML = subBar('grupo') + '<div class="stack">' + lineupsHtml() + '</div>'; return; }
   if (gsub === 'emprestimos') { el.innerHTML = subBar('grupo') + '<div class="stack">' + emprestimosHtml() + '</div>'; return; }
-  const memberIds = new Set(S.group.members.map(m => m.user_id));
-  const profs = new Map(S.group.profiles.map(p => [p.user_id, p]));
-  const sums = new Map(S.group.summaries.map(s => [s.user_id, s]));
-  const chainBy = {};
-  S.group.chain.forEach(c => { if ((c.account || 'main') === 'main') (chainBy[c.user_id] = chainBy[c.user_id] || {})[c.date] = c; });
-  const nd = nextDay();
-  const people = [...memberIds].map(uid => {
-    const p = profs.get(uid) || {}, s = sums.get(uid) || null, ch = chainBy[uid] || {};
-    const daysRes = Object.assign({}, (s && s.days) || {});
-    Object.values(ch).forEach(c => { if (c.win != null && c.date) daysRes[c.date] = c.win ? 'win' : 'loss'; });
-    const wins = Object.values(daysRes).filter(x => x === 'win').length, losses = Object.values(daysRes).filter(x => x === 'loss').length;
-    return { uid, name: p.display_name || 'No name', ts: p.topshot_username, s, daysRes, wins, losses, chain: Object.keys(ch).length > 0, exp: s ? +s.expected : null };
-  }).sort((a, b) => (b.wins - a.wins) || ((b.exp || 0) - (a.exp || 0)) || a.name.localeCompare(b.name));
+  const nd = nextDay(), people = groupEntries();
   const run = curRun() || {}, P = (run.prizes || []).map(p => ({ wins: +p.wins })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
   const rows = people.map((x, i) => {
-    const strip = S.days.map(d => { const r = x.daysRes[d.date]; return '<i class="' + (r === 'win' ? 'w' : r === 'loss' ? 'l' : (nd && nd.date === d.date ? 'n' : '')) + '" title="' + dShort(d.date) + (r ? (r === 'win' ? ': win' : ': loss') : '') + '"></i>'; }).join('');
+    const strip = S.days.map(d => { const r = x.daysRes[d.date], pv = x.prov[d.date]; return '<i class="' + (r === 'win' ? 'w' : r === 'loss' ? 'l' : (nd && nd.date === d.date ? 'n' : '')) + (pv ? ' p' : '') + '" title="' + dShort(d.date) + (r ? (r === 'win' ? ': win' : ': loss') + (pv ? ' (from the box scores, to be confirmed)' : '') : '') + '"></i>'; }).join('');
     const pr = x.s && Array.isArray(x.s.prize_probs) ? x.s.prize_probs : [];
     // os patamares de cada um (os que já não dão trocam pelos de baixo, por isso podem ser outros que os da run)
     const Pi = pr.length ? pr.map(q => ({ wins: +q.wins })).filter(q => q.wins > 0).sort((a, b) => a.wins - b.wins) : P;
     const probs = Pi.map(p => { const z = pr.find(q => +q.wins === p.wins); return z ? +z.p : null; });
     const side = x.s ? (Pi.length && probs.every(v => v != null) ? miniAros(Pi, probs) : '<span class="grp-wl num">≈ ' + f1(x.exp || 0) + '</span>') + (x.s.next_p != null && nd ? '<span class="today">today ' + pct(+x.s.next_p) + '</span>' : '') : '<span class="today">hasn\'t opened the run</span>';
-    return '<li><button class="grp-row" type="button" data-action="friend" data-id="' + esc(x.uid) + '"><span class="grp-rank">' + (i + 1) + '</span>' + avatar(x.uid, x.name) +
-      '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.name) + '</span>' + (x.uid === S.session.user.id ? '<span class="badge">you</span>' : '') + '</span>' +
+    return '<li><button class="grp-row" type="button" data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '"><span class="grp-rank">' + (i + 1) + '</span>' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
+      '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.name) + '</span>' + (x.acc !== 'main' ? '<span class="badge">smurf' + (x.owner ? ' of ' + esc(x.owner) : '') + '</span>' : '') + (x.uid === S.session.user.id && x.acc === 'main' ? '<span class="badge">you</span>' : '') + '</span>' +
       '<span class="ps" style="display:block">' + recordTxt(x.wins, x.losses) + (x.exp != null ? ' · expected ' + f1(x.exp) : '') + '</span><span class="strip">' + strip + '</span></span>' +
       '<span class="grp-side">' + side + '</span></button></li>';
   }).join('');
@@ -2506,17 +2514,54 @@ function renderGrupo() {
   el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Standings ' + helpBtn('classif') + '</h2><span class="small muted">' + esc(run.name || '') + (P.length ? ' · rings: ' + tiersTxt.join(', ') + ' W' : '') + '</span></div><ul class="list">' + (rows || '<li class="row muted small">There is nobody in the group yet.</li>') + '</ul></div>' +
     '<button class="btn" type="button" data-action="group-refresh">Refresh</button>';
 }
-function friendSheet(uid) {
+// uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
+// publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
+function groupEntries() {
+  const memberIds = new Set(S.group.members.map(m => m.user_id)), profs = new Map(S.group.profiles.map(p => [p.user_id, p])), sums = new Map(S.group.summaries.map(s => [s.user_id, s]));
+  const chainBy = {};
+  S.group.chain.forEach(c => { const k = c.user_id + '|' + (c.account || 'main'); (chainBy[k] = chainBy[k] || {})[c.date] = c; });
+  const out = [];
+  [...memberIds].forEach(uid => {
+    const p = profs.get(uid) || {}, own = S.session && uid === S.session.user.id ? accSummaries() : null; // as minhas contas: o que está no ecrã, sem esperar pelo resumo gravado
+    const s = own && own.main ? Object.assign({}, sums.get(uid) || {}, own.main) : sums.get(uid) || null, accs = own && Object.keys(own).length ? own : (s && s.share && s.share.accs) || {};
+    const list = [{ id: 'main', name: p.display_name || 'No name' }].concat((Array.isArray(p.smurfs) ? p.smurfs : []).filter(x => x && x.id).map((x, k) => ({ id: x.id, name: x.topshot_username || (accs[x.id] || {}).label || 'Smurf ' + (k + 1) })));
+    list.forEach(a => {
+      const sa = a.id === 'main' ? (s ? Object.assign({}, s, accs.main || {}) : null) : accs[a.id] || null, ch = chainBy[uid + '|' + a.id] || {};
+      if (a.id !== 'main' && !sa && !Object.keys(ch).length) return; // smurf sem nada: não aparece
+      const daysRes = Object.assign({}, (sa && sa.days) || {}), prov = {};
+      Object.values(ch).forEach(c => { if (c.win != null && c.date) daysRes[c.date] = c.win ? 'win' : 'loss'; });
+      const lu = (accs[a.id] && accs[a.id].lu) || (a.id === 'main' && s && s.share && s.share.lineups) || {};
+      S.days.forEach(day => { if (daysRes[day.date] || !lu[day.date]) return; const c = groupCalc(lu[day.date], day); if (c) { daysRes[day.date] = c.res; prov[day.date] = true; } });
+      const wins = Object.values(daysRes).filter(x => x === 'win').length, losses = Object.values(daysRes).filter(x => x === 'loss').length;
+      out.push({ uid, acc: a.id, name: a.name, owner: a.id !== 'main' ? p.display_name || '' : '', s: sa, daysRes, prov, lu, ch, wins, losses, chain: Object.keys(ch).length > 0, exp: sa && sa.expected != null ? +sa.expected : null });
+    });
+  });
+  return out.sort((a, b) => (b.wins - a.wins) || ((b.exp || 0) - (a.exp || 0)) || a.name.localeCompare(b.name));
+}
+// resultado de um dia de outra pessoa pelas fichas da ESPN (só com os jogos do lineup todos acabados)
+function groupCalc(ids, day) {
+  const objs = (day.objectives || []).filter(o => o && o.stat && +o.target > 0);
+  if (!objs.length || objs.some(o => /pip/.test(o.stat)) || !Array.isArray(ids) || !ids.length) return null;
+  const tip = firstTipOf(day); if (tip == null || Date.now() < tip) return null;
+  const vals = ids.map(id => { const b = boxFor(day.date, id); if (b === null) return null; if (b && b.fin) return objs.map(o => rnd(FB.statValue(b.v, o.stat, pAvg(id)))); return undefined; });
+  if (vals.some(v => v === undefined)) return null;
+  const tot = objs.map((o, k) => rnd(vals.reduce((t, v) => t + (v ? +v[k] || 0 : 0), 0)));
+  const win = objs.every((o, k) => (o.each ? vals.every(v => v && +v[k] >= +o.target) : tot[k] >= +o.target));
+  return { res: win ? 'win' : 'loss', tot, objs };
+}
+function friendSheet(uid, acc) {
+  acc = acc || 'main';
   const p = S.group.profiles.find(x => x.user_id === uid) || {};
-  const s = S.group.summaries.find(x => x.user_id === uid) || {};
-  const ch = {}; S.group.chain.filter(c => c.user_id === uid && (c.account || 'main') === 'main').forEach(c => { ch[c.date] = c; });
+  const E = groupEntries().find(x => x.uid === uid && x.acc === acc) || { daysRes: {}, prov: {}, ch: {}, lu: {}, name: p.display_name };
+  const ch = E.ch, sm = acc !== 'main' ? ((Array.isArray(p.smurfs) ? p.smurfs : []).find(x => x && x.id === acc) || {}) : null;
   const rows = S.days.map((d, i) => {
-    const c = ch[d.date], r = c && c.win != null ? (c.win ? 'win' : 'loss') : ((s.days || {})[d.date] || null);
-    const lineup = c && Array.isArray(c.lineup) && c.lineup.length ? c.lineup.join(' · ') : '';
+    const c = ch[d.date], r = E.daysRes[d.date] || null, pv = E.prov[d.date];
+    const lineup = c && Array.isArray(c.lineup) && c.lineup.length ? c.lineup.join(' · ') : pv && E.lu[d.date] ? E.lu[d.date].map(nameOf).join(' · ') + ' · to be confirmed' : '';
     return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">Day ' + (i + 1) + ' · ' + esc(objsText(d)) + '</span></div><div class="ps">' + dShort(d.date) + (c && c.points != null ? ' · ' + f0(+c.points) + ' scored' : '') + (lineup ? ' · ' + esc(lineup) : '') + '</div></div>' +
       (r ? '<span class="pchip ' + (r === 'win' ? 'p-good' : 'p-bad') + '">' + (r === 'win' ? 'W' : 'L') + '</span>' : '<span class="pchip p-done">—</span>') + '</li>';
   }).join('');
-  openSheet('<h3>' + esc(p.display_name || 'No name') + '</h3><div class="small muted">' + (p.topshot_username ? 'Top Shot: ' + esc(p.topshot_username) : 'No Top Shot username in the profile') + '</div>' +
+  const ts = sm ? sm.topshot_username : p.topshot_username;
+  openSheet('<h3>' + esc(E.name || 'No name') + '</h3><div class="small muted">' + (sm ? 'Smurf of ' + esc(p.display_name || '?') + ' · ' : '') + (ts ? 'Top Shot: ' + esc(ts) : 'No Top Shot username in the profile') + '</div>' +
     '<ul class="list card">' + rows + '</ul>');
 }
 
@@ -3751,6 +3796,7 @@ function boxDates() {
       if (objs.length && !(cur && (cur.chain || cur.box || (cur.noAuto && !cur.done)))) (lineupFor(a.id, day.date) || []).forEach(id => { if (valsFor(a.id, day.date, id, objs) === undefined) add(id); });
       if (day.date >= lim && sn && sn.pl) Object.keys(sn.pl).forEach(id => { if ((sn.act || {})[id] === undefined) add(id); });
     });
+    if (objs.length && day.date >= lim && S.tab === 'grupo') groupEntries().forEach(x => { const ids = !x.daysRes[day.date] && x.lu[day.date]; (ids || []).forEach(id => { if (boxFor(day.date, id) === undefined) add(id); }); });
     if (teams.size) out.push([day.date, teams]);
   });
   return out;
@@ -3762,7 +3808,7 @@ function boxTick() {
   boxDates().slice(0, 2).forEach(([date, teams]) => {
     const B = S.box[date];
     if (B && (B.busy || Date.now() - B.at < (B.err ? 120e3 : 240e3))) return;
-    boxLoad(date, teams).then(() => { const a = fillActuals(), b = autoResults(); if (a || b) { saveMine(); schedule(); } else if (S.tab === 'hoje' || S.tab === 'run') render(); });
+    boxLoad(date, teams).then(() => { const a = fillActuals(), b = autoResults(); if (a || b) { saveMine(); schedule(); } else if (S.tab === 'hoje' || S.tab === 'run' || S.tab === 'grupo') render(); });
   });
 }
 async function adminWrite(promise, okMsg) { try { await q(promise); if (okMsg) toast(okMsg); return true; } catch (e) { toast(errText(e)); return false; } }
@@ -3830,7 +3876,7 @@ document.addEventListener('click', async e => {
     case 'op-use': opUse(b.dataset.i); break;
     case 'hd': S.hd = date; S.hdCenter = true; renderHoje(); break;
     case 'pl-sheet': rosterSheet(id); break;
-    case 'friend': friendSheet(id); break;
+    case 'friend': friendSheet(id, b.dataset.acc); break;
     case 'lock': choiceSheet(id, date, 'lock'); break;
     case 'lock-yes': lockToggle(id, date, true); luBack(date); break;
     case 'unlock': lockToggle(id, date, false); luBack(date); break;

@@ -767,3 +767,4 @@ p, .note { text-wrap: pretty; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tlogo img { filter: drop-shadow(0 0 .6px rgba(255, 255, 255, .9)) drop-shadow(0 0 .6px rgba(255, 255, 255, .5)); } }
 :root[data-theme="dark"] .tlogo img { filter: drop-shadow(0 0 .6px rgba(255, 255, 255, .9)) drop-shadow(0 0 .6px rgba(255, 255, 255, .5)); }
 .uses-fixed { font-family: var(--font-display); font-weight: 800; font-size: 24px; min-width: 44px; text-align: center; }
+.strip i.p { opacity: .45; }

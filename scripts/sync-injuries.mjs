@@ -128,6 +128,8 @@ if (TEST) {
 const today = etDate(now);
 const runs = (await must(sb.from('runs').select('id,name,chain_run_id,fictitious'))).filter(r => !r.fictitious); // runs de teste têm jogos inventados
 const days = runs.length ? await must(sb.from('run_days').select('run_id,date,games,objectives').eq('date', today).in('run_id', runs.map(r => r.id))) : [];
+// em ciclo (o GitHub salta muitos dos arranques agendados): diz à tarefa se ainda há jogos por começar hoje
+if (process.env.LOOP_FILE) { const fs = await import('node:fs'); const more = days.some(d => (d.games || []).some(g => Array.isArray(g) && g[2] && Date.parse(g[2]) > Date.now())); fs.writeFileSync(process.env.LOOP_FILE, more ? '1' : '0'); }
 const state = await getState(sb, 'alerts', {});
 if (!days.length) { console.log('Hoje (' + today + ') não há dia de run.'); await setState(sb, 'alerts', buildAlerts({ now, lineups: [], injuries, state }).state); process.exit(0); }
 const uids = TG_TOKEN ? [...memberIds] : subs.map(s => s.user_id); // com o grupo do Telegram, os lineups de toda a gente

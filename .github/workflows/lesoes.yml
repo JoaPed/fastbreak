@@ -6,10 +6,11 @@ on:
     - cron: '7,22,37,52 0-3 * * *'
   workflow_dispatch:
 concurrency: { group: lesoes, cancel-in-progress: false }
+permissions: { contents: read, actions: write }   # actions: write para se voltar a lançar
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 355
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -20,4 +21,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci --omit=dev
-      - run: node scripts/sync-injuries.mjs
+      # O GitHub salta muitos dos arranques agendados. Por isso, enquanto houver jogos por começar hoje, a tarefa
+      # repete-se sozinha de 5 em 5 minutos (até ~5 h 40) e, se ainda faltar, lança-se outra vez antes de acabar.
+      - name: Lesões e avisos (de 5 em 5 min enquanto houver jogos por começar)
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          end=$(( $(date +%s) + 340*60 ))
+          while :; do
+            rm -f .loop
+            LOOP_FILE=.loop node scripts/sync-injuries.mjs || echo "::warning::a volta falhou; tento outra vez daqui a 5 min"
+            [ "$(cat .loop 2>/dev/null)" = 1 ] || exit 0
+            if [ "$(date +%s)" -ge "$end" ]; then gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/lesoes.yml/dispatches" -f ref="$GITHUB_REF_NAME" || true; exit 0; fi
+            sleep 300
+          done

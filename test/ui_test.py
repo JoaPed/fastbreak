@@ -829,6 +829,30 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="undo-result"]'); pg.wait_for_timeout(2500)
     print('K2 não joguei:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu2)), '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))
     pg.close()
+    # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
+    # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
+    dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']
+    if not any(m['user_id'] == 'u-rui' for m in Tk['members']): Tk['members'].append({'user_id': 'u-rui', 'role': 'member'})
+    Tk['profiles'] = [x for x in Tk['profiles'] if x['user_id'] != 'u-rui'] + [{'user_id': 'u-rui', 'display_name': 'Rui', 'topshot_username': 'rui_ts', 'smurfs': [{'id': 's9', 'topshot_username': 'rui_smurf'}]}]
+    Tk['runs'][0]['chain_run_id'] = 'c1'
+    Tk['summaries'] = [{'user_id': 'u-rui', 'run_id': 'run-1', 'wins': 0, 'losses': 1, 'expected': 4.2, 'prize_probs': [], 'days': {d1: 'loss'}, 'next_p': 0.5, 'updated_at': '2026-10-21T22:00:00Z',
+                        'share': {'accs': {'main': {'days': {d1: 'loss'}, 'lu': {d2: lu2}}, 's9': {'label': 'rui_smurf', 'wins': 0, 'losses': 0, 'expected': 3.1, 'prize_probs': [], 'days': {}, 'next_p': 0.4, 'lu': {d2: ['jokic', 'mitchell', 'ant', 'luka', 'curry']}}}}}]
+    Tk['chain_results'] = [{'user_id': 'u-rui', 'account': 's9', 'game_id': 'g1', 'chain_run_id': 'c1', 'date': d1, 'points': 101, 'win': False, 'lineup': ['Jalen Brunson']}]
+    calls = []
+    pg = new_page(b, dbk)
+    pg.route('https://site.api.espn.com/**', k_route({'GSW': [ath('Stephen Curry', 30, '7-14')], 'LAL': [ath('Luka Dončić', 33, '5-11')], 'MIN': [ath('Anthony Edwards', 27, '4-9')], 'CLE': [ath('Donovan Mitchell', 25, '2-6')], 'DEN': [ath('Nikola Jokić', 26, '1-2')]}, calls))
+    pg.clock.set_fixed_time('2026-10-22T08:30:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).done' % d2, timeout=15000); pg.wait_for_timeout(500)
+    pg.click('#t-grupo'); pg.wait_for_timeout(1500)
+    rows_k3 = [x.replace('\n', ' | ') for x in pg.locator('#tab-grupo .grp-row').all_inner_texts()]
+    print('K3 classificação:', ' // '.join(r[:90] for r in rows_k3), '· por confirmar:', pg.locator('#tab-grupo .strip i.p').count())
+    print('K3 o meu resumo:', store(pg, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return x ? { days: x.days, accs: x.share && x.share.accs && Object.fromEntries(Object.entries(x.share.accs).map(([k, v]) => [k, { days: v.days, lu: v.lu }])) } : null; })()'))
+    pg.screenshot(path=str(shots / 'grupo-smurfs.png'), full_page=True)
+    pg.locator('#tab-grupo .grp-row[data-acc="s9"]').click(); pg.wait_for_timeout(300)
+    print('K3 folha da smurf:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:260])
+    pg.close()
 
     # ---------- L: Mudar o lineup antes dos jogos (fixar, tirar e pôr um a um, com o que muda face à sugestão) ----------
     db = seeded(); T = db['tables']
