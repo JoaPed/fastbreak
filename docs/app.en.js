@@ -1081,6 +1081,7 @@ function pastDayHtml(J) {
     '<div class="score">' + goal + ring + '</div>' + bars + (accs ? '<div class="impact"><div>' + accs + '</div></div>' : '') + '</div>'];
   if (done && !pl.chain && !pl.box && calc && calc.res !== res) out.push('<div class="note">By this lineup’s stats: ' + (calc.res === 'win' ? 'win' : 'loss') + ' (' + madeTxt(calc.objs, calc.tot) + '). If this was the lineup, change the result.</div>');
   out.push(predVsActualHtml(J.date) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineup.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">No players recorded.</li>') + '</ul></div>');
+  out.push('<div class="ctr-btn"><button class="btn' + (lineup.length ? '' : ' primary') + '" type="button" data-action="past-lu" data-date="' + J.date + '">' + (lineup.length ? 'Change the players' : 'Pick the players') + '</button></div>');
   if ((day.games || []).length) {
     // valor de cada jogador do plantel nesse dia (do guardado ou das fichas), por baixo do jogo dele
     const lp = {};
@@ -1088,7 +1089,6 @@ function pastDayHtml(J) {
     const board = B && B.board && B.board.length ? B.board : null;
     out.push('<div class="card"><div class="list-head"><h2>Games that day</h2><span class="small muted">' + plural(day.games.length, 'game', 'games') + (board ? '' : ' · local time') + '</span></div><ul class="list">' + gameRows(day, r, lineup, board, lp, day.objectives) + '</ul></div>');
   }
-  out.push('<div class="foot"><button class="btn' + (lineup.length ? ' quiet' : ' primary') + '" type="button" data-action="past-lu" data-date="' + J.date + '">' + (lineup.length ? 'Change the players' : 'Pick the players') + '</button><button class="btn quiet" type="button" data-action="result-sheet" data-date="' + J.date + '">' + (done ? 'Change the result' : 'Enter the result') + '</button></div>');
   return out.join('');
 }
 function renderJornada(el) {
@@ -1281,7 +1281,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
   if (run && !run.fictitious) {
     const lim = new Date(Date.parse(today + 'T12:00:00Z') - 3 * 864e5).toISOString().slice(0, 10), pl = curPlan().played || {};
     skippedDays(S.acc).filter(x => x.date >= lim && !(pl[x.date] && pl[x.date].noAuto) && (x.objectives || []).some(o => o && o.stat) && Date.now() > dayEnd(x) + 12 * 3600e3).forEach(x => {
-      items.push(btn('data-action="result-sheet" data-date="' + x.date + '"', 'Day ' + (S.days.indexOf(x) + 1) + ' without a result', 'It didn’t close by itself. If you played, record it.', 'res|' + x.date));
+      items.push(btn('data-action="past-lu" data-date="' + x.date + '"', 'Day ' + (S.days.indexOf(x) + 1) + ' without a result', 'It didn’t close by itself. If you played, record it.', 'res|' + x.date));
     });
   }
   const open = items.filter(x => x), n = open.filter(x => x.indexOf('<button') >= 0).length;
@@ -3693,13 +3693,32 @@ function sheetLineup(date) {
 // estatísticas e os usos acertam-se (os de quem saiu voltam, os de quem entrou descontam)
 function luEditSheet() {
   const E = S.luEdit, day = S.days.find(d => d.date === E.date); if (!day) return;
-  const lim = day.numPlayers || 5, teams = new Set((day.games || []).flatMap(g => [g[0], g[1]]));
-  // lê já as fichas dos jogos desse dia, para o resultado sair logo ao guardar
-  const run = curRun(), B = S.box[E.date]; if (run && !run.fictitious && (!B || (!B.busy && Date.now() - B.at > 120e3))) boxLoad(E.date, new Set([...teams].filter(t => Object.keys(S.mine.roster || {}).some(id => pTeam(id) === t))));
-  const ids = Object.keys(S.mine.roster || {}).filter(id => E.ids.includes(id) || teams.has(pTeam(id))).sort((a, b) => (E.ids.includes(b) - E.ids.includes(a)) || nameOf(a).localeCompare(nameOf(b)));
-  openSheet('<h3>Who played on day ' + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">Pick the ' + lim + ' you submitted. The result is redone from the box scores and the uses are adjusted.</div>' +
-    '<div class="label" style="margin-top:12px">' + E.ids.length + ' of ' + lim + '</div><div class="chips" role="group" aria-label="Players of the day">' + ids.map(id => '<button type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-pressed="' + E.ids.includes(id) + '">' + esc(nameOf(id)) + '</button>').join('') + '</div>' +
-    '<div class="btns" style="margin-top:14px"><button class="btn primary" type="button" data-action="past-lu-save"' + (E.ids.length ? '' : ' disabled') + '>Save</button></div>');
+  const date = E.date, dn = S.days.indexOf(day) + 1, lim = day.numPlayers || 5, teams = new Set((day.games || []).flatMap(g => [g[0], g[1]]));
+  const objs = (day.objectives || []).filter(o => o && o.stat && +o.target > 0);
+  // lê já as fichas dos jogos desse dia (para os números e o resultado saírem logo); quando chegam, redesenha
+  const run = curRun(), B = S.box[date], rosterTeams = new Set(Object.keys(S.mine.roster || {}).map(pTeam).filter(t => teams.has(t)));
+  if (run && !run.fictitious && (!B || (!B.busy && Date.now() - B.at > 120e3))) boxLoad(date, rosterTeams).then(() => { if (S.luEdit && S.luEdit.date === date && $('pastLu')) luEditSheet(); });
+  const keep = $('pastLu') ? $('sheetPanel').scrollTop : 0;
+  const valsOf = id => { const a = objs.length ? valsFor(S.acc, date, id, objs) : undefined; return a === null ? 'dnp' : a ? objs.map((o, k) => ({ v: +a[k] || 0, o, fin: true })) : []; };
+  const weight = id => { const a = valsOf(id); return a === 'dnp' ? -1 : a.reduce((t, x, k) => t + x.v / (+objs[k].target || 1), 0); };
+  const sub = id => esc(pTeam(id)) + ' ' + esc(opp(pTeam(id), day));
+  const pv = id => { const a = valsOf(id); return a === 'dnp' ? '<div class="pv"><div class="u">did not play</div></div>' : pvHtml(a); };
+  const row = (id, inLu) => '<li class="lu-row"><div class="lu-main">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></span><span class="ps">' + sub(id) + '</span></span></div>' + pv(id) +
+    (inLu ? '<button class="lu-ic" type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-label="Remove ' + esc(nameOf(id)) + '" title="Remove">' + icoX + '</button>'
+      : '<button class="lu-ic add" type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-label="Add ' + esc(nameOf(id)) + '" title="' + (E.ids.length >= lim ? 'You already have ' + lim + ': remove one first' : 'Add to lineup') + '"' + (E.ids.length >= lim ? ' disabled' : '') + '>' + icoPlus + '</button>') + '</li>';
+  // em cima: o que este lineup fez nesse dia e o resultado
+  const c = E.ids.length ? dayCalc(S.acc, day, E.ids) : null;
+  const head = c ? '<div class="kv lu-kv"><div><div class="label">Made</div><div class="v num">' + c.objs.map((o, k) => f0(c.tot[k]) + '<small>/' + o.target + ' ' + esc(statShort(o.stat)) + '</small>').join('<br>') + '</div></div><div><div class="label">Result</div><div class="v num ' + (c.res === 'win' ? 'c-good' : 'c-bad') + '">' + (c.res === 'win' ? '✓ win' : '✕ loss') + '</div></div></div>'
+    : '<div class="small muted">' + (E.ids.length ? 'Waiting for the box scores…' : 'Pick who played.') + '</div>';
+  const inRows = E.ids.map(id => row(id, true)).join('') + Array.from({ length: Math.max(0, lim - E.ids.length) }, () => '<li class="lu-row lu-gap"><div class="gapb"><span class="gapb-go" style="cursor:default"><span class="gapb-ic">' + icoPlus + '</span><span class="gapb-t"><b>Empty spot</b><span>add someone from the list below</span></span></span></div></li>').join('');
+  const cand = Object.keys(S.mine.roster || {}).filter(id => !E.ids.includes(id) && teams.has(pTeam(id))).sort((a, b) => weight(b) - weight(a) || nameOf(a).localeCompare(nameOf(b)));
+  const shown = E.all ? cand : cand.slice(0, 10);
+  openSheet('<h3>Lineup for day ' + dn + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="pastLu" class="stack">' + head +
+    '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + E.ids.length + ' of ' + lim + '</span></div><ul class="list">' + inRows + '</ul></div>' +
+    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to lineup</h2><span class="small muted">what they did that day</span></div><ul class="list">' + shown.map(id => row(id, false)).join('') + '</ul>' + (cand.length > shown.length ? '<button class="btn quiet" type="button" data-action="past-lu-all" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
+    '<button class="btn primary" type="button" data-action="past-lu-save"' + (E.ids.length ? '' : ' disabled') + '>Save</button>' +
+    '<button class="btn link small" type="button" data-action="undo-result" data-date="' + date + '">I didn’t play this day</button></div>');
+  if (keep) $('sheetPanel').scrollTop = keep;
 }
 function luEditSave() {
   const E = S.luEdit; if (!E || !E.ids.length) return;
@@ -4073,6 +4092,7 @@ document.addEventListener('click', async e => {
     case 'past-lu': S.luEdit = { date, ids: sheetLineup(date) }; luEditSheet(); break;
     case 'past-lu-pick': { const E = S.luEdit; if (!E) break; const lim = (S.days.find(d => d.date === E.date) || {}).numPlayers || 5; if (E.ids.includes(id)) E.ids = E.ids.filter(x => x !== id); else if (E.ids.length < lim) E.ids.push(id); else { toast('You already have ' + lim + ' players: remove one first.'); break; } luEditSheet(); break; }
     case 'past-lu-save': luEditSave(); break;
+    case 'past-lu-all': if (S.luEdit) { S.luEdit.all = true; luEditSheet(); } break;
     case 'undo-result': undoResult(date); closeSheet(); break;
     case 'swap-done': swapDone(); break;
     case 'live-state': liveSet(id, { state: b.dataset.state }); playerSheet(id, nd.date, S.sheetBack); break;

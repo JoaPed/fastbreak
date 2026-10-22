@@ -804,3 +804,6 @@ p, .note { text-wrap: pretty; }
 .gc-leg .lg { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 3px; }
 .gc-leg .lg.w { background: var(--good); } .gc-leg .lg.l { background: var(--surface-2); border: 1px solid var(--line); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gc .rr.z-q b, :root:not([data-theme="light"]) .gc-leg .z-q { color: #E3B341; } }
+.ctr-btn { display: flex; justify-content: center; }
+.ctr-btn .btn { min-width: 220px; }
+#pastLu .lu-main { cursor: default; }
