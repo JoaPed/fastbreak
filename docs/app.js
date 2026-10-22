@@ -3212,12 +3212,18 @@ function tierAuto(setName, meta, counts) {
   if (byMeta) return { tier: byMeta, how: 'blockchain' };
   const known = TIER_SETS[String(setName || '').toLowerCase().trim()];
   if (known) return { tier: known, how: 'set' };
+  // o nome do set às vezes diz o escalão ("2025 NBA Playoffs: Common")
+  const nm = /\b(ultimate|legendary|rare|fandom|common)\b/i.exec(String(setName || ''));
+  if (nm) return { tier: nm[1][0].toUpperCase() + nm[1].slice(1).toLowerCase(), how: 'set' };
   const xs = (counts || []).filter(x => x > 0).sort((a, b) => a - b);
   if (!xs.length) return { tier: 'Common', how: 'sem dados' };
   const med = xs[(xs.length - 1) >> 1];
-  return { tier: med <= 5 ? 'Ultimate' : med <= 149 ? 'Legendary' : med <= 1499 ? 'Rare' : 'Common', how: 'tiragem' };
+  // Rare vai até /1000 (os Common recentes têm /1114, /1149, /1190…)
+  return { tier: med <= 5 ? 'Ultimate' : med <= 149 ? 'Legendary' : med <= 1000 ? 'Rare' : 'Common', how: 'tiragem' };
 }
-const setTier = (col, k) => { const x = ((col || {}).sets || {})[k] || {}; return x.tier || x.auto || 'Common'; };
+// palpite de um set guardado (refeito com as regras de agora; o que veio da blockchain fica)
+const setAuto = (k, x) => (x && (x.how === 'blockchain') ? x.auto : tierAuto(k, '', x && x.med ? [x.med] : []).tier) || (x && x.auto) || 'Common';
+const setTier = (col, k) => { const x = ((col || {}).sets || {})[k] || {}; return x.tier || setAuto(k, x); };
 // usos de um jogador numa run: os do seu melhor Moment (uma Rare e três Common dão 2, não 5). Ter mais Moments do
 // mesmo jogador não soma usos; só deixa usá-lo em duas contas no mesmo dia
 // ---- escalão de cada carta, e o que o site aprende com as tuas escolhas ----
@@ -3246,7 +3252,7 @@ function momentTierWhy(col, fid, lab) {
   const x = ((col || {}).sets || {})[it.s] || {};
   if (x.tier) return { t: x.tier, why: 3 };
   const grp = learnFrom((S.groupTL || {})[it.s], it.m); if (grp) return { t: grp, why: 4 };
-  return { t: x.auto || 'Common', why: 0 };
+  return { t: setAuto(it.s, x), why: 0 };
 }
 const momentTier = (col, fid, lab) => momentTierWhy(col, fid, lab).t;
 // escalões dos Moments de um jogador, um por carta (coleções lidas antes da 22 não têm as cartas: vai pelos sets)

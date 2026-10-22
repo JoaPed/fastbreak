@@ -1846,7 +1846,8 @@
   "at": {
    "const MO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];": "Sep",
    "if (known) return { tier: known, how: 'set' };": false,
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>Escalões e usos</h2><span class=\"small muted\">' + plural(rows.length, 'set', 'sets') + '</span></div>' +": false
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>Escalões e usos</h2><span class=\"small muted\">' + plural(rows.length, 'set', 'sets') + '</span></div>' +": false,
+   "if (nm) return { tier: nm[1][0].toUpperCase() + nm[1].slice(1).toLowerCase(), how: 'set' };": false
   }
  },
  "out": {

@@ -39,6 +39,23 @@ access(all) fun main(sets: [UInt32]): {UInt32: {UInt32: UInt32}} {
 // sem as tabelas (falta correr o SQL do mercado no Supabase): avisa e sai sem erro
 { const { error } = await sb.from('market_asks').select('listing_id').limit(1); if (error) { note('falta criar as tabelas do mercado no Supabase (SQL em supabase/schema.sql): ' + String(error.message).slice(0, 120)); process.exit(0); } }
 const state = await getState(sb, 'market', {});
+// escalões guardados com as regras antigas (Rare até /1499; o nome do set não contava): refeitos uma vez
+if ((state.tierv || 1) < 2) {
+  for (const t of ['market_asks', 'market_sales']) {
+    const seen = new Map();
+    for (let from = 0; ; from += 1000) {
+      const page = await must(sb.from(t).select('set_name,minted,tier').range(from, from + 999)); page.forEach(r => seen.set(r.set_name + '|' + r.minted, r));
+      if (page.length < 1000) break;
+    }
+    let n = 0;
+    for (const r of seen.values()) {
+      const [base, sub] = String(r.set_name || '').split(' · '), nt = momentTierOf('', sub || '', base, r.minted);
+      if (r.minted != null && nt !== r.tier) { await must(sb.from(t).update({ tier: nt }).eq('set_name', r.set_name).eq('minted', r.minted)); n++; }
+    }
+    note('escalões refeitos em ' + t + ': ' + n + ' edições');
+  }
+  state.tierv = 2; await setState(sb, 'market', state);
+}
 const top = await flowLatestHeight();
 const from = state.height ? state.height + 1 : Math.max(1, top - BACKFILL);
 const to = Math.min(top, from + MAX - 1);
@@ -120,7 +137,7 @@ await upsertChunks(sb, 'market_sales', saleRows, 'listing_id');
 // limpeza: vendas com mais de 60 dias, anúncios fechados com mais de 7
 await must(sb.from('market_sales').delete().lt('sold_at', new Date(Date.now() - 60 * 86400e3).toISOString()));
 await must(sb.from('market_asks').delete().eq('active', false).lt('listed_at', new Date(Date.now() - 7 * 86400e3).toISOString()));
-await setState(sb, 'market', { height: to, at: new Date().toISOString() });
+await setState(sb, 'market', { height: to, at: new Date().toISOString(), tierv: 2 });
 const behind = top - to;
 note('blocos ' + from + '–' + to + ' · ' + asks.length + ' postos à venda (' + askRows.length + ' guardados) · ' + done.filter(e => e.data.purchased).length + ' vendidos (' + saleRows.length + ' guardados) · ' + done.filter(e => !e.data.purchased).length + ' tirados' + (behind > 0 ? ' · faltam ' + behind + ' blocos' : ' · em dia'));
 if (process.env.LOOP_FILE) (await import('node:fs')).writeFileSync(process.env.LOOP_FILE, behind > 0 ? '1' : '0');

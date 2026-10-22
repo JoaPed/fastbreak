@@ -727,7 +727,9 @@ export function momentTierOf(meta, sub, setName, minted) {
   const m = (String(meta || '') + ' ' + String(sub || '')).toLowerCase();
   const t = MOMENT_TIERS.find(x => m.includes(x.toLowerCase())); if (t) return t;
   const k = TIER_SETS[String(setName || '').toLowerCase().trim()]; if (k) return k;
+  const nm = /\b(ultimate|legendary|rare|fandom|common)\b/i.exec(String(setName || '')); // "2025 NBA Playoffs: Common"
+  if (nm) return nm[1][0].toUpperCase() + nm[1].slice(1).toLowerCase();
   const cap = /\/\s*(\d+)/.exec(String(sub || '')), n = cap ? +cap[1] : +minted || 0;
   if (!n) return 'Common';
-  return n <= 5 ? 'Ultimate' : n <= 149 ? 'Legendary' : n <= 1499 ? 'Rare' : 'Common';
+  return n <= 5 ? 'Ultimate' : n <= 149 ? 'Legendary' : n <= 1000 ? 'Rare' : 'Common'; // Rare até /1000
 }
