@@ -1737,6 +1737,7 @@
  "<span class=\"badge\">smurf": "<span class=\"badge\">smurf",
  " · por confirmar": " · to be confirmed",
  "Smurf de ": "Smurf of ",
+ "&nbsp;": "&nbsp;",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1920,7 +1921,8 @@
    "if (done && !pl.chain && !pl.box && calc && calc.res !== res) out.push('<div class=\"note\">Pelas estatísticas deste lineup: ' + (calc.res === 'win' ? 'vitória' :": true,
    "meta += ' · ' + (win ? 'vitória' : 'derrota') + (tot && objs.length > 1 ? ' · ' + madeTxt(objs, tot) : '');": true,
    "if (closed.length === 1) { const { a, i, c } = closed[0]; toast((a !== 'main' ? accLabel(a) + ' · ' : '') + 'Dia ' + (i + 1) + ': ' + (c.res === 'win' ? 'vitóri": true,
-   "chip = '<span class=\"pchip num ' + (win ? 'p-good' : 'p-bad') + '\">' + (tot ? tot.map(f0).join('·') : resMark(pl.result)) + '<span class=\"vh\"> ' + (win ? 'vitór": true
+   "chip = '<span class=\"pchip num ' + (win ? 'p-good' : 'p-bad') + '\">' + (tot ? tot.map(f0).join('·') : resMark(pl.result)) + '<span class=\"vh\"> ' + (win ? 'vitór": true,
+   "val = '&nbsp;'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</span>';": true
   }
  },
  "derrotas": {
