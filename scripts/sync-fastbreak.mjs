@@ -231,7 +231,8 @@ access(all) fun main(runId: String, addrs: [Address]): {String: AnyStruct} {
   return {"name": run!.name, "hist": hist, "mine": mine}
 }`;
 for (const runId of linked.slice(-2)) {
-  const accs = accounts.filter(a => a.addr && a.runs && a.runs.has(runId));
+  const played = new Set((await must(sb.from('chain_results').select('user_id,account').eq('chain_run_id', runId))).map(x => x.user_id + '|' + (x.account || 'main')));
+  const accs = accounts.filter(a => a.addr && ((a.runs && a.runs.has(runId)) || played.has(a.user_id + '|' + a.account)));
   if (!accs.length) continue;
   try {
     const r = await flowScript(RANK_SCRIPT, [{ type: 'String', value: runId }, { type: 'Array', value: accs.map(a => cadence.address(a.addr)) }]);
