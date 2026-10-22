@@ -1099,6 +1099,15 @@ function dayStrip(sel) {
     return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="hd" data-date="' + day.date + '" aria-pressed="' + (day.date === sel) + '"><b class="num">' + (i + 1) + '</b><small>' + (now ? 'Today' : dWeek(day.date)) + '</small><span class="ds-v num">' + val + '</span>' + sr + (inj ? '<i class="ds-inj" title="Injury in the lineup"></i>' : '') + '</button>';
   }).join('') + '</div>';
 }
+function jornadaNav(date, sub) {
+  const accs = groupMode() ? accounts().map(a => {
+    const R = S.multi && S.multi.byKey[a.id], dd = R && R.normal.days.find(x => x.date === date), pl = ((planOf(a.id).played || {})[date]) || null;
+    const v = pl && pl.done ? (pl.result === 'win' ? '<b class="c-ok">✓</b>' : pl.result === 'loss' ? '<b class="c-no">✕</b>' : '') : dd ? (dd.lineup.length ? '<b class="c-' + dTone(dd.P) + '">' + pct(dd.P) + '</b>' : '<span class="muted">–</span>') : '';
+    return '<button type="button" class="acc-chip" data-action="acc" data-acc="' + esc(a.id) + '" aria-pressed="' + (S.acc === a.id) + '">' + esc(a.label) + ' ' + v + '</button>';
+  }).join('') : '';
+  const links = SUBS.hoje().map(([k, l]) => '<button type="button" class="btn link small" data-action="sub" data-stab="hoje" data-sub="' + k + '" aria-pressed="' + (k === sub) + '">' + l + '</button>').join('<span aria-hidden="true">·</span>');
+  return '<div class="j-nav"><div class="j-accs" role="group" aria-label="Account">' + accs + '</div><div class="j-links">' + links + '</div></div>';
+}
 function renderHoje() {
   const el = $('tab-hoje'), os = el.querySelector('.day-strip'), left = os ? os.scrollLeft : null;
   renderJornada(el);
@@ -1156,10 +1165,9 @@ function renderJornada(el) {
   if (!guard(el, true)) return;
   const r = S.result, v = view(), J = jornadaDay();
   if (!J) { el.innerHTML = empty('Run finished', 'You finished with ' + r.wins + ' wins in ' + r.playedCount + ' days.'); return; }
-  const sub = subOf('hoje'), html = [subBar('hoje'), dayStrip(J.date)];
+  const sub = subOf('hoje'), html = [dayStrip(J.date), jornadaNav(J.date, sub)];
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
   if (run.fictitious) html.push('<div class="note">Test run: made-up games and goals.' + (real ? ' <button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Open ' + esc(real.name) + '</button>' : '') + '</div>');
-  if (groupMode()) html.push(accSwitch());
   if (J.past) {
     html.push(sub === 'lineup' ? pastDayHtml(J) : '<div class="note info">Day already played: the result is under Lineup.</div>');
     el.innerHTML = html.join(''); return;
@@ -1173,6 +1181,8 @@ function renderJornada(el) {
   }
   const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort();
   const right = live ? '<span class="pill jogo">Live</span>' : tips.length ? '<span class="small muted">1st game ' + hm(tips[0]) + '</span>' : '';
+  // fora dos jogos ao vivo: o placar leva o lineup dentro (preenche-se mais abaixo, quando as linhas estão feitas)
+  const compact = !live, heroAt = html.length;
   // placar do dia: objetivo, vitória, barra(s); no dia em curso, o botão das opções
   html.push('<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Day ' + (nd.idx + 1) + ' · ' + dWeek(nd.date) + ', ' + dShort(nd.date) + '</span>' + right + '</div>' +
     '<div class="score">' + goalBig(nd.objectives) +
@@ -1231,10 +1241,19 @@ function renderJornada(el) {
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
   // antes dos jogos: Mudar (fixar, tirar e pôr jogadores um a um, com o que muda face à sugestão)
   const tip0 = firstTipOf(nd), canEdit = !live && !(tip0 != null && Date.now() >= tip0) && md.elig.length > 0;
-  html.splice(luAt, 0, '<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change</button>' : '<span class="small muted">' + (live ? 'live points' : d.lineup.length ? d.lineup.length + ' of ' + md.size : '') + '</span>') + '</div>' +
+  const bansLine = bans.length ? '<div class="row small muted" style="display:block">Removed from this day: ' + bans.map(id => esc(lastName(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + nd.date + '">restore</button>').join(' · ') + '</div>' : '';
+  if (compact) {
+    const objLine = (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + ' ' + esc(statShort(x.stat))).join(' + ');
+    const perStat = t ? d.totals.map(x => '<span>' + esc(statShort(x.stat)) + ' <b class="num">' + f1(x.mu) + '</b>/' + x.target + ' · ' + pct(FB.probAtLeast(x.mu, x.sd * x.sd, x.target)) + '</span>').join('<span aria-hidden="true"> · </span>') : '';
+    const btns = [isCur && !d.noObjective && d.lineup.length ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change lineup</button>' : ''].filter(Boolean);
+    html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Today' : 'Day ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn('lineup') + '</span>' +
+      '<div class="jc-sub">' + (d.noObjective ? 'No target' : d.lineup.length ? perStat : '') + '</div><div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1st game ' + hm(tips[0]) : '') + '</div></div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
+      (d.lineup.length ? '<ul class="list jc-list">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') + bansLine +
+      (btns.length ? '<div class="jc-btns">' + btns.join('') + '</div>' : '') + '</div>';
+  } else html.splice(luAt, 0, '<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change</button>' : '<span class="small muted">' + (live ? 'live points' : d.lineup.length ? d.lineup.length + ' of ' + md.size : '') + '</span>') + '</div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '') +
-    (bans.length ? '<div class="row small muted" style="display:block">Removed from this day: ' + bans.map(id => esc(lastName(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + nd.date + '">restore</button>').join(' · ') + '</div>' : '') + '</div>');
+    bansLine + '</div>');
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
   html.push(todayPlayersCard(r, md, nd, isCur));
   if (isCur) html.push(betterCard(), buyLine());
