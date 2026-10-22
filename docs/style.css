@@ -862,3 +862,18 @@ p, .note { text-wrap: pretty; }
 .bd-tile b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .bd-prizes { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; color: var(--muted); }
 .bd-prizes > b { color: var(--ink); }
+
+/* Jornada mais compacta: cabeçalho, faixa dos dias e placar do dia mais baixos (o lineup aparece sem descer) */
+.top { padding-block: 8px 4px; }
+.day-strip { margin-top: 6px; }
+.day-hero:not(.past) { padding: 12px 16px 12px; gap: 8px; }
+.day-hero:not(.past) .goal.multi { font-size: 34px; }
+.day-hero:not(.past) .goal.multi small { font-size: 17px; }
+.day-hero:not(.past) .goal:not(.multi) { font-size: 48px; }
+.day-hero:not(.past) .win-ring { zoom: .84; }
+.day-hero:not(.past) .obj-bar { gap: 4px; }
+.day-hero:not(.past) .hero-btn { margin-top: 2px; }
+.subtabs button { padding: 8px 0 7px; }
+.ds { padding: 5px 0 4px; }
+.day-hero:not(.past) .bar-cap { font-size: 12.5px; }
+.acc-seg button { padding: 6px 6px; }

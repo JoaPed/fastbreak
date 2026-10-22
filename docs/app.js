@@ -1066,7 +1066,7 @@ function objBars(d, live) {
     return '<div class="obj-bar"><div class="bar" aria-hidden="true"><i class="k" style="width:' + kw.toFixed(1) + '%"></i><i class="f" style="left:' + kw.toFixed(1) + '%;width:' + Math.max(0, fw).toFixed(1) + '%"></i><i class="t" style="left:' + Math.min(99, t.target / max * 100).toFixed(1) + '%"></i></div>' +
       '<div class="bar-cap">' + (live && t.known ? '<span>' + lbl + 'Feito <b class="num">' + f0(t.known) + '</b> · faltam <b class="num">' + f0(Math.max(0, t.target - t.known)) + '</b></span><span>final ≈ <b class="num">' + f1(t.mu) + '</b>' + (many ? ' · <b class="num">' + pct(pk) + '</b>' : '') + '</span>'
         : '<span>' + lbl + (many ? '' : 'Projeção ') + '<b class="num">' + f1(t.mu) + '</b> <span class="num">± ' + f1(t.sd) + '</span></span><span>alvo <b class="num">' + t.target + '</b>' + (many ? ' · <b class="num">' + pct(pk) + '</b>' : '') + '</span>') + '</div></div>';
-  }).join('') + (many ? '<div class="bar-note">Vitória: todos os alvos ao mesmo tempo.</div>' : '');
+  }).join('');
 }
 // ---- Jornada (antigo "Hoje"): o dia escolhido na faixa dos dias; por defeito o próximo dia por jogar ----
 // S.hd = data escolhida (null = o próximo dia). Dias que já passaram mostram o resultado e o previsto vs real.
@@ -1177,7 +1177,8 @@ function renderJornada(el) {
     '<div class="score">' + goalBig(nd.objectives) +
     (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' + (t ? objBars(d, live) : '') +
     (S.multi ? groupLine(nd) : '') +
-    (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões para hoje</button>' : !isCur ? '<div class="impact"><div>Previsão: muda com as odds e as lesões até lá.</div></div>' : '') + '</div>');
+    (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões para hoje</button>' : !isCur ? '' : '') + '</div>');
+  const luAt = html.length; // o lineup vem logo a seguir ao placar (sem ter de descer)
   if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
   // ao vivo: o plano sugere mudar quem ainda não jogou
   if (live && d.live && (d.live.out.length || d.live.in.length)) {
@@ -1229,7 +1230,7 @@ function renderJornada(el) {
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
   // antes dos jogos: Mudar (fixar, tirar e pôr jogadores um a um, com o que muda face à sugestão)
   const tip0 = firstTipOf(nd), canEdit = !live && !(tip0 != null && Date.now() >= tip0) && md.elig.length > 0;
-  html.push('<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar</button>' : '<span class="small muted">' + (live ? 'pontos ao vivo' : d.lineup.length ? d.lineup.length + ' de ' + md.size : '') + '</span>') + '</div>' +
+  html.splice(luAt, 0, '<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar</button>' : '<span class="small muted">' + (live ? 'pontos ao vivo' : d.lineup.length ? d.lineup.length + ' de ' + md.size : '') + '</span>') + '</div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '') +
     (bans.length ? '<div class="row small muted" style="display:block">Tirados deste dia: ' + bans.map(id => esc(lastName(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + nd.date + '">repor</button>').join(' · ') + '</div>' : '') + '</div>');
