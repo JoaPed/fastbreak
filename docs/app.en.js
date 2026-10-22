@@ -1111,18 +1111,25 @@ function pastDayHtml(J) {
   const B = S.box[J.date], run = curRun();
   if (run && !run.fictitious && (!B || (!B.board && !B.busy && Date.now() - B.at > 120e3))) setTimeout(() => { boxLoad(J.date, new Set()).then(() => { if (S.tab === 'hoje') renderHoje(); }); }, 0);
   // o mesmo cartão da previsão: feito / alvo em cima (verde se chegou, vermelho se não), anel com ✓ ou ✕ e as barras do feito
-  const made = tot && objs.length && tot.length >= objs.length ? tot : calc && calc.tot && (!res || calc.res === res) ? calc.tot : null;
+  const madeOf = (pl0, c0, r0) => { const t0 = pl0 && pl0.done ? doneTot(pl0, day) : null; return t0 && objs.length && t0.length >= objs.length ? t0 : c0 && c0.tot && (!r0 || c0.res === r0) ? c0.tot : null; };
+  const made = madeOf(pl, calc, res);
   const ok = (o, k) => +made[k] >= +o.target;
-  const goal = made ? '<div class="goal res' + (objs.length > 1 ? ' multi' : '') + '">' + objs.map((o, k) => '<span class="' + (ok(o, k) ? 'g-ok' : 'g-no') + '">' + f0(made[k]) + '<i>/' + o.target + '</i><small>' + esc(statShort(o.stat)) + '</small></span>').join('') + '</div>' : goalBig(objs);
+  // um bloco por estatística: nome, o que se fez (grande) e o alvo com a diferença
+  const goal = made ? '<div class="gblocks">' + objs.map((o, k) => { const d = Math.round(made[k] - o.target); return '<div class="gb"><span class="gb-st">' + esc(statShort(o.stat)) + '</span><span class="gb-n ' + (ok(o, k) ? 'g-ok' : 'g-no') + '">' + f0(made[k]) + '</span><span class="gb-t">target ' + o.target + ' · ' + (ok(o, k) ? '<b class="c-ok">✓ +' + d + '</b>' : '<b class="c-no">✕ −' + (-d) + '</b>') + '</span></div>'; }).join('') + '</div>' : goalBig(objs);
   const ring = res ? winRing(1, res === 'win' ? 'good' : 'bad', res === 'win' ? '✓' : '✕', res === 'win' ? 'win' : 'loss') : winRing(0, 'mute', wait ? '…' : '–', wait ? 'waiting' : 'no result');
   const bars = made ? objs.map((o, k) => {
     const M = Math.max(+o.target * 1.25, +made[k] * 1.12, 1), w = Math.min(100, made[k] / M * 100), tl = Math.min(99, o.target / M * 100), d = Math.round(made[k] - o.target);
     return '<div class="obj-bar"><div class="bar" aria-hidden="true"><i class="k ' + (ok(o, k) ? 'kok' : 'kno') + '" style="width:' + w.toFixed(1) + '%"></i><i class="t" style="left:' + tl.toFixed(1) + '%"></i></div>' +
-      '<div class="bar-cap"><span><b class="bs">' + esc(statShort(o.stat)) + '</b> made <b class="num">' + f0(made[k]) + '</b></span><span>target <b class="num">' + o.target + '</b> ' + (ok(o, k) ? '<b class="ok">✓ +' + d + '</b>' : '<b class="no">✕ −' + (-d) + '</b>') + '</span></div></div>';
-  }).join('') + '<div class="bar-note">' + (objs.every(ok) ? (objs.length > 1 ? 'Every target reached.' : 'Target reached.') : 'Missed: ' + objs.filter((o, k) => !ok(o, k)).map(o => esc(statShort(o.stat))).join(', ') + '.') + '</div>' : '';
-  const accs = groupMode() ? accounts().map(a => { const p2 = ((planOf(a.id).played || {})[J.date]) || null, r2 = p2 && p2.done ? p2.result : null; return esc(a.label) + ' ' + (r2 === 'win' ? '<b class="c-ok">✓ win</b>' : r2 === 'loss' ? '<b class="c-no">✕ loss</b>' : '<b>–</b>'); }).join(' · ') : '';
+      '</div>';
+  }).join('') : '';
+  // com smurfs: uma linha por conta com o que fez em cada estatística e o resultado
+  const accs = groupMode() ? '<div class="acc-res" style="--n:' + objs.length + '">' + accounts().map(a => {
+    const p2 = ((planOf(a.id).played || {})[J.date]) || null, r2 = p2 && p2.done ? p2.result : null, m2 = madeOf(p2, a.id === S.acc ? calc : dayCalc(a.id, day), r2);
+    return '<div class="ar' + (a.id === S.acc ? ' me' : '') + '"><span class="ar-n">' + esc(a.label) + '</span>' + objs.map((o, k) => '<span class="ar-v">' + (m2 ? '<b class="' + (+m2[k] >= +o.target ? 'c-ok' : 'c-no') + '">' + f0(m2[k]) + '</b>' : '<b>–</b>') + ' <small>' + esc(statShort(o.stat)) + '</small></span>').join('') +
+      '<span class="ar-r">' + (r2 === 'win' ? '<b class="c-ok">✓ win</b>' : r2 === 'loss' ? '<b class="c-no">✕ loss</b>' : '<b>–</b>') + '</span></div>';
+  }).join('') + '</div>' : '';
   const out = ['<div class="card hero day-hero past">' + COURT + '<div class="hero-top"><span class="eyebrow">Day ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + src + '</span></div>' +
-    '<div class="score">' + goal + ring + '</div>' + bars + (accs ? '<div class="impact"><div>' + accs + '</div></div>' : '') + '</div>'];
+    '<div class="score">' + goal + ring + '</div>' + bars + accs + '</div>'];
   if (done && !pl.chain && !pl.box && calc && calc.res !== res) out.push('<div class="note">By this lineup’s stats: ' + (calc.res === 'win' ? 'win' : 'loss') + ' (' + madeTxt(calc.objs, calc.tot) + '). If this was the lineup, change the result.</div>');
   out.push(predVsActualHtml(J.date) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineup.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">No players recorded.</li>') + '</ul></div>');
   out.push('<div class="ctr-btn"><button class="btn' + (lineup.length ? '' : ' primary') + '" type="button" data-action="past-lu" data-date="' + J.date + '">' + (lineup.length ? 'Change the players' : 'Pick the players') + '</button></div>');
@@ -1237,7 +1244,7 @@ function ensureLive() {
 }
 // a melhor compra, numa linha (as outras em Jogadores → Comprar)
 function buyLine() {
-  const A = S.autoBuy, key = autoBuyKey(); if (!key || !A || A.key !== key || !A.list.length) return '';
+  const A = S.autoBuy, key = autoBuyKey(); if (!key || !A || A.key.split('|')[0] !== key.split('|')[0] || !A.list.length) return '';
   return buyTipsCard(3, true);
 }
 // ---- jogos de hoje ao vivo (placar da ESPN) ----
@@ -2381,18 +2388,22 @@ let autoBuyTimer = null, autoBuyBusy = null;
 function autoBuyKey() {
   const r = mainResult(), run = curRun();
   if (!S.runId || !run || !r || !r.model.days.length || !Object.keys(S.mine.roster || {}).length || !S.players.size) return null;
-  return [S.runId, r.normal.objective.toFixed(5), S.multi ? S.multi.objective.toFixed(5) : '', Object.keys(S.mine.roster).length, S.injAt || '', S.pxMine && S.pxMine.at || ''].join('|');
+  return [S.runId, Object.keys(S.mine.roster).length, S.injAt || '', S.pxMine && S.pxMine.at || '', Object.keys(curPlan().played || {}).length, r.normal.objective.toFixed(3), S.multi ? S.multi.objective.toFixed(3) : ''].join('|');
 }
+// as sugestões só se refazem quando muda o plantel, as lesões, os preços ou os dias jogados; se só mexeu o plano
+// (odds novas, ao vivo), no máximo de 15 em 15 min. Entretanto ficam as anteriores à vista.
+const autoBuyStable = k => String(k || '').split('|').slice(0, 5).join('|');
 function scheduleAutoBuy() {
   const key = autoBuyKey();
   if (!key || (S.autoBuy && S.autoBuy.key === key) || autoBuyBusy === key) return;
+  if (S.autoBuy && autoBuyStable(S.autoBuy.key) === autoBuyStable(key) && Date.now() - (S.autoBuy.at || 0) < 15 * 60e3) return;
   clearTimeout(autoBuyTimer);
   autoBuyTimer = setTimeout(async () => {
     if (autoBuyKey() !== key || document.visibilityState !== 'visible') return;
     autoBuyBusy = key;
     try {
       const res = await computeBuy({ mode: S.multi ? 'mix' : 'new', U: 2, topN: S.multi ? 4 : 6, alive: () => autoBuyKey() === key, kicks: S.multi ? 10 : null });
-      if (res && autoBuyKey() === key) { S.autoBuy = Object.assign({ key }, res); S.autoBuyErr = null; if (S.tab === 'hoje' || S.tab === 'run' || (S.tab === 'plantel' && subOf('plantel') === 'comprar')) render(); }
+      if (res && autoBuyKey() === key) { S.autoBuy = Object.assign({ key, at: Date.now() }, res); S.autoBuyErr = null; if (S.tab === 'hoje' || S.tab === 'run' || (S.tab === 'plantel' && subOf('plantel') === 'comprar')) render(); }
     } catch (e) { console.warn('sugestões de compra', e); S.autoBuyErr = key; render(); }
     finally { if (autoBuyBusy === key) autoBuyBusy = null; }
   }, S.multi ? 6000 : 2500);
@@ -2414,7 +2425,7 @@ function buySummary(R, x) {
 function buyTipsCard(limit, jornada) {
   const A = S.autoBuy, key = autoBuyKey();
   if (!key) return '';
-  const head = '<div class="list-head"><h2>' + (jornada ? 'Best buys' : 'The Rares worth the most') + '</h2><span class="small muted">' + (A && A.key !== key ? 'updating…' : 'Rare Moment') + '</span></div>';
+  const head = '<div class="list-head"><h2>' + (jornada ? 'Best buys' : 'The Rares worth the most') + '</h2><span class="small muted">' + (autoBuyBusy ? 'updating…' : 'Rare Moment') + '</span></div>';
   if (S.autoBuyErr === key) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Couldn’t calculate. <button class="btn link small" type="button" data-action="buy-retry">Try again</button></div></div>';
   if (!A) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Testing each Rare in your run…</div></div>';
   // os melhores primeiro, mesmo os que mudam pouco (assim vês sempre qual é o Rare que mais compensa)

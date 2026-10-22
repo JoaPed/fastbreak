@@ -818,3 +818,22 @@ p, .note { text-wrap: pretty; }
 .gc tr.me td.who2, .gc tr.me td.rr { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
 .gc tr.me td.who2 { box-shadow: inset 3px 0 0 var(--accent); border-radius: 8px; }
 .gc tr.me td.who2 b { color: var(--accent); }
+
+/* dia passado: um bloco por estatística (nome, feito, alvo) e uma linha por conta */
+.gblocks { display: flex; flex-wrap: wrap; gap: 14px 30px; align-items: flex-end; }
+.gb { display: grid; gap: 6px; }
+.gb-st { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--board-muted); text-transform: uppercase; }
+.gb-n { font-family: var(--font-display); font-weight: 800; font-size: 56px; line-height: .85; font-variant-numeric: tabular-nums; }
+.gb-n.g-ok { color: var(--board-good); } .gb-n.g-no { color: var(--board-bad); }
+.gb-t { font-size: 13px; color: var(--board-muted); }
+@media (max-width: 480px) { .gblocks { column-gap: 18px; } .gb-n { font-size: 46px; } .gb-st { font-size: 15px; } .gb-t { font-size: 12px; } }
+@media (max-width: 360px) { .gb-n { font-size: 40px; } .gblocks { column-gap: 14px; } }
+.score > .gblocks { flex: 1; min-width: 0; }
+.acc-res { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .08); display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--n, 2), auto) auto; gap: 6px 18px; align-items: baseline; font-size: 13px; color: var(--board-muted); position: relative; }
+.acc-res .ar { display: contents; }
+.hero.past .obj-bar { margin-bottom: 10px; }
+.acc-res .ar-n { color: var(--board-ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-res .ar-v b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.acc-res .ar-v small { font-size: 11px; }
+.acc-res .ar-r { text-align: right; min-width: 74px; }
+.hero.past .acc-res .c-ok { color: var(--board-good); } .hero.past .acc-res .c-no { color: var(--board-bad); }
