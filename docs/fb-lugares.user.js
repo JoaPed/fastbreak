@@ -55,6 +55,29 @@ async function go() {
         out.accs.push({ a: a.a, found: !!r.found, rank: r.found ? +e.rank : null, wins: r.found ? +(e.displayScore != null ? e.displayScore : e.score) : 0, tb: r.found ? +e.tiebreakerScore : null, user: (e.user || {}).username || null });
       } catch (err) { out.accs.push({ a: a.a, err: String(err.message || err).slice(0, 80) }); }
     }
+    // cada dia da run (os que já fecharam e o de hoje, se já começou): lugar de cada conta nesse dia e se ganhou.
+    // Os dias que o site já tem fechados (job.known) não se voltam a pedir.
+    try {
+      const cs = ((await call('GameEngineService/SearchContests', { product: 'nba', runId: run.id })).contests || [])
+        .filter(c => c.locksAt && Date.parse(c.locksAt) <= Date.now() && !(job.known || []).includes(c.id))
+        .sort((a, b) => String(a.locksAt).localeCompare(String(b.locksAt)));
+      out.days = [];
+      let k = 0;
+      for (const c of cs) {
+        k++;
+        const d = { id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || null, name: c.name, final: /FINAL/.test(c.status || ''), objs: (c.objectives || []).map(o => [o.statAbbreviation || o.statKey, +o.target]), accs: {}, asked: job.accs.map(a => String(a.a).replace(/^0x/, '').toLowerCase()) };
+        const lbc = c.leaderboardId || ('contest:' + c.id);
+        for (const a of job.accs) {
+          say('A ler os dias… ' + k + ' de ' + cs.length);
+          try {
+            const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: lbc, subjectId: String(a.a).replace(/^0x/, '').toLowerCase() });
+            if (r.totalCount) d.total = +r.totalCount;
+            if (r.found) { const e = r.entry || {}; d.accs[String(a.a).replace(/^0x/, '').toLowerCase()] = { rank: +e.rank, score: +e.score, won: +e.score >= 1e6, ds: e.displayScore != null ? +e.displayScore : null }; }
+          } catch (err) {}
+        }
+        out.days.push(d);
+      }
+    } catch (err) { out.daysErr = String(err.message || err).slice(0, 80); }
     // vitórias de quem está nos lugares que contam (corte do top 50 e do último lugar pago), se a API deixar saltar
     const lastPaid = out.bands.length ? Math.max(...out.bands.map(b => b[1])) : 250;
     for (const k of [...new Set([out.qual || 50, lastPaid])]) {

@@ -596,16 +596,26 @@ function takeRanksHash() {
   const m = location.hash.match(/fbranks=([A-Za-z0-9_-]+)/); if (!m) return;
   try {
     const d = b64u.dec(m[1]);
-    if (d && Array.isArray(d.accs)) { S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.'), 300); S.lastSummary = ''; }
+    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.'), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
-// os lugares mais recentes do grupo (os meus ou os que outro membro publicou)
-function groupRanks() {
-  let best = S.ranksMine && S.ranksMine.at ? S.ranksMine : null;
-  ((S.group || {}).summaries || []).forEach(x => { const r = x.share && x.share.ranks; if (r && r.at && (!best || r.at > best.at)) best = r; });
-  return best;
+// junta os dias (lugar de cada conta em cada dia): os novos por cima dos antigos, conta a conta
+function mergeRankDays(a, b) {
+  const by = new Map(); (a || []).forEach(d => by.set(d.id, JSON.parse(JSON.stringify(d))));
+  (b || []).forEach(d => { const o = by.get(d.id); by.set(d.id, o ? Object.assign(o, d, { accs: Object.assign({}, o.accs, d.accs), final: d.final || o.final, asked: [...new Set((o.asked || []).concat(d.asked || []))] }) : d); });
+  return [...by.values()].sort((x, y) => String(x.date || x.id).localeCompare(String(y.date || y.id)));
 }
+// os lugares mais recentes do grupo (os meus ou os que outro membro publicou); os dias juntam-se de todos os da mesma run
+function groupRanks() {
+  const docs = [S.ranksMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ranks)).filter(r => r && r.at && Array.isArray(r.accs));
+  if (!docs.length) return null;
+  docs.sort((p, q) => String(p.at).localeCompare(String(q.at)));
+  const best = docs[docs.length - 1], runId = (best.run || {}).id;
+  return Object.assign({}, best, { days: docs.filter(r => (r.run || {}).id === runId).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
+}
+// lugar de uma conta num dia (pela data do site)
+function dayRankOf(addr, date) { const R = groupRanks(), d = R && (R.days || []).find(x => x.date === date); return d && addr ? Object.assign({ total: d.total, final: d.final }, (d.accs || {})[addrKey(addr)] || { rank: null }) : null; }
 function rankOf(addr) { const R = groupRanks(); if (!R || !addr) return null; return (R.accs || []).find(x => addrKey(x.a) === addrKey(addr)) || null; }
 // as contas do grupo com endereço Flow (as que o script procura)
 function rankJob() {
@@ -615,7 +625,8 @@ function rankJob() {
     if (p.flow_address) accs.push({ a: addrKey(p.flow_address), uid: p.user_id, acc: 'main' });
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
-  return { accs, back: siteBase() };
+  const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
+  return { accs, back: siteBase(), known };
 }
 // escalões que os amigos marcaram carta a carta, juntos por set (servem para os sets que tu não marcaste)
 function groupTierLabels(profiles) {
