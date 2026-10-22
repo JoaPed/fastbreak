@@ -596,7 +596,8 @@ function takeRanksHash() {
   const m = location.hash.match(/fbranks=([A-Za-z0-9_-]+)/); if (!m) return;
   try {
     const d = b64u.dec(m[1]);
-    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.'), 300); S.lastSummary = ''; }
+    if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
+    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores.' : '')), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
@@ -627,7 +628,43 @@ function rankJob() {
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
-  return { accs, back: siteBase(), known };
+  return { accs, back: siteBase(), known, pl: pxWanted().map(id => [id, nameOf(id)]) };
+}
+// ---------- preços do mercado lidos no próprio Top Shot (o script "FB lugares" lê-os com os lugares) ----------
+// S.pxMine = {at, p: {id: [Common, Rare, Legendary] em cêntimos ou null}}; fica no resumo publicado (share.px) e o grupo
+// usa, jogador a jogador, o preço mais recente que alguém leu
+try { S.pxMine = JSON.parse(localStorage.getItem('fb-px') || 'null'); } catch (e) { S.pxMine = null; }
+function pxTake(px) {
+  const old = S.pxMine && S.pxMine.p ? S.pxMine : { p: {}, t: {} }, t = Object.assign({}, old.t || {});
+  Object.keys(px.p).forEach(id => { t[id] = px.at; });
+  // guarda os de antes (de outros jogadores) com a hora de cada um; os que já têm mais de 3 dias saem
+  const p = Object.assign({}, old.p, px.p);
+  Object.keys(p).forEach(id => { const at = t[id] || old.at; if (!at || Date.now() - Date.parse(at) > 3 * 864e5) { delete p[id]; delete t[id]; } else t[id] = at; });
+  S.pxMine = { at: px.at, p, t }; S.pxNew = Object.keys(px.p).length; S.pxIdx = null;
+  try { localStorage.setItem('fb-px', JSON.stringify(S.pxMine)); } catch (e) {}
+}
+// jogador → {c: [3 preços], at}: o mais recente entre o meu e os que o grupo publicou
+function pxIndex() {
+  const key = [(S.group || {}).summaries, S.pxMine && S.pxMine.at];
+  if (S.pxIdx && S.pxIdx.k[0] === key[0] && S.pxIdx.k[1] === key[1]) return S.pxIdx.m;
+  const m = new Map(), docs = [S.pxMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.px)).filter(d => d && d.at && d.p);
+  docs.forEach(d => Object.entries(d.p).forEach(([id, c]) => { const at = (d.t || {})[id] || d.at, o = m.get(id); if (Array.isArray(c) && (!o || at > o.at)) m.set(id, { c, at }); }));
+  S.pxIdx = { k: key, m };
+  return m;
+}
+const pxOf = id => { const x = pxIndex().get(String(canon(id))) || pxIndex().get(String(id)); return x && Date.now() - Date.parse(x.at) < 3 * 864e5 ? x : null; };
+const pxCol = uses => (uses >= 4 ? 2 : uses >= 2 ? 1 : 0);
+// os jogadores a ler: o teu plantel e coleção, as sugestões de compra, os especialistas e os melhores marcadores (até 220)
+function pxWanted() {
+  const out = new Set(), add = id => { if (id != null && out.size < 220) out.add(String(canon(id))); };
+  Object.keys(S.mine.roster || {}).forEach(add);
+  Object.keys(((S.profile || {}).collection || {}).players || {}).forEach(add);
+  [S.buy && S.buy.results, S.autoBuy].forEach(R => { if (R) { (R.list || []).forEach(x => add(x.id)); (R.rank || []).slice(0, 40).forEach(x => add(x && x.id != null ? x.id : x)); } });
+  const pool = [...S.players.values()].filter(p => p.team && p.avg && (+p.avg.min || 0) >= 12);
+  const val = (p, k) => { const a = FB.avgOf({ avg: p.avg }, k); return a ? a.v : 0; };
+  SPEC_STATS.forEach(k => pool.slice().sort((a, b) => val(b, k) - val(a, k)).slice(0, 12).forEach(p => add(p.id)));
+  pool.slice().sort((a, b) => val(b, 'pts') - val(a, 'pts')).forEach(p => add(p.id));
+  return [...out].filter(id => S.players.has(id) || (S.mine.roster || {})[id]);
 }
 // escalões que os amigos marcaram carta a carta, juntos por set (servem para os sets que tu não marcaste)
 function groupTierLabels(profiles) {
@@ -807,7 +844,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -2246,7 +2283,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
   } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && (usesGain(id, U) > 0 || (S.multi && collectionInfo(id).copies === 1)));
   // preço máximo: só quem tem um Moment desse escalão à venda até esse preço (mercado do Top Shot)
   let priced = null;
-  if (maxPrice > 0 && !onlyId && !ids) { if (prog) prog('A ver os preços do mercado…'); if (await mktLoad(pool)) { priced = pool.length; pool = pool.filter(id => { const p = mktOf(id, U); return p && p.ask != null && p.ask <= maxPrice; }); } }
+  if (maxPrice > 0 && !onlyId && !ids) { if (prog) prog('A ver os preços do mercado…'); if ((await mktLoad(pool)) || pxIndex().size) { priced = pool.length; pool = pool.filter(id => { const p = mktOf(id, U); return p && p.ask != null && p.ask <= maxPrice; }); } }
   if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true, priced, maxPrice };
   // compra: jogador novo com U usos (fica na conta principal), ou mais U usos (e mais um Moment) para quem já tens
   const add = id => pl => {
@@ -2589,8 +2626,8 @@ function renderGrupo() {
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div>' +
     '<div class="small muted gc-leg"><i class="lg w"></i> ganhou o dia · <i class="lg l"></i> perdeu' + (lastPaid ? ' · <b class="dz">+$</b> prémio do dia · lugar da run <b class="z-p">a laranja</b>: com prémio (até ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">a dourado</b>: top ' + qual + ' (vai à final)' : '') : '') +
       (R && R.cut && Object.keys(R.cut).length ? ' · vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
-    '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares</button><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
-    '<div class="small muted" style="padding:0 4px">«Atualizar lugares» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
+    '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares e preços</button><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
+    '<div class="small muted" style="padding:0 4px">«Atualizar lugares e preços» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. Lê os lugares e também os preços do mercado (o teu plantel, os especialistas e as sugestões de compra). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
@@ -3026,6 +3063,8 @@ async function mktLoad(ids) {
 }
 // preço de um jogador num escalão (uses: 1, 2 ou 4): {ask, serial, last, lastAt, n}
 function mktOf(id, uses) {
+  const x = pxOf(id);
+  if (x) { const v = x.c[pxCol(uses)]; return { ask: v != null ? v / 100 : null, serial: null, last: null, lastAt: null, n: 0, ts: x.at }; }
   const m = S.mkt.get(mktKey(id)); if (!m) return null;
   const ts = MKT_TIER[uses] || ['Common', 'Fandom'], a = m.asks.filter(r => ts.includes(r.tier)), sl = m.sales.filter(r => ts.includes(r.tier));
   return { ask: a.length ? +a[0].price : null, serial: a.length ? a[0].serial : null, last: sl.length ? +sl[0].price : null, lastAt: sl.length ? sl[0].sold_at : null, n: sl.length };
@@ -3036,17 +3075,22 @@ function mktTxt(id, uses) {
   return p.ask != null ? 'à venda desde <b class="num">' + usd(p.ask) + '</b>' : '';
 }
 // marcador que se preenche quando os preços chegam
-function mktSpan(id, uses) { if (S.mktOff) return ''; mktNeed([id]); return '<span class="mkt" data-mk="' + esc(id) + '" data-u="' + uses + '">' + mktTxt(id, uses) + '</span>'; }
+function mktSpan(id, uses) { if (S.mktOff && !pxOf(id)) return ''; if (!pxOf(id)) mktNeed([id]); return '<span class="mkt" data-mk="' + esc(id) + '" data-u="' + uses + '">' + mktTxt(id, uses) + '</span>'; }
 function mktFill() {
   document.querySelectorAll('.mkt[data-mk]').forEach(el => { el.innerHTML = mktTxt(el.dataset.mk, +el.dataset.u); });
   document.querySelectorAll('.mkt-box[data-mk]').forEach(el => { el.outerHTML = mktBlock(el.dataset.mk); });
 }
 // ficha do jogador: um preço por escalão
 function mktBlock(id) {
-  if (S.mktOff) return '';
+  const x = pxOf(id), upd = '<button class="btn sm" type="button" data-action="ranks-go" style="margin-top:6px">Atualizar no Top Shot</button>';
+  if (x) {
+    const rows = [1, 2, 4].map((u, i) => '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">' + (x.c[i] != null ? 'à venda desde <b class="num">' + usd(x.c[i] / 100) + '</b>' : '<span class="muted">nenhum à venda</span>') + '</span></div>').join('');
+    return '<div class="mkt-box"><div class="list-head" style="margin-bottom:4px"><span class="label">Mercado do Top Shot</span><span class="small muted">' + esc(ago(x.at)) + '</span></div>' + rows + (Date.now() - Date.parse(x.at) > 6 * 3600e3 ? upd : '') + '</div>';
+  }
+  if (S.mktOff) return '<div class="mkt-box"><div class="label" style="margin-bottom:4px">Mercado do Top Shot</div><div class="small muted">Sem preços lidos deste jogador.</div>' + upd + '</div>';
   const m = S.mkt.get(mktKey(id)); mktNeed([id]);
   const rows = m ? [1, 2, 4].map(u => { const p = mktOf(id, u); return p && p.ask != null ? '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">à venda desde <b class="num">' + usd(p.ask) + '</b>' + (p.serial ? ' (#' + p.serial + ')' : '') + '</span></div>' : ''; }).join('') : '';
-  return '<div class="mkt-box"' + (m ? '' : ' data-mk="' + esc(id) + '"') + '><div class="label" style="margin-bottom:4px">Mercado do Top Shot</div>' + (m ? rows || '<div class="small muted">Nenhum Moment dele à venda visto.</div>' : '<div class="small muted">A ler os preços…</div>') + '</div>';
+  return '<div class="mkt-box"' + (m ? '' : ' data-mk="' + esc(id) + '"') + '><div class="label" style="margin-bottom:4px">Mercado do Top Shot</div>' + (m ? (rows ? rows + '<div class="small muted">Aproximado (lido da blockchain). Para o preço certo, atualiza no Top Shot.</div>' : '<div class="small muted">Nenhum Moment dele à venda visto.</div>') + upd : '<div class="small muted">A ler os preços…</div>') + '</div>';
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
 // (p. ex. dos dois Luka, só um é Rare); os usos por run do jogador são os da melhor carta

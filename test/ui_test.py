@@ -882,7 +882,7 @@ with sync_playwright() as pw:
     ranks_k3 = {'v': 1, 'at': '2026-10-22T08:00:00Z', 'run': {'id': 'run-nba-classic-2026-10-20', 'name': 'CLASSIC - RUN 1'}, 'total': 2601, 'cut': {'50': 2, '250': 2},
                 'accs': [{'a': '00000000000000c2', 'found': True, 'rank': 12, 'wins': 2}, {'a': '00000000000000c1', 'found': True, 'rank': 574, 'wins': 1}],
                 'bands': [[1, 1, 200000, ''], [11, 30, 5000, ''], [151, 250, 200, '']], 'qual': 50,
-                'days': [{'id': 'c-d2', 'date': d2, 'final': True, 'total': 2343, 'accs': {'00000000000000c1': {'rank': 26, 'won': True}, '00000000000000c2': {'rank': 1300, 'won': False}}, 'asked': ['00000000000000c1', '00000000000000c2']}]}
+                'days': [{'id': 'c-d2', 'date': d2, 'final': True, 'total': 2343, 'accs': {'00000000000000c1': {'rank': 26, 'won': True}, '00000000000000c2': {'rank': 1300, 'won': False}}, 'asked': ['00000000000000c1', '00000000000000c2']}], 'px': {'at': '2026-10-22T07:30:00Z', 'p': {'curry': [250, 1890, None]}, 'miss': []}}
     pg.goto('https://site.test/#fbranks=' + _b64.urlsafe_b64encode(json.dumps(ranks_k3).encode()).decode().rstrip('=')); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
     pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).done' % d2, timeout=15000); pg.wait_for_timeout(500)
@@ -895,6 +895,17 @@ with sync_playwright() as pw:
     pg.set_viewport_size({'width': 390, 'height': 800}); pg.wait_for_timeout(200); pg.screenshot(path=str(shots / 'grupo-grelha.png'), full_page=True); print('K3 largura grelha:', width(pg))
     pg.locator('#tab-grupo .gc tr[data-acc="s9"]').click(); pg.wait_for_timeout(300)
     print('K3 folha da smurf:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:260])
+    # preços lidos no Top Shot (vêm com os lugares): ficha do jogador e resumo publicado
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.click('#t-plantel'); pg.wait_for_timeout(500)
+    pg.locator('#plBody .pl-card').filter(has_text='Curry').first.click(); pg.wait_for_timeout(500)
+    print('K3 mercado Curry (Top Shot):', pg.locator('#sheetPanel .mkt-box').inner_text().replace('\n', ' | ') if pg.locator('#sheetPanel .mkt-box').count() else '-')
+    print('K3 preços publicados:', store(pg, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return x && x.share && x.share.px ? x.share.px.p : null; })()'))
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.click('#t-grupo'); pg.wait_for_timeout(400); pg.click('#tab-grupo button[data-action="ranks-go"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
+    job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
+    print('K3 pedido ao Top Shot:', len(job['accs']), 'contas ·', len(job.get('pl') or []), 'jogadores para preços · 1.º:', (job.get('pl') or [None])[0])
     pg.close()
 
     # ---------- L: Mudar o lineup antes dos jogos (fixar, tirar e pôr um a um, com o que muda face à sugestão) ----------
