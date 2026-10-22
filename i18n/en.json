@@ -220,7 +220,8 @@
   "at": {
    "S.colN = list.length; const cnt = $('colCount'); if (cnt) cnt.textContent = list.length + ' jogadores';": " players",
    "const info = R ? esc((R.run || {}).name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugar": true,
-   "const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top ": true
+   "const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top ": true,
+   "if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [],": " players"
   }
  },
  " PTS": null,
@@ -1618,7 +1619,6 @@
  " mais prometedores (de ": " most promising (of ",
  "<div class=\"small muted\" id=\"buyMoreProg\">A refazer a run…</div>": "<div class=\"small muted\" id=\"buyMoreProg\">Redoing the run…</div>",
  "<div class=\"small muted buy-intro\">Vi os ": "<div class=\"small muted buy-intro\">Looked at the ",
- " mais prometedores.</div>": " most promising.</div>",
  "<div id=\"buyMoreBox\"><button class=\"btn\" type=\"button\" data-action=\"buy-more\">Testar os próximos ": "<div id=\"buyMoreBox\"><button class=\"btn\" type=\"button\" data-action=\"buy-more\">Test the next ",
  "Feito ✓": "Done ✓",
  "Ver": "Show",
@@ -1795,7 +1795,6 @@
  "A ver os preços do mercado…": "Checking marketplace prices…",
  "Nenhum ": "No ",
  " com jogos nos dias que faltam está à venda até ": " with games in the remaining days is listed up to ",
- " (dos Moments à venda que a tarefa do mercado já viu). Sobe o preço máximo.": " (among the listings the marketplace job has seen). Raise the max price.",
  "Rare+": "Rare+",
  " jogadores com jogos nos dias que faltam": " players with games in the remaining days",
  " e um ": " and a ",
@@ -1812,6 +1811,17 @@
  "<div class=\"mkt-box\"><div class=\"label\" style=\"margin-bottom:4px\">Mercado do Top Shot</div><div class=\"small muted\">Sem preços lidos deste jogador.</div>": "<div class=\"mkt-box\"><div class=\"label\" style=\"margin-bottom:4px\">Top Shot market</div><div class=\"small muted\">No prices read for this player yet.</div>",
  "<div class=\"small muted\">Aproximado (lido da blockchain). Para o preço certo, atualiza no Top Shot.</div>": "<div class=\"small muted\">Approximate (read from the blockchain). For the exact price, update on Top Shot.</div>",
  "<div class=\"small muted\" style=\"padding:0 4px\">«Atualizar lugares e preços» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. Lê os lugares e também os preços do mercado de todos os jogadores (demora 1–2 minutos). <a href=\"": "<div class=\"small muted\" style=\"padding:0 4px\">“Update ranks and prices” opens Fast Break on Top Shot: there tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. It reads the ranks and also the market prices of every player (it takes 1–2 minutes). <a href=\"",
+ " não encontrados no Top Shot)": " not found on Top Shot)",
+ ". Sobe o preço máximo.": ". Raise the max price.",
+ " que esteja à venda": " that is for sale",
+ "Nenhum dos candidatos tem um ": "None of the candidates has a ",
+ " à venda.": " for sale.",
+ " mais prometedores.": " most promising.",
+ " Ficaram de fora ": " Left out ",
+ " sem nenhum ": " with no ",
+ "<span class=\"muted\">nenhum ": "<span class=\"muted\">no ",
+ " à venda</span>": " for sale</span>",
+ "<span class=\"muted\">não encontrado no Top Shot</span>": "<span class=\"muted\">not found on Top Shot</span>",
  "normal": null,
  "sem": null,
  "odds": null,

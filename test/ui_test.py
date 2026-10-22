@@ -882,7 +882,7 @@ with sync_playwright() as pw:
     ranks_k3 = {'v': 1, 'at': '2026-10-22T08:00:00Z', 'run': {'id': 'run-nba-classic-2026-10-20', 'name': 'CLASSIC - RUN 1'}, 'total': 2601, 'cut': {'50': 2, '250': 2},
                 'accs': [{'a': '00000000000000c2', 'found': True, 'rank': 12, 'wins': 2}, {'a': '00000000000000c1', 'found': True, 'rank': 574, 'wins': 1}],
                 'bands': [[1, 1, 200000, ''], [11, 30, 5000, ''], [151, 250, 200, '']], 'qual': 50,
-                'days': [{'id': 'c-d2', 'date': d2, 'final': True, 'total': 2343, 'accs': {'00000000000000c1': {'rank': 26, 'won': True}, '00000000000000c2': {'rank': 1300, 'won': False}}, 'asked': ['00000000000000c1', '00000000000000c2']}], 'px': {'at': '2026-10-22T07:30:00Z', 'p': {'curry': [250, 1890, None]}, 'miss': []}}
+                'days': [{'id': 'c-d2', 'date': d2, 'final': True, 'total': 2343, 'accs': {'00000000000000c1': {'rank': 26, 'won': True}, '00000000000000c2': {'rank': 1300, 'won': False}}, 'asked': ['00000000000000c1', '00000000000000c2']}], 'px': {'at': '2026-10-22T07:30:00Z', 'p': {**{'x%d' % i: [100, None, None] for i in range(60)}, **{p_['id']: [100, (700 + 10 * i_) if i_ % 2 else None, None] for i_, p_ in enumerate(Tk['nba_players'])}, 'curry': [250, 1890, None]}, 'miss': ['brunson']}}
     pg.goto('https://site.test/#fbranks=' + _b64.urlsafe_b64encode(json.dumps(ranks_k3).encode()).decode().rstrip('=')); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
     pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).done' % d2, timeout=15000); pg.wait_for_timeout(500)
@@ -902,6 +902,10 @@ with sync_playwright() as pw:
     print('K3 mercado Curry (Top Shot):', pg.locator('#sheetPanel .mkt-box').inner_text().replace('\n', ' | ') if pg.locator('#sheetPanel .mkt-box').count() else '-')
     print('K3 preços publicados:', store(pg, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return x && x.share && x.share.px ? x.share.px.p : null; })()'))
     pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    # com preços lidos (≥50 jogadores): as compras só sugerem quem tem um Rare à venda, e mostram o preço
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
+    pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-card, #buyOut .note', timeout=30000); pg.wait_for_timeout(300)
+    print('K3 compras com preços:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:420])
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
     pg.click('#t-grupo'); pg.wait_for_timeout(400); pg.click('#tab-grupo button[data-action="ranks-go"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
     job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())

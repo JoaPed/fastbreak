@@ -597,7 +597,7 @@ function takeRanksHash() {
   try {
     const d = b64u.dec(m[1]);
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
-    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores.' : '')), 300); S.lastSummary = ''; }
+    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '')), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
@@ -640,7 +640,7 @@ function pxTake(px) {
   // guarda os de antes (de outros jogadores) com a hora de cada um; os que já têm mais de 3 dias saem
   const p = Object.assign({}, old.p, px.p);
   Object.keys(p).forEach(id => { const at = t[id] || old.at; if (!at || Date.now() - Date.parse(at) > 3 * 864e5) { delete p[id]; delete t[id]; } else t[id] = at; });
-  S.pxMine = { at: px.at, p, t }; S.pxNew = Object.keys(px.p).length; S.pxIdx = null;
+  S.pxMine = { at: px.at, p, t, miss: (px.miss || []).slice(0, 400) }; S.pxNew = Object.keys(px.p).length; S.pxMissN = (px.miss || []).length; S.pxIdx = null;
   try { localStorage.setItem('fb-px', JSON.stringify(S.pxMine)); } catch (e) {}
 }
 // jogador → {c: [3 preços], at}: o mais recente entre o meu e os que o grupo publicou
@@ -653,6 +653,11 @@ function pxIndex() {
   return m;
 }
 const pxOf = id => { const x = pxIndex().get(String(canon(id))) || pxIndex().get(String(id)); return x && Date.now() - Date.parse(x.at) < 3 * 864e5 ? x : null; };
+// jogador que o script não encontrou na lista do Top Shot na última leitura (sem Moments, ou nome diferente)
+const pxMiss = id => !!(S.pxMine && S.pxMine.miss && Date.now() - Date.parse(S.pxMine.at) < 3 * 864e5 && S.pxMine.miss.includes(String(canon(id))) && !pxOf(id));
+// com preços lidos: só se sugere quem tem um Moment desse escalão à venda
+const pxReady = () => pxIndex().size >= 50;
+const buyable = (id, U) => { const p = mktOf(id, U); return !!(p && p.ask != null); };
 const pxCol = uses => (uses >= 4 ? 2 : uses >= 2 ? 1 : 0);
 // os jogadores a ler: sempre todos os que podem aparecer nas compras (os da NBA com médias), primeiro o teu plantel
 // e a coleção, as sugestões de compra e os especialistas, depois por minutos
@@ -2282,10 +2287,13 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
     // com smurfs: também um 2.º Moment de quem só tens um (para as duas contas o usarem na mesma noite)
     if (mode === 'mix') pool = [...new Set(pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && collectionInfo(id).copies === 1)))];
   } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && (usesGain(id, U) > 0 || (S.multi && collectionInfo(id).copies === 1)));
+  // com os preços do Top Shot lidos: fora quem não tem um Moment desse escalão à venda
+  let unsold = 0;
+  if (!onlyId && !ids && pxReady()) { const n0 = pool.length; pool = pool.filter(id => buyable(id, U)); unsold = n0 - pool.length; }
   // preço máximo: só quem tem um Moment desse escalão à venda até esse preço (mercado do Top Shot)
   let priced = null;
   if (maxPrice > 0 && !onlyId && !ids) { if (prog) prog('A ver os preços do mercado…'); if ((await mktLoad(pool)) || pxIndex().size) { priced = pool.length; pool = pool.filter(id => { const p = mktOf(id, U); return p && p.ask != null && p.ask <= maxPrice; }); } }
-  if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true, priced, maxPrice };
+  if (!pool.length) return { list: [], U, mode, base: null, single: !!onlyId, noPool: true, priced, maxPrice, unsold };
   // compra: jogador novo com U usos (fica na conta principal), ou mais U usos (e mais um Moment) para quem já tens
   const add = id => pl => {
     if (pl[id]) { pl[id].uses = (+pl[id].uses || 0) + usesGain(id, U); pl[id].copies = (pl[id].copies || 1) + 1; pl[id].owner = null; }
@@ -2333,7 +2341,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
     }
   }
   list.sort((a, b) => b.ev.total - a.ev.total);
-  return { list, U, mode, base, single: !!onlyId, rank, pool: pool.length, maxPrice: priced != null ? maxPrice : null };
+  return { list, U, mode, base, single: !!onlyId, rank, pool: pool.length, unsold, maxPrice: priced != null ? maxPrice : null };
 }
 async function buyRun(onlyId) {
   const B = S.buy, out = $('buyOut'); if (!out) return;
@@ -2343,7 +2351,7 @@ async function buyRun(onlyId) {
   const mx = parseFloat(String((($('buyMax') || {}).value) || B.max || '').replace(',', '.')); B.max = mx > 0 ? mx : null;
   const res = await computeBuy({ onlyId, mode, U: B.uses, maxPrice: B.max, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog: t => { const el = $('buyProg'); if (el) el.textContent = t; } });
   if (!res || !$('buyOut')) return;
-  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (res.priced != null ? 'Nenhum ' + tierName(B.uses) + ' com jogos nos dias que faltam está à venda até ' + usd(res.maxPrice) + ' (dos Moments à venda que a tarefa do mercado já viu). Sobe o preço máximo.' : mode === 'more' ? 'Ninguém do teu plantel ganha usos com um Moment ' + tierName(B.uses) + '. Experimenta um escalão acima.' : 'Não há candidatos com jogos nos dias que faltam.') + '</div>'; return; }
+  if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (res.priced != null ? 'Nenhum ' + tierName(B.uses) + ' com jogos nos dias que faltam está à venda até ' + usd(res.maxPrice) + '. Sobe o preço máximo.' : mode === 'more' ? 'Ninguém do teu plantel ganha usos com um Moment ' + tierName(B.uses) + (res.unsold ? ' que esteja à venda' : '') + '. Experimenta um escalão acima.' : res.unsold ? 'Nenhum dos candidatos tem um ' + tierName(B.uses) + ' à venda.' : 'Não há candidatos com jogos nos dias que faltam.') + '</div>'; return; }
   if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, B.uses) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">Já tens ' + esc(nameOf(onlyId)) + ' com ' + plural(perRunUses(onlyId), 'uso', 'usos') + ' por run: escolhe um escalão acima.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
@@ -2372,7 +2380,7 @@ let autoBuyTimer = null, autoBuyBusy = null;
 function autoBuyKey() {
   const r = mainResult(), run = curRun();
   if (!S.runId || !run || !r || !r.model.days.length || !Object.keys(S.mine.roster || {}).length || !S.players.size) return null;
-  return [S.runId, r.normal.objective.toFixed(5), S.multi ? S.multi.objective.toFixed(5) : '', Object.keys(S.mine.roster).length, S.injAt || ''].join('|');
+  return [S.runId, r.normal.objective.toFixed(5), S.multi ? S.multi.objective.toFixed(5) : '', Object.keys(S.mine.roster).length, S.injAt || '', S.pxMine && S.pxMine.at || ''].join('|');
 }
 function scheduleAutoBuy() {
   const key = autoBuyKey();
@@ -2421,7 +2429,7 @@ function buyResultsHtml(R) {
   const prizes = mainResult().prizes, keys = R.base.group ? R.base.group.keys : ['main'], multi = keys.length > 1;
   const resOf = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res);
   const seen = new Set(R.list.map(x => String(x.id)).concat(R.skip || [])), left = R.rank ? R.rank.filter(id => !seen.has(id)).length : 0;
-  const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Vi os ' + R.pool + ' jogadores com jogos nos dias que faltam' + (R.maxPrice ? ' e um ' + tierName(R.U) + ' à venda até ' + usd(R.maxPrice) : '') + ' e refiz a run a sério com os ' + R.list.length + ' mais prometedores.</div>';
+  const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Vi os ' + R.pool + ' jogadores com jogos nos dias que faltam' + (R.maxPrice ? ' e um ' + tierName(R.U) + ' à venda até ' + usd(R.maxPrice) : '') + ' e refiz a run a sério com os ' + R.list.length + ' mais prometedores.' + (R.unsold ? ' Ficaram de fora ' + R.unsold + ' sem nenhum ' + tierName(R.U) + ' à venda.' : '') + '</div>';
   const moreBtn = left ? '<div id="buyMoreBox"><button class="btn" type="button" data-action="buy-more">Testar os próximos ' + Math.min(left, S.multi ? 5 : 8) + '</button></div>' : '';
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
@@ -2452,7 +2460,7 @@ function buyResultsHtml(R) {
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prémios que mudam: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
     return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><span class="who">' + face(id) + '<h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2></span><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2.º Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
-      head + (S.mktOff ? '' : '<div class="small">' + mktSpan(id, R.U) + '</div>') + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
+      head + '<div class="small">' + mktSpan(id, R.U) + '</div>' + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Vitórias esperadas' + (multi ? ' (todas as contas)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
   }).join('') + moreBtn;
 }
@@ -3074,8 +3082,11 @@ function mktOf(id, uses) {
 }
 const usd = x => '$' + (x >= 100 || Math.abs(x - Math.round(x)) < 0.005 ? f0(x) : (Math.round(x * 100) / 100).toFixed(2).replace('.', ','));
 function mktTxt(id, uses) {
-  const p = mktOf(id, uses); if (!p || p.ask == null) return '';
-  return p.ask != null ? 'à venda desde <b class="num">' + usd(p.ask) + '</b>' : '';
+  const p = mktOf(id, uses);
+  if (p && p.ask != null) return 'à venda desde <b class="num">' + usd(p.ask) + '</b>';
+  if (p && p.ts) return '<span class="muted">nenhum ' + tierName(uses) + ' à venda</span>';
+  if (pxMiss(id)) return '<span class="muted">não encontrado no Top Shot</span>';
+  return '';
 }
 // marcador que se preenche quando os preços chegam
 function mktSpan(id, uses) { if (S.mktOff && !pxOf(id)) return ''; if (!pxOf(id)) mktNeed([id]); return '<span class="mkt" data-mk="' + esc(id) + '" data-u="' + uses + '">' + mktTxt(id, uses) + '</span>'; }
