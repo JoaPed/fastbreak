@@ -807,3 +807,5 @@ p, .note { text-wrap: pretty; }
 .ctr-btn { display: flex; justify-content: center; }
 .ctr-btn .btn { min-width: 220px; }
 #pastLu .lu-main { cursor: default; }
+.gc small.dz, .gc-leg .dz { display: block; font-size: 10px; font-weight: 700; color: var(--good); margin-top: 2px; }
+.gc-leg .dz { display: inline; font-size: inherit; }

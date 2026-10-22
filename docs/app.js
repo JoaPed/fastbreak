@@ -615,6 +615,7 @@ function groupRanks() {
   return Object.assign({}, best, { days: docs.filter(r => (r.run || {}).id === runId).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
 }
 // lugar de uma conta num dia (pela data do site)
+const DAY_BANDS = [[1, 1, 15000], [2, 2, 10000], [3, 3, 5000], [4, 4, 2000], [5, 10, 1000], [11, 25, 500], [26, 50, 300], [51, 100, 200]];
 function dayRankOf(addr, date) { const R = groupRanks(), d = R && (R.days || []).find(x => x.date === date); return d && addr ? Object.assign({ total: d.total, final: d.final }, (d.accs || {})[addrKey(addr)] || { rank: null }) : null; }
 function rankOf(addr) { const R = groupRanks(); if (!R || !addr) return null; return (R.accs || []).find(x => addrKey(x.a) === addrKey(addr)) || null; }
 // as contas do grupo com endereço Flow (as que o script procura)
@@ -2553,26 +2554,31 @@ function renderGrupo() {
   // grelha: uma linha por conta, o lugar na run (com o prémio que daria hoje) e o lugar em cada dia já jogado
   const run = curRun() || {}, today = todayET();
   const days = S.days.filter(d => d.date <= today || (nd && nd.date === d.date) || people.some(x => x.daysRes[d.date]));
-  const prizeAt = r => { const b = R && (R.bands || []).find(z => r >= z[0] && r <= z[1]); if (!b) return ''; const v = b[2] / 100; return b[2] ? '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('pt-PT')) : b[3] || ''; };
+  const money = c => { const v = c / 100; return '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('pt-PT')); };
+  const prizeAt = r => { const b = R && (R.bands || []).find(z => r >= z[0] && r <= z[1]); return !b ? '' : b[2] ? money(b[2]) : b[3] || ''; };
+  // prémio de um dia (créditos): pelas faixas desse dia (ou as do Classic: 150, 100, 50, 20, 10, 5, 3, 2 até ao 100.º), só para quem ganhou o dia
+  const dayPrize = (d, dr) => { if (!dr || !dr.rank || !dr.won) return 0; const bands = d && d.bands && d.bands.length ? d.bands : DAY_BANDS, b = bands.find(z => dr.rank >= z[0] && dr.rank <= z[1]); return b ? b[2] : 0; };
+  const rdays = (R && R.days) || [];
   const lastPaid = R && (R.bands || []).length ? Math.max(...R.bands.map(b => b[1])) : null, qual = R && R.qual;
   const zone = r => (qual && r <= qual ? ' z-q' : lastPaid && r <= lastPaid ? ' z-p' : '');
   const cell = (x, d) => {
-    const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : x.daysRes[d.date];
+    const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : x.daysRes[d.date], pz = dayPrize(rdays.find(z => z.date === d.date), dr);
     const cls = res === 'win' ? 'w' : res === 'loss' ? 'l' : 'n', tip = dShort(d.date) + (res ? (res === 'win' ? ': ganhou' : ': perdeu') : '') + (dr && dr.rank && dr.total ? ' · ' + dr.rank + ' de ' + dr.total : '');
-    return '<td class="c ' + cls + (nd && nd.date === d.date && !res ? ' now' : '') + '" title="' + esc(tip) + '">' + (dr && dr.rank ? dr.rank.toLocaleString('pt-PT') + '.º' : res ? (res === 'win' ? '✓' : '✕') : '—') + '</td>';
+    return '<td class="c ' + cls + (nd && nd.date === d.date && !res ? ' now' : '') + '" title="' + esc(tip) + '">' + (dr && dr.rank ? dr.rank.toLocaleString('pt-PT') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : res ? (res === 'win' ? '✓' : '✕') : '—') + '</td>';
   };
   const rows = people.map(x => {
     const rk = x.rk && x.rk.found ? x.rk : null, pz = rk ? prizeAt(rk.rank) : '';
+    const won = rdays.reduce((t, d) => t + dayPrize(d, x.addr ? Object.assign({}, (d.accs || {})[addrKey(x.addr)]) : null), 0);
     return '<tr data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
       '<span><b>' + esc(x.name) + '</b>' + (x.acc !== 'main' ? '<small>smurf' + (x.owner ? ' de ' + esc(x.owner) : '') + '</small>' : x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
-      '<td class="rr' + (rk ? zone(rk.rank) : '') + '">' + (rk ? '<b>' + rk.rank.toLocaleString('pt-PT') + '.º</b><small>' + plural(rk.wins != null ? rk.wins : x.wins, 'vitória', 'vitórias') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + plural(x.wins, 'vitória', 'vitórias') + '</small>') + '</td>' +
+      '<td class="rr' + (rk ? zone(rk.rank) : '') + '">' + (rk ? '<b>' + rk.rank.toLocaleString('pt-PT') + '.º</b><small>' + plural(rk.wins != null ? rk.wins : x.wins, 'vitória', 'vitórias') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + plural(x.wins, 'vitória', 'vitórias') + '</small>') + (won ? '<small class="dz">ganhou ' + money(won) + '</small>' : '') + '</td>' +
       days.map(d => cell(x, d)).join('') + '</tr>';
   }).join('');
   const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map((d, k) => '<th title="' + esc(objsText(d)) + '">Dia ' + (S.days.indexOf(d) + 1) + '</th>').join('') + '</tr>';
   const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top Shot ainda não lidos';
   el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + '</tbody></table></div>' +
-    '<div class="small muted gc-leg"><i class="lg w"></i> ganhou o dia · <i class="lg l"></i> perdeu' + (lastPaid ? ' · lugar da run <b class="z-p">a laranja</b>: com prémio (até ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">a dourado</b>: top ' + qual + ' (vai à final)' : '') : '') +
+    '<div class="small muted gc-leg"><i class="lg w"></i> ganhou o dia · <i class="lg l"></i> perdeu' + (lastPaid ? ' · <b class="dz">+$</b> prémio do dia · lugar da run <b class="z-p">a laranja</b>: com prémio (até ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">a dourado</b>: top ' + qual + ' (vai à final)' : '') : '') +
       (R && R.cut && Object.keys(R.cut).length ? ' · vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
     '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares</button><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
     '<div class="small muted" style="padding:0 4px">«Atualizar lugares» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
