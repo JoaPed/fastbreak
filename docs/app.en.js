@@ -261,7 +261,7 @@ const HELP = {
   especialistas: ['Specialists', 'The NBA’s best in each stat (this season mixed with last). % = how often the stat comes up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.'],
   forma: ['Form', 'Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.'],
   lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).'],
-  classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared (lighter square: still to be confirmed), and the blockchain confirms them when it brings them. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
+  classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
   lineups: ['Group lineups', 'The lineup each one’s plan suggests for each day (it changes until the game). Lock: already locked or already playing. Underlined: a player you also have.'],
   emprestimos: ['Loans', 'Redoes your run with your friends’ Moments, only on days their plan doesn’t use them. It counts the uses of one of their Moments in a run. On Top Shot they gift you the Moment and you give it back after you play that day.'],
   partilha: ['Sharing', 'The group sees the lineup your plan suggests and your players’ uses, and can ask you for Moments on days you don’t use them. Your roster and plan stay yours.'],
@@ -2506,7 +2506,7 @@ function renderGrupo() {
   const nd = nextDay(), people = groupEntries();
   const run = curRun() || {}, P = (run.prizes || []).map(p => ({ wins: +p.wins })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
   const rows = people.map((x, i) => {
-    const strip = S.days.map(d => { const r = x.daysRes[d.date], pv = x.prov[d.date]; return '<i class="' + (r === 'win' ? 'w' : r === 'loss' ? 'l' : (nd && nd.date === d.date ? 'n' : '')) + (pv ? ' p' : '') + '" title="' + dShort(d.date) + (r ? (r === 'win' ? ': win' : ': loss') + (pv ? ' (from the box scores, to be confirmed)' : '') : '') + '"></i>'; }).join('');
+    const strip = S.days.map(d => { const r = x.daysRes[d.date]; return '<i class="' + (r === 'win' ? 'w' : r === 'loss' ? 'l' : (nd && nd.date === d.date ? 'n' : '')) + '" title="' + dShort(d.date) + (r ? (r === 'win' ? ': win' : ': loss') : '') + '"></i>'; }).join('');
     const pr = x.s && Array.isArray(x.s.prize_probs) ? x.s.prize_probs : [];
     // os patamares de cada um (os que já não dão trocam pelos de baixo, por isso podem ser outros que os da run)
     const Pi = pr.length ? pr.map(q => ({ wins: +q.wins })).filter(q => q.wins > 0).sort((a, b) => a.wins - b.wins) : P;
@@ -2563,7 +2563,7 @@ function friendSheet(uid, acc) {
   const ch = E.ch, sm = acc !== 'main' ? ((Array.isArray(p.smurfs) ? p.smurfs : []).find(x => x && x.id === acc) || {}) : null;
   const rows = S.days.map((d, i) => {
     const c = ch[d.date], r = E.daysRes[d.date] || null, pv = E.prov[d.date];
-    const lineup = c && Array.isArray(c.lineup) && c.lineup.length ? c.lineup.join(' · ') : pv && E.lu[d.date] ? E.lu[d.date].map(nameOf).join(' · ') + ' · to be confirmed' : '';
+    const lineup = c && Array.isArray(c.lineup) && c.lineup.length ? c.lineup.join(' · ') : pv && E.lu[d.date] ? E.lu[d.date].map(nameOf).join(' · ') : '';
     return '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">Day ' + (i + 1) + ' · ' + esc(objsText(d)) + '</span></div><div class="ps">' + dShort(d.date) + (c && c.points != null ? ' · ' + f0(+c.points) + ' scored' : '') + (lineup ? ' · ' + esc(lineup) : '') + '</div></div>' +
       (r ? '<span class="pchip ' + (r === 'win' ? 'p-good' : 'p-bad') + '">' + (r === 'win' ? 'W' : 'L') + '</span>' : '<span class="pchip p-done">—</span>') + '</li>';
   }).join('');
@@ -3581,6 +3581,32 @@ function sheetLineup(date) {
   const d = (view() || { days: [] }).days.find(x => x.date === date);
   return lineupFor(S.acc, date) || (d ? d.lineup.slice() : []);
 }
+// mudar quem jogou num dia já passado (o Top Shot não diz o lineup submetido): o resultado é refeito pelas
+// estatísticas e os usos acertam-se (os de quem saiu voltam, os de quem entrou descontam)
+function luEditSheet() {
+  const E = S.luEdit, day = S.days.find(d => d.date === E.date); if (!day) return;
+  const lim = day.numPlayers || 5, teams = new Set((day.games || []).flatMap(g => [g[0], g[1]]));
+  const ids = Object.keys(S.mine.roster || {}).filter(id => E.ids.includes(id) || teams.has(pTeam(id))).sort((a, b) => (E.ids.includes(b) - E.ids.includes(a)) || nameOf(a).localeCompare(nameOf(b)));
+  openSheet('<h3>Who played on day ' + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">Pick the ' + lim + ' you submitted. The result is redone from the box scores and the uses are adjusted.</div>' +
+    '<div class="label" style="margin-top:12px">' + E.ids.length + ' of ' + lim + '</div><div class="chips" role="group" aria-label="Players of the day">' + ids.map(id => '<button type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-pressed="' + E.ids.includes(id) + '">' + esc(nameOf(id)) + '</button>').join('') + '</div>' +
+    '<div class="btns" style="margin-top:14px"><button class="btn primary" type="button" data-action="past-lu-save"' + (E.ids.length ? '' : ' disabled') + '>Save</button></div>');
+}
+function luEditSave() {
+  const E = S.luEdit; if (!E || !E.ids.length) return;
+  const date = E.date, day = S.days.find(d => d.date === date), cur = ((curPlan().played || {})[date]) || {}, old = cur.done ? (cur.lineup || []) : [];
+  if (cur.done) {
+    // usos de quem não tem Moments lidos (os da coleção contam-se sozinhos pelos dias jogados)
+    old.filter(id => !E.ids.includes(id)).forEach(id => { const e = S.mine.roster[id]; if (e && !colTopUses(id)) setUsesOf(e, S.acc, usesEff(e, id, S.acc) + 1); });
+    E.ids.filter(id => !old.includes(id)).forEach(id => { const e = S.mine.roster[id]; if (e && !colTopUses(id)) setUsesOf(e, S.acc, Math.max(0, usesEff(e, id, S.acc) - 1)); });
+  }
+  const c = day ? dayCalc(S.acc, day, E.ids) : null;
+  const patch = { lineup: E.ids.slice(), edited: true, chain: false, noAuto: false };
+  if (c) Object.assign(patch, { done: true, result: c.res, box: true, tot: c.tot, points: c.objs.length === 1 ? c.tot[0] : null });
+  else if (cur.done) Object.assign(patch, { box: false, tot: null, points: null });
+  planPatch({ played: { [date]: patch } });
+  S.luEdit = null; closeSheet();
+  toast(c ? 'Lineup changed: ' + (c.res === 'win' ? 'win' : 'loss') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup changed. The result is redone once the box scores are in.');
+}
 function recordResult(date, res) {
   const cur = ((curPlan().played || {})[date]) || null;
   // dia já fechado: muda só o resultado (os usos já foram descontados)
@@ -3739,6 +3765,8 @@ function valsFor(acc, date, id, objs) {
 // o lineup que jogou num dia: o da blockchain, o do ao vivo (o submetido) ou o do plano guardado antes do 1.º jogo
 function lineupFor(acc, date) {
   const uid = S.session.user.id, roster = S.mine.roster || {};
+  const ed = (planOf(acc).played || {})[date]; if (ed && ed.edited && (ed.lineup || []).length) return ed.lineup.slice(); // corrigido à mão
+
   const c = ((S.group || {}).chain || []).find(x => x.user_id === uid && x.date === date && (x.account || 'main') === acc && (x.lineup || []).length);
   if (c) { const byName = new Map(Object.keys(roster).map(id => [norm(nameOf(id)), id])), ids = c.lineup.map(n => byName.get(norm(n))).filter(Boolean); if (ids.length === c.lineup.length) return ids; }
   const pa = planOf(acc), lv = (pa.live || {})[date], sn = (pa.proj || {})[date];
@@ -3747,11 +3775,11 @@ function lineupFor(acc, date) {
   return null;
 }
 // resultado de um dia pelas estatísticas do lineup que jogou: {res, tot, ids, objs}, ou null enquanto não se sabe
-function dayCalc(acc, day) {
+function dayCalc(acc, day, ids0) {
   const objs = (day.objectives || []).filter(o => o && o.stat && +o.target > 0);
   if (!objs.length || objs.some(o => /pip/.test(o.stat))) return null; // pontos na área: só estimados, não fecham sozinhos
   const tip = firstTipOf(day); if (tip == null || Date.now() < tip) return null;
-  const ids = lineupFor(acc, day.date); if (!ids || !ids.length) return null;
+  const ids = ids0 || lineupFor(acc, day.date); if (!ids || !ids.length) return null;
   const vals = ids.map(id => valsFor(acc, day.date, id, objs));
   if (vals.some(v => v === undefined)) return null;
   const tot = objs.map((o, k) => rnd(vals.reduce((s, v) => s + (v ? +v[k] || 0 : 0), 0)));
@@ -3776,7 +3804,7 @@ function autoResults() {
       if (cur && (cur.chain || cur.box || (cur.noAuto && !cur.done))) return; // "não joguei" fica
       const c = dayCalc(a.id, day); if (!c) return;
       const extra = Object.assign({ box: true, tot: c.tot }, c.objs.length === 1 ? { points: c.tot[0] } : {});
-      if (cur && cur.done) { if (cur.result === c.res) { Object.assign(cur, extra); n++; } return; }
+      if (cur && cur.done) { if (cur.result === c.res || cur.edited) { if (cur.result !== c.res) closed.push({ a: a.id, i, c }); Object.assign(cur, extra, { result: c.res }); n++; } return; }
       c.ids.forEach(id => { const e = S.mine.roster[id]; if (e) setUsesOf(e, a.id, Math.max(0, usesEff(e, id, a.id) - 1)); });
       pa.played = Object.assign({}, pa.played, { [day.date]: Object.assign({ done: true, result: c.res, lineup: c.ids }, extra) });
       n++; closed.push({ a: a.id, i, c });
@@ -3920,10 +3948,14 @@ document.addEventListener('click', async e => {
       openSheet('<h3>' + (done ? 'Change the result of day ' : 'Close day ') + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">' +
         (done ? 'Uses stay as they are.' : lineup.length ? 'These players’ uses are deducted.' : 'No saved lineup: afterwards, adjust the uses of whoever played.') + ' Usually not needed: when the lineup’s games end, the day closes by itself with the stats.</div>' +
         (lineup.length ? '<ul class="list card">' + lineup.map(x => '<li class="row"><span>' + esc(nameOf(x)) + '</span></li>').join('') + '</ul>' : '') + '<div class="btns"><button class="btn" type="button" data-action="result" data-date="' + date + '" data-res="loss">I lost</button><button class="btn primary" type="button" data-action="result" data-date="' + date + '" data-res="win">I won</button></div>' +
+        '<button class="btn" type="button" data-action="past-lu" data-date="' + date + '">Change the players</button>' +
         '<button class="btn link small" type="button" data-action="undo-result" data-date="' + date + '">I didn’t play this day</button>');
       break;
     }
     case 'result': recordResult(date, b.dataset.res); closeSheet(); break;
+    case 'past-lu': S.luEdit = { date, ids: sheetLineup(date) }; luEditSheet(); break;
+    case 'past-lu-pick': { const E = S.luEdit; if (!E) break; const lim = (S.days.find(d => d.date === E.date) || {}).numPlayers || 5; if (E.ids.includes(id)) E.ids = E.ids.filter(x => x !== id); else if (E.ids.length < lim) E.ids.push(id); else { toast('You already have ' + lim + ' players: remove one first.'); break; } luEditSheet(); break; }
+    case 'past-lu-save': luEditSave(); break;
     case 'undo-result': undoResult(date); closeSheet(); break;
     case 'swap-done': swapDone(); break;
     case 'live-state': liveSet(id, { state: b.dataset.state }); playerSheet(id, nd.date, S.sheetBack); break;

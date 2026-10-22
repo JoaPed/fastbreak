@@ -825,6 +825,14 @@ with sync_playwright() as pw:
     print('K2 cabeçalho:', pg.locator('#runMeta').inner_text(), '· faixa:', ' · '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .day-strip .ds').all_inner_texts()[:3]))
     pg.locator('#tab-hoje .day-strip .ds').nth(1).click(); pg.wait_for_timeout(500)
     print('K2 dia 2:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:200])
+    # mudar os jogadores do dia (o lineup que foi mesmo submetido): sai o Jokić, entra outro; resultado refeito
+    pg.click('#tab-hoje button[data-action="result-sheet"]'); pg.wait_for_timeout(300)
+    pg.click('#sheetPanel button[data-action="past-lu"]'); pg.wait_for_timeout(300)
+    pg.click('#sheetPanel button[data-action="past-lu-pick"][data-id="jokic"]'); pg.wait_for_timeout(150)
+    other = pg.locator('#sheetPanel button[data-action="past-lu-pick"][aria-pressed="false"]').first
+    print('K2 mudar jogadores:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200], '· entra:', other.get_attribute('data-id'))
+    other.click(); pg.wait_for_timeout(150); pg.click('#sheetPanel button[data-action="past-lu-save"]'); pg.wait_for_timeout(1500)
+    print('K2 lineup mudado:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· aviso:', pg.locator('#toast').inner_text())
     pg.click('#tab-hoje button[data-action="result-sheet"]'); pg.wait_for_timeout(300)
     pg.click('#sheetPanel button[data-action="undo-result"]'); pg.wait_for_timeout(2500)
     print('K2 não joguei:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d2), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu2)), '·', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '))

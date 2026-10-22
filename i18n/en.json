@@ -1726,11 +1726,7 @@
  "<div class=\"small muted\">pela melhor carta: ": "<div class=\"small muted\">from the best card: ",
  "Ajustes e perfil": "Settings and profile",
  "page": "page",
- "Vitórias e derrotas de cada conta, smurfs incluídas: mal os jogos acabam, os dias fecham com as estatísticas dos jogos e o lineup que cada um partilhou (quadrado mais claro: por confirmar) e a blockchain confirma quando os traz. Os aros são a probabilidade de cada um chegar aos prémios. O admin convida amigos em Ajustes → Admin.": "Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared (lighter square: still to be confirmed), and the blockchain confirms them when it brings them. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.",
- " p": " p",
- " (pelas estatísticas, por confirmar)": " (from the box scores, to be confirmed)",
  "<span class=\"badge\">smurf": "<span class=\"badge\">smurf",
- " · por confirmar": " · to be confirmed",
  "Smurf de ": "Smurf of ",
  "&nbsp;": "&nbsp;",
  "g-ok": "g-ok",
@@ -1744,6 +1740,16 @@
  "Falhou: ": "Missed: ",
  "<b class=\"c-ok\">✓ vitória</b>": "<b class=\"c-ok\">✓ win</b>",
  "<b class=\"c-no\">✕ derrota</b>": "<b class=\"c-no\">✕ loss</b>",
+ "Vitórias e derrotas de cada conta, smurfs incluídas: mal os jogos acabam, os dias fecham com as estatísticas dos jogos e o lineup que cada um partilhou. Os aros são a probabilidade de cada um chegar aos prémios. O admin convida amigos em Ajustes → Admin.": "Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.",
+ "<h3>Quem jogou no dia ": "<h3>Who played on day ",
+ "</h3><div class=\"small muted\">Escolhe os ": "</h3><div class=\"small muted\">Pick the ",
+ " que submeteste. O resultado é refeito pelas estatísticas dos jogos e os usos acertam-se.</div>": " you submitted. The result is redone from the box scores and the uses are adjusted.</div>",
+ "</div><div class=\"chips\" role=\"group\" aria-label=\"Jogadores do dia\">": "</div><div class=\"chips\" role=\"group\" aria-label=\"Players of the day\">",
+ ">Guardar</button></div>": ">Save</button></div>",
+ "Lineup mudado: ": "Lineup changed: ",
+ "Lineup mudado. O resultado é refeito quando houver as estatísticas dos jogos.": "Lineup changed. The result is redone once the box scores are in.",
+ "\">Mudar os jogadores</button>": "\">Change the players</button>",
+ " jogadores: tira um primeiro.": " players: remove one first.",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1929,7 +1935,8 @@
    "if (closed.length === 1) { const { a, i, c } = closed[0]; toast((a !== 'main' ? accLabel(a) + ' · ' : '') + 'Dia ' + (i + 1) + ': ' + (c.res === 'win' ? 'vitóri": true,
    "chip = '<span class=\"pchip num ' + (win ? 'p-good' : 'p-bad') + '\">' + (tot ? tot.map(f0).join('·') : resMark(pl.result)) + '<span class=\"vh\"> ' + (win ? 'vitór": true,
    "val = '&nbsp;'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</span>';": true,
-   "const ring = res ? winRing(1, res === 'win' ? 'good' : 'bad', res === 'win' ? '✓' : '✕', res === 'win' ? 'vitória' : 'derrota') : winRing(0, 'mute', wait ? '…' ": true
+   "const ring = res ? winRing(1, res === 'win' ? 'good' : 'bad', res === 'win' ? '✓' : '✕', res === 'win' ? 'vitória' : 'derrota') : winRing(0, 'mute', wait ? '…' ": true,
+   "toast(c ? 'Lineup mudado: ' + (c.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup mudado. O resultado é refeito quando ho": true
   }
  },
  "derrotas": {
