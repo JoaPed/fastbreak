@@ -2568,16 +2568,20 @@ function renderGrupo() {
   };
   const rows = people.map(x => {
     const rk = x.rk && x.rk.found ? x.rk : null, pz = rk ? prizeAt(rk.rank) : '';
-    const won = rdays.reduce((t, d) => t + dayPrize(d, x.addr ? Object.assign({}, (d.accs || {})[addrKey(x.addr)]) : null), 0);
+    const won = rdays.reduce((t, d) => t + dayPrize(d, x.addr ? (d.accs || {})[addrKey(x.addr)] : null), 0);
     return '<tr data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
       '<span><b>' + esc(x.name) + '</b>' + (x.acc !== 'main' ? '<small>smurf' + (x.owner ? ' de ' + esc(x.owner) : '') + '</small>' : x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
-      '<td class="rr' + (rk ? zone(rk.rank) : '') + '">' + (rk ? '<b>' + rk.rank.toLocaleString('pt-PT') + '.º</b><small>' + plural(rk.wins != null ? rk.wins : x.wins, 'vitória', 'vitórias') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + plural(x.wins, 'vitória', 'vitórias') + '</small>') + (won ? '<small class="dz">ganhou ' + money(won) + '</small>' : '') + '</td>' +
-      days.map(d => cell(x, d)).join('') + '</tr>';
+      '<td class="rr' + (rk ? zone(rk.rank) : '') + '">' + (rk ? '<b>' + rk.rank.toLocaleString('pt-PT') + '.º</b><small>' + plural(rk.wins != null ? rk.wins : x.wins, 'vitória', 'vitórias') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + plural(x.wins, 'vitória', 'vitórias') + '</small>') + '</td>' +
+      days.map(d => cell(x, d)).join('') + '<td class="money">' + (won ? money(won) : '—') + '</td></tr>';
   }).join('');
-  const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map((d, k) => '<th title="' + esc(objsText(d)) + '">Dia ' + (S.days.indexOf(d) + 1) + '</th>').join('') + '</tr>';
+  // linha do grupo: o que se ganhou em cada dia e quantas contas ganharam o dia
+  const dayTot = d => { const rd = rdays.find(z => z.date === d.date); let t = 0, w = 0, any = false; people.forEach(x => { const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : x.daysRes[d.date]; if (res) any = true; if (res === 'win') w++; t += dayPrize(rd, dr); }); return { t, w, any }; };
+  const allWon = people.reduce((t, x) => t + rdays.reduce((u, d) => u + dayPrize(d, x.addr ? (d.accs || {})[addrKey(x.addr)] : null), 0), 0);
+  const totRow = people.length > 1 ? '<tr class="tot"><td class="who2"><span><b>Grupo</b></span></td><td></td>' + days.map(d => { const z = dayTot(d); return '<td><b>' + (z.t ? money(z.t) : '—') + '</b>' + (z.any ? '<small>' + z.w + ' ✓</small>' : '') + '</td>'; }).join('') + '<td class="money"><b>' + (allWon ? money(allWon) : '—') + '</b></td></tr>' : '';
+  const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map((d, k) => '<th title="' + esc(objsText(d)) + '">Dia ' + (S.days.indexOf(d) + 1) + '</th>').join('') + '<th>Ganho</th></tr>';
   const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top Shot ainda não lidos';
   el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
-    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + '</tbody></table></div>' +
+    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div>' +
     '<div class="small muted gc-leg"><i class="lg w"></i> ganhou o dia · <i class="lg l"></i> perdeu' + (lastPaid ? ' · <b class="dz">+$</b> prémio do dia · lugar da run <b class="z-p">a laranja</b>: com prémio (até ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">a dourado</b>: top ' + qual + ' (vai à final)' : '') : '') +
       (R && R.cut && Object.keys(R.cut).length ? ' · vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
     '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares</button><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +

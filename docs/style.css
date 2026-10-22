@@ -809,3 +809,8 @@ p, .note { text-wrap: pretty; }
 #pastLu .lu-main { cursor: default; }
 .gc small.dz, .gc-leg .dz { display: block; font-size: 10px; font-weight: 700; color: var(--good); margin-top: 2px; }
 .gc-leg .dz { display: inline; font-size: inherit; }
+.gc td.money { font: 800 15px var(--font-display); color: var(--good); }
+.gc tr.tot { cursor: default; }
+.gc tr.tot td { border-top: 1px solid var(--line); border-radius: 0; padding-top: 8px; }
+.gc tr.tot td small { display: block; font-size: 10px; color: var(--muted); }
+.gc tr.tot td.who2 { background: var(--surface); }
