@@ -801,6 +801,13 @@
   }
 
   // Plano normal e plano "tudo pelo próximo dia", para comparar o custo
+  // lineups de um plano guardado ({data: [ids]}) → índices do model por dia; null se não houver nada que sirva
+  function hintInit(model, H) {
+    if (!H || typeof H !== 'object') return null;
+    let any = false;
+    const init = model.days.map(md => { const L = (H[md.day.date] || []).map(id => model.pIndex.get(id)).filter(i => i != null && md.eligSet.has(i)); if (L.length) any = true; return L; });
+    return any ? init : null;
+  }
   function planRun(run, roster, odds, planDoc, opts) {
     const model = buildModel(run, roster, odds, planDoc, opts);
     let normal = optimize(model, opts);
@@ -810,6 +817,9 @@
       allIn = optimize(model, Object.assign({}, opts, { fixed: new Map([[0, lineup0]]) }));
       // o plano "tudo pelo dia" também é válido para a run: se for melhor, passa a ser o plano da run
       if (allIn.objective > normal.objective + 1e-9) normal = allIn;
+      // plano melhor encontrado antes em segundo plano (opts.hint): entra como ponto de partida; fica se for melhor
+      const init = hintInit(model, opts.hint && (opts.hint.main || null));
+      if (init) { const h = optimize(model, Object.assign({}, opts, { init, local: true })); if (h.objective > normal.objective + 1e-9) normal = h; }
     }
     const playedDays = model.allDays.filter(d => model.played[d.date] && model.played[d.date].done);
     const wins = playedDays.filter(d => model.played[d.date].result === 'win').length;
@@ -1185,7 +1195,13 @@
       });
       fillRun = optimizeMulti(models, copies, Object.assign({}, base, { init: fill, temp0: 0.01, restarts: 1 }));
     }
-    let best = [cold, warm, split, fillRun].filter(Boolean).reduce((x, y) => (y.total > x.total + 1e-12 ? y : x));
+    // quinto: o plano melhor encontrado antes em segundo plano (opts.hint = {conta: {data: [ids]}})
+    let hinted = null;
+    if (opts.hint) {
+      const inits = models.map((m, a) => hintInit(m, opts.hint[keys[a]]));
+      if (inits.some(Boolean)) hinted = optimizeMulti(models, copies, Object.assign({}, base, { init: inits.map((x, a) => x || models[a].days.map(() => [])), iters: 1, restarts: 1, temp0: 0.001 }));
+    }
+    let best = [cold, warm, split, fillRun, hinted].filter(Boolean).reduce((x, y) => (y.total > x.total + 1e-12 ? y : x));
     // no fim, a pesquisa local repetida parte do melhor dos três
     if (models.length > 1) {
       const polished = optimizeMulti(models, copies, Object.assign({}, base, { init: best.results.map(r => r.days.map(d => d.lineupIdx)), iters: 1, restarts: 1, temp0: 0.001, kicks: opts.kicks != null ? opts.kicks : 40 }));

@@ -333,5 +333,33 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   const diff = names.filter(n => FB.mapStat(n) !== mapStat(n));
   ok('nomes das estatísticas: site e tarefas leem igual', !diff.length, diff);
 }
+// procura em segundo plano: fixar um jogador num dia e refazer a run; o melhor plano encontrado entra como ponto
+// de partida (opts.hint) e o cálculo nunca fica pior do que ele
+{
+  const tryLocks = (planFn, total, days, model, uses) => {
+    let best = null;
+    days.slice(0, 6).forEach((d, i) => {
+      const md = model.days[i], w = pi => md.objs.reduce((t, _, k) => t + md.mu[pi][k] / md.T[k], 0);
+      md.elig.filter(pi => !d.lineup.includes(model.players[pi].id) && uses[pi] > 0).sort((a, b) => w(b) - w(a)).slice(0, 3).forEach(pi => {
+        const out = planFn({ locks: { [d.date]: [model.players[pi].id] } });
+        if (out.total > (best ? best.total : total) + 1e-9) best = out;
+      });
+    });
+    return best;
+  };
+  const base = FB.planRun(run, roster, odds, {}, { now: NOW });
+  const found = tryLocks(plan => { const x = FB.planRun(run, roster, odds, plan, { now: NOW }); return { total: x.normal.objective, res: x.normal }; }, base.normal.objective, base.normal.days, base.model, base.model.uses);
+  const hint = found ? { main: Object.fromEntries(found.res.days.map(d => [d.date, d.lineup])) } : { main: Object.fromEntries(base.normal.days.map(d => [d.date, d.lineup])) };
+  const withHint = FB.planRun(run, roster, odds, {}, { now: NOW, hint });
+  console.log('     procura: ' + (found ? 'melhorou ' + base.normal.objective.toFixed(5) + ' → ' + found.total.toFixed(5) : 'nada melhor'));
+  ok('com o plano encontrado como ponto de partida, nunca fica pior', withHint.normal.objective >= Math.max(base.normal.objective, found ? found.total : -Infinity) - 1e-9, [withHint.normal.objective, base.normal.objective, found && found.total]);
+  ok('ponto de partida respeita usos e jogos', violations(withHint.normal, withHint.model).length === 0, violations(withHint.normal, withHint.model));
+  const junk = FB.planRun(run, roster, odds, {}, { now: NOW, hint: { main: { [run.days[0].date]: ['ninguem', 'outro'] } } });
+  ok('ponto de partida com jogadores que não existem é ignorado', Math.abs(junk.normal.objective - base.normal.objective) < 1e-9);
+  const gb = FB.planGroup(run, [{ key: 'main', roster, plan: {} }, { key: 's1', roster, plan: {} }], odds, { now: NOW });
+  const gh = { main: {}, s1: {} }; gb.keys.forEach(k => gb.byKey[k].normal.days.forEach(d => { gh[k][d.date] = d.lineup; }));
+  const gw = FB.planGroup(run, [{ key: 'main', roster, plan: {} }, { key: 's1', roster, plan: {} }], odds, { now: NOW, hint: gh });
+  ok('contas: com ponto de partida não fica pior', gw.objective >= gb.objective - 1e-9, [gw.objective, gb.objective]);
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);

@@ -88,7 +88,8 @@ function applyTheme(t) {
   const sys = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches, dark = t === 'dark' || (t === 'auto' && sys);
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', t === 'auto' ? (/dark/.test(m.getAttribute('media') || '') ? '#0B1018' : '#EEF1F5') : dark ? '#0B1018' : '#EEF1F5'); });
 }
-const engOpts = () => ({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn });
+// hint: o plano melhor que a procura em segundo plano encontrou (ponto de partida do cálculo; só fica se for melhor)
+const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint; return Object.assign({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn }, h && h.acc && h.run === S.runId ? { hint: h.acc } : {}); };
 // siglas da ESPN → siglas do site
 const ESPN_ABBR = { GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX', BRK: 'BKN', CHO: 'CHA' };
 const espnAbbr = a => { const x = String(a || '').toUpperCase(); return ESPN_ABBR[x] || x; };
@@ -867,7 +868,7 @@ function publishSummary() {
 
 // ---------- cálculo ----------
 let scheduled = false;
-function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); if (S.lu && $('luBody')) luRender(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); ensureLive(); boxTick(); }, 16); }
+function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); if (S.lu && $('luBody')) luRender(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); scheduleImprove(); ensureLive(); boxTick(); }, 16); }
 function recalcNow() { if (!S.session) return; compute(); render(); publishSummary(); publishNext(); }
 // Lineups dos próximos 3 dias de cada conta, guardados no plano: a tarefa dos avisos (grupo do Telegram) usa-os
 // quando ainda não há lineup submetido no Top Shot (só runs a sério)
@@ -1225,7 +1226,7 @@ function renderJornada(el) {
     (bans.length ? '<div class="row small muted" style="display:block">Tirados deste dia: ' + bans.map(id => esc(lastName(id)) + ' <button class="btn link small" type="button" data-action="unban" data-id="' + esc(id) + '" data-date="' + nd.date + '">repor</button>').join(' · ') + '</div>' : '') + '</div>');
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
   html.push(todayPlayersCard(r, md, nd, isCur));
-  if (isCur) html.push(buyLine());
+  if (isCur) html.push(betterCard(), buyLine());
   el.innerHTML = html.join('');
 }
 // Ao vivo: liga-se sozinho quando o 1.º jogo do dia começa, com o lineup submetido (lido da blockchain, se já lá
@@ -2392,6 +2393,92 @@ function autoBuyKey() {
 // as sugestões só se refazem quando muda o plantel, as lesões, os preços ou os dias jogados; se só mexeu o plano
 // (odds novas, ao vivo), no máximo de 15 em 15 min. Entretanto ficam as anteriores à vista.
 const autoBuyStable = k => String(k || '').split('|').slice(0, 5).join('|');
+// ---- Procurar um plano melhor (em segundo plano, no outro fio) ----
+// A pesquisa do plano muda um jogador de cada vez e pára quando nenhuma troca sozinha ajuda; às vezes há planos
+// melhores que só aparecem mudando várias coisas juntas (fixar alguém num dia e refazer o resto). Aqui faz-se isso
+// sozinho: para os próximos dias, fixa um a um os melhores que estão de fora e refaz a run; se a run ficar melhor,
+// esse plano passa a ser o ponto de partida do cálculo (plan.hint) e a sugestão melhora.
+let impKey = null, impBusy = false, impTimer = null, impWait = null;
+const IMP_DAYS = 6, IMP_CAND = 3;
+function improveKey() { return calcKey && S.result && !S.calcError ? calcKey : null; }
+function scheduleImprove() {
+  const key = improveKey();
+  if (!key || impBusy || impKey === key || impWait === key || document.visibilityState !== 'visible') return;
+  const nd = nextDay(); if (nd && liveOn(nd.date)) return; // durante os jogos o plano muda a cada minuto
+  clearTimeout(impTimer); impWait = key;
+  impTimer = setTimeout(() => { impWait = null; if (improveKey() === key && !impBusy) improveRun(key); }, 8000);
+}
+// o plano melhor encontrado: passa a ser o ponto de partida do cálculo (a sugestão do plano muda para ele)
+function useBetter() {
+  const B = S.better; if (!B) return;
+  S.mine.plan.hint = { run: S.runId, at: new Date().toISOString(), acc: B.acc };
+  S.better = null; saveMine(); schedule();
+  toast('Plano melhor aplicado.');
+}
+function betterCard() {
+  const B = S.better; if (!B || B.key !== improveKey() || !B.changes.length) return '';
+  const multi = !!S.multi, gain = B.e1 - B.e0;
+  const rows = B.changes.slice(0, 5).map(c => '<li class="row lu-ch"><span><b>Dia ' + (c.idx + 1) + '</b>' + (multi ? ' · ' + esc(accLabel(c.k)) : '') + ' ' + pct(c.P0) + ' → <b class="' + (c.P1 >= c.P0 ? 'up' : 'down') + '">' + pct(c.P1) + '</b>' +
+    (c.outs.length ? ' · sai ' + c.outs.map(id => esc(lastName(id))).join(', ') : '') + (c.ins.length ? ' · entra ' + c.ins.map(id => esc(lastName(id))).join(', ') : '') + '</span></li>').join('');
+  return '<div class="card better"><div class="list-head"><h2>Há um plano melhor</h2><span class="small muted">vitórias esperadas ' + f1(B.e0) + ' → <b class="up">' + f1(B.e1) + '</b></span></div>' +
+    '<div class="small muted" style="padding:0 16px">Encontrei-o a experimentar trocas de vários jogadores ao mesmo tempo. Só muda se quiseres.</div>' +
+    '<ul class="list">' + rows + (B.changes.length > 5 ? '<li class="row small muted" style="display:block">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') + '</li>' : '') + '</ul>' +
+    '<div class="foot"><button class="btn primary" type="button" data-action="better-use">Usar este plano</button><button class="btn" type="button" data-action="better-no">Ignorar</button></div></div>';
+}
+async function improveRun(key) {
+  impBusy = true; impKey = key;
+  try {
+    const multi = !!S.multi, accs = multi ? accounts().map(a => a.id) : ['main'];
+    const baseTotal = multi ? S.multi.objective : S.result.normal.objective;
+    const expOf = out => multi ? Object.values(out.group.byKey).reduce((t, g) => t + (g.normal.expected || 0) + (g.wins || 0), 0) : (out.res.expected || 0) + (S.result.wins || 0);
+    const baseExp = multi ? Object.values(S.multi.byKey).reduce((t, g) => t + (g.normal.expected || 0) + (g.wins || 0), 0) : (S.result.normal.expected || 0) + (S.result.wins || 0);
+    // experiências: conta × dia (os próximos, ainda por começar) × os melhores que estão de fora nesse dia
+    const exps = [];
+    accs.forEach(acc => {
+      const R = multi ? S.multi.byKey[acc] : S.result; if (!R) return;
+      R.normal.days.slice(0, IMP_DAYS).forEach((d, i) => {
+        const md = R.model.days[i]; if (!md || md.day.date !== d.date) return;
+        const tip = firstTipOf(md.day); if (tip != null && Date.now() >= tip - 10 * 60e3) return;
+        const locks = ((planOf(acc).locks || {})[d.date]) || [], bans = ((planOf(acc).bans || {})[d.date]) || [];
+        if (locks.length >= md.size) return;
+        const w = pi => md.objs.reduce((t, _, k) => t + (md.mu[pi][k] || 0) / (md.T[k] || 1), 0);
+        md.elig.filter(pi => { const id = R.model.players[pi].id; return !d.lineup.includes(id) && !bans.includes(id) && (R.model.uses[pi] || 0) > 0; })
+          .sort((a, b) => w(b) - w(a)).slice(0, IMP_CAND).forEach(pi => exps.push({ acc, date: d.date, id: R.model.players[pi].id }));
+      });
+    });
+    let best = null;
+    for (const x of exps) {
+      // com uma folha aberta ou sugestões de compra a calcular, espera (o outro fio fica livre para o que estás a ver)
+      while ((!$('sheet').hidden || autoBuyBusy) && improveKey() === key) await tick(1500);
+      if (improveKey() !== key || document.visibilityState !== 'visible') { impKey = null; return; } // mudou alguma coisa: recomeça depois
+      const run = S.runs.find(r => r.id === S.runId) || {}, base = engineInputs('main');
+      const lockIn = plan => { plan.locks = plan.locks || {}; plan.locks[x.date] = ((plan.locks[x.date]) || []).concat([x.id]); };
+      let out;
+      try {
+        if (!multi) { const plan = clone(base.plan); modCap(lockIn, plan); out = await engineCall('planRun', [base.run, base.roster, base.odds, plan, engOpts()]); }
+        else {
+          const list = accs.map(a => { const y = a === 'main' ? base : engineInputs(a); let plan = y.plan; if (a === x.acc) { plan = clone(plan); modCap(lockIn, plan); } return { key: a, roster: y.roster, plan }; });
+          out = await engineCall('planGroup', [base.run, list, base.odds, engOpts()], 'main');
+        }
+      } catch (e) { continue; }
+      if (out && out.total > (best ? best.total : baseTotal) + 1e-6 * Math.max(1, Math.abs(baseTotal))) best = { total: out.total, out, x };
+      await tick(150);
+    }
+    window.FB_IMP = { exps: exps.length, found: !!best };
+    if (best && improveKey() === key) {
+      // não muda nada sozinho: fica como sugestão na Jornada (Usar este plano / Ignorar)
+      const acc = {}, changes = [];
+      const lineups = multi ? Object.fromEntries(Object.entries(best.out.group.byKey).map(([k, g]) => [k, g.normal])) : { main: best.out.res };
+      Object.entries(lineups).forEach(([k, n]) => { acc[k] = {}; const cur = multi ? S.multi.byKey[k].normal : S.result.normal;
+        n.days.forEach(d => { acc[k][d.date] = d.lineup.slice(); const c = cur.days.find(y => y.date === d.date); if (!c) return;
+          const ins = d.lineup.filter(x => !c.lineup.includes(x)), outs = c.lineup.filter(x => !d.lineup.includes(x));
+          if (ins.length || outs.length) changes.push({ k, date: d.date, idx: d.idx, ins, outs, P0: c.P, P1: d.P }); }); });
+      S.better = { key, acc, changes, e0: baseExp, e1: expOf(best.out), at: Date.now() };
+      if (S.tab === 'hoje') render();
+    }
+  } catch (e) { console.warn('procurar plano melhor', e); }
+  finally { impBusy = false; }
+}
 function scheduleAutoBuy() {
   const key = autoBuyKey();
   if (!key || (S.autoBuy && S.autoBuy.key === key) || autoBuyBusy === key) return;
@@ -3595,9 +3682,10 @@ const dayNo = date => S.days.findIndex(d => d.date === date) + 1;
 const capMsg = dr => (dr.length ? ' Sem usos para mais dias: tirei o cadeado de ' + [...new Set(dr.map(([, id]) => id))].map(id => { const n = dr.filter(x => x[1] === id).map(x => dayNo(x[0])).sort((a, b) => a - b); return lastName(id) + (n.length > 1 ? ' nos dias ' : ' no dia ') + n.join(', '); }).join('; ') + '.' : '');
 // muda o plano (cópia ou o verdadeiro) e aplica a regra dos usos aos cadeados novos
 function modCap(mod, plan) {
-  const before = clone(plan.locks || {}), bb = clone(plan.bans || {}); mod(plan);
+  const before = clone(plan.locks || {}), bb = clone(plan.bans || {}), kb = clone(plan.keep || {}); mod(plan);
   const same = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
-  if (plan.keep) Object.keys(plan.keep).forEach(d => { if (!same((plan.locks || {})[d], before[d]) || !same((plan.bans || {})[d], bb[d])) delete plan.keep[d]; });
+  // um dia com cadeados ou tirados mudados deixa de manter o lineup, a não ser que a própria mudança o mantenha
+  if (plan.keep) Object.keys(plan.keep).forEach(d => { if (same(plan.keep[d], kb[d]) && (!same((plan.locks || {})[d], before[d]) || !same((plan.bans || {})[d], bb[d]))) delete plan.keep[d]; });
   return capLocks(plan, before);
 }
 // keepDay: mudança que mantém o lineup do dia (tirar um cadeado); as outras mudanças num dia (fixar, tirar, voltar à
@@ -3622,7 +3710,7 @@ async function choiceSheet(id, date, kind) {
   let ev;
   try {
     ev = await evalAltAsync(kind === 'lock'
-      ? plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = [...new Set((plan.locks[date] || []).concat([id]))]; plan.bans[date] = (plan.bans[date] || []).filter(x => x !== id); }
+      ? (kw => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = [...new Set((plan.locks[date] || []).concat([id]))]; plan.bans[date] = (plan.bans[date] || []).filter(x => x !== id); if (kw) { plan.keep = Object.assign({}, plan.keep || {}, { [date]: kw }); } })(keepWith(date, id))
       : altMods.ban(date, id));
   } catch (e) { console.warn(e); if ($('choiceProg')) $('choiceProg').innerHTML = '<span class="down">Não consegui calcular:</span> ' + esc(errText(e)); return; }
   if (!$('choiceProg')) return; // fechou a folha
@@ -3656,14 +3744,31 @@ async function choiceSheet(id, date, kind) {
   openSheet('<h3>' + title + '</h3>' + verdict + '<div class="card">' + lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') + '</div>' +
     '<div class="btns"><button class="btn quiet" type="button" data-action="sheet-back">Cancelar</button><button class="btn ' + (loss ? '' : 'primary') + '" type="button" data-action="' + (kind === 'lock' ? 'lock-yes' : 'ban-yes') + '" data-id="' + esc(id) + '" data-date="' + date + '">' + (kind === 'lock' ? 'Fixar na mesma' : 'Tirar na mesma') + '</button></div>', back);
 }
+// lineup de um dia com este jogador lá dentro, sem mexer nos outros (se não houver lugar, sai quem menos pesa)
+function keepWith(date, id, out) {
+  const v = view(), dd = v && v.days.find(x => x.date === date), { md } = dayInfo(date);
+  if (!dd || !md) return null;
+  let L = dd.lineup.filter(x => x !== out);
+  if (L.includes(id)) return L;
+  if (L.length >= md.size) {
+    const locks = new Set(((curPlan().locks || {})[date]) || []);
+    let best = null; L.forEach(x => { if (locks.has(x)) return; const P = lineupP(md, L.filter(y => y !== x).concat([id])); if (!best || P > best.P) best = { x, P }; });
+    if (!best) return null;
+    L = L.filter(y => y !== best.x);
+  }
+  return L.concat([id]);
+}
 function lockToggle(id, date, on) {
   const cur = new Set(((curPlan().locks || {})[date]) || []);
   if (on) {
     const lim = (S.days.find(d => d.date === date) || {}).numPlayers || 5;
     if (cur.size >= lim) { toast('Já tens ' + lim + ' jogadores fixados neste dia.'); return false; }
     cur.add(id);
-    const dr = planPatch({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } });
-    toast(lastName(id) + ' fixado. Plano refeito.' + capMsg(dr));
+    // o resto do lineup desse dia fica (só tu é que trocas); se ele não estava e o lineup está cheio, sai quem menos
+    // falta faz nesse dia
+    const keep = keepWith(date, id);
+    const dr = planPatch(Object.assign({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } }, keep ? { keep: { [date]: keep } } : {}), !!keep);
+    toast(lastName(id) + ' fixado.' + (keep ? ' O resto do lineup fica.' : ' Plano refeito.') + capMsg(dr));
   } else {
     // tirar o cadeado não muda o lineup desse dia: fica como está (o plano só volta a escolher se mudares outra coisa)
     const v = view(), dd = v && v.days.find(x => x.date === date);
@@ -3797,7 +3902,8 @@ function luFill(date, out, pick) {
   const bans = [...new Set((((P.bans || {})[date]) || []).concat([out]))].filter(x => x !== pick);
   if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== out);
   lineupSheet(date); luBusy(true);
-  planPatch({ locks: { [date]: [...locks] }, bans: { [date]: bans } });
+  const keep = keepWith(date, pick, out);
+  planPatch(Object.assign({ locks: { [date]: [...locks] }, bans: { [date]: bans } }, keep ? { keep: { [date]: keep } } : {}), !!keep);
 }
 // enquanto a run é refeita: a folha fica esbatida (e volta ao topo quando a mudança mexe no lineup)
 function luBusy(top) { const b = $('luBody'); if (b) b.classList.add('busy'); if (S.lu) S.lu.toTop = !!top; }
@@ -4281,6 +4387,8 @@ document.addEventListener('click', async e => {
     case 'copy-topic': try { await navigator.clipboard.writeText((S.alerts || {}).ntfy || ''); toast('Tópico copiado.'); } catch (err) { toast('Não deu para copiar: seleciona o texto.'); } break;
     case 'buy-sheet': closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
     case 'buy-retry': S.autoBuyErr = null; S.autoBuy = null; autoBuyBusy = null; render(); scheduleAutoBuy(); break;
+    case 'better-use': useBetter(); break;
+    case 'better-no': S.better = null; render(); break;
     case 'buy-detail': buyDetailSheet(b.dataset.src, id); break;
     case 'buy-player': S.mine.roster[id] ? rosterSheet(id) : catalogSheet(id); break;
     case 'buy-open': if (S.autoBuy) { S.buy.uses = S.autoBuy.U; S.buy.mode = 'new'; S.buy.results = S.autoBuy; } closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;

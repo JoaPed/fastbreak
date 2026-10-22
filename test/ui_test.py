@@ -397,6 +397,17 @@ with sync_playwright() as pw:
     print('C smurfs guardadas:', store(pg, '__FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").smurfs'))
     pg.screenshot(path=str(shots / 'smurf-ajustes.png'), full_page=True)
     print('C largura:', width(pg))
+    # procura de um plano melhor em segundo plano: não muda nada sozinha, mostra a sugestão na Jornada
+    pg.click('#t-hoje'); pg.wait_for_timeout(300)
+    try:
+        pg.wait_for_function('() => !!window.FB_IMP', timeout=150000); pg.wait_for_timeout(500)
+        print('C procura de plano melhor:', pg.evaluate('JSON.stringify(window.FB_IMP)'), '· cartão:', pg.locator('#tab-hoje .card.better').count(), '· plano mudou sozinho:', store(pg, '!!(__FAKE_DB.tables.user_runs[0].plan || {}).hint'))
+        if pg.locator('#tab-hoje .card.better').count():
+            print('C plano melhor (cartão):', pg.locator('#tab-hoje .card.better').inner_text().replace('\n', ' | ')[:300])
+            pg.click('#tab-hoje button[data-action="better-use"]'); pg.wait_for_timeout(6000)
+            print('C usar o plano melhor:', pg.locator('#toast').inner_text(), '· guardado:', store(pg, '__FAKE_DB.tables.user_runs.filter(r => r.plan && r.plan.hint).map(r => r.user_id + "/" + r.run_id)'), '· cartão:', pg.locator('#tab-hoje .card.better').count())
+    except Exception as e:
+        print('C procura de plano melhor: não correu em 150 s')
     pg.close()
 
     # ---------- D: admin apaga as runs de teste ----------

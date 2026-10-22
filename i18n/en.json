@@ -1087,7 +1087,6 @@
  "Coleção guardada.": "Collection saved.",
  "Já tens ": "You already have ",
  " jogadores fixados neste dia.": " players locked on this day.",
- " fixado. Plano refeito.": " locked. Plan redone.",
  " fora deste dia. Plano refeito.": " out of this day. Plan redone.",
  "usesOut-": null,
  "Sem lineup guardado para esse dia: acerta os usos à mão.": "No lineup saved for that day: set the uses by hand.",
@@ -1836,6 +1835,14 @@
  "Preço": "Price",
  "nenhum ": "no ",
  " à venda": " for sale",
+ "procurar plano melhor": null,
+ "Plano melhor aplicado.": "Better plan applied.",
+ "<div class=\"card better\"><div class=\"list-head\"><h2>Há um plano melhor</h2><span class=\"small muted\">vitórias esperadas ": "<div class=\"card better\"><div class=\"list-head\"><h2>There is a better plan</h2><span class=\"small muted\">expected wins ",
+ "<div class=\"small muted\" style=\"padding:0 16px\">Encontrei-o a experimentar trocas de vários jogadores ao mesmo tempo. Só muda se quiseres.</div>": "<div class=\"small muted\" style=\"padding:0 16px\">Found by trying several player swaps at once. Nothing changes unless you want it to.</div>",
+ "<div class=\"foot\"><button class=\"btn primary\" type=\"button\" data-action=\"better-use\">Usar este plano</button><button class=\"btn\" type=\"button\" data-action=\"better-no\">Ignorar</button></div></div>": "<div class=\"foot\"><button class=\"btn primary\" type=\"button\" data-action=\"better-use\">Use this plan</button><button class=\"btn\" type=\"button\" data-action=\"better-no\">Ignore</button></div></div>",
+ " fixado.": " locked.",
+ " O resto do lineup fica.": " The rest of the lineup stays.",
+ " Plano refeito.": " Plan redone.",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1893,7 +1900,8 @@
    "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "days",
    "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>Dias ' + helpBtn('dias') + '</h2><span class=\"small muted\">' + recordTxt(r.wins, r.losses) + '</span></div>": false,
-   "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "days"
+   "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "days",
+   "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "days"
   }
  },
  "dia": {
@@ -1902,7 +1910,8 @@
    "if (buckets.length > 1) html.push('<div class=\"card\"><div class=\"list-head\"><h2>A previsão acerta?</h2><span class=\"small muted\">dias agrupados pela vitória pre": "day",
    "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "day",
    "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true,
-   "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "day"
+   "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "day",
+   "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "day"
   }
  },
  "jogo": {
