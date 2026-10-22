@@ -5,7 +5,7 @@ const file = process.env.FB_TEST_DB;
 const db = JSON.parse(fs.readFileSync(file, 'utf8'));
 db.sent = db.sent || []; db.calls = [];
 if (process.env.FB_TEST_NOW) { const T = +process.env.FB_TEST_NOW; Date.now = () => T; }
-const KEYS = { injuries: ['id'], alerts: ['user_id'], members: ['user_id'], job_state: ['key'], runs: ['id'], run_days: ['run_id', 'date'], nba_players: ['id'], profiles: ['user_id'], user_runs: ['user_id', 'run_id'], chain_results: ['user_id', 'game_id', 'account'] };
+const KEYS = { market_asks: ['listing_id'], market_sales: ['listing_id'], injuries: ['id'], alerts: ['user_id'], members: ['user_id'], job_state: ['key'], runs: ['id'], run_days: ['run_id', 'date'], nba_players: ['id'], profiles: ['user_id'], user_runs: ['user_id', 'run_id'], chain_results: ['user_id', 'game_id', 'account'] };
 const clone = o => JSON.parse(JSON.stringify(o));
 class Q {
   constructor(t) { this.t = t; this.f = []; this.op = 'select'; this.one = false; }
@@ -49,6 +49,8 @@ globalThis.fetch = async (url, opts = {}) => {
 // Flow falsa (db.flow): altura, eventos (nenhum) e scripts do Fast Break, reconhecidos pelo código Cadence
 const enc = v => (v == null ? { type: 'Optional', value: null } : typeof v === 'boolean' ? { type: 'Bool', value: v } : typeof v === 'number' ? { type: 'UInt64', value: String(v) } : typeof v === 'string' ? { type: 'String', value: v } : Array.isArray(v) ? { type: 'Array', value: v.map(enc) } : { type: 'Dictionary', value: Object.entries(v).map(([k, x]) => ({ key: { type: 'String', value: k }, value: enc(x) })) });
 const dec = a => { const v = JSON.parse(Buffer.from(a, 'base64').toString('utf8')); return Array.isArray(v.value) ? v.value.map(x => x.value) : v.value; };
+// dicionário Cadence {UInt32: {UInt32: UInt32}} (tiragens)
+const okDict = o => new Response(JSON.stringify(Buffer.from(JSON.stringify({ type: 'Dictionary', value: Object.entries(o).map(([k, v]) => ({ key: { type: 'UInt32', value: String(k) }, value: { type: 'Dictionary', value: Object.entries(v).map(([k2, v2]) => ({ key: { type: 'UInt32', value: String(k2) }, value: { type: 'UInt32', value: String(v2) } })) } })) })).toString('base64')), { status: 200 });
 function flowFake(url, opts) {
   const F = db.flow, ok = v => new Response(JSON.stringify(Buffer.from(JSON.stringify(enc(v))).toString('base64')), { status: 200 });
   if (/\/blocks\?height=sealed/.test(url)) return new Response(JSON.stringify([{ header: { height: String(F.height || 1000) } }]), { status: 200 });
@@ -68,6 +70,8 @@ function flowFake(url, opts) {
     return ok(args[1].map(id => Object.assign({ nft: +id }, (F.nfts || {})[id] || {})));
   }
   if (/runIds: \[String\], since: UInt64/.test(code)) { F.scripts.push('player'); return ok([]); }
+  if (/getSubeditionByNFTID/.test(code)) { F.scripts.push('meta ' + args[0]); const m = (F.moments || {})[args[0]] || {}; return ok(args[1].map(id => m[id]).filter(Boolean)); }
+  if (/getNumberMintedPerPlay/.test(code)) { F.scripts.push('minted'); const o = {}; args[0].forEach(s => { if ((F.minted || {})[s]) o[s] = F.minted[s]; }); return okDict(o); }
   if (/getFastBreakGameStats/.test(code)) { F.scripts.push('games ' + args[0].length); return ok(args[0].map(id => (F.games || {})[id]).filter(Boolean)); }
   if (/getFastBreakRun\(/.test(code)) { F.scripts.push('runs ' + args[0].length); return ok(args[0].map(id => (F.runs || {})[id]).filter(Boolean)); }
   return new Response('script desconhecido', { status: 400 });

@@ -773,3 +773,5 @@ p, .note { text-wrap: pretty; }
 .hero.past .bar-cap .ok, .hero.past .c-ok, .goal.res .g-ok { color: var(--board-good); }
 .hero.past .bar-cap .no, .hero.past .c-no, .goal.res .g-no { color: var(--board-bad); }
 .goal.res i { font-style: normal; font-size: .55em; color: var(--board-muted); margin-left: 2px; }
+.mkt:empty { display: none; }
+.mkt-box .row { border-top: 1px solid var(--line); }

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Planeador de runs do Fast Break (NBA Top Shot) para um grupo de amigos",
   "scripts": {
-    "test": "node test/engine.test.mjs && node test/jobs.test.mjs && node test/alerts-job.test.mjs && node test/fastbreak-job.test.mjs && node test/seed-job.test.mjs && node test/schema.test.mjs"
+    "test": "node test/engine.test.mjs && node test/jobs.test.mjs && node test/alerts-job.test.mjs && node test/fastbreak-job.test.mjs && node test/market-job.test.mjs && node test/seed-job.test.mjs && node test/schema.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.49.4",

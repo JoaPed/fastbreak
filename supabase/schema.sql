@@ -135,6 +135,20 @@ do $$ declare pk text; begin
   end if;
 end $$;
 
+-- Mercado do Top Shot (blockchain Flow, tarefa "Mercado"): Moments à venda e vendas, por jogador e escalão (partilhado)
+create table if not exists public.market_asks (
+  listing_id text primary key, nft_id bigint not null, price numeric not null, seller text,
+  player text not null, player_id text not null, set_id int, play_id int, set_name text, series int, serial int,
+  tier text, minted int, listed_at timestamptz, active boolean not null default true
+);
+create index if not exists market_asks_player on public.market_asks (player_id, active, price);
+create table if not exists public.market_sales (
+  listing_id text primary key, nft_id bigint not null, price numeric not null, sold_at timestamptz not null,
+  player text not null, player_id text not null, set_id int, play_id int, set_name text, series int, serial int,
+  tier text, minted int
+);
+create index if not exists market_sales_player on public.market_sales (player_id, sold_at desc);
+
 -- Relatório de lesões da NBA (ESPN), substituído pela tarefa "Lesões" a cada meia hora (partilhado)
 create table if not exists public.injuries (
   id text primary key,                             -- jogador (nome normalizado, como no catálogo)
@@ -273,6 +287,8 @@ alter table public.chain_results enable row level security;
 alter table public.user_runs enable row level security;
 alter table public.summaries enable row level security;
 alter table public.injuries enable row level security;
+alter table public.market_asks enable row level security;
+alter table public.market_sales enable row level security;
 alter table public.alerts enable row level security;
 
 -- membros: o grupo vê-se a si próprio; o admin pode remover outros
@@ -299,7 +315,7 @@ begin
     execute format('drop policy if exists %I on public.%I', t || '_admin', t);
     execute format('create policy %I on public.%I for all to authenticated using (public.is_admin()) with check (public.is_admin())', t || '_admin', t);
   end loop;
-  foreach t in array array['chain_runs', 'chain_games', 'chain_results'] loop
+  foreach t in array array['chain_runs', 'chain_games', 'chain_results', 'market_asks', 'market_sales'] loop
     execute format('drop policy if exists %I on public.%I', t || '_read', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member())', t || '_read', t);
   end loop;

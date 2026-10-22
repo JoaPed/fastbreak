@@ -718,3 +718,16 @@ export function histFromGames(games) {
   const nb = b2b.filter(Boolean).length;
   return Object.assign({ n, d }, nb ? { b2b: { n: nb, r } } : {});
 }
+
+// ---------- mercado: escalão de um Moment ----------
+// o que vem nos metadados da jogada (ou no nome da subedição); senão, sets conhecidos; senão, pela tiragem
+export const MOMENT_TIERS = ['Ultimate', 'Legendary', 'Rare', 'Fandom', 'Common'];
+export const TIER_SETS = { 'base set': 'Common', 'metallic gold le': 'Rare' };
+export function momentTierOf(meta, sub, setName, minted) {
+  const m = (String(meta || '') + ' ' + String(sub || '')).toLowerCase();
+  const t = MOMENT_TIERS.find(x => m.includes(x.toLowerCase())); if (t) return t;
+  const k = TIER_SETS[String(setName || '').toLowerCase().trim()]; if (k) return k;
+  const cap = /\/\s*(\d+)/.exec(String(sub || '')), n = cap ? +cap[1] : +minted || 0;
+  if (!n) return 'Common';
+  return n <= 5 ? 'Ultimate' : n <= 149 ? 'Legendary' : n <= 1499 ? 'Rare' : 'Common';
+}

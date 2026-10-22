@@ -91,6 +91,10 @@ r = await as('service', `insert into public.injuries (id, name, team, status, re
 r = await as('b', `select status from public.injuries`); expect('membro lê as lesões', r.rows?.[0]?.status === 'dtd', r);
 r = await as('b', `delete from public.injuries`); r = await as('service', `select count(*)::int n from public.injuries`); expect('membro não apaga as lesões', r.rows?.[0].n === 1, r);
 r = await as('c', `select id from public.injuries`); expect('não-membro não lê as lesões', !r.rows?.length, r);
+r = await as('service', `insert into public.market_asks (listing_id, nft_id, price, player, player_id, tier) values ('L1', 1, 2.5, 'Nikola Jokić', 'nikola-jokic', 'Common')`); expect('tarefa do mercado escreve os preços', !r.error, r);
+r = await as('b', `select price from public.market_asks where player_id = 'nikola-jokic'`); expect('membro lê os preços', +r.rows?.[0]?.price === 2.5, r);
+r = await as('b', `insert into public.market_sales (listing_id, nft_id, price, sold_at, player, player_id) values ('x', 1, 1, now(), 'a', 'a')`); expect('membro não escreve vendas', !!r.error, r);
+r = await as('c', `select listing_id from public.market_asks`); expect('não-membro não lê os preços', !r.rows?.length, r);
 r = await as('b', `insert into public.alerts (email, ntfy) values (true, 'fastbreak-abc123xyz')`); expect('B liga os seus avisos', !r.error, r);
 r = await as('b', `update public.alerts set ntfy = 'mau tópico!'`); expect('tópico do ntfy inválido recusado', !!r.error, r);
 r = await as('a', `select * from public.alerts`); expect('A não vê os avisos de B (tópico privado)', r.rows?.length === 0, r);

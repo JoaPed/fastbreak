@@ -2323,7 +2323,7 @@ function buyTipsCard(limit, jornada) {
   const tips = A.list.map(x => buySummary(A, x)).slice(0, limit);
   if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'Não há candidatos com jogos nos dias que faltam.' : 'Nenhum Rare muda a tua run.') + '</div></div>';
   return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => { const c = S.players.get(t.id) || {}, gain = t.byPrize ? t.best.p.wins + ' vitórias' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <b class="up">' + pct(t.best.to) + '</b>' : 'vitórias esperadas ' + f1(t.e0) + ' → <b class="' + (t.worth ? 'up' : '') + '">' + f1(t.e1) + '</b>';
-    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">' + (usesGain(t.id, A.U) > 0 ? 'já tens · +' + plural(usesGain(t.id, A.U), 'uso', 'usos') : '2.º Moment') + '</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div></div></span><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
+    return '<li><button class="row" type="button" data-action="buy-open" data-id="' + esc(t.id) + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || t.id) + '</span>' + (S.mine.roster[t.id] ? '<span class="badge">' + (usesGain(t.id, A.U) > 0 ? 'já tens · +' + plural(usesGain(t.id, A.U), 'uso', 'usos') : '2.º Moment') + '</span>' : '') + (t.worth ? '' : '<span class="badge">muda pouco</span>') + '</div><div class="ps">' + teamTag(c.team) + ' · ' + gain + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '') + '</div><div class="ps">' + mktSpan(t.id, A.U) + '</div></div></span><div class="pv"><div class="v num' + (t.worth ? ' up' : ' muted') + '">+' + (t.byPrize ? Math.round(t.best.to * 100) - Math.round(t.best.from * 100) : (t.e1 - t.e0 < 0.095 ? f2(Math.max(0, t.e1 - t.e0)) : f1(t.e1 - t.e0))) + '</div><div class="u">' + (t.byPrize ? 'pp' : 'vitórias') + '</div></div></button></li>'; }).join('') +
     '</ul>' + (jornada ? '<button class="btn link small buy-more-link" type="button" data-action="goto" data-tab="plantel" data-sub="comprar">Ver mais compras ›</button>' : '') + '</div>';
 }
 function buyResultsHtml(R) {
@@ -2363,7 +2363,7 @@ function buyResultsHtml(R) {
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prémios que mudam: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
     return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><span class="who">' + face(id) + '<h2>' + (R.single ? '' : (n + 1) + '. ') + esc(nameOf(id)) + '</h2></span><span class="small muted">' + esc(c.team || '') + ' · ' + (more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2.º Moment') : 'Moment ' + tierTxt(R.U)) + '</span></div>' +
-      head + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
+      head + (S.mktOff ? '' : '<div class="small">' + mktSpan(id, R.U) + '</div>') + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Vitórias esperadas' + (multi ? ' (todas as contas)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
   }).join('') + moreBtn;
 }
@@ -2908,11 +2908,61 @@ function rosterSheet(id) {
       const col = (S.profile || {}).collection;
       return ci.ids && col && col.items ? '' : '<div class="small muted">Na carteira: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : plural(ci.moments || 1, 'Moment', 'Moments')) + (ci.bySet ? ' · ' + esc(usesWhy(col, ci)) : '') + '</div>'; })() +
     injuryBlock(id, null, null) + cardsBlock(id) +
-    (groupMode() ? '<div class="small muted">Usos restantes em cada conta</div>' : '') + usesRows + momentsBlock(id) +
+    (groupMode() ? '<div class="small muted">Usos restantes em cada conta</div>' : '') + usesRows + momentsBlock(id) + mktBlock(id) +
     '<div><div class="label" style="margin-bottom:6px">Estado</div><div class="chips" role="group" aria-label="Estado">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
     (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo' + (c.gp ? ' (' + c.gp + ' jogos)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimativa a partir das outras médias</div>' : '') + '</div>' : '<div class="note info">Ainda sem médias.</div>') +
     gamesTable(avg) +
     '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Tirar do plantel</button>');
+}
+// ---------- mercado do Top Shot (tarefa "Mercado", lido da blockchain): preço mais baixo à venda e últimas vendas ----------
+// S.mkt: pk → {at, asks: [{price, tier, serial, minted, set_name}], sales: [{price, tier, sold_at}]}; pk = nome normalizado
+S.mkt = new Map();
+const mktKey = id => norm(nameOf(id)).replace(/ /g, '-');
+const MKT_TIER = { 1: ['Common', 'Fandom'], 2: ['Rare'], 4: ['Legendary', 'Ultimate'] };
+let mktBusy = null, mktWant = new Set();
+function mktNeed(ids) {
+  if (S.mktOff || !S.session) return;
+  ids.forEach(id => { const k = mktKey(id), m = S.mkt.get(k); if (!m || Date.now() - m.at > 10 * 60e3) mktWant.add(k); });
+  if (!mktWant.size || mktBusy) return;
+  mktBusy = setTimeout(mktFetch, 50);
+}
+async function mktFetch() {
+  const keys = [...mktWant]; mktWant = new Set();
+  try {
+    const since = new Date(Date.now() - 30 * 864e5).toISOString();
+    const [asks, sales] = await Promise.all([
+      q(sb.from('market_asks').select('player_id,price,tier,serial,minted,set_name').in('player_id', keys).eq('active', true).order('price', { ascending: true }).limit(600)),
+      q(sb.from('market_sales').select('player_id,price,tier,sold_at').in('player_id', keys).gte('sold_at', since).order('sold_at', { ascending: false }).limit(800)),
+    ]);
+    keys.forEach(k => S.mkt.set(k, { at: Date.now(), asks: (asks || []).filter(r => r.player_id === k), sales: (sales || []).filter(r => r.player_id === k) }));
+  } catch (e) { if (/market_|relation|does not exist|schema cache/i.test(String(e && e.message))) S.mktOff = true; else console.warn('mercado', e); }
+  mktBusy = null;
+  mktFill();
+  if (mktWant.size) mktNeed([]);
+}
+// preço de um jogador num escalão (uses: 1, 2 ou 4): {ask, serial, last, lastAt, n}
+function mktOf(id, uses) {
+  const m = S.mkt.get(mktKey(id)); if (!m) return null;
+  const ts = MKT_TIER[uses] || ['Common', 'Fandom'], a = m.asks.filter(r => ts.includes(r.tier)), sl = m.sales.filter(r => ts.includes(r.tier));
+  return { ask: a.length ? +a[0].price : null, serial: a.length ? a[0].serial : null, last: sl.length ? +sl[0].price : null, lastAt: sl.length ? sl[0].sold_at : null, n: sl.length };
+}
+const usd = x => '$' + (x >= 100 ? f0(x) : (Math.round(x * 100) / 100).toFixed(2)).replace('.', ',');
+function mktTxt(id, uses) {
+  const p = mktOf(id, uses); if (!p || (p.ask == null && p.last == null)) return '';
+  return [p.ask != null ? 'à venda desde <b class="num">' + usd(p.ask) + '</b>' : '', p.last != null ? 'última venda ' + usd(p.last) : ''].filter(Boolean).join(' · ');
+}
+// marcador que se preenche quando os preços chegam
+function mktSpan(id, uses) { if (S.mktOff) return ''; mktNeed([id]); return '<span class="mkt" data-mk="' + esc(id) + '" data-u="' + uses + '">' + mktTxt(id, uses) + '</span>'; }
+function mktFill() {
+  document.querySelectorAll('.mkt[data-mk]').forEach(el => { el.innerHTML = mktTxt(el.dataset.mk, +el.dataset.u); });
+  document.querySelectorAll('.mkt-box[data-mk]').forEach(el => { el.outerHTML = mktBlock(el.dataset.mk); });
+}
+// ficha do jogador: um preço por escalão
+function mktBlock(id) {
+  if (S.mktOff) return '';
+  const m = S.mkt.get(mktKey(id)); mktNeed([id]);
+  const rows = m ? [1, 2, 4].map(u => { const p = mktOf(id, u); return p && (p.ask != null || p.last != null) ? '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">' + (p.ask != null ? 'à venda desde <b class="num">' + usd(p.ask) + '</b>' + (p.serial ? ' (#' + p.serial + ')' : '') : 'nada à venda visto') + '<br><span class="muted">' + (p.last != null ? 'última venda ' + usd(p.last) + ' · ' + ago(p.lastAt) + (p.n > 1 ? ' · ' + p.n + ' vendas em 30 dias' : '') : 'sem vendas em 30 dias') + '</span></span></div>' : ''; }).join('') : '';
+  return '<div class="mkt-box"' + (m ? '' : ' data-mk="' + esc(id) + '"') + '><div class="label" style="margin-bottom:4px">Mercado do Top Shot</div>' + (m ? rows || '<div class="small muted">Sem vendas nem Moments à venda vistos nos últimos 30 dias.</div>' : '<div class="small muted">A ler os preços…</div>') + '</div>';
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
 // (p. ex. dos dois Luka, só um é Rare); os usos por run do jogador são os da melhor carta

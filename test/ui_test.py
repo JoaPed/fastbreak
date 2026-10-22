@@ -284,6 +284,13 @@ with sync_playwright() as pw:
     T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa', 'smurfs': [{'id': 's1', 'topshot_username': 'joao_smurf', 'flow_address': '0x0000000000000a01'}]})
     T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in roster['players']}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T['chain_results'].append({'user_id': 'u-eu', 'account': 's1', 'game_id': 'g1', 'chain_run_id': 'cr1', 'date': run['days'][0]['date'], 'points': 140, 'win': True, 'lineup': ['Nikola Jokić']})
+    # mercado (tarefa "Mercado"): Jokić à venda e vendido
+    T['market_asks'] = [{'listing_id': 'l1', 'nft_id': 1, 'price': 3.5, 'player': 'Nikola Jokić', 'player_id': 'nikola-jokic', 'tier': 'Common', 'serial': 9876, 'set_name': 'Base Set', 'active': True},
+                        {'listing_id': 'l2', 'nft_id': 2, 'price': 2.25, 'player': 'Nikola Jokić', 'player_id': 'nikola-jokic', 'tier': 'Common', 'serial': 14001, 'set_name': 'Base Set', 'active': True},
+                        {'listing_id': 'l3', 'nft_id': 3, 'price': 89, 'player': 'Nikola Jokić', 'player_id': 'nikola-jokic', 'tier': 'Rare', 'serial': 77, 'set_name': 'Metallic Gold LE', 'active': True},
+                        {'listing_id': 'l4', 'nft_id': 4, 'price': 1, 'player': 'Nikola Jokić', 'player_id': 'nikola-jokic', 'tier': 'Common', 'serial': 5, 'set_name': 'Base Set', 'active': False}]
+    T['market_sales'] = [{'listing_id': 's1', 'nft_id': 5, 'price': 2.4, 'sold_at': '2026-10-16T09:00:00Z', 'player': 'Nikola Jokić', 'player_id': 'nikola-jokic', 'tier': 'Common'},
+                         {'listing_id': 's2', 'nft_id': 6, 'price': 95, 'sold_at': '2026-10-15T20:00:00Z', 'player': 'Nikola Jokić', 'player_id': 'nikola-jokic', 'tier': 'Rare'}]
     pg = new_page(b, db)
     pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
@@ -360,6 +367,7 @@ with sync_playwright() as pw:
     print('C noites na outra conta (plano por dia):', pg.locator('#plSub .dot.other').count(), '·', pg.locator('#plSub .legend').inner_text().replace('\n', ' '))
     pg.locator('#plBody .pl-card').filter(has_text='Jokić').first.click(); pg.wait_for_timeout(300)
     print('C folha Jokić:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:300])
+    pg.wait_for_timeout(500); print('C mercado Jokić:', pg.locator('#sheetPanel .mkt-box').inner_text().replace('\n', ' | ') if pg.locator('#sheetPanel .mkt-box').count() else '-')
     print('C Jokić nas contas:', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ') if pg.locator('#sheetPanel .note').count() else '-')
     # com Moments na coleção os usos de cada conta são os da melhor carta, sem stepper, e o que estava gravado à mão é apagado
     print('C usos fixos pela coleção:', ' / '.join(pg.locator('#sheetPanel .uses-fixed').all_inner_texts()), '· steppers:', pg.locator('#sheetPanel button[data-action="uses"]').count(), '· gravado:', store(pg, '__FAKE_DB.tables.user_runs[0].roster.jokic'))
