@@ -2551,22 +2551,30 @@ function renderGrupo() {
   const nd = nextDay(), R = groupRanks(), people = groupEntries();
   // com os lugares do Top Shot, a ordem é a da classificação oficial (vitórias e o desempate deles)
   if (R) people.sort((a, b) => ((a.rk && a.rk.found ? a.rk.rank : 1e9) - (b.rk && b.rk.found ? b.rk.rank : 1e9)) || (b.wins - a.wins));
-  const run = curRun() || {}, P = (run.prizes || []).map(p => ({ wins: +p.wins })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
-  const rows = people.map((x, i) => {
-    const strip = S.days.map(d => { const r = x.daysRes[d.date]; return '<i class="' + (r === 'win' ? 'w' : r === 'loss' ? 'l' : (nd && nd.date === d.date ? 'n' : '')) + '" title="' + dShort(d.date) + (r ? (r === 'win' ? ': win' : ': loss') : '') + '"></i>'; }).join('');
-    const pr = x.s && Array.isArray(x.s.prize_probs) ? x.s.prize_probs : [];
-    // os patamares de cada um (os que já não dão trocam pelos de baixo, por isso podem ser outros que os da run)
-    const Pi = pr.length ? pr.map(q => ({ wins: +q.wins })).filter(q => q.wins > 0).sort((a, b) => a.wins - b.wins) : P;
-    const probs = Pi.map(p => { const z = pr.find(q => +q.wins === p.wins); return z ? +z.p : null; });
-    const side = x.s ? (Pi.length && probs.every(v => v != null) ? miniAros(Pi, probs) : '<span class="grp-wl num">≈ ' + f1(x.exp || 0) + '</span>') + (x.s.next_p != null && nd ? '<span class="today">today ' + pct(+x.s.next_p) + '</span>' : '') : '<span class="today">hasn\'t opened the run</span>';
-    return '<li><button class="grp-row" type="button" data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '"><span class="grp-rank">' + (i + 1) + '</span>' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
-      '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.name) + '</span>' + (x.acc !== 'main' ? '<span class="badge">smurf' + (x.owner ? ' of ' + esc(x.owner) : '') + '</span>' : '') + (x.uid === S.session.user.id && x.acc === 'main' ? '<span class="badge">you</span>' : '') + '</span>' +
-      '<span class="ps" style="display:block">' + (x.rk && x.rk.found ? '<b class="num rk">' + x.rk.rank.toLocaleString('en-GB') + '.º</b> · ' : '') + recordTxt(x.wins, x.losses) + (x.exp != null ? ' · expected ' + f1(x.exp) : '') + '</span><span class="strip">' + strip + '</span></span>' +
-      '<span class="grp-side">' + side + '</span></button></li>';
+  // grelha: uma linha por conta, o lugar na run (com o prémio que daria hoje) e o lugar em cada dia já jogado
+  const run = curRun() || {}, today = todayET();
+  const days = S.days.filter(d => d.date <= today || (nd && nd.date === d.date) || people.some(x => x.daysRes[d.date]));
+  const prizeAt = r => { const b = R && (R.bands || []).find(z => r >= z[0] && r <= z[1]); if (!b) return ''; const v = b[2] / 100; return b[2] ? '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('en-GB')) : b[3] || ''; };
+  const lastPaid = R && (R.bands || []).length ? Math.max(...R.bands.map(b => b[1])) : null, qual = R && R.qual;
+  const zone = r => (qual && r <= qual ? ' z-q' : lastPaid && r <= lastPaid ? ' z-p' : '');
+  const cell = (x, d) => {
+    const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : x.daysRes[d.date];
+    const cls = res === 'win' ? 'w' : res === 'loss' ? 'l' : 'n', tip = dShort(d.date) + (res ? (res === 'win' ? ': won' : ': lost') : '') + (dr && dr.rank && dr.total ? ' · ' + dr.rank + ' of ' + dr.total : '');
+    return '<td class="c ' + cls + (nd && nd.date === d.date && !res ? ' now' : '') + '" title="' + esc(tip) + '">' + (dr && dr.rank ? dr.rank.toLocaleString('en-GB') + '.º' : res ? (res === 'win' ? '✓' : '✕') : '—') + '</td>';
+  };
+  const rows = people.map(x => {
+    const rk = x.rk && x.rk.found ? x.rk : null, pz = rk ? prizeAt(rk.rank) : '';
+    return '<tr data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
+      '<span><b>' + esc(x.name) + '</b>' + (x.acc !== 'main' ? '<small>smurf' + (x.owner ? ' of ' + esc(x.owner) : '') + '</small>' : x.uid === S.session.user.id ? '<small>you</small>' : '') + '</span></td>' +
+      '<td class="rr' + (rk ? zone(rk.rank) : '') + '">' + (rk ? '<b>' + rk.rank.toLocaleString('en-GB') + '.º</b><small>' + plural(rk.wins != null ? rk.wins : x.wins, 'win', 'wins') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + plural(x.wins, 'win', 'wins') + '</small>') + '</td>' +
+      days.map(d => cell(x, d)).join('') + '</tr>';
   }).join('');
-  const tiersTxt = P.map(p => p.wins);
-  el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Standings ' + helpBtn('classif') + '</h2><span class="small muted">' + esc(run.name || '') + (P.length ? ' · rings: ' + tiersTxt.join(', ') + ' W' : '') + '</span></div><ul class="list">' + (rows || '<li class="row muted small">There is nobody in the group yet.</li>') + '</ul></div>' +
-    (R ? '<div class="small muted" style="padding:0 4px">Ranks in the ' + esc((R.run || {}).name || 'run') + ' on Top Shot' + (R.total ? ' (' + R.total.toLocaleString('en-GB') + ' players)' : '') + ', ' + ago(R.at) + '.' + (R.cut && Object.keys(R.cut).length ? ' Wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(' · ') + '.' : '') + '</div>' : '') +
+  const head = '<tr><th class="who2">Account</th><th>Run</th>' + days.map((d, k) => '<th title="' + esc(objsText(d)) + '">Day ' + (S.days.indexOf(d) + 1) + '</th>').join('') + '</tr>';
+  const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('en-GB') + ' players' : '') + ' · ranks ' + ago(R.at) : 'Top Shot ranks not read yet';
+  el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Standings ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
+    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">No members yet.</td></tr>') + '</tbody></table></div>' +
+    '<div class="small muted gc-leg"><i class="lg w"></i> won the day · <i class="lg l"></i> lost' + (lastPaid ? ' · run rank <b class="z-p">in orange</b>: in the prizes (up to ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">in gold</b>: top ' + qual + ' (goes to the final)' : '') : '') +
+      (R && R.cut && Object.keys(R.cut).length ? ' · wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
     '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Update ranks</button><button class="btn" type="button" data-action="group-refresh">Refresh</button></div>' +
     '<div class="small muted" style="padding:0 4px">“Update ranks” opens Fast Break on Top Shot: there, tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div>';
 }
@@ -2590,7 +2598,7 @@ function groupEntries() {
       S.days.forEach(day => { if (daysRes[day.date] || !lu[day.date]) return; const c = groupCalc(lu[day.date], day); if (c) { daysRes[day.date] = c.res; prov[day.date] = true; } });
       const wins = Object.values(daysRes).filter(x => x === 'win').length, losses = Object.values(daysRes).filter(x => x === 'loss').length;
       const fa = a.id === 'main' ? p.flow_address : ((Array.isArray(p.smurfs) ? p.smurfs : []).find(x => x && x.id === a.id) || {}).flow_address;
-      out.push({ rk: rankOf(fa), uid, acc: a.id, name: a.name, owner: a.id !== 'main' ? p.display_name || '' : '', s: sa, daysRes, prov, lu, ch, wins, losses, chain: Object.keys(ch).length > 0, exp: sa && sa.expected != null ? +sa.expected : null });
+      out.push({ addr: fa, rk: rankOf(fa), uid, acc: a.id, name: a.name, owner: a.id !== 'main' ? p.display_name || '' : '', s: sa, daysRes, prov, lu, ch, wins, losses, chain: Object.keys(ch).length > 0, exp: sa && sa.expected != null ? +sa.expected : null });
     });
   });
   return out.sort((a, b) => (b.wins - a.wins) || ((b.exp || 0) - (a.exp || 0)) || a.name.localeCompare(b.name));

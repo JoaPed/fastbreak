@@ -214,10 +214,10 @@ with sync_playwright() as pw:
 
     pg.click('#t-grupo'); pg.wait_for_timeout(2900)
     pg.click('button[data-action="group-refresh"]'); pg.wait_for_timeout(500)
-    print('B grupo:', ' // '.join(pg.locator('.grp-row').all_inner_texts()).replace('\n', ' ')[:400])
+    print('B grupo:', ' // '.join(pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()).replace('\n', ' ')[:400])
     print('B grupo largura:', width(pg))
     pg.screenshot(path=str(shots / 'grupo.png'))
-    pg.locator('.grp-row').first.click(); pg.wait_for_timeout(200)
+    pg.locator('#tab-grupo .gc tbody tr').first.click(); pg.wait_for_timeout(200)
     print('B folha amigo:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200])
     pg.click('#sheetPanel button[data-action="close-sheet"]')
 
@@ -552,7 +552,7 @@ with sync_playwright() as pw:
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=90000)
     print('E mais usos:', ' // '.join(x.replace('\n', ' | ')[:200] for x in pg.locator('#buyOut .card').all_inner_texts()[:2]))
     pg.click('#t-grupo'); pg.wait_for_timeout(600)
-    print('E grupo:', ' // '.join(pg.locator('.grp-row').all_inner_texts()).replace('\n', ' ')[:300])
+    print('E grupo:', ' // '.join(pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()).replace('\n', ' ')[:300])
     pg.screenshot(path=str(shots / 'grupo-aros.png'), full_page=True)
     print('E largura:', width(pg))
     # folhas: × sempre em cima à direita; ‹ quando há folha anterior; o voltar do telemóvel volta/fecha sem sair da app
@@ -874,17 +874,20 @@ with sync_playwright() as pw:
     pg.clock.set_fixed_time('2026-10-22T08:30:00Z')
     import base64 as _b64
     ranks_k3 = {'v': 1, 'at': '2026-10-22T08:00:00Z', 'run': {'id': 'run-nba-classic-2026-10-20', 'name': 'CLASSIC - RUN 1'}, 'total': 2601, 'cut': {'50': 2, '250': 2},
-                'accs': [{'a': '00000000000000c2', 'found': True, 'rank': 12, 'wins': 2}, {'a': '00000000000000c1', 'found': True, 'rank': 574, 'wins': 1}]}
+                'accs': [{'a': '00000000000000c2', 'found': True, 'rank': 12, 'wins': 2}, {'a': '00000000000000c1', 'found': True, 'rank': 574, 'wins': 1}],
+                'bands': [[1, 1, 200000, ''], [11, 30, 5000, ''], [151, 250, 200, '']], 'qual': 50,
+                'days': [{'id': 'c-d2', 'date': d2, 'final': True, 'total': 2343, 'accs': {'00000000000000c1': {'rank': 26, 'won': True}, '00000000000000c2': {'rank': 1300, 'won': False}}, 'asked': ['00000000000000c1', '00000000000000c2']}]}
     pg.goto('https://site.test/#fbranks=' + _b64.urlsafe_b64encode(json.dumps(ranks_k3).encode()).decode().rstrip('=')); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
     pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).done' % d2, timeout=15000); pg.wait_for_timeout(500)
     pg.click('#t-grupo'); pg.wait_for_timeout(1500)
-    rows_k3 = [x.replace('\n', ' | ') for x in pg.locator('#tab-grupo .grp-row').all_inner_texts()]
+    rows_k3 = [x.replace('\n', ' | ') for x in pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()]
     print('K3 lugares:', pg.locator('#tab-grupo').inner_text().replace('\n', ' | ')[:700])
-    print('K3 classificação:', ' // '.join(r[:90] for r in rows_k3), '· por confirmar:', pg.locator('#tab-grupo .strip i.p').count())
+    print('K3 classificação:', ' // '.join(r[:90] for r in rows_k3), '· células ganhas:', pg.locator('#tab-grupo .gc td.c.w').count())
     print('K3 o meu resumo:', store(pg, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return x ? { days: x.days, accs: x.share && x.share.accs && Object.fromEntries(Object.entries(x.share.accs).map(([k, v]) => [k, { days: v.days, lu: v.lu }])) } : null; })()'))
     pg.screenshot(path=str(shots / 'grupo-smurfs.png'), full_page=True)
-    pg.locator('#tab-grupo .grp-row[data-acc="s9"]').click(); pg.wait_for_timeout(300)
+    pg.set_viewport_size({'width': 390, 'height': 800}); pg.wait_for_timeout(200); pg.screenshot(path=str(shots / 'grupo-grelha.png'), full_page=True); print('K3 largura grelha:', width(pg))
+    pg.locator('#tab-grupo .gc tr[data-acc="s9"]').click(); pg.wait_for_timeout(300)
     print('K3 folha da smurf:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:260])
     pg.close()
 
