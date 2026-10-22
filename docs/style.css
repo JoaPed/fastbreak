@@ -837,3 +837,5 @@ p, .note { text-wrap: pretty; }
 .acc-res .ar-v small { font-size: 11px; }
 .acc-res .ar-r { text-align: right; min-width: 74px; }
 .hero.past .acc-res .c-ok { color: var(--board-good); } .hero.past .acc-res .c-no { color: var(--board-bad); }
+
+.lu-sort { padding: 0 16px 8px; }

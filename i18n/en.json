@@ -1820,6 +1820,8 @@
  " me": null,
  "c-ok": null,
  "c-no": null,
+ "<div class=\"chips lu-sort\" role=\"group\" aria-label=\"Ordenar por\">": "<div class=\"chips lu-sort\" role=\"group\" aria-label=\"Sort by\">",
+ "Juntos": "Combined",
  "normal": null,
  "sem": null,
  "odds": null,
