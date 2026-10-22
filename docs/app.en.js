@@ -655,11 +655,10 @@ function pxIndex() {
 }
 const pxOf = id => { const x = pxIndex().get(String(canon(id))) || pxIndex().get(String(id)); return x && Date.now() - Date.parse(x.at) < 3 * 864e5 ? x : null; };
 const pxCol = uses => (uses >= 4 ? 2 : uses >= 2 ? 1 : 0);
-// os jogadores a ler: todos os que podem aparecer nas compras (os da NBA com médias), primeiro o teu plantel e a
-// coleção, as sugestões de compra e os especialistas, depois por minutos. Os que alguém do grupo leu há menos de
-// 6 h ficam de fora (menos o plantel e as sugestões), para a 2.ª atualização do dia ser rápida.
+// os jogadores a ler: sempre todos os que podem aparecer nas compras (os da NBA com médias), primeiro o teu plantel
+// e a coleção, as sugestões de compra e os especialistas, depois por minutos
 function pxWanted() {
-  const out = new Set(), must = new Set(), add = (id, m) => { if (id == null) return; id = String(canon(id)); out.add(id); if (m) must.add(id); };
+  const out = new Set(), add = id => { if (id != null) out.add(String(canon(id))); };
   Object.keys(S.mine.roster || {}).forEach(id => add(id, 1));
   Object.keys(((S.profile || {}).collection || {}).players || {}).forEach(id => add(id, 1));
   [S.buy && S.buy.results, S.autoBuy].forEach(R => { if (R) { (R.list || []).forEach(x => add(x.id, 1)); (R.rank || []).slice(0, 40).forEach(x => add(x && x.id != null ? x.id : x, 1)); } });
@@ -667,7 +666,7 @@ function pxWanted() {
   const val = (p, k) => { const a = FB.avgOf({ avg: p.avg }, k); return a ? a.v : 0; };
   SPEC_STATS.forEach(k => pool.filter(p => (+p.avg.min || 0) >= 12).sort((a, b) => val(b, k) - val(a, k)).slice(0, 12).forEach(p => add(p.id)));
   pool.sort((a, b) => (+b.avg.min || 0) - (+a.avg.min || 0)).forEach(p => add(p.id));
-  return [...out].filter(id => (S.players.has(id) || (S.mine.roster || {})[id]) && (must.has(id) || !pxOf(id) || Date.now() - Date.parse(pxOf(id).at) > 6 * 3600e3)).slice(0, 650);
+  return [...out].filter(id => S.players.has(id) || (S.mine.roster || {})[id]).slice(0, 650);
 }
 // escalões que os amigos marcaram carta a carta, juntos por set (servem para os sets que tu não marcaste)
 function groupTierLabels(profiles) {
@@ -2630,7 +2629,7 @@ function renderGrupo() {
     '<div class="small muted gc-leg"><i class="lg w"></i> won the day · <i class="lg l"></i> lost' + (lastPaid ? ' · <b class="dz">+$</b> daily prize · run rank <b class="z-p">in orange</b>: in the prizes (up to ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">in gold</b>: top ' + qual + ' (goes to the final)' : '') : '') +
       (R && R.cut && Object.keys(R.cut).length ? ' · wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
     '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Update ranks and prices</button><button class="btn" type="button" data-action="group-refresh">Refresh</button></div>' +
-    '<div class="small muted" style="padding:0 4px">“Update ranks and prices” opens Fast Break on Top Shot: there tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. It reads the ranks and also the market prices of every player (the first time each day takes 1–2 minutes). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div>';
+    '<div class="small muted" style="padding:0 4px">“Update ranks and prices” opens Fast Break on Top Shot: there tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. It reads the ranks and also the market prices of every player (it takes 1–2 minutes). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div>';
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
