@@ -230,10 +230,11 @@ access(all) fun main(runId: String, addrs: [Address]): {String: AnyStruct} {
   for a in addrs { mine.append(run!.runWinCount[FastBreakV1.getPlayerIdByAccount(accountAddress: a)] ?? 0) }
   return {"name": run!.name, "hist": hist, "mine": mine}
 }`;
+console.log('::notice title=Posição na run::runs ligadas: ' + linked.length);
 for (const runId of linked.slice(-2)) {
   const played = new Set((await must(sb.from('chain_results').select('user_id,account').eq('chain_run_id', runId))).map(x => x.user_id + '|' + (x.account || 'main')));
   const accs = accounts.filter(a => a.addr && ((a.runs && a.runs.has(runId)) || played.has(a.user_id + '|' + a.account)));
-  if (!accs.length) continue;
+  if (!accs.length) { console.log('::notice title=Posição na run::' + runId + ': nenhuma conta do grupo (' + accounts.filter(a => a.addr).length + ' com endereço, ' + played.size + ' com dias)'); continue; }
   try {
     const r = await flowScript(RANK_SCRIPT, [{ type: 'String', value: runId }, { type: 'Array', value: accs.map(a => cadence.address(a.addr)) }]);
     const hist = Object.entries((r && r.hist) || {}).map(([w, n]) => [+w, +n]), total = hist.reduce((t, [, n]) => t + n, 0);
