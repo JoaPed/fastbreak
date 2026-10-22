@@ -580,9 +580,41 @@ async function loadGroup() {
     run.chain_run_id ? q(sb.from('chain_results').select('*').eq('chain_run_id', run.chain_run_id)) : Promise.resolve([]),
   ]);
   groupTierLabels(profiles || []);
+  takeRanksHash();
   S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [] };
 }
 
+// ---------- lugares na run do Top Shot (script "FB lugares" na página do Fast Break, com a sessão de quem o corre) ----------
+// O site manda as contas do grupo em #fbsync=...; o script devolve #fbranks=... com o lugar e as vitórias de cada uma.
+// Ficam no resumo publicado de quem atualizou (share.ranks) e todos usam o mais recente.
+const b64u = { enc: o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), dec: x => JSON.parse(decodeURIComponent(escape(atob(x.replace(/-/g, '+').replace(/_/g, '/'))))) };
+const addrKey = a => String(a || '').replace(/^0x/, '').toLowerCase();
+try { S.ranksMine = JSON.parse(localStorage.getItem('fb-ranks') || 'null'); } catch (e) { S.ranksMine = null; }
+function takeRanksHash() {
+  const m = location.hash.match(/fbranks=([A-Za-z0-9_-]+)/); if (!m) return;
+  try {
+    const d = b64u.dec(m[1]);
+    if (d && Array.isArray(d.accs)) { S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.'), 300); S.lastSummary = ''; }
+  } catch (e) { console.warn('lugares', e); }
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+}
+// os lugares mais recentes do grupo (os meus ou os que outro membro publicou)
+function groupRanks() {
+  let best = S.ranksMine && S.ranksMine.at ? S.ranksMine : null;
+  ((S.group || {}).summaries || []).forEach(x => { const r = x.share && x.share.ranks; if (r && r.at && (!best || r.at > best.at)) best = r; });
+  return best;
+}
+function rankOf(addr) { const R = groupRanks(); if (!R || !addr) return null; return (R.accs || []).find(x => addrKey(x.a) === addrKey(addr)) || null; }
+// as contas do grupo com endereço Flow (as que o script procura)
+function rankJob() {
+  const accs = [];
+  (S.group.profiles || []).forEach(p => {
+    if (!S.group.members.some(m => m.user_id === p.user_id)) return;
+    if (p.flow_address) accs.push({ a: addrKey(p.flow_address), uid: p.user_id, acc: 'main' });
+    (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
+  });
+  return { accs, back: location.origin + location.pathname };
+}
 // escalões que os amigos marcaram carta a carta, juntos por set (servem para os sets que tu não marcaste)
 function groupTierLabels(profiles) {
   const me = S.session.user.id, out = {};
@@ -761,7 +793,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -2502,7 +2534,9 @@ function renderGrupo() {
   const gsub = subOf('grupo');
   if (gsub === 'lineups') { el.innerHTML = subBar('grupo') + '<div class="stack">' + lineupsHtml() + '</div>'; return; }
   if (gsub === 'emprestimos') { el.innerHTML = subBar('grupo') + '<div class="stack">' + emprestimosHtml() + '</div>'; return; }
-  const nd = nextDay(), people = groupEntries();
+  const nd = nextDay(), R = groupRanks(), people = groupEntries();
+  // com os lugares do Top Shot, a ordem é a da classificação oficial (vitórias e o desempate deles)
+  if (R) people.sort((a, b) => ((a.rk && a.rk.found ? a.rk.rank : 1e9) - (b.rk && b.rk.found ? b.rk.rank : 1e9)) || (b.wins - a.wins));
   const run = curRun() || {}, P = (run.prizes || []).map(p => ({ wins: +p.wins })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
   const rows = people.map((x, i) => {
     const strip = S.days.map(d => { const r = x.daysRes[d.date]; return '<i class="' + (r === 'win' ? 'w' : r === 'loss' ? 'l' : (nd && nd.date === d.date ? 'n' : '')) + '" title="' + dShort(d.date) + (r ? (r === 'win' ? ': vitória' : ': derrota') : '') + '"></i>'; }).join('');
@@ -2513,12 +2547,14 @@ function renderGrupo() {
     const side = x.s ? (Pi.length && probs.every(v => v != null) ? miniAros(Pi, probs) : '<span class="grp-wl num">≈ ' + f1(x.exp || 0) + '</span>') + (x.s.next_p != null && nd ? '<span class="today">hoje ' + pct(+x.s.next_p) + '</span>' : '') : '<span class="today">não abriu a run</span>';
     return '<li><button class="grp-row" type="button" data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '"><span class="grp-rank">' + (i + 1) + '</span>' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
       '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.name) + '</span>' + (x.acc !== 'main' ? '<span class="badge">smurf' + (x.owner ? ' de ' + esc(x.owner) : '') + '</span>' : '') + (x.uid === S.session.user.id && x.acc === 'main' ? '<span class="badge">tu</span>' : '') + '</span>' +
-      '<span class="ps" style="display:block">' + recordTxt(x.wins, x.losses) + (x.exp != null ? ' · esperadas ' + f1(x.exp) : '') + '</span><span class="strip">' + strip + '</span></span>' +
+      '<span class="ps" style="display:block">' + (x.rk && x.rk.found ? '<b class="num rk">' + x.rk.rank.toLocaleString('pt-PT') + '.º</b> · ' : '') + recordTxt(x.wins, x.losses) + (x.exp != null ? ' · esperadas ' + f1(x.exp) : '') + '</span><span class="strip">' + strip + '</span></span>' +
       '<span class="grp-side">' + side + '</span></button></li>';
   }).join('');
   const tiersTxt = P.map(p => p.wins);
   el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2><span class="small muted">' + esc(run.name || '') + (P.length ? ' · aros: ' + tiersTxt.join(', ') + ' V' : '') + '</span></div><ul class="list">' + (rows || '<li class="row muted small">Ainda não há ninguém no grupo.</li>') + '</ul></div>' +
-    '<button class="btn" type="button" data-action="group-refresh">Atualizar</button>';
+    (R ? '<div class="small muted" style="padding:0 4px">Lugares na ' + esc((R.run || {}).name || 'run') + ' do Top Shot' + (R.total ? ' (' + R.total.toLocaleString('pt-PT') + ' jogadores)' : '') + ', ' + ago(R.at) + '.' + (R.cut && Object.keys(R.cut).length ? ' Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(' · ') + '.' : '') + '</div>' : '') +
+    '<div class="foot" style="padding:0;border:0"><button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares</button><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
+    '<div class="small muted" style="padding:0 4px">«Atualizar lugares» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="lugares.html" target="_blank" rel="noopener">Como instalar</a></div>';
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
@@ -2539,7 +2575,8 @@ function groupEntries() {
       const lu = (accs[a.id] && accs[a.id].lu) || (a.id === 'main' && s && s.share && s.share.lineups) || {};
       S.days.forEach(day => { if (daysRes[day.date] || !lu[day.date]) return; const c = groupCalc(lu[day.date], day); if (c) { daysRes[day.date] = c.res; prov[day.date] = true; } });
       const wins = Object.values(daysRes).filter(x => x === 'win').length, losses = Object.values(daysRes).filter(x => x === 'loss').length;
-      out.push({ uid, acc: a.id, name: a.name, owner: a.id !== 'main' ? p.display_name || '' : '', s: sa, daysRes, prov, lu, ch, wins, losses, chain: Object.keys(ch).length > 0, exp: sa && sa.expected != null ? +sa.expected : null });
+      const fa = a.id === 'main' ? p.flow_address : ((Array.isArray(p.smurfs) ? p.smurfs : []).find(x => x && x.id === a.id) || {}).flow_address;
+      out.push({ rk: rankOf(fa), uid, acc: a.id, name: a.name, owner: a.id !== 'main' ? p.display_name || '' : '', s: sa, daysRes, prov, lu, ch, wins, losses, chain: Object.keys(ch).length > 0, exp: sa && sa.expected != null ? +sa.expected : null });
     });
   });
   return out.sort((a, b) => (b.wins - a.wins) || ((b.exp || 0) - (a.exp || 0)) || a.name.localeCompare(b.name));
@@ -3966,6 +4003,7 @@ document.addEventListener('click', async e => {
     case 'hd': S.hd = date; S.hdCenter = true; renderHoje(); break;
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id, b.dataset.acc); break;
+    case 'ranks-go': { const J = rankJob(); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
     case 'lock-yes': lockToggle(id, date, true); luBack(date); break;
     case 'unlock': lockToggle(id, date, false); luBack(date); break;

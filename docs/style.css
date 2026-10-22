@@ -775,3 +775,4 @@ p, .note { text-wrap: pretty; }
 .goal.res i { font-style: normal; font-size: .55em; color: var(--board-muted); margin-left: 2px; }
 .mkt:empty { display: none; }
 .mkt-box .row { border-top: 1px solid var(--line); }
+.grp-row .rk { color: var(--ink); }
