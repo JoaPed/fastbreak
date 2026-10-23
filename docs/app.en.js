@@ -64,6 +64,7 @@ const injuredInRoster = () => Object.keys((S.mine || {}).roster || {}).filter(id
 // jogos seguidos (back-to-back): ajustar ou não (fica neste aparelho)
 let b2bOn = true;
 try { b2bOn = localStorage.getItem('fb-b2b') !== '0'; } catch (e) {}
+try { if (localStorage.getItem('fb-luview') === 'pessoa') S.luView = 'pessoa'; } catch (e) {}
 // aspeto: automático (segue o telemóvel), claro ou escuro (fica neste aparelho)
 let theme = 'auto';
 try { const t = localStorage.getItem('fb-theme'); if (t === 'light' || t === 'dark') theme = t; } catch (e) {}
@@ -242,7 +243,7 @@ const icoLock = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="curre
 // ---------- ajuda: as explicações ficam atrás de um (?) ao lado dos títulos ----------
 const HELP = {
   lineup: ['Lineup', 'The lineup the plan suggests for this day, with the whole run in mind: it may save players for days when they are worth more. The number on the right is what each one should score. In Change you lock, remove and add players one by one and see what that does to the run. Tap a player to see what it’s based on.'],
-  aovivo: ['Live', 'When the first game starts, the app locks in whoever has played, reads the points from ESPN every 2 minutes and redoes the rest of the run. When the lineup’s games end, the day closes by itself. If the lineup you submitted on Top Shot is different, fix it in Suggestions for today. If ESPN fails, tap a player to enter the numbers by hand.'],
+  aovivo: ['Live', 'When the first game starts, the app locks in who has already played, reads the points from ESPN every 2 minutes and redoes the rest of the run. When the lineup’s games end, the day closes by itself. If the lineup you submitted on Top Shot is different, fix it in Suggestions for today. Tap a lineup player to see his game’s stats. If ESPN fails during the game, the values come in when the game ends.'],
   opcoes: ['Suggestions for today', '<b>Before the games</b>: compares the plan with going all in today or saving a player for another day (to pick player by player yourself, use Change on the lineup).<br><b>During the games</b>: with the points already in, compares keeping, removing or saving whoever hasn’t played yet.<br>Each option redoes the whole run with the uses left; “the best” is the one that raises your prize chances the most. Removing a player before his game starts doesn’t spend the use.'],
   jogosdia: ['Games that day', 'Local time. Under each game, your players (the lineup in bold). During the games: live score and the numbers of the players in the lineup.'],
   lesoesforma: ['Injuries and form', '<b>Injuries</b>: ESPN report for who plays this day, with the chance the plan counts on. The report for the whole run is in Players → Injuries. <b>Form</b>: average of the last 5 games against the season’s, in the day’s stat.'],
@@ -264,7 +265,7 @@ const HELP = {
   forma: ['Form', 'Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.'],
   lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).'],
   classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
-  lineups: ['Group lineups', 'For each day, the players each person’s plan puts in the lineup (it changes until the game), most picked on top, and who takes them. Lock: that person already locked him or he is already playing. “yours”: you have him too.'],
+  lineups: ['Group lineups', 'For each day, the players each person’s plan puts in the lineup (it changes until the game), most picked on top, and who takes them. Lock: that person already locked him or he is already playing. Highlighted: the ones in your lineup for that day. «By person» shows each person’s lineup, with a ring on the players also in yours.'],
   emprestimos: ['Loans', 'Redoes your run with your friends’ Moments, only on days their plan doesn’t use them. It counts the uses of one of their Moments in a run. On Top Shot they gift you the Moment and you give it back after you play that day.'],
   partilha: ['Sharing', 'The group sees the lineup your plan suggests and your players’ uses, and can ask you for Moments on days you don’t use them. Your roster and plan stay yours.'],
   smurf: ['Smurf accounts', 'Up to 2 extra accounts of yours. The plan pools the collections and tells you which Moments to send to which account before each night (a Moment only plays for one account each night).'],
@@ -1270,11 +1271,11 @@ function renderJornada(el) {
     let ps;
     if (live) {
       const st = info.liveState, sb2 = d.live.submitted.includes(id);
-      if (st === 'fim') ps = '<span class="pill fim">Final</span> ' + esc(p.team) + ' ' + esc(opp(p.team, nd));
-      else if (st === 'jogo') ps = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Playing') + '</span> ' + md.objs.map((ob, k) => f0(md.info[pi][k].known) + (md.objs.length > 1 ? ' ' + esc(statShort(ob.stat)) : '')).join(' · ') + ' so far';
-      else if (st === 'jogo?') ps = '<span class="pill jogo">Playing</span> tap to enter the value';
-      else ps = (sb2 ? '' : '<span class="pill prov">New</span> ') + esc(p.team) + ' ' + esc(opp(p.team, nd));
-    } else ps = esc(p.team) + ' ' + esc(opp(p.team, nd)) + (info.b2b ? ' · back-to-back' : ''); // a fonte do valor fica em Porquê e na ficha; a lesão é a pílula do nome
+      if (st === 'fim') ps = '<span class="pill fim">Final</span> ' + teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd));
+      else if (st === 'jogo') ps = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Playing') + '</span> ' + teamMini(p.team) + md.objs.map((ob, k) => f0(md.info[pi][k].known) + (md.objs.length > 1 ? ' ' + esc(statShort(ob.stat)) : '')).join(' · ') + ' so far';
+      else if (st === 'jogo?') ps = '<span class="pill jogo">Playing</span> ' + teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd));
+      else ps = (sb2 ? '' : '<span class="pill prov">New</span> ') + teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd));
+    } else ps = teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd)) + (info.b2b ? ' · back-to-back' : ''); // a fonte do valor fica em Porquê e na ficha; a lesão é a pílula do nome
     // Moment que ainda está noutra conta: tem de ser mandado antes deste jogo
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Send from ' + esc(accLabel(tr.from)) + '</span> ' + ps;
@@ -1283,7 +1284,9 @@ function renderJornada(el) {
     if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);
       stp += '<span class="pill duv risk" title="' + esc((INJ_LABEL[info.injury.rec.status] || '') + ': counted as playing; if he is ruled out, swap him before the game') + '">⚠ ' + esc(INJ_LABEL[info.injury.rec.status] || 'Questionable') + '</span>';
       rl = '<div class="risk-sub">if he sits: ' + (sb ? '<b>' + esc(lastName(sb.id)) + '</b> (today ' + pct(sb.P) + ')' : 'no swap after his game') + '</div>'; }
-    return '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div>' + rl + '</div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
+    // ao vivo, com o jogo já começado: tocar abre as estatísticas do jogo
+    const gid = live && /^(jogo\??|fim)$/.test(info.liveState || '') ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
+    return '<li><button class="row" type="button" ' + (/^espn:/.test(gid) ? 'data-action="game-box" data-gid="' + esc(gid) + '"' : 'data-action="player"') + ' data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div>' + rl + '</div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
   // antes dos jogos: Mudar (fixar, tirar e pôr jogadores um a um, com o que muda face à sugestão)
@@ -1341,6 +1344,8 @@ async function refreshBoard(date) {
 }
 // linhas dos jogos de um dia: equipas, hora (ou placar ao vivo) e os teus jogadores em cada jogo (os do lineup a negrito)
 // emblema da equipa (ESPN), com a bolinha da cor por baixo se a imagem não carregar
+// emblema pequeno ao lado da sigla (linhas dos jogadores); sem imagem, não ocupa espaço
+const teamMini = t => t ? '<img class="tmini" src="https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/' + (LOGO_CODE[t] || String(t).toLowerCase()) + '.png&amp;w=40&amp;h=40" width="16" height="16" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '';
 const LOGO_CODE = { GSW: 'gs', NYK: 'ny', NOP: 'no', SAS: 'sa', UTA: 'utah', WAS: 'wsh' };
 const teamLogo = t => '<span class="tlogo" style="--tc:' + (TEAM_COLOR[t] || 'var(--faint)') + '" aria-hidden="true"><img src="https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/' + (LOGO_CODE[t] || String(t || '').toLowerCase()) + '.png&amp;w=80&amp;h=80" width="36" height="36" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>';
 // um jogo: equipas com emblema, hora (ou placar ao vivo) e os teus jogadores; os do lineup em destaque com cara e
@@ -1355,12 +1360,12 @@ function gameRows(day, r, ids, B, lp, objs) {
     const started = bg && bg.state !== 'pre', st = !started ? '' : bg.state === 'post' ? 'Final' : bg.detail;
     const tm = (t, sc) => '<span class="g-tm">' + teamLogo(t) + '<b>' + esc(t) + '</b>' + (sc != null ? '<span class="g-sc num">' + esc(sc) + '</span>' : '') + '</span>';
     const teams = tm(g[0], started ? bg.as : null) + '<span class="g-at">' + (started ? '–' : '@') + '</span>' + tm(g[1], started ? bg.hs : null);
-    const right = started ? esc(st) : (g[2] ? hm(bg && bg.start || g[2]) : '–');
+    const right = started ? esc(st) : (g[2] ? hm(bg && bg.start || g[2]) : '–'), gid = String(g[3] || '');
     const val = id => { const e = lp && lp[id]; return e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : ''; };
     const lu = mine.filter(id => inLine.has(id)), rest = mine.filter(id => !inLine.has(id));
     const chips = lu.map(id => '<span class="g-chip">' + face(id, 'xs') + esc(lastName(id)) + val(id) + '</span>').join('') +
       (rest.length ? '<span class="g-stack">' + rest.slice(0, 5).map(id => face(id, 'xs')).join('') + '</span><span class="g-more">' + (lu.length ? '+' : '') + plural(rest.length, 'yours', 'yours') + '</span>' : '');
-    const top = '<span class="g-teams">' + teams + '</span><span class="g-time num">' + right + '</span>' + (mine.length ? '<span class="g-mine">' + chips + '</span>' : '');
+    const top = '<span class="g-teams">' + teams + '</span>' + (started && gid ? '<button type="button" class="g-time num g-boxbtn" data-action="game-box" data-gid="' + esc(gid) + '" aria-label="Live stats">' + right + ' <span aria-hidden="true">›</span></button>' : '<span class="g-time num">' + right + '</span>') + (mine.length ? '<span class="g-mine">' + chips + '</span>' : '');
     const all = rest.length ? '<div class="g-all">' + rest.map(id => esc(lastName(id)) + val(id)).join(' · ') + '</div>' : '';
     return '<li class="gcard' + (bg && bg.state === 'in' ? ' on' : '') + '">' + (all ? '<details><summary class="g-top">' + top + '</summary>' + all + '</details>' : '<div class="g-top">' + top + '</div>') + '</li>';
   }).join('');
@@ -2725,12 +2730,24 @@ function lineupsHtml() {
     const people = [{ uid: me, ids: mine, lk: new Set(myLocks) }].concat(shared.map(s => ({ uid: s.user_id, ids: ((s.share.lineups || {})[day.date]) || [], lk: new Set((s.share.locks || {})[day.date] || []) })));
     const by = new Map(); people.forEach(p => p.ids.forEach(id => { (by.get(id) || by.set(id, []).get(id)).push(p); }));
     const list = [...by.entries()].sort((a, b) => (b[1].length - a[1].length) || ((a[1][0].uid === me ? 0 : 1) - (b[1][0].uid === me ? 0 : 1)) || String(lastName(a[0])).localeCompare(String(lastName(b[0]))));
-    const rows = list.map(([id, ps]) => '<li><button class="row lu-pl" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span>' + (mineIds.has(id) ? '<span class="badge">yours</span>' : '') + '</div>' +
+    const myLu = new Set(mine);
+    if (S.luView === 'pessoa') {
+      // por pessoa: o lineup de cada um; em destaque os jogadores que também estão no teu
+      const prow = p => { const s = p.uid === me ? null : shared.find(x => x.user_id === p.uid);
+        const pl = id => { const same = p.uid !== me && myLu.has(id), lk = p.lk.has(id);
+          return '<button type="button" class="lp-pl' + (same ? ' same' : '') + '" data-action="pform" data-id="' + esc(id) + '" title="' + esc(nameOf(id)) + (lk ? ' (locked)' : '') + (same ? ' · also in yours' : '') + '">' + face(id, 'sm') + (lk ? '<i class="lp-lk">' + icoLock + '</i>' : '') + '<span class="lp-nm">' + esc(lastName(id) || id) + '</span></button>'; };
+        return '<li class="row lp-row"><div class="lp-who">' + avatar(p.uid, p.uid === me ? (S.profile || {}).display_name || 'You' : groupName(p.uid)) + '<div style="min-width:0"><div class="nm">' + esc(p.uid === me ? 'You' : groupName(p.uid)) + '</div>' + (s && s.updated_at ? '<div class="small muted">' + esc(ago(s.updated_at)) + '</div>' : '') + '</div></div>' +
+          '<div class="lp-pls">' + (p.ids.length ? p.ids.map(pl).join('') : '<span class="small muted">no players</span>') + '</div></li>'; };
+      return '<div class="card"><div class="list-head"><h2>Day ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div><ul class="list">' + people.map(prow).join('') + '</ul></div>';
+    }
+    const rows = list.map(([id, ps]) => '<li' + (myLu.has(id) ? ' class="lu-mine"' : '') + '><button class="row lu-pl" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></div>' +
       '<div class="ps">' + esc(((S.players.get(String(canon(id))) || {}).team) || '') + '</div></div></span>' +
       '<span class="lu-who">' + ps.map(p => '<span class="lu-av' + (p.lk.has(id) ? ' lk' : '') + '" title="' + esc(p.uid === me ? 'You' : groupName(p.uid)) + (p.lk.has(id) ? ' (locked)' : '') + '">' + avatar(p.uid, p.uid === me ? (S.profile || {}).display_name || 'You' : groupName(p.uid)) + (p.lk.has(id) ? '<i>' + icoLock + '</i>' : '') + '</span>').join('') + '</span><b class="lu-n num">' + ps.length + '</b></button></li>').join('');
     return '<div class="card"><div class="list-head"><h2>Day ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div>' + (rows ? '<ul class="list">' + rows + '</ul>' : '<div class="row small muted">Nobody has a lineup for this day.</div>') + '</div>';
   });
-  return '<div class="sec-head"><span class="small muted">Who takes each player · ' + icoLock + ' locked</span>' + helpBtn('lineups') + '</div>' +
+  const pv = S.luView === 'pessoa';
+  return '<div class="seg pl-seg lu-seg" role="group" aria-label="How to view lineups">' + [['jogador', 'By player'], ['pessoa', 'By person']].map(([k, l]) => '<button type="button" data-action="lu-view" data-v="' + k + '" aria-pressed="' + ((k === 'pessoa') === pv) + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="sec-head"><span class="small muted">' + (pv ? 'Each person’s lineup · <span class="lp-ring" aria-hidden="true"></span> also in yours' : 'Who takes each player · <span class="lu-mine-key">highlighted</span>: in your lineup') + ' · ' + icoLock + ' locked</span>' + helpBtn('lineups') + '</div>' +
     (shared.length ? '' : '<div class="note info">Nobody in the group has shared their plan yet.</div>') + cards.join('') +
     (hidden.length ? '<p class="small muted" style="margin:0 4px">No shared plan: ' + hidden.map(m => esc(groupName(m.user_id))).join(', ') + '.</p>' : '');
 }
@@ -4189,6 +4206,38 @@ async function liveFetch(quiet) {
 // ---------- fichas finais dos jogos (ESPN, do browser): o resultado de cada dia sem o registar à mão ----------
 // S.box[data] = {at, busy, err, board: placar (espnBoard), lines: {nome: {t, v, st}}, gs: {equipa: {id, st}}, n: {equipa: linhas
 // na ficha}, fin: {jogo: true}, done: {equipa: true}}. Só lê os jogos das equipas que faltam; um jogo acabado não se relê.
+// estatísticas de um jogo (ficha da ESPN): as duas equipas, cada jogador com MIN, PTS, REB, AST, 3PT, STL, BLK, TO;
+// os teus jogadores em destaque. Lê de novo a cada abertura (e com «Atualizar»)
+async function gameBoxSheet(gid, pid, date) {
+  const id = String(gid).replace(/^espn:/, '');
+  openSheet('<h3>Game stats</h3><div id="gbProg" class="small muted">Reading the box score…</div>');
+  let js = null; try { const res = await fetch(ESPN_SUMMARY(id), { cache: 'no-store' }); if (res.ok) js = await res.json(); } catch (e) {}
+  if (!$('gbProg')) return;
+  // vindo de um jogador do lineup: mantém-no no «Atualizar»
+  const boxMore = pid ? ' data-id="' + esc(pid) + '" data-date="' + esc(date || '') + '"' : '';
+  const boxHand = '';
+  if (!js) { $('gbProg').outerHTML = '<div class="note">No answer from ESPN. Try again.</div><button class="btn" type="button" data-action="game-box" data-gid="' + esc(gid) + '"' + boxMore + '>Try again</button>' + boxHand; return; }
+  const comp = (((js.header || {}).competitions) || [])[0] || {}, cs = comp.competitors || [], stt = ((comp.status || {}).type) || {};
+  const tm = c => ({ t: espnAbbr(((c || {}).team || {}).abbreviation), sc: (c || {}).score });
+  const away = tm(cs.find(c => c.homeAway === 'away')), home = tm(cs.find(c => c.homeAway === 'home'));
+  const mine = new Map(Object.keys(S.mine.roster || {}).map(x => [norm(nameOf(x)), x])), v = view(), luIds = new Set(((v && v.days[0]) || {}).lineup || []);
+  const COLS = [['MIN', 'MIN'], ['PTS', 'PTS'], ['REB', 'REB'], ['AST', 'AST'], ['3PT', '3PT'], ['STL', 'STL'], ['BLK', 'BLK'], ['TO', 'TO']];
+  const teamTbl = team => {
+    const st = ((team || {}).statistics || [])[0] || {}, labels = (st.labels || []).map(l => String(l).toUpperCase()), t = espnAbbr(((team || {}).team || {}).abbreviation);
+    const ix = COLS.map(([l]) => labels.indexOf(l));
+    const rows = (st.athletes || []).map(a => {
+      const nm = (a.athlete || {}).displayName || '', pid = mine.get(norm(nm)), dnp = a.didNotPlay || !(a.stats || []).length;
+      return '<tr class="' + (pid ? 'mine' : '') + (pid && luIds.has(pid) ? ' lu' : '') + (dnp ? ' dnp' : '') + '"><th class="sticky"><span class="cn">' + esc(((a.athlete || {}).shortName) || nm) + (a.starter ? '' : '') + '</span></th>' +
+        (dnp ? '<td colspan="' + COLS.length + '" class="muted">' + esc(a.reason || 'did not play') + '</td>' : ix.map(i => '<td>' + (i >= 0 ? esc(a.stats[i]) : '–') + '</td>').join('')) + '</tr>';
+    }).join('');
+    return '<div class="card"><div class="list-head"><h2>' + teamLogo(t) + ' ' + esc(t) + '</h2></div><div class="cmp-wrap"><table class="cmp games gbox"><thead><tr><th class="sticky">Player</th>' + COLS.map(([, l]) => '<th>' + l + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  };
+  const teams = ((js.boxscore || {}).players) || [];
+  const order = [away.t, home.t].map(t => teams.find(x => espnAbbr(((x.team || {}).abbreviation)) === t)).filter(Boolean);
+  $('gbProg').outerHTML = '<div class="gb-head"><span class="g-tm">' + teamLogo(away.t) + '<b>' + esc(away.t) + '</b><span class="g-sc num">' + esc(away.sc || '') + '</span></span><span class="muted">–</span><span class="g-tm">' + teamLogo(home.t) + '<b>' + esc(home.t) + '</b><span class="g-sc num">' + esc(home.sc || '') + '</span></span><span class="small muted">' + esc(stt.shortDetail || stt.detail || '') + '</span></div>' +
+    (order.length ? order.map(teamTbl).join('') : '<div class="note info">ESPN doesn’t have this game’s box score yet.</div>') +
+    '<div class="small muted">In bold: your players (shaded: in today’s lineup).</div><button class="btn" type="button" data-action="game-box" data-gid="' + esc(gid) + '"' + boxMore + '>Refresh</button>' + boxHand;
+}
 async function boxLoad(date, teams) {
   const day = S.days.find(d => d.date === date); if (!day) return null;
   const B = S.box[date] || (S.box[date] = { at: 0, board: null, lines: {}, gs: {}, n: {}, fin: {}, done: {} });
@@ -4414,6 +4463,7 @@ document.addEventListener('click', async e => {
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
     case 'fold': { const k = b.dataset.k; S.fold[k] = !S.fold[k]; try { localStorage.setItem('fb-fold', JSON.stringify(S.fold)); } catch (e) {} render(); break; }
     case 'lu-all': if (S.lu) { S.lu.all = true; luRender(); } break;
+    case 'lu-view': S.luView = b.dataset.v === 'pessoa' ? 'pessoa' : null; try { localStorage.setItem('fb-luview', S.luView || ''); } catch (e) {} render(); break;
     case 'lu-sort': S.luSort = +b.dataset.k < 0 ? null : +b.dataset.k; if (b.dataset.out) luPickSheet(date, b.dataset.out); else if (S.lu) luRender(); break;
     case 'lu-player': playerSheet(id, date, () => lineupSheet(date)); break;
     case 'set-status': setStatus(id, b.dataset.status); rosterSheet(id); break;
@@ -4486,6 +4536,7 @@ document.addEventListener('click', async e => {
     case 'buy-retry': S.autoBuyErr = null; S.autoBuy = null; autoBuyBusy = null; render(); scheduleAutoBuy(); break;
     case 'better-use': useBetter(); break;
     case 'lu-share': shareLineup(date); break;
+    case 'game-box': e.preventDefault(); gameBoxSheet(b.dataset.gid, b.dataset.id, b.dataset.date); break;
     case 'share-go': shareGo(); break;
     case 'better-no': S.better = null; render(); break;
     case 'buy-detail': buyDetailSheet(b.dataset.src, id); break;

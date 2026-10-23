@@ -940,3 +940,30 @@ p, .note { text-wrap: pretty; }
 .jc-bars { display: grid; gap: 5px; position: relative; margin-top: 2px; }
 .jc-bars .bar { height: 6px; }
 .jc-final { position: relative; color: var(--board-ink); padding-inline: 0; }
+
+/* emblema pequeno da equipa nas linhas dos jogadores */
+.tmini { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; border-radius: 50%; }
+/* estatísticas de um jogo (folha) */
+.g-boxbtn { border: 0; background: none; color: inherit; font: inherit; padding: 2px 0; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.gb-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.gbox tr.mine th, .gbox tr.mine td { font-weight: 700; color: var(--ink); }
+.gbox tr.lu th, .gbox tr.lu td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.gbox tr.dnp th { color: var(--muted); }
+.card .list-head h2 .tlogo { vertical-align: middle; }
+.gb-head .g-tm { display: inline-flex; align-items: center; gap: 6px; }
+.gb-head .g-sc { margin-left: 2px; font-weight: 700; }
+.gbox th, .gbox td { padding-inline: 7px; }
+.lu-mine > .row { background: color-mix(in srgb, var(--accent) 10%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.lu-mine-key { color: var(--accent); font-weight: 600; }
+/* lineups do grupo, por pessoa: as caras do lineup de cada um */
+.lp-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; }
+.lp-who { display: flex; align-items: center; gap: 8px; width: 94px; flex: none; min-width: 0; }
+.lp-who .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-pls { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px 2px; }
+.lp-pl { position: relative; border: 0; background: none; padding: 3px 0 0; color: inherit; font: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; cursor: pointer; }
+.lp-pl .face { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .85); }
+.lp-pl.same .face { box-shadow: 0 0 0 2.5px var(--ball); }
+.lp-nm { font-size: 11px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-lk { position: absolute; top: 0; left: calc(50% + 10px); width: 15px; height: 15px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; color: var(--accent); }
+.lp-lk .lock { width: 10px; height: 10px; }
+.lp-ring { display: inline-block; width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 2px var(--ball); vertical-align: -1px; margin: 0 2px; }
