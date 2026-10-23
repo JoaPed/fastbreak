@@ -910,3 +910,5 @@ p, .note { text-wrap: pretty; }
 .jc-btns .hero-btn { flex: 1; padding-block: 9px; font-size: 13.5px; }
 .day-hero.jcompact .win-ring { zoom: .62; margin: -4px -2px -4px 0; }
 .j-links .btn[aria-pressed="true"] { color: var(--ink); text-decoration: none; font-weight: 700; }
+.col-row .who { min-width: 0; flex: 1; align-items: center; }
+.tpill .tp-acc { font-weight: 600; opacity: .8; }

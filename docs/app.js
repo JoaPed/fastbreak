@@ -258,7 +258,7 @@ const HELP = {
   cartas: ['As tuas cartas', 'O escalão de cada Moment: o site adivinha-o pelo set e pela tiragem. Se estiver mal, escolhe o certo: as outras cartas do mesmo set aprendem (as tuas e as do grupo). O jogador fica com os usos da melhor carta.'],
   colecao: ['Coleção', 'Os teus Moments lidos da blockchain (todas as contas), guardados no perfil para todas as runs. Usos por run de cada jogador: os da melhor carta. Moments de jogadores fora da NBA desta época não contam.'],
   comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
-  especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). % = quantas vezes a estatística sai nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
+  especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
   forma: ['Forma', 'Média dos últimos 5 jogos face à da época. As barras são os últimos 5 jogos (o mais recente à direita); a linha é a média da época.'],
   lesoes: ['Lesões', 'Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA só aparecem os importantes (20+ minutos ou 12+ pontos).'],
   classif: ['Classificação', 'Vitórias e derrotas de cada conta, smurfs incluídas: mal os jogos acabam, os dias fecham com as estatísticas dos jogos e o lineup que cada um partilhou. Os aros são a probabilidade de cada um chegar aos prémios. O admin convida amigos em Ajustes → Admin.'],
@@ -919,7 +919,7 @@ function engineInputs(acc) {
     const c = S.players.get(String(id)) || {}, pk = acc + '|' + id;
     const uses = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, acc);
     const ci = collectionInfo(id);
-    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: e.status || 'ok', injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, cards: ci.cards || null, owner: ci.owner, hold: ci.hold };
+    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: 'ok' /* o estado vem do relatório de lesões */, injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, cards: ci.cards || null, owner: ci.owner, hold: ci.hold };
   });
   const odds = { days: {} };
   Object.entries(S.odds).forEach(([d, o]) => { odds.days[d] = { players: o.players || {}, source: o.source, updatedAt: o.updated_at }; });
@@ -1988,8 +1988,9 @@ function colToolbar() {
   const V = S.colView, col = (S.profile || {}).collection || {};
   const has = {}; Object.values(col.players || {}).forEach(c => Object.keys(tierCounts(col, c)).forEach(t => { has[t] = 1; }));
   return '<div class="col-tools"><input class="field" id="colSearch" type="search" placeholder="Procurar jogador ou equipa…" value="' + esc(V.q) + '" autocomplete="off" aria-label="Procurar na coleção">' +
-    '<div class="chips scroll" role="group" aria-label="Ordenar">' + [['uses', 'Mais usos'], ['pts', 'Mais pontos'], ['moments', 'Mais Moments'], ['name', 'Nome']].map(([k, l]) => '<button type="button" data-action="col-sort" data-v="' + k + '" aria-pressed="' + (V.sort === k) + '">' + l + '</button>').join('') + '</div>' +
-    (Object.keys(has).length > 1 ? '<div class="chips scroll" role="group" aria-label="Escalão"><button type="button" data-action="col-tier" data-v="" aria-pressed="' + !V.tier + '">Todos</button>' + TIERS.slice().reverse().filter(t => has[t]).map(t => '<button type="button" data-action="col-tier" data-v="' + t + '" aria-pressed="' + (V.tier === t) + '">' + t + '</button>').join('') + '</div>' : '') + '</div>';
+    '<div class="chips scroll" role="group" aria-label="Ordenar">' + [['uses', 'Mais usos'], ['pts', 'Mais pontos'], ['moments', 'Mais Moments']].map(([k, l]) => '<button type="button" data-action="col-sort" data-v="' + k + '" aria-pressed="' + (V.sort === k) + '">' + l + '</button>').join('') + '</div>' +
+    // Common, Rare e Legendary sempre (mesmo sem nenhum); os outros escalões só se houver
+    ('<div class="chips scroll" role="group" aria-label="Escalão"><button type="button" data-action="col-tier" data-v="" aria-pressed="' + !V.tier + '">Todos</button>' + TIERS.slice().reverse().filter(t => has[t] || ['Common', 'Rare', 'Legendary'].includes(t)).map(t => '<button type="button" data-action="col-tier" data-v="' + t + '" aria-pressed="' + (V.tier === t) + '">' + t + '</button>').join('') + '</div>') + '</div>';
 }
 function colRows() {
   const col = (S.profile || {}).collection; if (!col) return '';
@@ -2003,11 +2004,13 @@ function colRows() {
   if (!list.length) return '<li class="row small muted">Nenhum jogador com esse filtro.</li>';
   return list.map(({ id, c, p, tc, uses }) => {
     const inR = roster && roster[id];
-    const owners = groupMode() ? Object.entries(c.owners || {}).map(([k, x]) => esc(accLabel(k)) + (x > 1 ? ' ×' + x : '')).join(' · ') : '';
-    return '<li><button class="row col-row" type="button" data-action="pform" data-id="' + esc(id) + '">' +
-      '<div style="min-width:0;flex:1"><div class="pn"><span class="nm">' + esc(p.name || c.name) + '</span>' + (roster ? (inR ? '<span class="badge">no plantel</span>' : '<span class="pill duv">fora do plantel</span>') : '') + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(+c.moments || 0, 'Moment', 'Moments') + (owners ? ' · ' + owners : '') + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS' : '') + '</div>' +
-      (Object.keys(tc).length ? '<div class="tpills">' + tierPills(tc) + '</div>' : '') + '</div>' +
+    // cartas: escalão e conta de cada uma (Rare · Main, Common ×2 · Terose)
+    const g = {}; (c.ids || []).forEach(f => { const it = (col.items || {})[f]; if (!it) return; const k = momentTier(col, f) + '|' + (groupMode() ? it.a || 'main' : ''); g[k] = (g[k] || 0) + 1; });
+    const cards = Object.keys(g).length ? Object.entries(g).sort((a, b) => TIERS.indexOf(b[0].split('|')[0]) - TIERS.indexOf(a[0].split('|')[0])).map(([k, n]) => { const [t, a] = k.split('|'); return '<span class="tpill t-' + TIER_CLS[t] + '">' + t + (n > 1 ? ' <b>×' + n + '</b>' : '') + (a ? ' <span class="tp-acc">· ' + esc(accLabel(a)) + '</span>' : '') + '</span>'; }).join('') : tierPills(tc);
+    return '<li><button class="row col-row" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="who">' + face(id, 'sm') +
+      '<div style="min-width:0;flex:1"><div class="pn"><span class="nm">' + esc(p.name || c.name) + '</span>' + (inR ? '<span class="badge">no plantel</span>' : '') + '</div>' +
+      '<div class="ps">' + teamTag(p.team) + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS' : '') + '</div>' +
+      (cards ? '<div class="tpills">' + cards + '</div>' : '') + '</div></span>' +
       '<div class="pv col-uses"><div class="v num">' + (uses != null ? uses : '–') + '</div><div class="u">usos/run</div></div></button></li>';
   }).join('');
 }
@@ -2132,7 +2135,7 @@ function plListHtml(ctx) {
   const { rows, counts, fk } = plFilter(ctx), nd = ctx.nd, stats = runStats(ctx.days, nd && nd.date).slice(0, 4);
   const nxt = nd ? 'Dia ' + (nd.idx + 1) : '';
   const items = rows.map(({ p, f }) => {
-    const st = (p.status && p.status !== 'ok' ? '<span class="pill ' + p.status + '">' + esc(STATUS[p.status].label) + '</span>' : '') + (f.ir ? '<span class="pill ' + INJ_PILL[f.ir.status] + '">' + esc(INJ_LABEL[f.ir.status]) + '</span>' : '');
+    const st = (f.ir ? '<span class="pill ' + INJ_PILL[f.ir.status] + '">' + esc(INJ_LABEL[f.ir.status]) + '</span>' : '');
     const nextTxt = !nd ? '' : f.sh == null ? '<span class="muted">não joga no ' + nxt + '</span>' : nxt + ': ' + (f.mdNext.objs.length ? f.mdNext.objs.map((o, k) => '<b class="num">' + f1((f.mdNext.info[f.pi][k] || {}).mu || 0) + '</b> ' + esc(statShort(o.stat))).join(' · ') : 'joga');
     const avgs = stats.map(s => { const a = FB.avgOf({ avg: p.avg }, s); if (!a) return ''; const fi = FB.formInfo(p, s), d = fi && (fi.n5 || 0) >= 3 && fi.season ? (fi.l5 - fi.season) / Math.max(1, Math.abs(fi.season)) : 0;
       return '<span>' + esc(statShort(s)) + ' <b class="num">' + f1(a.v) + '</b>' + (d >= 0.08 ? '<i class="up">▲</i>' : d <= -0.08 ? '<i class="down">▼</i>' : '') + '</span>'; }).filter(Boolean).join('');
@@ -2272,11 +2275,11 @@ function specHtml() {
     const reg = d > 0 && dMed ? (d <= dMed * 0.85 ? '<span class="badge" title="Varia pouco de jogo para jogo (época passada)">regular</span>' : d >= dMed * 1.2 ? '<span class="pill duv" title="Varia muito de jogo para jogo (época passada)">irregular</span>' : '') : '';
     const spec = stat !== 'pts' && i < 30 && pr > 75 ? '<span class="pill ok" title="No topo desta estatística mas fora dos 75 melhores marcadores">especialista</span>' : '';
     return '<li><button class="row spec-row" type="button" data-action="pform" data-id="' + esc(p.id) + '"><span class="who">' + face(p.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(p.name) + '</span>' + (mine ? '<span class="badge">teu</span>' : '') + spec + reg + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + p.gp + ' jogos esta época' : ' · época passada') + '</div></div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
+      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + plural(+p.gp, 'jogo', 'jogos') + ' esta época' : ' · época passada') + '</div></div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
   }).join('');
   const rd = runDays[stat];
   return '<div class="card"><div class="list-head"><h2>Especialistas ' + helpBtn('especialistas') + '</h2><span class="small muted">por jogo</span></div>' +
-    '<div class="chips scroll" role="group" aria-label="Estatística" style="padding:0 14px 8px">' + order.map(k => '<button type="button" data-action="spec-stat" data-v="' + k + '" aria-pressed="' + (k === stat) + '">' + esc(statShort(k)) + (total && freq[k] ? ' · ' + Math.round(freq[k] / total * 100) + '%' : '') + (runDays[k] ? ' ●' : '') + '</button>').join('') + '</div>' +
+    '<div class="chips" role="group" aria-label="Estatística" style="padding:0 14px 8px">' + order.map(k => '<button type="button" data-action="spec-stat" data-v="' + k + '" aria-pressed="' + (k === stat) + '">' + esc(statShort(k)) + (runDays[k] ? ' ●' : '') + '</button>').join('') + '</div>' +
     '<div class="seg acc-seg" role="group" aria-label="Que jogadores" style="margin:0 14px 8px"><button type="button" data-action="spec-scope" data-v="all" aria-pressed="' + (S.spec.scope !== 'new') + '">Todos</button><button type="button" data-action="spec-scope" data-v="new" aria-pressed="' + (S.spec.scope === 'new') + '">Os que não tens</button></div>' +
     (rd ? '<div class="row small muted" style="display:block"><b>Nesta run:</b> ' + u + (rd.length === 1 ? ' no dia ' : ' nos dias ') + spans(rd) + '</div>' : '') +
     (rows ? '<ul class="list">' + rows + '</ul>' : '<div class="row small muted" style="display:block">Ainda sem médias.</div>') + '</div>';
@@ -2540,7 +2543,7 @@ function buySummary(R, x) {
 // e por baixo quanto sobe e quanto era. Tocar abre os detalhes.
 function buyRow(R, t, i, src) {
   const c = S.players.get(t.id) || {}, own = !!S.mine.roster[t.id], g = usesGain(t.id, R.U);
-  const badge = own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';
+  const badge = '<span class="badge">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') : '') + '</span>';
   const sub = teamTag(c.team) + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '');
   const right = t.byPrize
     ? '<span class="bg-top">' + t.best.p.wins + ' vitórias' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · era ' + pct(t.best.from) + '</span>'
@@ -3178,14 +3181,13 @@ function rosterSheet(id) {
       (top ? '<output class="num uses-fixed" id="usesOut-' + esc(a.id) + '">' + left + '</output></div>' : '<div class="stepper"><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um uso">−</button><output class="num" id="usesOut-' + esc(a.id) + '" data-uses-out="' + esc(pk) + '">' + left + '</output><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um uso">+</button></div></div>');
   }).join('');
   const games = S.days.filter(d => FB.teamsOn(d).has(team)).length;
-  const st = e.status || 'ok', avg = e.avg || c.avg;
+  const avg = e.avg || c.avg;
   openSheet('<div class="who ph">' + face(id, 'lg') + '<div style="min-width:0"><h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + esc(team || 'sem equipa') + ' · ' + games + ' jogos na run · no plano: ' + (inPlan.length ? 'dias ' + inPlan.join(', ') : 'nenhum dia') + '</div></div></div>' +
     (() => { const ci = ((((S.profile || {}).collection) || {}).players || {})[id] || (e.moments ? { moments: e.moments, sets: e.sets } : null); if (!ci) return '';
       const col = (S.profile || {}).collection;
       return ci.ids && col && col.items ? '' : '<div class="small muted">Na carteira: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : plural(ci.moments || 1, 'Moment', 'Moments')) + (ci.bySet ? ' · ' + esc(usesWhy(col, ci)) : '') + '</div>'; })() +
     injuryBlock(id, null, null) + cardsBlock(id) +
     (groupMode() ? '<div class="small muted">Usos restantes em cada conta</div>' : '') + usesRows + momentsBlock(id) + mktBlock(id) +
-    '<div><div class="label" style="margin-bottom:6px">Estado</div><div class="chips" role="group" aria-label="Estado">' + Object.keys(STATUS).map(k => '<button type="button" data-action="set-status" data-id="' + esc(id) + '" data-status="' + k + '" aria-pressed="' + (st === k) + '">' + STATUS[k].label + '</button>').join('') + '</div></div>' +
     (avg ? '<div><div class="label" style="margin-bottom:6px">Médias por jogo' + (c.gp ? ' (' + c.gp + ' jogos)' : '') + '</div><div class="kv sm">' + AVG_SHOW.map(k => { const a = FB.avgOf({ avg }, k); return a ? '<div><div class="label">' + STATS[k].short + (a.est ? '*' : '') + '</div><div class="v num">' + f1(a.v) + '</div></div>' : ''; }).join('') + '</div>' + (AVG_SHOW.some(k => (FB.avgOf({ avg }, k) || {}).est) ? '<div class="small muted" style="margin-top:6px">* estimativa a partir das outras médias</div>' : '') + '</div>' : '<div class="note info">Ainda sem médias.</div>') +
     gamesTable(avg) +
     '<button class="btn" type="button" data-action="remove-player" data-id="' + esc(id) + '">Tirar do plantel</button>');

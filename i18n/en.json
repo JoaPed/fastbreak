@@ -214,7 +214,6 @@
  },
  "uses": null,
  "moments": null,
- "name": null,
  " jogadores": {
   "en": " players",
   "at": {
@@ -730,7 +729,6 @@
  "<li class=\"row small muted\">Nenhum jogador com esse filtro.</li>": "<li class=\"row small muted\">No player with that filter.</li>",
  " ×": null,
  "<span class=\"badge\">no plantel</span>": "<span class=\"badge\">in roster</span>",
- "<span class=\"pill duv\">fora do plantel</span>": "<span class=\"pill duv\">not in roster</span>",
  "Moment": null,
  "Moments": null,
  "</div><div class=\"u\">usos/run</div></div></button></li>": "</div><div class=\"u\">uses/run</div></div></button></li>",
@@ -822,7 +820,6 @@
  "<span class=\"pill duv\" title=\"Varia muito de jogo para jogo (época passada)\">irregular</span>": "<span class=\"pill duv\" title=\"Varies a lot from game to game (last season)\">streaky</span>",
  "<span class=\"pill ok\" title=\"No topo desta estatística mas fora dos 75 melhores marcadores\">especialista</span>": "<span class=\"pill ok\" title=\"At the top of this stat but outside the 75 best scorers\">specialist</span>",
  " · época passada": " · last season",
- "<div class=\"chips scroll\" role=\"group\" aria-label=\"Estatística\" style=\"padding:0 14px 8px\">": "<div class=\"chips scroll\" role=\"group\" aria-label=\"Stat\" style=\"padding:0 14px 8px\">",
  "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Que jogadores\" style=\"margin:0 14px 8px\"><button type=\"button\" data-action=\"spec-scope\" data-v=\"all\" aria-pressed=\"": "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Which players\" style=\"margin:0 14px 8px\"><button type=\"button\" data-action=\"spec-scope\" data-v=\"all\" aria-pressed=\"",
  "\">Todos</button><button type=\"button\" data-action=\"spec-scope\" data-v=\"new\" aria-pressed=\"": "\">All</button><button type=\"button\" data-action=\"spec-scope\" data-v=\"new\" aria-pressed=\"",
  "\">Os que não tens</button></div>": "\">The ones you don't have</button></div>",
@@ -1039,7 +1036,6 @@
  "nenhum dia": "no day",
  "<div class=\"small muted\">Na carteira: ": "<div class=\"small muted\">In the wallet: ",
  "<div class=\"small muted\">Usos restantes em cada conta</div>": "<div class=\"small muted\">Uses left in each account</div>",
- "<div><div class=\"label\" style=\"margin-bottom:6px\">Estado</div><div class=\"chips\" role=\"group\" aria-label=\"Estado\">": "<div><div class=\"label\" style=\"margin-bottom:6px\">Status</div><div class=\"chips\" role=\"group\" aria-label=\"Status\">",
  "<div><div class=\"label\" style=\"margin-bottom:6px\">Médias por jogo": "<div><div class=\"label\" style=\"margin-bottom:6px\">Averages per game",
  " jogos)": " games)",
  "<div class=\"small muted\" style=\"margin-top:6px\">* estimativa a partir das outras médias</div>": "<div class=\"small muted\" style=\"margin-top:6px\">* estimated from the other averages</div>",
@@ -1235,7 +1231,6 @@
  "O escalão de cada Moment: o site adivinha-o pelo set e pela tiragem. Se estiver mal, escolhe o certo: as outras cartas do mesmo set aprendem (as tuas e as do grupo). O jogador fica com os usos da melhor carta.": "The tier of each Moment: the site guesses it from the set and the mint size. If it’s wrong, pick the right one: the other cards of the same set learn from it (yours and the group’s). The player gets the uses of his best card.",
  "Os teus Moments lidos da blockchain (todas as contas), guardados no perfil para todas as runs. Usos por run de cada jogador: os da melhor carta. Moments de jogadores fora da NBA desta época não contam.": "Your Moments read from the blockchain (all accounts), saved in your profile for every run. Uses per run of each player: those of the best card. Moments of players outside this NBA season don’t count.",
  "Especialistas": "Specialists",
- "Os melhores da NBA em cada estatística (época atual misturada com a passada). % = quantas vezes a estatística sai nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.": "The NBA’s best in each stat (this season mixed with last). % = how often the stat comes up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.",
  "Média dos últimos 5 jogos face à da época. As barras são os últimos 5 jogos (o mais recente à direita); a linha é a média da época.": "Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.",
  "Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA só aparecem os importantes (20+ minutos ou 12+ pontos).": "ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).",
  "Lineups do grupo": "Group lineups",
@@ -1846,6 +1841,9 @@
  "\">Mudar o lineup</button>": "\">Change lineup</button>",
  "Sem objetivo": "No target",
  "1.º jogo ": "1st game ",
+ "Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.": "The NBA’s best in each stat (this season mixed with last). Stats are ordered by how often they come up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.",
+ " esta época": " this season",
+ "<div class=\"chips\" role=\"group\" aria-label=\"Estatística\" style=\"padding:0 14px 8px\">": "<div class=\"chips\" role=\"group\" aria-label=\"Stat\" style=\"padding:0 14px 8px\">",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1940,7 +1938,8 @@
    "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true,
    "players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false,
    "if (!inWin) { const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort(); return foldCard('jogos', nd.date === (nextDay() || {}).date ? 'Jogos de hoje'": true,
-   "const prow = x => '<li><button class=\"row\" type=\"button\" data-action=\"pform\" data-id=\"' + esc(x.id) + '\"><span class=\"who\">' + face(x.id, 'sm') + '<div style=\"m": true
+   "const prow = x => '<li><button class=\"row\" type=\"button\" data-action=\"pform\" data-id=\"' + esc(x.id) + '\"><span class=\"who\">' + face(x.id, 'sm') + '<div style=\"m": true,
+   "'<div class=\"ps\">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + plural(+p.gp, 'jogo', 'jogos') + ' esta época' : ' ": "game"
   }
  },
  "jogos": {
@@ -1966,7 +1965,8 @@
    ],
    "const games = gamesTable(p.avg), PT = [['res', 'Resumo'], ['porque', 'Porquê']].concat(games ? [['jogos', 'Últimos jogos']] : []);": false,
    "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (games ? pa": false,
-   "const prow = x => '<li><button class=\"row\" type=\"button\" data-action=\"pform\" data-id=\"' + esc(x.id) + '\"><span class=\"who\">' + face(x.id, 'sm') + '<div style=\"m": true
+   "const prow = x => '<li><button class=\"row\" type=\"button\" data-action=\"pform\" data-id=\"' + esc(x.id) + '\"><span class=\"who\">' + face(x.id, 'sm') + '<div style=\"m": true,
+   "'<div class=\"ps\">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + plural(+p.gp, 'jogo', 'jogos') + ' esta época' : ' ": "games"
   }
  },
  "usos": {
@@ -1993,7 +1993,8 @@
    "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
    "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
    "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true,
-   "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "uses"
+   "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "uses",
+   "const badge = '<span class=\"badge\">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') : '') + '</span>';": "uses"
   }
  },
  "uso": {
@@ -2019,7 +2020,8 @@
    "? (ci.moments > 1 ? '<b>' + ci.moments + ' Moments, 1 ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + ', mas o ' + esc": true,
    "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
    "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true,
-   "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "use"
+   "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "use",
+   "const badge = '<span class=\"badge\">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') : '') + '</span>';": "use"
   }
  },
  "derrota": {
@@ -2120,7 +2122,8 @@
  " em PTS": {
   "en": " in PTS",
   "at": {
-   "'<div class=\"ps\">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + p.gp + ' jogos esta época' : ' · época passada') + ": " in PTS"
+   "'<div class=\"ps\">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + p.gp + ' jogos esta época' : ' · época passada') + ": " in PTS",
+   "'<div class=\"ps\">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + plural(+p.gp, 'jogo', 'jogos') + ' esta época' : ' ": " in PTS"
   }
  },
  "es": {
