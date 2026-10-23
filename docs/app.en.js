@@ -1137,7 +1137,9 @@ async function shareLineup(date) {
 }
 async function shareGo() {
   const D = S.shareDoc; if (!D) return;
-  try { if (navigator.canShare && navigator.canShare({ files: [D.file] })) { await navigator.share({ files: [D.file], text: D.text }); return; } }
+  // o WhatsApp às vezes larga o texto quando vai com uma imagem: fica também copiado, para colar como legenda
+  try { await navigator.clipboard.writeText(D.text); } catch (e) {}
+  try { if (navigator.canShare && navigator.canShare({ files: [D.file] })) { await navigator.share({ files: [D.file], text: D.text, title: D.text.split('\n')[0] }); toast('If the text doesn’t show up in WhatsApp, paste it: it was copied.'); return; } }
   catch (e) { if (e && e.name === 'AbortError') return; }
   // sem partilha de ficheiros (computador): descarrega a imagem e copia o texto
   const a = document.createElement('a'); a.href = D.url; a.download = D.file.name; document.body.appendChild(a); a.click(); a.remove();
@@ -2852,8 +2854,8 @@ function renderGrupo() {
   const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('en-GB') + ' players' : '') + ' · ranks ' + ago(R.at) : 'Top Shot ranks not read yet';
   el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Standings ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">No members yet.</td></tr>') + totRow + '</tbody></table></div>' +
-    '<div class="small muted gc-leg"><i class="lg w"></i> won the day · <i class="lg l"></i> lost' + (lastPaid ? ' · <b class="dz">+$</b> daily prize · run rank <b class="z-p">in orange</b>: in the prizes (up to ' + lastPaid + '.º)' + (qual ? ', <b class="z-q">in gold</b>: top ' + qual + ' (goes to the final)' : '') : '') +
-      (R && R.cut && Object.keys(R.cut).length ? ' · wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') : '') + '</div></div>' +
+    // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
+    (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
     // lugares e preços: só quem gere o grupo (admin) os vai ler ao Top Shot; os outros veem o que ele leu
     '<div class="foot" style="padding:0;border:0">' + (S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go">Update ranks and prices</button>' : '') + '<button class="btn" type="button" data-action="group-refresh">Refresh</button></div>' +
     (S.role !== 'admin' ? '' : '<div class="small muted" style="padding:0 4px">“Update ranks and prices” opens Fast Break on Top Shot: there tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. It reads the ranks and also the market prices of every player (it takes 1–2 minutes). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div>');
