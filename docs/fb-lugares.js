@@ -91,6 +91,54 @@ async function prices(pl) {
   if (fails) px.fails = fails;
   return px;
 }
+// ---- raridade e ASP de cada carta do grupo ----
+// O site manda, por jogador, os sets das cartas que o grupo tem (job.cs = [[id, nome, [sets]]]). Aqui pedem-se as edições
+// desse jogador e ficam as desses sets: [set, paralelo, escalão, ASP em cêntimos, tiragem, série, setID e playID da Flow]
+const ED_TIERS = ['COMMON', 'FANDOM', 'RARE', 'LEGENDARY', 'ULTIMATE'];
+let edLimit = '100', edMode = 0; // 0: sem escalão · 1: todos os escalões juntos · 2: um escalão de cada vez
+const pick = (o, rx, d = 0) => { if (!o || typeof o !== 'object' || d > 2) return null; for (const [k, v] of Object.entries(o)) { if (rx.test(k) && v != null && typeof v !== 'object' && String(v) !== '') return v; } for (const v of Object.values(o)) { if (v && typeof v === 'object' && !Array.isArray(v)) { const r = pick(v, rx, d + 1); if (r != null) return r; } } return null; };
+async function editionsOf(nba) {
+  const all = [];
+  const page = async (tier, off) => { const body = { product: 'nba', playerId: [nba], limit: edLimit, offset: String(off) }; if (tier) body.tier = tier; return (await call('EditionService/SearchEditions', body)).editions || []; };
+  const run = async tier => { for (let off = 0, k = 0; k < 8; k++) { const es = await page(tier, off); all.push(...es); if (es.length < +edLimit) break; off += es.length; } };
+  for (;;) {
+    try {
+      if (edMode === 0) await run(null); else if (edMode === 1) await run(ED_TIERS); else for (const t of ED_TIERS) await run([t]);
+      return all;
+    } catch (e) {
+      all.length = 0;
+      if (edLimit === '100') { edLimit = '50'; continue; }
+      if (edMode < 2) { edMode++; continue; }
+      throw e;
+    }
+  }
+}
+async function editions(cs) {
+  const find = matcher(await tsPlayers()), ed = { at: new Date().toISOString(), p: {}, miss: [] }, todo = [];
+  cs.forEach(([id, name, sets]) => { const n = find(name); if (n) todo.push([id, n, new Set((sets || []).map(norm))]); else ed.miss.push(id); });
+  let done = 0, fails = 0;
+  const work = async () => {
+    for (let x; (x = todo.shift());) {
+      try {
+        const es = await editionsOf(x[1]);
+        if (!ed.keys && es[0]) ed.keys = Object.keys(es[0]).concat(Object.keys(es[0].set || {}).map(k => 'set.' + k)).slice(0, 60);
+        const rows = [];
+        es.forEach(e => {
+          const set = (e.set && (e.set.name || e.set.setName)) || e.setName || ''; if (!x[2].has(norm(set))) return;
+          const par = e.parallel && typeof e.parallel === 'object' ? (e.parallel.name || e.parallel.label || '') : (e.parallel || e.parallelName || '');
+          const asp = e.averageSalePriceCents != null ? +e.averageSalePriceCents : null;
+          rows.push([set, String(par || ''), String(e.tier || ''), asp, e.maxMintSize != null ? +e.maxMintSize : null, pick(e.set, /series(number)?$|^flowSeries/i), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i)]);
+        });
+        ed.p[x[0]] = rows;
+      } catch (e) { fails++; }
+      done++; if (done % 5 === 0) say('A ler a raridade e o ASP das cartas… ' + done + ' de ' + (done + todo.length) + ' jogadores');
+      if (fails > 30 && Object.keys(ed.p).length < 3) throw new Error('as edições não responderam');
+    }
+  };
+  await Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map(work));
+  if (fails) ed.fails = fails;
+  return ed;
+}
 let started = false;
 async function go() {
   if (started) return; started = true;
@@ -140,8 +188,10 @@ async function go() {
     }
     // preços: o mais barato à venda de cada jogador que o site pediu, em cada escalão (como no Marketplace do Top Shot)
     if (Array.isArray(job.pl) && job.pl.length) { try { out.px = await prices(job.pl); } catch (err) { out.px = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
+    // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
+    if (Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
-    say('Feito: ' + out.accs.filter(x => x.found).length + ' contas na classificação' + (out.px ? ', preços de ' + Object.keys(out.px.p).length + ' jogadores' : '') + '. A voltar ao site…');
+    say('Feito: ' + out.accs.filter(x => x.found).length + ' contas na classificação' + (out.px ? ', preços de ' + Object.keys(out.px.p).length + ' jogadores' : '') + (out.ed ? ', cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '') + '. A voltar ao site…');
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }

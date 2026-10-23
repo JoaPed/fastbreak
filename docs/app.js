@@ -257,7 +257,7 @@ const HELP = {
   analise: ['Análise', 'A previsão de cada dia fica guardada até ao primeiro jogo. Depois vês o previsto ao lado do que aconteceu: vitórias, totais e cada jogador (100% = fez o previsto). Com poucos dias, a sorte pesa muito.'],
   historico: ['Histórico', 'Os teus dias de Fast Break lidos da blockchain, de todas as runs. Os dias antigos entram aos poucos.'],
   plantel: ['Plantel', 'Os teus jogadores nesta run. Usos: quantos dias ainda podem jogar (os da melhor carta: Common 1, Rare 2, Legendary 4; mais cartas do mesmo jogador não somam). A faixa são os dias da run: usado, no plano, na outra conta, tem jogo. Toca num jogador para mudar os usos, as cartas ou o estado.'],
-  cartas: ['As tuas cartas', 'O escalão de cada Moment: o site adivinha-o pelo set e pela tiragem. Se estiver mal, escolhe o certo: as outras cartas do mesmo set aprendem (as tuas e as do grupo). O jogador fica com os usos da melhor carta.'],
+  cartas: ['As tuas cartas', 'Cada Moment com a raridade e o ASP lidos no Top Shot. A raridade dá o mínimo de usos (Common 1, Rare 2, Legendary 4, Ultimate ilimitados) e o ASP só sobe: até $10 Draft Pick (1), até $50 Starter (2), até $300 All-Star (3), até $1000 MVP (4), acima Hall of Fame (ilimitados). O jogador fica com os usos da melhor carta. Cartas sem dados do Top Shot: o site adivinha a raridade pelo set e pela tiragem, e podes escolher a certa.'],
   colecao: ['Coleção', 'Os teus Moments lidos da blockchain (todas as contas), guardados no perfil para todas as runs. Usos por run de cada jogador: os da melhor carta. Moments de jogadores fora da NBA desta época não contam.'],
   comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
   especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
@@ -586,6 +586,8 @@ async function loadGroup() {
   takeRanksHash();
   S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [], loaded: true };
   adoptMine();
+  if (S.mineLoaded) syncTierUses(); // raridade e ASP das cartas lidos por alguém do grupo
+  if (S.edReview && S.edPending) { S.edReview = false; setTimeout(edReviewSheet, 900); } // leitura nova: mostra o que muda antes de aplicar
 }
 // os lugares e preços que eu li noutro sítio (o Safari e a app do ecrã principal guardam coisas à parte, ou outro
 // aparelho) vêm do meu resumo publicado; sem isto, o resumo seguinte publicava-se sem eles e desapareciam para todos
@@ -593,6 +595,7 @@ function adoptMine() {
   const me = S.session && S.session.user.id, own = ((S.group || {}).summaries || []).find(x => x.user_id === me), sh = own && own.share;
   if (!sh) return;
   if (sh.px && sh.px.at && sh.px.p && (!S.pxMine || !S.pxMine.at || sh.px.at > S.pxMine.at)) { S.pxMine = sh.px; S.pxIdx = null; try { localStorage.setItem('fb-px', JSON.stringify(sh.px)); } catch (e) {} }
+  if (sh.ed && sh.ed.at && sh.ed.p && (!S.edMine || !S.edMine.at || sh.ed.at > S.edMine.at)) { S.edMine = sh.ed; S.edIdx = null; try { localStorage.setItem('fb-ed', JSON.stringify(sh.ed)); } catch (e) {} }
   if (sh.ranks && sh.ranks.at && (!S.ranksMine || !S.ranksMine.at || sh.ranks.at > S.ranksMine.at)) { S.ranksMine = sh.ranks; try { localStorage.setItem('fb-ranks', JSON.stringify(sh.ranks)); } catch (e) {} }
 }
 
@@ -609,7 +612,8 @@ function takeRanksHash() {
   try {
     const d = b64u.dec(m[1]);
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
-    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '')), 300); S.lastSummary = ''; }
+    if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
+    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '')), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
@@ -640,7 +644,17 @@ function rankJob() {
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
-  return { accs, back: siteBase(), known, pl: pxWanted().map(id => [id, nameOf(id)]) };
+  return { accs, back: siteBase(), known, pl: pxWanted().map(id => [id, nameOf(id)]), cs: S.groupCards || [] };
+}
+// as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
+async function loadGroupCards() {
+  const by = new Map(), add = items => Object.values(items || {}).forEach(it => { if (!it || it.p == null) return; const k = String(it.p), b = String(it.s || '').split(' · ')[0]; if (!b || b === '?') return; (by.get(k) || by.set(k, new Set()).get(k)).add(b); });
+  add((((S.profile || {}).collection) || {}).items);
+  try {
+    const rows = await q(sb.from('profiles').select('user_id,it:collection->items'));
+    (rows || []).forEach(r => { if (r.user_id !== S.session.user.id && S.group.members.some(m => m.user_id === r.user_id)) add(r.it || (r.collection && r.collection.items)); });
+  } catch (e) { console.warn('cartas do grupo', e); }
+  S.groupCards = [...by.entries()].map(([id, sets]) => [id, nameOf(id), [...sets]]).filter(x => x[1]);
 }
 // ---------- preços do mercado lidos no próprio Top Shot (o script "FB lugares" lê-os com os lugares) ----------
 // S.pxMine = {at, p: {id: [Common, Rare, Legendary] em cêntimos ou null}}; fica no resumo publicado (share.px) e o grupo
@@ -774,18 +788,18 @@ function usesEff(e, id, acc) {
 let colTopMemo = { col: null, m: null };
 function colTopUses(id) {
   const col = (S.profile || {}).collection; if (!col || !col.items) return null;
-  if (colTopMemo.col !== col) { const m = new Map(); Object.keys(col.items).forEach(f => { const p = String(col.items[f].p), u = TIER_USES[momentTier(col, f)] || 1; if (u > (m.get(p) || 0)) m.set(p, u); }); colTopMemo = { col, m }; }
+  if (colTopMemo.col !== col || colTopMemo.ed !== edIndex()) { const m = new Map(); Object.keys(col.items).forEach(f => { const p = String(col.items[f].p), u = cardUses(col, f); if (u > (m.get(p) || 0)) m.set(p, u); }); colTopMemo = { col, m, ed: edIndex() }; }
   return colTopMemo.m.get(String(id)) || null;
 }
 // usos da melhor carta que uma conta tem hoje (lido das carteiras); null se a conta não tem nenhum Moment dele
 function bestTierName(id) {
   const col = (S.profile || {}).collection || {}, fids = col.items ? Object.keys(col.items).filter(f => String(col.items[f].p) === String(id)) : [];
-  let best = null, bu = -1; fids.forEach(f => { const t = momentTier(col, f), u = TIER_USES[t] || 1; if (u > bu) { bu = u; best = t; } }); return best || 'Moment';
+  let best = null, bu = -1; fids.forEach(f => { const t = momentTier(col, f), u = cardUses(col, f); if (u > bu) { bu = u; best = t; } }); return best || 'Moment';
 }
 function accTierUses(id, acc) {
   const col = (S.profile || {}).collection; if (!col || !col.items) return null;
   const fids = Object.keys(col.items).filter(f => String(col.items[f].p) === String(id) && (col.items[f].a || 'main') === acc);
-  return fids.length ? Math.max(1, ...fids.map(f => TIER_USES[momentTier(col, f)] || 1)) : null;
+  return fids.length ? Math.max(1, ...fids.map(f => cardUses(col, f))) : null;
 }
 function setUsesOf(e, acc, n) { if (acc === 'main') e.uses = n; else { e.su = e.su || {}; e.su[acc] = n; } }
 // onde estão os Moments de cada jogador (lido das carteiras)
@@ -798,7 +812,7 @@ function collectionInfo(id) {
   if (!c || !c.owners) return { copies: 1, owner: null, hold: null };
   const fids = col.items ? Object.keys(col.items).filter(f => String(col.items[f].p) === String(id)) : [];
   if (fids.length) {
-    const u = fids.map(f => TIER_USES[momentTier(col, f)] || 1), top = Math.max(...u), nTop = u.filter(x => x === top).length;
+    const u = fids.map(f => cardUses(col, f)), top = Math.max(...u), nTop = u.filter(x => x === top).length;
     const hold = {}; fids.forEach((f, i) => { const a = col.items[f].a || 'main'; (hold[a] = hold[a] || []).push(u[i]); });
     const keys = Object.keys(hold);
     return { copies: fids.length, owner: fids.length === 1 ? keys[0] : null, hold, cards: u.slice().sort((x, y) => y - x), moments: fids.length, topUses: top, nTop };
@@ -862,7 +876,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: { at: S.edMine.at, p: S.edMine.p, t: S.edMine.t } } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -2066,7 +2080,7 @@ function colRows() {
       '<div style="min-width:0;flex:1"><div class="pn"><span class="nm">' + esc(p.name || c.name) + '</span>' + (inR ? '<span class="badge">no plantel</span>' : '') + '</div>' +
       '<div class="ps">' + teamTag(p.team) + (p.avg ? ' · ' + f1(+p.avg.pts || 0) + ' PTS' : '') + '</div>' +
       (cards ? '<div class="tpills">' + cards + '</div>' : '') + '</div></span>' +
-      '<div class="pv col-uses"><div class="v num">' + (uses != null ? uses : '–') + '</div><div class="u">usos/run</div></div></button></li>';
+      '<div class="pv col-uses"><div class="v num">' + (uses != null ? usesN(uses) : '–') + '</div><div class="u">usos/run</div></div></button></li>';
   }).join('');
 }
 function renderColList() { const el = $('colList'); if (el) el.innerHTML = colRows(); }
@@ -2198,7 +2212,7 @@ function plListHtml(ctx) {
     return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '">' + face(p.id, 'md') +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (f.tier ? '<span class="tpill t-' + TIER_CLS[f.tier] + '">' + f.tier + '</span>' : '') + st + '</div>' +
       '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +
-      '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + f.uses + '</b><span>' + (f.uses === 1 ? 'uso' : 'usos') + '</span><small>' + (f.plan ? 'plano ' + f.plan : 'fora do plano') + (f.usedN ? ' · usado ' + f.usedN : '') + '</small></div>' +
+      '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + (f.uses >= UNL - 30 ? '∞' : f.uses) + '</b><span>' + (f.uses === 1 ? 'uso' : 'usos') + '</span><small>' + (f.plan ? 'plano ' + f.plan : 'fora do plano') + (f.usedN ? ' · usado ' + f.usedN : '') + '</small></div>' +
       plDays(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</button></li>';
   }).join('');
   return plToolbar(counts, fk, true) + (items ? plDayHead(ctx) : '') + '<ul class="list pl-list">' + (items || '<li class="row small muted">Nenhum jogador com este filtro.</li>') + '</ul>' +
@@ -2876,7 +2890,8 @@ function renderGrupo() {
     // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
     (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
     // lugares e preços: só quem gere o grupo (admin) os vai ler ao Top Shot; os outros veem o que ele leu
-    '<div class="foot" style="padding:0;border:0">' + (S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares e preços</button>' : '') + '<button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
+    (S.role === 'admin' && S.edPending ? '<div class="note sug"><div>Leitura das cartas por confirmar (raridade e ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">Ver o que muda</button></div></div>' : '') +
+    '<div class="foot" style="padding:0;border:0">' + (S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go">Atualizar lugares, preços e cartas</button>' : '') + '<button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
     (S.role !== 'admin' ? '' : '<div class="small muted" style="padding:0 4px">«Atualizar lugares e preços» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. Lê os lugares e também os preços do mercado de todos os jogadores (demora 1–2 minutos). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>');
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
@@ -3258,8 +3273,8 @@ function rosterSheet(id) {
     const pk = a.id + '|' + id, left = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, a.id), usedN = usedCount(a.id, id);
     const top = colTopUses(id); // com Moments na coleção os usos vêm da melhor carta e não se mexem
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div class="label">' + (groupMode() ? esc(a.label) : 'Usos restantes') + '</div><div class="small muted">' + (usedN ? 'usado ' + usedN + '× · ' : '') + 'o plano usa ' + planOfAcc(a.id) + '</div>' +
-      (top ? '<div class="small muted">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +
-      (top ? '<output class="num uses-fixed" id="usesOut-' + esc(a.id) + '">' + left + '</output></div>' : '<div class="stepper"><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um uso">−</button><output class="num" id="usesOut-' + esc(a.id) + '" data-uses-out="' + esc(pk) + '">' + left + '</output><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um uso">+</button></div></div>');
+      (top ? '<div class="small muted">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + usesTxt(top) + '</div>' : '') + '</div>' +
+      (top ? '<output class="num uses-fixed" id="usesOut-' + esc(a.id) + '">' + (top >= UNL ? '∞' : left) + '</output></div>' : '<div class="stepper"><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="-1" aria-label="Menos um uso">−</button><output class="num" id="usesOut-' + esc(a.id) + '" data-uses-out="' + esc(pk) + '">' + left + '</output><button type="button" data-action="uses" data-acc="' + esc(a.id) + '" data-id="' + esc(id) + '" data-d="1" aria-label="Mais um uso">+</button></div></div>');
   }).join('');
   const games = S.days.filter(d => FB.teamsOn(d).has(team)).length;
   const avg = e.avg || c.avg;
@@ -3352,14 +3367,22 @@ function cardsBlock(id) {
   const col = (S.profile || {}).collection, c = col && (col.players || {})[id];
   if (!c) return '';
   if (!c.ids || !col.items) return '<div class="note info">Para escolheres o escalão de cada carta, lê a carteira outra vez (Jogadores → Coleção).</div>';
-  const its = c.ids.map(f => ({ f, it: col.items[f], t: momentTier(col, f) })).filter(x => x.it).sort((a, b) => tierRank(a.t, b.t) || String(a.it.s).localeCompare(String(b.it.s)) || (a.it.n || 0) - (b.it.n || 0));
+  const its = c.ids.map(f => ({ f, it: col.items[f], t: momentTier(col, f), u: cardUses(col, f), e: cardEd(col, f) })).filter(x => x.it).sort((a, b) => (b.u - a.u) || tierRank(a.t, b.t) || String(a.it.s).localeCompare(String(b.it.s)) || (a.it.n || 0) - (b.it.n || 0));
   if (!its.length) return '';
-  const best = bestTier(col, c), u = tierUsesOf(col, c), lab = tierLabels(col);
+  const u = tierUsesOf(col, c), lab = tierLabels(col);
   const WHY = { 1: 'marcada', 2: 'aprendido', 3: 'set mudado', 4: 'do grupo' };
-  const rows = its.map(({ f, it, t }) => { const w = momentTierWhy(col, f, lab).why; return '<li class="row mo-row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(it.s) + '</span>' + (WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">à venda</span>' : '') + '</div>' +
-    '<div class="ps">' + [it.n ? '#' + it.n + (it.m ? ' de ' + f0(it.m) : '') : it.m ? 'tiragem ' + f0(it.m) : '', it.se != null ? 'série ' + it.se : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).map(esc).join(' · ') + '</div></div>' +
-    '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Escalão desta carta">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + plural(TIER_USES[z], 'uso', 'usos') + '</option>').join('') + '</select></li>'; }).join('');
-  return '<div class="card"><div class="list-head"><h2>As tuas cartas ' + helpBtn('cartas') + '</h2><span class="small muted">' + plural(u || 1, 'uso', 'usos') + ' por run · ' + esc(best || 'Common') + '</span></div><ul class="list">' + rows + '</ul></div>';
+  // cada carta: raridade (e a faixa do ASP quando dá mais usos), set, série/número, conta, ASP e os usos dela
+  const rows = its.map(({ f, it, t, u: cu, e }) => {
+    const w = momentTierWhy(col, f, lab).why, b = e && aspBand(e.asp), up = b && b[1] > (TIER_USES[t] || 1);
+    const [base, ...sub] = String(it.s || '').split(' · ');
+    return '<li class="row mo-row"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + TIER_CLS[t] + '">' + esc(t) + '</span>' + (up ? '<span class="tpill t-asp">' + esc(b[2]) + '</span>' : '') + (w !== 5 && WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">à venda</span>' : '') + '</div>' +
+      '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
+      '<div class="ps">' + [it.n ? '#' + f0(it.n) + (it.m ? ' de ' + f0(it.m) : '') : it.m ? 'tiragem ' + f0(it.m) : '', groupMode() ? accLabel(it.a) : '', e && e.asp > 0 ? 'ASP ' + usd(e.asp / 100) : e ? 'sem vendas' : 'sem dados do Top Shot'].filter(Boolean).map(esc).join(' · ') + '</div>' +
+      (e && e.tier ? '' : '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Escalão desta carta">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + usesTxt(TIER_USES[z]) + '</option>').join('') + '</select>') + '</div>' +
+      '<div class="pv mo-u' + (cu === u ? ' top' : '') + '"><div class="v num">' + usesN(cu) + '</div><div class="u">' + (cu === 1 ? 'uso' : 'usos') + '</div></div></li>'; }).join('');
+  const tc = {}; its.forEach(x => { tc[x.t] = (tc[x.t] || 0) + 1; });
+  return '<div class="card"><div class="list-head"><h2>As tuas cartas ' + helpBtn('cartas') + '</h2><span class="small muted">' + TIERS.slice().reverse().filter(z => tc[z]).map(z => tc[z] + ' ' + z).join(' · ') + '</span></div>' +
+    '<div class="small muted" style="padding:0 16px 6px">' + usesTxt(u || 1) + ' por run: conta a carta com mais usos.</div><ul class="list">' + rows + '</ul></div>';
 }
 // depois de uma carta mudar: usos por run de todos os jogadores com cartas desse set (o da carta deixa de ter os
 // usos acertados à mão; os outros só mudam se não os acertaste). Devolve os outros jogadores cujos usos mudaram.
@@ -3400,7 +3423,7 @@ function momentsBlock(id) {
   return '<div class="note' + (copies === 1 ? ' info' : '') + '" style="display:grid;gap:8px"><div>' + (copies === 1
     ? '<b>1 Moment' + (inWallet ? '' : ' (fora das carteiras lidas)') + ':</b> joga por uma conta de cada vez. ' + nights + '.'
     : ci.nTop && ci.nTop < copies && ci.topUses > 1
-      ? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada conta pode ser com qualquer carta' + (ci.topUses >= 4 ? ', a 2.ª precisa de um Rare ou melhor e a 3.ª e a 4.ª de um Legendary' : ci.topUses === 3 ? ', a 2.ª e a 3.ª precisam do ' + esc(bestTierName(id)) : ', a 2.ª precisa do ' + esc(bestTierName(id))) + '; cada carta só joga numa conta por noite (o plano diz quando a passar). ' + nights + '.'
+      ? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + usesTxt(ci.topUses) + '. A 1.ª jogada de cada conta pode ser com qualquer carta' + (ci.topUses >= 4 ? ', a 2.ª precisa de um Rare ou melhor e a 3.ª e a 4.ª de um Legendary' : ci.topUses === 3 ? ', a 2.ª e a 3.ª precisam do ' + esc(bestTierName(id)) : ', a 2.ª precisa do ' + esc(bestTierName(id))) + '; cada carta só joga numa conta por noite (o plano diz quando a passar). ' + nights + '.'
       : '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'todas as contas o podem usar na mesma noite' : 'até ' + copies + ' contas na mesma noite') + '. ' + nights + '.') + '</div>' +
     (copies === 1 && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">Ver se compensa um 2.º Moment</button>' : '') + '</div>';
 }
@@ -3502,7 +3525,108 @@ async function flowRun(code, args) {
 // O contrato do Top Shot não guarda o escalão nem o ASP. Cada set é de um escalão e a tiragem confirma-o; o que for
 // deduzido mal corrige-se uma vez por set em Jogadores → Coleção → Escalões. Usos por Moment em cada run:
 const TIERS = ['Common', 'Fandom', 'Rare', 'Rare+', 'Legendary', 'Ultimate']; // Rare+: os Rare que dão 3 usos
-const TIER_USES = { Common: 1, Fandom: 1, Rare: 2, 'Rare+': 3, Legendary: 4, Ultimate: 4 };
+const UNL = 99; // usos ilimitados (Ultimate, ou ASP acima de $1000)
+const TIER_USES = { Common: 1, Fandom: 1, Rare: 2, 'Rare+': 3, Legendary: 4, Ultimate: UNL };
+const usesN = u => u >= UNL ? '∞' : String(u);
+const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');
+// faixas do ASP (average sale price da edição): só sobem os usos de uma carta, nunca descem. $0.00 = sem vendas, não conta
+const ASP_BANDS = [[1000, 1, 'Draft Pick'], [5000, 2, 'Starter'], [30000, 3, 'All-Star'], [100000, 4, 'MVP'], [Infinity, UNL, 'Hall of Fame']];
+const aspBand = c => (c > 0 ? ASP_BANDS.find(b => c <= b[0]) : null) || null;
+// raridade e ASP de cada carta, lidos no Top Shot pelo script (por jogador: as edições dos sets que o grupo tem)
+// S.edMine = {at, p: {id: [[set, paralelo, escalão, ASP, tiragem, série, setID, playID]]}}; vai no resumo (share.ed) e o
+// grupo usa, jogador a jogador, o mais recente
+try { S.edMine = JSON.parse(localStorage.getItem('fb-ed') || 'null'); } catch (e) { S.edMine = null; }
+// uma leitura nova fica por confirmar (S.edPending) até o admin ver o que muda e carregar em «Aplicar»
+try { S.edPending = JSON.parse(localStorage.getItem('fb-ed-pending') || 'null'); } catch (e) { S.edPending = null; }
+function edTake(ed) { S.edPending = ed; S.edReview = true; try { localStorage.setItem('fb-ed-pending', JSON.stringify(ed)); } catch (e) {} }
+function edApply() {
+  const ed = S.edPending; if (!ed) return;
+  const old = S.edMine && S.edMine.p ? S.edMine : { p: {}, t: {} }, t = Object.assign({}, old.t || {});
+  Object.keys(ed.p || {}).forEach(id => { t[id] = ed.at; });
+  S.edMine = { at: ed.at, p: Object.assign({}, old.p, ed.p), t, keys: ed.keys || old.keys, miss: (ed.miss || []).slice(0, 200) }; S.edIdx = null;
+  try { localStorage.setItem('fb-ed', JSON.stringify(S.edMine)); localStorage.removeItem('fb-ed-pending'); } catch (e) {}
+  S.edPending = null; S.lastSummary = ''; colTopMemo.col = null;
+  if (S.mineLoaded) syncTierUses();
+  publishSummary(); render();
+}
+const edMapOf = ed => new Map(Object.entries((ed && ed.p) || {}).map(([id, rows]) => [id, { rows, at: ed.at }]));
+// o que muda com a leitura por confirmar: por pessoa do grupo, os jogadores cujos usos por run mudam, e porquê
+const cardTxt = (it, e) => [e && e.tier ? e.tier : null, String(it.s || ''), e && e.asp > 0 ? 'ASP ' + usd(e.asp / 100) + (aspBand(e.asp) ? ' (' + aspBand(e.asp)[2] + ')' : '') : null].filter(Boolean).join(' · ');
+async function edReviewSheet() {
+  const ed = S.edPending; if (!ed) return;
+  openSheet('<h3>Raridade e ASP das cartas</h3><div id="edRv" class="small muted">A comparar com o que já temos…</div>');
+  const idx = new Map([...edIndex(), ...edMapOf(ed)]), me = S.session.user.id;
+  let others = [];
+  try { others = (await q(sb.from('profiles').select('user_id,it:collection->items'))) || []; } catch (e) { console.warn(e); }
+  if (!$('edRv')) return;
+  let nCards = 0, nOk = 0, nTier = 0; const loose = new Map();
+  // uma pessoa: cartas por jogador → usos de agora e com a leitura nova
+  const person = (uid, col, oldOf) => {
+    const by = {}; Object.entries(col.items || {}).forEach(([f, it]) => { if (it && it.p != null) (by[it.p] = by[it.p] || []).push(f); });
+    const out = [];
+    Object.entries(by).forEach(([id, fs]) => {
+      let best = null, bu = 0, all = true;
+      fs.forEach(f => { nCards++; const e = cardEd(col, f, idx), it = col.items[f];
+        if (!e) { all = false; const k = String(it.s || '?'); loose.set(k, (loose.get(k) || 0) + 1); return; }
+        nOk++; if (uid === me && e.tier && e.tier !== momentTier(col, f)) nTier++;
+        const u = uid === me ? cardUses(col, f, idx) : Math.max(TIER_USES[e.tier || 'Common'] || 1, (aspBand(e.asp) || [0, 0])[1]);
+        if (u > bu) { bu = u; best = { it, e }; } });
+      const old = oldOf(id); if (old == null && !best) return;
+      const nu = uid === me ? Math.max(1, ...fs.map(f => cardUses(col, f, idx))) : all ? bu : Math.max(bu, old || 0);
+      if (old != null && nu !== old) out.push({ id, old, nu, best });
+    });
+    return out.sort((a, b) => Math.abs(b.nu - b.old) - Math.abs(a.nu - a.old) || String(nameOf(a.id)).localeCompare(String(nameOf(b.id))));
+  };
+  const myCol = (S.profile || {}).collection || {};
+  const groups = [{ uid: me, rows: person(me, myCol, id => colTopUses(id)) }];
+  others.forEach(r => {
+    const its = r.it || (r.collection && r.collection.items);
+    if (r.user_id === me || !S.group.members.some(m => m.user_id === r.user_id) || !its) return;
+    const sm = S.group.summaries.find(x => x.user_id === r.user_id), ro = (sm && sm.share && sm.share.roster) || {};
+    groups.push({ uid: r.user_id, rows: person(r.user_id, { items: its }, id => (ro[id] ? +ro[id][1] : null)) });
+  });
+  const row = x => '<li class="row ed-row"><span class="who">' + face(x.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span></div>' +
+    (x.best ? '<div class="ps">' + esc(cardTxt(x.best.it, x.best.e)) + '</div>' : '') + '</div></span><span class="ed-ch num">' + usesN(x.old) + ' → <b class="' + (x.nu > x.old ? 'up' : 'down') + '">' + usesN(x.nu) + '</b></span></li>';
+  const changed = groups.filter(g => g.rows.length);
+  $('edRv').outerHTML = '<div class="small">Lidas no Top Shot ' + esc(ago(ed.at)) + ': <b>' + nOk + '</b> de ' + nCards + ' cartas ligadas a uma edição' + (nTier ? ' · ' + nTier + ' das tuas mudam de raridade' : '') + '.</div>' +
+    (changed.length ? changed.map(g => '<div class="card"><div class="list-head"><h2>' + esc(g.uid === me ? 'Tu' : groupName(g.uid)) + '</h2><span class="small muted">' + plural(g.rows.length, 'jogador muda', 'jogadores mudam') + '</span></div><ul class="list">' + g.rows.map(row).join('') + '</ul></div>').join('')
+      : '<div class="note info">Ninguém muda de usos com esta leitura.</div>') +
+    (loose.size ? '<details class="ed-loose"><summary class="small muted">' + plural(nCards - nOk, 'carta sem edição', 'cartas sem edição') + ' (ficam como estão)</summary><div class="small muted">' + [...loose.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, n]) => esc(k) + (n > 1 ? ' ×' + n : '')).join(' · ') + '</div></details>' : '') +
+    (ed.err ? '<div class="note">' + esc(ed.err) + '</div>' : '') +
+    '<div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Agora não</button><button class="btn primary" type="button" data-action="ed-apply">Aplicar</button></div>';
+}
+function edIndex() {
+  const key = [(S.group || {}).summaries, S.edMine && S.edMine.at];
+  if (S.edIdx && S.edIdx.k[0] === key[0] && S.edIdx.k[1] === key[1]) return S.edIdx.m;
+  const m = new Map(), docs = [S.edMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ed)).filter(d => d && d.at && d.p);
+  docs.forEach(d => Object.entries(d.p).forEach(([id, rows]) => { const at = (d.t || {})[id] || d.at, o = m.get(id); if (Array.isArray(rows) && (!o || at > o.at)) m.set(id, { rows, at }); }));
+  S.edIdx = { k: key, m };
+  return m;
+}
+const TS_TIER = t => { const x = /ULTIMATE|LEGENDARY|RARE|FANDOM|COMMON/i.exec(String(t || '')); return x ? x[0][0] + x[0].slice(1).toLowerCase() : null; };
+const isStd = p => !p || /^(standard|base|none|default)$/i.test(String(p).trim());
+// edição do Top Shot de uma carta: mesmo jogador e set; depois paralelo, série, setID/playID e tiragem. Se ficarem
+// várias, o escalão só conta se for o mesmo em todas e o ASP é o mais baixo (nunca dá usos a mais)
+function cardEd(col, fid, idx) {
+  const it = ((col || {}).items || {})[fid]; if (!it) return null;
+  const E = (idx || edIndex()).get(String(it.p)); if (!E) return null;
+  const [base, ...rest] = String(it.s || '').split(' · '), sub = rest.join(' · ');
+  let c = E.rows.filter(r => norm(r[0]) === norm(base));
+  c = c.filter(r => sub ? !isStd(r[1]) && (norm(r[1]) === norm(sub) || norm(r[1]).includes(norm(sub)) || norm(sub).includes(norm(r[1]))) : isStd(r[1]));
+  const narrow = f => { const d = c.filter(f); if (d.length) c = d; };
+  if (it.se != null) narrow(r => r[5] == null || +r[5] === +it.se);
+  if (it.si != null && it.pi != null) narrow(r => r[6] != null && r[7] != null && +r[6] === +it.si && +r[7] === +it.pi);
+  if (it.m) narrow(r => r[4] != null && +r[4] === +it.m);
+  if (!c.length) return null;
+  const tiers = [...new Set(c.map(r => TS_TIER(r[2])).filter(Boolean))];
+  const asps = c.map(r => r[3]);
+  return { tier: tiers.length === 1 ? tiers[0] : null, asp: asps.every(a => a != null) ? Math.min(...asps) : null, n: c.length, at: E.at };
+}
+// usos de uma carta: o mínimo do escalão, e o ASP pode subir
+function cardUses(col, f, idx) {
+  const e = cardEd(col, f, idx), t = (e && e.tier) || momentTier(col, f), b = e && aspBand(e.asp);
+  return Math.max(TIER_USES[t] || 1, b ? b[1] : 0);
+}
 const TIER_SETS = { 'base set': 'Common', 'metallic gold le': 'Rare' }; // sets conhecidos
 function tierAuto(setName, meta, counts) {
   const m = String(meta || '').toLowerCase();
@@ -3544,6 +3668,7 @@ function learnFrom(L, m) {
 // escalão de uma carta e de onde vem: 1 marcada por ti · 2 aprendido das tuas cartas · 3 set mudado · 4 do grupo · 0 palpite
 function momentTierWhy(col, fid, lab) {
   const it = ((col || {}).items || {})[fid];
+  const ts = it && cardEd(col, fid); if (ts && ts.tier) return { t: ts.tier, why: 5 }; // lido no Top Shot: manda sobre tudo
   if (((col || {}).mt || {})[fid]) return { t: col.mt[fid], why: 1 };
   if (!it) return { t: 'Common', why: 0 };
   const own = learnFrom((lab || tierLabels(col))[it.s], it.m); if (own) return { t: own, why: 2 };
@@ -3560,9 +3685,9 @@ function momentTiers(col, c) {
 }
 const tierRank = (a, b) => (TIER_USES[b] || 1) - (TIER_USES[a] || 1) || TIERS.indexOf(b) - TIERS.indexOf(a);
 const bestTier = (col, c) => momentTiers(col, c).sort(tierRank)[0] || null;
-const tierUsesOf = (col, c) => { if (!c || !(c.bySet || c.ids)) return null; const ts = momentTiers(col, c); return Math.max(1, ...ts.map(t => TIER_USES[t] || 1)); };
+const tierUsesOf = (col, c) => { if (!c || !(c.bySet || c.ids)) return null; if (c.ids && col && col.items) { const fs = c.ids.filter(f => col.items[f]); if (fs.length) return Math.max(1, ...fs.map(f => cardUses(col, f))); } const ts = momentTiers(col, c); return Math.max(1, ...ts.map(t => TIER_USES[t] || 1)); };
 // texto curto: "Rare · Common ×3 → 2 usos (o da Rare)"
-const usesWhy = (col, c) => { const u = tierUsesOf(col, c), b = bestTier(col, c), n = momentTiers(col, c).length; return tierMix(col, c) + ' → ' + plural(u, 'uso', 'usos') + ' por run' + (n > 1 ? ' (conta o melhor: ' + b + ')' : ''); };
+const usesWhy = (col, c) => { const u = tierUsesOf(col, c), b = bestTier(col, c), n = momentTiers(col, c).length; return tierMix(col, c) + ' → ' + usesTxt(u) + ' por run' + (n > 1 ? ' (conta o melhor: ' + b + ')' : ''); };
 // plantel da run guardado com a regra antiga (somava os usos de todos os Moments): acerta pelo melhor Moment
 function syncTierUses() {
   const col = (S.profile || {}).collection; if (!col || !col.players || !S.runId) return;
@@ -3682,7 +3807,7 @@ async function walletSheet() {
       if (!p) { outside.set(norm(name), name); return; }
       const e = by.get(p.id) || { p, n: 0, sale: 0, owners: {}, sets: {}, bySet: {}, ids: [] };
       const fid = String(r[3]), sub = /\/\s*(\d+)/.exec(r[7] || ''), mint = sub ? +sub[1] : +(((editions[String(r[4])] || {})[String(r[5])]) || 0);
-      if (!items[fid]) { items[fid] = Object.assign({ p: p.id, s: setKey(r), a: a.id }, +r[8] ? { n: +r[8] } : {}, mint ? { m: mint } : {}, r[2] ? { se: +r[2] } : {}, sale ? { v: 1 } : {}); e.ids.push(fid); if (prevMt[fid]) mt[fid] = prevMt[fid]; }
+      if (!items[fid]) { items[fid] = Object.assign({ p: p.id, s: setKey(r), a: a.id }, +r[8] ? { n: +r[8] } : {}, mint ? { m: mint } : {}, r[2] ? { se: +r[2] } : {}, r[4] != null && r[4] !== '' ? { si: +r[4], pi: +r[5] } : {}, sale ? { v: 1 } : {}); e.ids.push(fid); if (prevMt[fid]) mt[fid] = prevMt[fid]; }
       e.n++; if (sale) e.sale++; e.owners[a.id] = (e.owners[a.id] || 0) + 1; e.sets[r[1] || '?'] = (e.sets[r[1] || '?'] || 0) + 1; e.bySet[setKey(r)] = (e.bySet[setKey(r)] || 0) + 1;
       by.set(p.id, e);
     };
@@ -4434,7 +4559,7 @@ document.addEventListener('click', async e => {
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id, b.dataset.acc); break;
     case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Endereço copiado: cola-o no Safari.'), () => toast(u)); break; }
-    case 'ranks-go': { const J = rankJob(); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; }
+    case 'ranks-go': { if (!b.dataset.ready) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'A preparar…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; } delete b.dataset.ready; const J = rankJob(); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; }
       // na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem favoritos: tem de ser no Safari
       if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Abre no Safari</h3><div class="small">Na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem os favoritos. Abre <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> no <b>Safari</b> (entra com a tua conta da primeira vez) e carrega lá em <b>Atualizar lugares</b>.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copiar o endereço</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
@@ -4503,6 +4628,8 @@ document.addEventListener('click', async e => {
     }
     case 'paste-sheet': pasteSheet(); break;
     case 'wallet-sheet': await walletSheet(); break;
+    case 'ed-review': edReviewSheet(); break;
+    case 'ed-apply': closeSheet(); edApply(); toast('Raridade e ASP aplicados: os usos do grupo foram acertados.'); break;
     case 'wallet-apply': b.disabled = true; await walletApply(); break;
     case 'col-to-roster': collectionToRoster(); break;
     case 'col-sheet': closeSheet(); setSub('plantel', 'colecao'); setTab('plantel'); break;
