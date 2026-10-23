@@ -1,8 +1,9 @@
 name: Odds dos jogadores
 on:
   schedule:
-    - cron: '7 15 * * *'     # 15:07 UTC (manhã nos EUA)
-    - cron: '37 21 * * *'    # 21:37 UTC (antes dos primeiros jogos)
+    # uma vez por dia (plano grátis: 500 créditos/mês, ~1 por jogo): 14:07 UTC, que o GitHub costuma atrasar umas
+    # horas; chega a meio da tarde em Lisboa, com as linhas de pontos já publicadas e antes dos jogos
+    - cron: '7 14 * * *'
   workflow_dispatch:
     inputs:
       dates: { description: 'Datas AAAA-MM-DD separadas por espaço (vazio = hoje e amanhã)', default: '', required: false }
