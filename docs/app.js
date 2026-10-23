@@ -1775,7 +1775,10 @@ async function opcoesSheet(fetchLive) {
     // alternativa sem riscos: sem quem está em dúvida hoje (o plano conta com eles a jogar)
     const md0 = r.model.days[0], risky = md0 ? md0.elig.map(pi => r.model.players[pi].id).filter(id => riskOf(md0, id)) : [];
     if (risky.length && d0.lineup.some(id => risky.includes(id))) opts.push({ title: 'Sem riscos de lesão (sem ' + risky.map(lastName).join(', ') + ')', mod: plan => { plan.bans = plan.bans || {}; plan.bans[date] = [...new Set((plan.bans[date] || []).concat(risky))]; if (plan.locks && plan.locks[date]) plan.locks[date] = plan.locks[date].filter(x => !risky.includes(x)); } });
-    FB.alternativeSeeds(r.model, cur).forEach(sd => {
+    // com várias contas: quem não pode jogar hoje nesta conta porque a carta que chega já joga noutra fica de fora
+    const blk = new Set(md0 ? md0.elig.filter(pi => tierBlocked(r.model.players[pi].id, S.acc, date)) : []);
+    const mAlt = blk.size ? Object.assign({}, r.model, { uses: r.model.uses.map((u, i) => (blk.has(i) ? 0 : u)) }) : r.model;
+    FB.alternativeSeeds(mAlt, cur).forEach(sd => {
       if (sd.kind === 'allin') opts.push({ title: 'Tudo pelo dia', mod: altMods.fix(date, sd.lineupIdx.map(i => r.model.players[i].id)) });
       else { const id = r.model.players[sd.player].id; opts.push({ title: 'Guardar ' + nameOf(id), mod: altMods.ban(date, id) }); }
     });
