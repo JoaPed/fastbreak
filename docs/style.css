@@ -912,3 +912,17 @@ p, .note { text-wrap: pretty; }
 .j-links .btn[aria-pressed="true"] { color: var(--ink); text-decoration: none; font-weight: 700; }
 .col-row .who { min-width: 0; flex: 1; align-items: center; }
 .tpill .tp-acc { font-weight: 600; opacity: .8; }
+.buy-tags { display: flex; gap: 4px; align-items: center; margin: 3px 0 2px; }
+.buy-row .pn .nm { white-space: normal; }
+
+/* Grupo → Lineups: por jogador, quem o leva */
+.row.lu-pl { display: flex; align-items: center; gap: 10px; }
+.lu-pl .who { flex: 1; min-width: 0; }
+.lu-who { display: flex; flex: none; }
+.lu-av { position: relative; margin-left: -6px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
+.lu-av:first-child { margin-left: 0; }
+.lu-av .avatar { width: 26px; height: 26px; font-size: 10px; }
+.lu-av.lk .avatar { box-shadow: 0 0 0 2px var(--accent); }
+.lu-av i { position: absolute; top: -5px; right: -4px; background: var(--surface); border-radius: 50%; padding: 1px; display: grid; line-height: 0; }
+.lu-av i svg { width: 9px; height: 9px; }
+.lu-n { width: 26px; text-align: right; font-family: var(--font-display); font-size: 18px; font-weight: 800; flex: none; }

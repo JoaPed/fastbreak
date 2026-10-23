@@ -260,8 +260,6 @@
  },
  "mix": null,
  " muted": null,
- "lu-same": null,
- " lu-lock": null,
  "O ": null,
  " disabled": null,
  " feitos": {
@@ -864,7 +862,6 @@
  "Sem nome": "No name",
  "Ainda não há runs.": "No runs yet.",
  "Tu": "You",
- " (todos)": " (all)",
  "<div class=\"card\"><div class=\"list-head\"><h2>Dia ": "<div class=\"card\"><div class=\"list-head\"><h2>Day ",
  "<div class=\"small muted\" id=\"borrowProg\">A escolher entre ": "<div class=\"small muted\" id=\"borrowProg\">Choosing among ",
  " dos amigos…</div>": " from friends…</div>",
@@ -1234,7 +1231,6 @@
  "Média dos últimos 5 jogos face à da época. As barras são os últimos 5 jogos (o mais recente à direita); a linha é a média da época.": "Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.",
  "Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA só aparecem os importantes (20+ minutos ou 12+ pontos).": "ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).",
  "Lineups do grupo": "Group lineups",
- "O lineup que o plano de cada um sugere para cada dia (muda até ao jogo). Cadeado: já fixado ou já em jogo. Sublinhado: jogador que também tens.": "The lineup each one’s plan suggests for each day (it changes until the game). Lock: already locked or already playing. Underlined: a player you also have.",
  "Refaz a tua run com Moments dos amigos, só nos dias em que o plano deles não os usa. Conta com os usos de um Moment dele numa run. No Top Shot ele oferece-te o Moment e tu devolves depois de jogares esse dia.": "Redoes your run with your friends’ Moments, only on days their plan doesn’t use them. It counts the uses of one of their Moments in a run. On Top Shot they gift you the Moment and you give it back after you play that day.",
  "Partilhar": "Sharing",
  "O grupo vê o lineup que o teu plano sugere e os usos dos teus jogadores, e pode pedir-te Moments nos dias em que não os usas. O plantel e o plano continuam só teus.": "The group sees the lineup your plan suggests and your players’ uses, and can ask you for Moments on days you don’t use them. Your roster and plan stay yours.",
@@ -1392,7 +1388,6 @@
  "Com um 2.º Moment (as duas contas na mesma noite), ": "With a 2nd Moment (both accounts on the same night), ",
  "Joga": "Plays",
  " (além dos que já jogava)": " (on top of the ones he already played)",
- " fixado · <span class=\"lu-same\">sublinhado</span>: também tens</span>": " locked · <span class=\"lu-same\">underlined</span>: you have him too</span>",
  "<div class=\"note info\">Ainda ninguém do grupo partilhou o plano.</div>": "<div class=\"note info\">Nobody in the group has shared their plan yet.</div>",
  "<p class=\"small muted\" style=\"margin:0 4px\">Sem plano partilhado: ": "<p class=\"small muted\" style=\"margin:0 4px\">No shared plan: ",
  "<div class=\"small muted\">Vitórias esperadas: ": "<div class=\"small muted\">Expected wins: ",
@@ -1844,6 +1839,14 @@
  "Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.": "The NBA’s best in each stat (this season mixed with last). Stats are ordered by how often they come up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.",
  " esta época": " this season",
  "<div class=\"chips\" role=\"group\" aria-label=\"Estatística\" style=\"padding:0 14px 8px\">": "<div class=\"chips\" role=\"group\" aria-label=\"Stat\" style=\"padding:0 14px 8px\">",
+ "Para cada dia, os jogadores que o plano de cada um põe no lineup (muda até ao jogo), os mais escolhidos em cima, e quem os leva. Cadeado: essa pessoa já o fixou ou já está em jogo. «teu»: também o tens.": "For each day, the players each person’s plan puts in the lineup (it changes until the game), most picked on top, and who takes them. Lock: that person already locked him or he is already playing. “yours”: you have him too.",
+ " lk": null,
+ " (fixado)": " (locked)",
+ "pessoa": "person",
+ "pessoas": "people",
+ "<div class=\"row small muted\">Ninguém tem lineup para este dia.</div>": "<div class=\"row small muted\">Nobody has a lineup for this day.</div>",
+ "<div class=\"sec-head\"><span class=\"small muted\">Quem leva cada jogador · ": "<div class=\"sec-head\"><span class=\"small muted\">Who takes each player · ",
+ " fixado</span>": " locked</span>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -1994,7 +1997,8 @@
    "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
    "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true,
    "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "uses",
-   "const badge = '<span class=\"badge\">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') : '') + '</span>';": "uses"
+   "const badge = '<span class=\"badge\">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') : '') + '</span>';": "uses",
+   "const tn = tierName(R.U), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (g > 0 ? '+' + plura": "uses"
   }
  },
  "uso": {
@@ -2021,7 +2025,8 @@
    "? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> cada conta tem ' + plural(ci.topUses, 'uso', 'usos') + '. A 1.ª jogada de cada ": true,
    "(top ? '<div class=\"small muted\">pela melhor carta: ' + esc(bestTierName(id)) + ' · ' + plural(top, 'uso', 'usos') + '</div>' : '') + '</div>' +": true,
    "const badge = own ? '<span class=\"badge\">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') + '</span>' : '';": "use",
-   "const badge = '<span class=\"badge\">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') : '') + '</span>';": "use"
+   "const badge = '<span class=\"badge\">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : '2.º Moment') : '') + '</span>';": "use",
+   "const tn = tierName(R.U), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (g > 0 ? '+' + plura": "use"
   }
  },
  "derrota": {

@@ -263,7 +263,7 @@ const HELP = {
   forma: ['Form', 'Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.'],
   lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).'],
   classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
-  lineups: ['Group lineups', 'The lineup each one’s plan suggests for each day (it changes until the game). Lock: already locked or already playing. Underlined: a player you also have.'],
+  lineups: ['Group lineups', 'For each day, the players each person’s plan puts in the lineup (it changes until the game), most picked on top, and who takes them. Lock: that person already locked him or he is already playing. “yours”: you have him too.'],
   emprestimos: ['Loans', 'Redoes your run with your friends’ Moments, only on days their plan doesn’t use them. It counts the uses of one of their Moments in a run. On Top Shot they gift you the Moment and you give it back after you play that day.'],
   partilha: ['Sharing', 'The group sees the lineup your plan suggests and your players’ uses, and can ask you for Moments on days you don’t use them. Your roster and plan stay yours.'],
   smurf: ['Smurf accounts', 'Up to 2 extra accounts of yours. The plan pools the collections and tells you which Moments to send to which account before each night (a Moment only plays for one account each night).'],
@@ -2275,7 +2275,7 @@ function specHtml() {
     const p = x.p, i = rank.get(p.id) - 1, mine = !!(S.mine.roster || {})[p.id], pr = ptsRank.get(p.id) || 999, d = ((p.avg.hist || {}).d || {})[stat], ir = injRec(p.id);
     const reg = d > 0 && dMed ? (d <= dMed * 0.85 ? '<span class="badge" title="Varies little from game to game (last season)">consistent</span>' : d >= dMed * 1.2 ? '<span class="pill duv" title="Varies a lot from game to game (last season)">streaky</span>' : '') : '';
     const spec = stat !== 'pts' && i < 30 && pr > 75 ? '<span class="pill ok" title="At the top of this stat but outside the 75 best scorers">specialist</span>' : '';
-    return '<li><button class="row spec-row" type="button" data-action="pform" data-id="' + esc(p.id) + '"><span class="who">' + face(p.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(p.name) + '</span>' + (mine ? '<span class="badge">yours</span>' : '') + spec + reg + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + '</div>' +
+    return '<li><button class="row spec-row" type="button" data-action="pform" data-id="' + esc(p.id) + '"><span class="who">' + face(p.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(p.name) + '</span>' + spec + reg + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + '</div>' +
       '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' in PTS' : '') + (p.gp ? ' · ' + plural(+p.gp, 'game', 'games') + ' this season' : ' · last season') + '</div></div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
   }).join('');
   const rd = runDays[stat];
@@ -2544,12 +2544,12 @@ function buySummary(R, x) {
 // e por baixo quanto sobe e quanto era. Tocar abre os detalhes.
 function buyRow(R, t, i, src) {
   const c = S.players.get(t.id) || {}, own = !!S.mine.roster[t.id], g = usesGain(t.id, R.U);
-  const badge = '<span class="badge">' + tierName(R.U) + (own ? ' · ' + (g > 0 ? '+' + plural(g, 'use', 'uses') : '2nd Moment') : '') + '</span>';
+  const tn = tierName(R.U), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'use', 'uses') : '2nd Moment') + '</span>' : '');
   const sub = teamTag(c.team) + (t.days.length ? ' · plays ' + (t.days.length > 1 ? 'days ' : 'day ') + t.days.join(', ') : '');
   const right = t.byPrize
     ? '<span class="bg-top">' + t.best.p.wins + ' wins' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · was ' + pct(t.best.from) + '</span>'
     : '<span class="bg-top">expected</span><span class="bg-big' + (t.worth ? ' up' : ' muted') + '">' + f1(t.e1) + '</span><span class="bg-was">' + (t.worth ? '<b class="up">▲ ' + f1(t.e1 - t.e0) + '</b> · ' : '') + 'was ' + f1(t.e0) + '</span>';
-  return '<li><button class="row buy-row" type="button" data-action="buy-detail" data-id="' + esc(t.id) + '" data-src="' + src + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || nameOf(t.id)) + '</span>' + badge + '</div><div class="ps">' + sub + '</div><div class="ps">' + mktSpan(t.id, R.U) + '</div></div></span><span class="bg">' + right + '</span></button></li>';
+  return '<li><button class="row buy-row" type="button" data-action="buy-detail" data-id="' + esc(t.id) + '" data-src="' + src + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || nameOf(t.id)) + '</span></div><div class="ps buy-tags">' + badge + '</div><div class="ps">' + sub + '</div><div class="ps">' + mktSpan(t.id, R.U) + '</div></div></span><span class="bg">' + right + '</span></button></li>';
 }
 // detalhes de uma compra (folha): o que muda na run, dia a dia e nos prémios, e o preço
 function buyDetailSheet(src, id) {
@@ -2660,13 +2660,16 @@ function lineupsHtml() {
   const cards = r.model.days.filter(md => md.objs.length).slice(0, 6).map(md => {
     const day = md.day, mine = ((myV.days.find(d => d.date === day.date) || {}).lineup) || [];
     const myLocks = (((curPlan().locks || {})[day.date]) || []).concat(Object.entries((((curPlan().live || {})[day.date]) || {}).players || {}).filter(([, e]) => e && (e.state === 'jogo' || e.state === 'fim')).map(([id]) => id));
-    const row = (uid, ids, at, locked) => { const lk = new Set(locked || []), nL = ids.filter(id => lk.has(id)).length;
-      return '<li class="row lu-row"><div style="display:flex;gap:10px;align-items:center;min-width:0">' + avatar(uid, groupName(uid)) + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(uid === me ? 'You' : groupName(uid)) + '</span>' + (nL ? '<span class="badge lu-badge">' + icoLock + nL + (nL === ids.length ? ' (all)' : '') + '</span>' : '') + (at ? '<span class="small muted">' + esc(ago(at)) + '</span>' : '') + '</div><div class="ps lu-ps">' +
-        (ids.length ? ids.map(id => '<span class="' + (uid !== me && mineIds.has(id) ? 'lu-same' : '') + (lk.has(id) ? ' lu-lock' : '') + '">' + (lk.has(id) ? icoLock : '') + esc(lastName(id) || id) + '</span>').join(' · ') : 'no players') + '</div></div></div></li>'; };
-    const rows = [row(me, mine, null, myLocks)].concat(shared.map(s => row(s.user_id, ((s.share.lineups || {})[day.date]) || [], s.updated_at, (s.share.locks || {})[day.date])));
-    return '<div class="card"><div class="list-head"><h2>Day ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div><ul class="list">' + rows.join('') + '</ul></div>';
+    // por jogador: quem o leva neste dia (os mais escolhidos em cima), com cadeado em quem o fixou
+    const people = [{ uid: me, ids: mine, lk: new Set(myLocks) }].concat(shared.map(s => ({ uid: s.user_id, ids: ((s.share.lineups || {})[day.date]) || [], lk: new Set((s.share.locks || {})[day.date] || []) })));
+    const by = new Map(); people.forEach(p => p.ids.forEach(id => { (by.get(id) || by.set(id, []).get(id)).push(p); }));
+    const list = [...by.entries()].sort((a, b) => (b[1].length - a[1].length) || ((a[1][0].uid === me ? 0 : 1) - (b[1][0].uid === me ? 0 : 1)) || String(lastName(a[0])).localeCompare(String(lastName(b[0]))));
+    const rows = list.map(([id, ps]) => '<li><button class="row lu-pl" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span>' + (mineIds.has(id) ? '<span class="badge">yours</span>' : '') + '</div>' +
+      '<div class="ps">' + esc(((S.players.get(String(canon(id))) || {}).team) || '') + '</div></div></span>' +
+      '<span class="lu-who">' + ps.map(p => '<span class="lu-av' + (p.lk.has(id) ? ' lk' : '') + '" title="' + esc(p.uid === me ? 'You' : groupName(p.uid)) + (p.lk.has(id) ? ' (locked)' : '') + '">' + avatar(p.uid, p.uid === me ? (S.profile || {}).display_name || 'You' : groupName(p.uid)) + (p.lk.has(id) ? '<i>' + icoLock + '</i>' : '') + '</span>').join('') + '</span><b class="lu-n num">' + ps.length + '</b></button></li>').join('');
+    return '<div class="card"><div class="list-head"><h2>Day ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div>' + (rows ? '<ul class="list">' + rows + '</ul>' : '<div class="row small muted">Nobody has a lineup for this day.</div>') + '</div>';
   });
-  return '<div class="sec-head"><span class="small muted">' + icoLock + ' locked · <span class="lu-same">underlined</span>: you have him too</span>' + helpBtn('lineups') + '</div>' +
+  return '<div class="sec-head"><span class="small muted">Who takes each player · ' + icoLock + ' locked</span>' + helpBtn('lineups') + '</div>' +
     (shared.length ? '' : '<div class="note info">Nobody in the group has shared their plan yet.</div>') + cards.join('') +
     (hidden.length ? '<p class="small muted" style="margin:0 4px">No shared plan: ' + hidden.map(m => esc(groupName(m.user_id))).join(', ') + '.</p>' : '');
 }
