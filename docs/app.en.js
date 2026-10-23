@@ -1510,6 +1510,9 @@ const teamLogo = t => '<span class="tlogo" style="--tc:' + (TEAM_COLOR[t] || 'va
 function gameRows(day, r, ids, B, lp, objs) {
   objs = (objs || []).filter(x => x && x.stat);
   const inLine = new Set(ids || []);
+  const otherLu = new Map();
+  if (S.multi) accounts().filter(a => a.id !== S.acc).forEach(a => { const rr = S.multi.byKey[a.id], pd = rr && rr.normal.days.find(d => d.date === day.date);
+    ((pd && pd.lineup) || lineupFor(a.id, day.date) || []).forEach(id => (otherLu.get(id) || otherLu.set(id, []).get(id)).push(accLabel(a.id))); });
   const games = (day.games || []).slice().sort((a, b) => String(a[2] || '').localeCompare(String(b[2] || '')));
   return games.map(g => {
     const bg = B ? B.find(x => (x.away === g[0] && x.home === g[1]) || (x.home === g[0] && x.away === g[1])) || null : null;
@@ -1519,9 +1522,11 @@ function gameRows(day, r, ids, B, lp, objs) {
     const teams = tm(g[0], started ? bg.as : null) + '<span class="g-at">' + (started ? '–' : '@') + '</span>' + tm(g[1], started ? bg.hs : null);
     const right = started ? esc(st) : (g[2] ? hm(bg && bg.start || g[2]) : '–'), gid = String(g[3] || '');
     const val = id => { const e = lp && lp[id]; return e && e.vals && objs.some(o => e.vals[o.stat] != null) ? ' <b class="num">' + objs.map(o => (e.vals[o.stat] != null ? f0(e.vals[o.stat]) : '–')).join('/') + '</b>' : ''; };
-    const lu = mine.filter(id => inLine.has(id)), rest = mine.filter(id => !inLine.has(id));
+    // só quem joga hoje: o lineup desta conta e, com smurfs, o das outras (com o nome da conta)
+    const lu = mine.filter(id => inLine.has(id)), oth = mine.filter(id => !inLine.has(id) && otherLu.has(id));
     const chips = lu.map(id => '<span class="g-chip">' + face(id, 'xs') + esc(lastName(id)) + val(id) + '</span>').join('') +
-      (rest.length ? '<span class="g-stack">' + rest.slice(0, 5).map(id => face(id, 'xs')).join('') + '</span><span class="g-more">' + (lu.length ? '+' : '') + plural(rest.length, 'yours', 'yours') + '</span>' : '');
+      oth.map(id => '<span class="g-chip g-oth">' + face(id, 'xs') + esc(lastName(id)) + ' <small>' + esc(otherLu.get(id).join(', ')) + '</small></span>').join('');
+    const rest = [];
     const top = '<span class="g-teams">' + teams + '</span>' + (started && gid ? '<button type="button" class="g-time num g-boxbtn" data-action="game-box" data-gid="' + esc(gid) + '" aria-label="Live stats">' + right + ' <span aria-hidden="true">›</span></button>' : '<span class="g-time num">' + right + '</span>') + (mine.length ? '<span class="g-mine">' + chips + '</span>' : '');
     const all = rest.length ? '<div class="g-all">' + rest.map(id => esc(lastName(id)) + val(id)).join(' · ') + '</div>' : '';
     return '<li class="gcard' + (bg && bg.state === 'in' ? ' on' : '') + '">' + (all ? '<details><summary class="g-top">' + top + '</summary>' + all + '</details>' : '<div class="g-top">' + top + '</div>') + '</li>';

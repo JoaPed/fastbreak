@@ -1013,3 +1013,4 @@ p, .note { text-wrap: pretty; }
 .ranks-more { margin: 8px 0 4px; gap: 8px; } .ranks-more .btn { flex: 1; }
 /* Admin: leituras no Top Shot */
 .ts-read { display: grid; grid-template-columns: minmax(0, 190px) 1fr; gap: 10px; align-items: center; margin: 6px 0; }
+.g-chip.g-oth { background: var(--surface-2); font-weight: 500; } .g-chip.g-oth small { color: var(--muted); font-size: 11px; }
