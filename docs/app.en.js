@@ -588,7 +588,7 @@ async function loadGroup() {
   S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [], loaded: true };
   adoptMine();
   if (S.mineLoaded) syncTierUses(); // raridade e ASP das cartas lidos por alguém do grupo
-  if (S.edReview && S.edPending) { S.edReview = false; setTimeout(edReviewSheet, 900); } // leitura nova: mostra o que muda antes de aplicar
+  if (S.edReview && S.edPending && edOn()) { S.edReview = false; setTimeout(edReviewSheet, 900); } // leitura nova: mostra o que muda antes de aplicar
 }
 // os lugares e preços que eu li noutro sítio (o Safari e a app do ecrã principal guardam coisas à parte, ou outro
 // aparelho) vêm do meu resumo publicado; sem isto, o resumo seguinte publicava-se sem eles e desapareciam para todos
@@ -645,7 +645,7 @@ function rankJob() {
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
-  return { accs, back: siteBase(), known, pl: pxWanted().map(id => [id, nameOf(id)]), cs: S.groupCards || [] };
+  return { accs, back: siteBase(), known, pl: pxWanted().map(id => [id, nameOf(id)]), cs: edOn() ? S.groupCards || [] : [] };
 }
 // as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
 async function loadGroupCards() {
@@ -2050,6 +2050,7 @@ function colSummary(col) {
   return '<div class="card panel col-sum"><div class="list-head" style="padding:0"><h2>Your collection ' + helpBtn('colecao') + '</h2><span class="small muted">read ' + esc(ago(col.read_at)) + '</span></div>' +
     '<div class="col-kpis"><div><b class="num">' + f0(moments) + '</b><span>Moments</span></div><div><b class="num">' + ps.length + '</b><span>NBA players</span></div><div><b class="num">' + (col.sets ? f0(uses) : '–') + '</b><span>uses per run</span></div></div>' +
     bar + accLine + (col.sets ? '' : '<div class="note info">Read the wallet again to see each Moment’s tier.</div>') +
+    (col.sets && col.items && Object.values(col.items).some(it => it && !it.d) ? '<div class="note info">Before the next run, tap <b>Read again</b>: that way each card gets the right rarity and ASP from Top Shot.</div>' : '') +
     '<button class="btn" type="button" data-action="wallet-sheet">Read again</button></div>';
 }
 // ---- coleção: lista de jogadores com procura, ordem e filtro por escalão ----
@@ -2908,8 +2909,8 @@ function renderGrupo() {
     // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
     (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
     // lugares e preços: só quem gere o grupo (admin) os vai ler ao Top Shot; os outros veem o que ele leu
-    (S.role === 'admin' && S.edPending ? '<div class="note sug"><div>Card reading waiting for your OK (rarity and ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">See what changes</button></div></div>' : '') +
-    '<div class="foot" style="padding:0;border:0">' + (S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go">Update ranks, prices and cards</button>' : '') + '<button class="btn" type="button" data-action="group-refresh">Refresh</button></div>' +
+    (S.role === 'admin' && S.edPending && edOn() ? '<div class="note sug"><div>Card reading waiting for your OK (rarity and ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">See what changes</button></div></div>' : '') +
+    '<div class="foot" style="padding:0;border:0">' + (S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go">' + (edOn() ? 'Update ranks, prices and cards' : 'Update ranks and prices') + '</button>' : '') + '<button class="btn" type="button" data-action="group-refresh">Refresh</button></div>' +
     (S.role !== 'admin' ? '' : '<div class="small muted" style="padding:0 4px">“Update ranks and prices” opens Fast Break on Top Shot: there tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. It reads the ranks and also the market prices of every player (it takes 1–2 minutes). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div>');
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
@@ -3489,7 +3490,7 @@ function pasteSheet() {
 const FLOW_REST = 'https://rest-mainnet.onflow.org/v1';
 const CAD_ROW = `let series: UInt32 = TopShot.getSetSeries(setID: m.data.setID) ?? 0
         let sub = TopShot.getSubeditionByNFTID(id)
-        out.append([TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "FullName") ?? "", TopShot.getSetName(setID: m.data.setID) ?? "", series.toString(), id.toString(), m.data.setID.toString(), m.data.playID.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "Tier") ?? "", sub?.name ?? "", m.data.serialNumber.toString()])`;
+        out.append([TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "FullName") ?? "", TopShot.getSetName(setID: m.data.setID) ?? "", series.toString(), id.toString(), m.data.setID.toString(), m.data.playID.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "Tier") ?? "", sub?.name ?? "", m.data.serialNumber.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: "DateOfMoment") ?? ""])`;
 const CAD_IDS = `import TopShot from 0x0b2a3299cc857e29
 access(all) fun main(addr: Address): [UInt64] {
   if let col = getAccount(addr).capabilities.borrow<&{TopShot.MomentCollectionPublic}>(/public/MomentCollection) { return col.getIDs() }
@@ -3567,6 +3568,8 @@ function edApply() {
   if (S.mineLoaded) syncTierUses();
   publishSummary(); render();
 }
+// a leitura das cartas no Top Shot só conta a partir da próxima run (decidido a 23 out)
+const edOn = () => !!(S.days && S.days.length && S.days[0].date >= '2026-10-25');
 const edMapOf = ed => new Map(Object.entries((ed && ed.p) || {}).map(([id, rows]) => [id, { rows, at: ed.at }]));
 // o que muda com a leitura por confirmar: por pessoa do grupo, os jogadores cujos usos por run mudam, e porquê
 const cardTxt = (it, e) => [e && e.tier ? e.tier : null, String(it.s || ''), e && e.asp > 0 ? 'ASP ' + usd(e.asp / 100) + (aspBand(e.asp) ? ' (' + aspBand(e.asp)[2] + ')' : '') : null].filter(Boolean).join(' · ');
@@ -3635,6 +3638,8 @@ function cardEd(col, fid, idx) {
   const narrow = f => { const d = c.filter(f); if (d.length) c = d; };
   if (it.se != null) narrow(r => r[5] == null || +r[5] === +it.se);
   if (it.si != null && it.pi != null) narrow(r => r[6] != null && r[7] != null && +r[6] === +it.si && +r[7] === +it.pi);
+  // a data da jogada separa duas jogadas do mesmo set e da mesma versão (até 1 dia de diferença, pelos fusos)
+  if (it.d) narrow(r => r[8] && Math.abs(Date.parse(String(r[8]).slice(0, 10)) - Date.parse(it.d)) <= 864e5);
   if (it.m) narrow(r => r[4] != null && +r[4] === +it.m);
   if (!c.length) return null;
   const tiers = [...new Set(c.map(r => TS_TIER(r[2])).filter(Boolean))];
@@ -3826,7 +3831,7 @@ async function walletSheet() {
       if (!p) { outside.set(norm(name), name); return; }
       const e = by.get(p.id) || { p, n: 0, sale: 0, owners: {}, sets: {}, bySet: {}, ids: [] };
       const fid = String(r[3]), sub = /\/\s*(\d+)/.exec(r[7] || ''), mint = sub ? +sub[1] : +(((editions[String(r[4])] || {})[String(r[5])]) || 0);
-      if (!items[fid]) { items[fid] = Object.assign({ p: p.id, s: setKey(r), a: a.id }, +r[8] ? { n: +r[8] } : {}, mint ? { m: mint } : {}, r[2] ? { se: +r[2] } : {}, r[4] != null && r[4] !== '' ? { si: +r[4], pi: +r[5] } : {}, sale ? { v: 1 } : {}); e.ids.push(fid); if (prevMt[fid]) mt[fid] = prevMt[fid]; }
+      if (!items[fid]) { items[fid] = Object.assign({ p: p.id, s: setKey(r), a: a.id }, +r[8] ? { n: +r[8] } : {}, mint ? { m: mint } : {}, r[2] ? { se: +r[2] } : {}, r[4] != null && r[4] !== '' ? { si: +r[4], pi: +r[5] } : {}, /^\d{4}-\d{2}-\d{2}/.test(r[9] || '') ? { d: String(r[9]).slice(0, 10) } : {}, sale ? { v: 1 } : {}); e.ids.push(fid); if (prevMt[fid]) mt[fid] = prevMt[fid]; }
       e.n++; if (sale) e.sale++; e.owners[a.id] = (e.owners[a.id] || 0) + 1; e.sets[r[1] || '?'] = (e.sets[r[1] || '?'] || 0) + 1; e.bySet[setKey(r)] = (e.bySet[setKey(r)] || 0) + 1;
       by.set(p.id, e);
     };
@@ -4578,7 +4583,7 @@ document.addEventListener('click', async e => {
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id, b.dataset.acc); break;
     case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Address copied: paste it in Safari.'), () => toast(u)); break; }
-    case 'ranks-go': { if (!b.dataset.ready) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'Preparing…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; } delete b.dataset.ready; const J = rankJob(); if (!J.accs.length) { toast('Nobody in the group has a Flow address in their profile.'); break; }
+    case 'ranks-go': { if (!b.dataset.ready && edOn()) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'Preparing…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; } delete b.dataset.ready; const J = rankJob(); if (!J.accs.length) { toast('Nobody in the group has a Flow address in their profile.'); break; }
       // na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem favoritos: tem de ser no Safari
       if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Open in Safari</h3><div class="small">In the home-screen app, Top Shot opens in a separate window, without your session and without your bookmarks. Open <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> in <b>Safari</b> (sign in the first time) and tap <b>Update ranks</b> there.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copy the address</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
