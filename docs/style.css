@@ -1010,3 +1010,6 @@ p, .note { text-wrap: pretty; }
 .pk-pts { flex: none; text-align: center; min-width: 54px; display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
 .pk-pts b { font-size: 22px; color: var(--ball); }
 .pk-pts small { font-size: 11px; color: var(--muted); }
+.ranks-more { margin: 8px 0 4px; gap: 8px; } .ranks-more .btn { flex: 1; }
+/* Admin: leituras no Top Shot */
+.ts-read { display: grid; grid-template-columns: minmax(0, 190px) 1fr; gap: 10px; align-items: center; margin: 6px 0; }

@@ -138,13 +138,11 @@ with sync_playwright() as pw:
     print('A perfil (nome preenchido):', pg.input_value('#pfName'))
     pg.fill('#pfTs', 'joao_ts'); pg.click('#profForm button[type="submit"]'); pg.wait_for_timeout(700)
     print('A sem runs:', pg.locator('#tab-hoje').inner_text().replace('\n', ' | ')[:120])
-    pg.click('#tab-hoje button[data-action="goto"]'); pg.wait_for_timeout(500)
+    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(500)
     pg.fill('#invCode', 'amigos26'); pg.click('#inviteForm button'); pg.wait_for_timeout(300)
-    pg.fill('#nrName', 'Run 1 · Classic'); pg.fill('#nrStart', '2026-10-20'); pg.fill('#nrDays', '11')
-    pg.click('#newRunForm button'); pg.wait_for_timeout(900)
-    pg.select_option('#obj-stat-0-0', 'pts'); pg.wait_for_timeout(200)
-    pg.fill('#obj-target-0-0', '130'); pg.press('#obj-target-0-0', 'Tab'); pg.wait_for_timeout(400)
-    print('A base:', store(pg, '{runs: __FAKE_DB.tables.runs.map(r=>[r.id,r.active]), dias: __FAKE_DB.tables.run_days.length, d1: __FAKE_DB.tables.run_days[0].objectives, convite: __FAKE_DB.tables.settings, membros: __FAKE_DB.tables.members, perfil: __FAKE_DB.tables.profiles}'))
+    # as runs já não se criam à mão (chegam da blockchain): o Admin tem as leituras do Top Shot
+    print('A admin sem criar runs:', pg.locator('#newRunForm').count() == 0, '· leituras:', ' / '.join(pg.locator('#tab-ajustes button[data-action="ranks-go"]').all_inner_texts()))
+    print('A base:', store(pg, '{runs: __FAKE_DB.tables.runs.map(r=>[r.id,r.active]), dias: __FAKE_DB.tables.run_days.length, convite: __FAKE_DB.tables.settings, membros: __FAKE_DB.tables.members, perfil: __FAKE_DB.tables.profiles}'))
     print('A largura ajustes:', width(pg))
     pg.close()
 
@@ -920,7 +918,7 @@ with sync_playwright() as pw:
     pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-row, #buyOut .note', timeout=30000); pg.wait_for_timeout(300)
     print('K3 compras com preços:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:420])
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
-    pg.click('#t-grupo'); pg.wait_for_timeout(400); pg.click('#tab-grupo button[data-action="ranks-go"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
+    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(400); pg.click('#tab-ajustes button[data-action="ranks-go"][data-do="px"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
     job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
     print('K3 pedido ao Top Shot:', len(job['accs']), 'contas ·', len(job.get('pl') or []), 'jogadores para preços · 1.º:', (job.get('pl') or [None])[0])
     # a app do ecrã principal (ou outro aparelho) não tem o que o Safari guardou: os preços e lugares vêm do meu resumo
@@ -932,7 +930,7 @@ with sync_playwright() as pw:
     pg2.fill('#auEmail', 'eu@x.pt'); pg2.fill('#auPass', 'segredo1'); pg2.click('#auSubmit'); pg2.wait_for_timeout(4000)
     print('K3 outro aparelho: preços no resumo:', store(pg2, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return !!(x && x.share && x.share.px && x.share.px.p.curry); })()'), '· lugares no resumo:', store(pg2, '(() => { const x = __FAKE_DB.tables.summaries.find(r => r.user_id === "u-eu"); return !!(x && x.share && x.share.ranks); })()'), '· guardados aqui:', pg2.evaluate("!!localStorage.getItem('fb-px')"))
     pg2.click('#t-grupo'); pg2.wait_for_timeout(800)
-    print('K3 membro sem o botão dos lugares:', pg2.locator('#tab-grupo button[data-action="ranks-go"]').count() == 0)
+    print('K3 membro sem o botão dos lugares:', pg2.locator('button[data-action="ranks-go"]').count() == 0)
     pg2.close()
     pg.close()
 
@@ -1131,9 +1129,7 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'grupo-lineups.png'), full_page=True)
     # admin: os dois objetivos do dia 2 ficam ao mudar o alvo do segundo
     pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(500)
-    print('I admin dia 2:', pg.locator('#obj-stat-1-0').input_value(), pg.locator('#obj-stat-1-1').input_value(), pg.locator('#obj-target-1-1').input_value())
-    pg.fill('#obj-target-1-1', '28'); pg.press('#obj-target-1-1', 'Tab'); pg.wait_for_timeout(600)
-    print('I admin guardado:', store(pg, '__FAKE_DB.tables.run_days[1].objectives'))
+    print('I admin:', pg.locator('#tab-ajustes .card').first.inner_text().replace('\n', ' | ')[:200])
     pg.screenshot(path=str(shots / 'admin-combo.png'), full_page=True)
     # muda a língua para inglês em Ajustes → Preferências (a página recarrega com o app.en.js)
     pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(300)

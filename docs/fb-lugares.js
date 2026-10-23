@@ -158,12 +158,32 @@ async function picks(addr) {
 let started = false;
 async function go() {
   if (started) return; started = true;
+  // o que ler (o site manda em job.do): ranks = lugares e dias · picks · px = preços dos jogadores · ed = cartas (ASP).
+  // Sem job.do (links antigos): tudo
+  const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
+    const out = { v: 1, sv: 10, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    if (want.has('ranks')) await readRanks(out);
+    // preços: o mais barato à venda de cada jogador que o site pediu, em cada escalão (como no Marketplace do Top Shot)
+    if (want.has('px') && Array.isArray(job.pl) && job.pl.length) { try { out.px = await prices(job.pl); } catch (err) { out.px = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
+    // picks do dia (jogos abertos e % do pessoal): servem para o pick do dia na Jornada
+    if (want.has('picks')) { try { say('A ler os picks…'); out.picks = await picks(job.accs[0] && job.accs[0].a); } catch (err) { out.picksErr = String(err.message || err).slice(0, 80); } }
+    // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
+    if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
+    const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
+    say('Feito: ' + [want.has('ranks') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
+    try { localStorage.removeItem('fb-lugares'); } catch (e) {}
+    setTimeout(() => { location.href = back; }, 900);
+  } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }
+}
+// lugares na run e em cada dia, de cada conta do grupo
+async function readRanks(out) {
+  {
     say('A ver a run…');
     const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
     const run = runs.find(r => /classic/i.test(r.id) && r.league === 'nba' && r.mode === 'RUN_MODE_CLASSIC') || runs.find(r => /nba-classic/.test(r.id));
     if (!run) throw new Error('não encontrei a run Classic da NBA');
-    const lb = run.leaderboardId || ('run:' + run.id), out = { v: 1, sv: 9, at: new Date().toISOString(), run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], cut: {} };
+    const lb = run.leaderboardId || ('run:' + run.id); Object.assign(out, { run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], cut: {} });
     let n = 0;
     for (const a of job.accs) {
       say('A ler os lugares… ' + (++n) + ' de ' + job.accs.length);
@@ -202,16 +222,6 @@ async function go() {
     for (const k of [...new Set([out.qual || 50, lastPaid])]) {
       try { const p = await call('LeaderboardService/GetLeaderboardPage', { leaderboardId: lb, limit: 1, offset: k - 1 }); const e = (p.entries || [])[0]; if (e && +e.rank >= k - 5 && +e.rank <= k + 5) out.cut[k] = +(e.displayScore != null ? e.displayScore : e.score); } catch (e) {}
     }
-    // preços: o mais barato à venda de cada jogador que o site pediu, em cada escalão (como no Marketplace do Top Shot)
-    if (Array.isArray(job.pl) && job.pl.length) { try { out.px = await prices(job.pl); } catch (err) { out.px = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
-    // picks do dia (jogos abertos e % do pessoal): servem para as sugestões na Jornada
-    try { say('A ler os picks…'); out.picks = await picks(job.accs[0] && job.accs[0].a); } catch (err) { out.picksErr = String(err.message || err).slice(0, 80); }
-    // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
-    if (Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
-    const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
-    say('Feito: ' + out.accs.filter(x => x.found).length + ' contas na classificação' + (out.px ? ', preços de ' + Object.keys(out.px.p).length + ' jogadores' : '') + (out.ed ? ', cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '') + (out.picks ? ', ' + out.picks.ev.length + ' picks' : out.picksErr ? ', picks: ' + out.picksErr : '') + '. A voltar ao site…');
-    try { localStorage.removeItem('fb-lugares'); } catch (e) {}
-    setTimeout(() => { location.href = back; }, 900);
-  } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }
+  }
 }
 })()

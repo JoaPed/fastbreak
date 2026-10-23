@@ -684,10 +684,12 @@ function takeRanksHash() {
     const d = b64u.dec(m[1]);
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
     // que script correu: sem "sv" (ou antigo) é o automático antigo, que não lê os picks
-    S.pickNote = !d || !Array.isArray(d.accs) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' jogos.' : d.picksErr ? ' Picks: não deu (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: o script do Top Shot é antigo — se usas o automático (Tampermonkey/Userscripts), reinstala-o ou desliga-o e usa o favorito.' : ' Picks: nenhum aberto.';
+    S.pickNote = !d || !Array.isArray(d.accs) || (Array.isArray(d.do) && !d.do.includes('picks')) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' jogos.' : d.picksErr ? ' Picks: não deu (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: o script do Top Shot é antigo — se usas o automático (Tampermonkey/Userscripts), reinstala-o ou desliga-o e usa o favorito.' : ' Picks: nenhum aberto.';
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
-    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '') + (S.pickNote || '')), 300); S.lastSummary = ''; }
+    const gotRanks = d && Array.isArray(d.accs) && (!Array.isArray(d.do) || d.do.includes('ranks'));
+    if (d && !gotRanks) setTimeout(() => toast('Lido no Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '') + (S.pickNote || '')), 300);
+    if (gotRanks) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '') + (S.pickNote || '')), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
@@ -710,7 +712,8 @@ const DAY_BANDS = [[1, 1, 15000], [2, 2, 10000], [3, 3, 5000], [4, 4, 2000], [5,
 function dayRankOf(addr, date) { const R = groupRanks(), d = R && (R.days || []).find(x => x.date === date); return d && addr ? Object.assign({ total: d.total, final: d.final }, (d.accs || {})[addrKey(addr)] || { rank: null }) : null; }
 function rankOf(addr) { const R = groupRanks(); if (!R || !addr) return null; return (R.accs || []).find(x => addrKey(x.a) === addrKey(addr)) || null; }
 // as contas do grupo com endereço Flow (as que o script procura)
-function rankJob() {
+function rankJob(what) {
+  const want = what && what.length ? what : ['ranks', 'picks', 'px', 'ed'];
   const accs = [];
   (S.group.profiles || []).forEach(p => {
     if (!S.group.members.some(m => m.user_id === p.user_id)) return;
@@ -718,7 +721,7 @@ function rankJob() {
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
-  return { accs, back: siteBase(), known, pl: pxWanted().map(id => [id, nameOf(id)]), cs: edOn() ? S.groupCards || [] : [] };
+  return Object.assign({ accs, back: siteBase(), known, do: want }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {});
 }
 // as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
 async function loadGroupCards() {
@@ -1164,7 +1167,7 @@ function empty(title, text, btn) { return '<div class="card empty"><h2>' + esc(t
 function guard(el, needRoster) {
   if (S.loading) { el.innerHTML = empty('A carregar…', 'A ler a run e o teu plantel.'); return false; }
   if (!S.runId) {
-    el.innerHTML = S.role === 'admin' ? empty('Ainda não há runs', 'Cria a primeira run em Ajustes → Admin, com as datas e os objetivos de cada dia.', '<button class="btn primary" type="button" data-action="goto" data-tab="ajustes" data-sub="admin">Criar run</button>')
+    el.innerHTML = S.role === 'admin' ? empty('Ainda não há runs', 'As runs chegam sozinhas da blockchain quando começam.')
       : empty('Ainda não há runs', 'O admin do grupo ainda não criou a run. Volta mais tarde.');
     return false;
   }
@@ -1380,7 +1383,7 @@ function renderJornada(el) {
   // avisos curtos
   const note = (txt, info) => html.push('<div class="note' + (info ? ' info' : '') + '">' + txt + '</div>');
   if (S.multi) { const cl = S.multi.clashes.filter(c => c.date === nd.date); if (cl.length) note('Fixado em duas contas: ' + cl.map(c => esc(nameOf(c.id)) + ' (' + c.accounts.map(accLabel).map(esc).join(', ') + ')').join(' · ') + '. Só joga por uma.'); }
-  if (d.noObjective) note(S.role === 'admin' ? 'Sem objetivo: define-o em Ajustes → Admin.' : 'Este dia ainda não tem objetivo.', true);
+  if (d.noObjective) note('Este dia ainda não tem objetivo.', true);
   if (d.perPlayer) note('Objetivo por jogador: cada um tem de lá chegar sozinho. Confirma o lineup à mão.');
   if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) note('Pontos na área: estimados a partir dos lançamentos de 2.', true);
   else if (!(nd.games || []).length) note('Os jogos deste dia ainda não chegaram.', true);
@@ -3026,9 +3029,7 @@ function renderGrupo() {
     // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
     (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
     // lugares e preços: só quem gere o grupo (admin) os vai ler ao Top Shot; os outros veem o que ele leu
-    (S.role === 'admin' && S.edPending && edOn() ? '<div class="note sug"><div>Leitura das cartas por confirmar (raridade e ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">Ver o que muda</button></div></div>' : '') +
-    '<div class="foot" style="padding:0;border:0">' + (S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go">' + (edOn() ? 'Atualizar lugares, preços e cartas' : 'Atualizar lugares e preços') + '</button>' : '') + '<button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>' +
-    (S.role !== 'admin' ? '' : '<div class="small muted" style="padding:0 4px">«Atualizar lugares e preços» abre o Fast Break no Top Shot: lá toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. Lê os lugares e também os preços do mercado de todos os jogadores (demora 1–2 minutos). <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div>');
+    '<div class="foot" style="padding:0;border:0;grid-template-columns:1fr"><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>';
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
@@ -3220,40 +3221,21 @@ async function chainImport(cid) {
 function adminHtml(run) {
   const out = [];
   const site = location.origin + location.pathname;
+  // leituras no Top Shot (só o admin): cada uma abre o Fast Break no Top Shot e volta com o que leu
+  out.push('<div class="card panel"><h2>Ler no Top Shot</h2>' +
+    (S.edPending && edOn() ? '<div class="note sug"><div>Leitura das cartas por confirmar (raridade e ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">Ver o que muda</button></div></div>' : '') +
+    '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Lugares e picks</button><span class="small muted">Rápido. Uma vez por dia, antes dos jogos.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="px">Preços dos jogadores</button><span class="small muted">1–2 minutos. De vez em quando.</span></div>' +
+    (edOn() ? '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="ed">Cartas (ASP)</button><span class="small muted">1–2 minutos. Raridade e ASP de cada carta do grupo.</span></div>' : '') +
+    '<div class="small muted">No Top Shot toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div></div>');
   const imp = chainImportCard(); if (imp) out.push(imp);
+  if (S.runs.some(r => r.fictitious)) out.push('<div class="card panel"><button class="btn quiet" type="button" data-action="del-tests">Apagar as runs de teste (' + S.runs.filter(r => r.fictitious).length + ')</button></div>');
   out.push('<div class="card panel"><h2>Convidar amigos</h2><div class="small muted">Manda-lhes o link e o código.</div>' +
     '<div class="status-line"><span>Site</span><span class="kbd">' + esc(site) + '</span></div>' +
     '<div class="status-line"><span>Código atual</span><span class="kbd">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'nenhum') + '</span></div>' +
     '<form id="inviteForm" class="toolbar"><input class="field" id="invCode" placeholder="Novo código (mín. 4)" autocomplete="off" autocapitalize="none" spellcheck="false"><button class="btn" type="submit">Mudar</button></form></div>');
   const members = S.group.members.map(m => { const p = S.group.profiles.find(x => x.user_id === m.user_id) || {}; return { m, p }; });
   if (members.length) out.push('<div class="card"><div class="list-head"><h2>Membros</h2><span class="small muted">' + members.length + '</span></div><ul class="list">' + members.map(({ m, p }) => '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.display_name || 'Sem nome') + '</span>' + (m.role === 'admin' ? '<span class="badge">admin</span>' : '') + '</div><div class="ps">' + esc(p.topshot_username || 'sem utilizador Top Shot') + '</div></div>' + (m.user_id !== S.session.user.id ? '<button class="btn small quiet" type="button" data-action="kick" data-id="' + esc(m.user_id) + '">Remover</button>' : '<span></span>') + '</li>').join('') + '</ul></div>');
-  out.push('<div class="card panel"><h2>Nova run</h2><form id="newRunForm" class="stack"><input class="field" id="nrName" placeholder="Nome (ex.: Run 1 · Classic)" maxlength="60" required>' +
-    '<div class="grid2"><label class="small muted">Primeiro dia<input class="field" id="nrStart" type="date" required></label><label class="small muted">Número de dias<input class="field num" id="nrDays" type="number" min="1" max="31" value="11" required></label></div>' +
-    '<button class="btn" type="submit">Criar run</button></form><div class="small muted">Datas na hora dos EUA. As runs Classic da blockchain são criadas sozinhas.</div>' +
-    (S.runs.some(r => r.fictitious) ? '<button class="btn quiet" type="button" data-action="del-tests">Apagar as runs de teste (' + S.runs.filter(r => r.fictitious).length + ')</button>' : '') + '</div>');
-  if (run) {
-    const prizes = run.prizes || [];
-    out.push('<div class="card panel"><h2>' + esc(run.name) + '</h2>' +
-      (run.active ? '<div class="small">Run ativa (abre por defeito para todos).</div>' : '<button class="btn" type="button" data-action="set-active">Tornar a run ativa</button>') +
-      (run.fictitious ? '<button class="btn quiet" type="button" data-action="del-run">Apagar esta run de teste</button>' : '') +
-      '<div class="label">Prémios por vitórias</div><div class="small muted">Só conta a proporção entre os valores.</div>' +
-      prizes.map((p, i) => '<div class="prow-edit"><label>Vitórias<input class="field num" id="pz-w-' + i + '" type="number" min="1" max="31" inputmode="numeric" value="' + esc(p.wins) + '" data-action="pz-w" data-i="' + i + '"></label><label>Valor<input class="field num" id="pz-v-' + i + '" type="number" min="0" inputmode="decimal" value="' + esc(p.value) + '" data-action="pz-v" data-i="' + i + '"></label><button class="btn small quiet" type="button" data-action="pz-del" data-i="' + i + '" aria-label="Apagar patamar" style="height:42px">×</button></div>').join('') +
-      '<button class="btn" type="button" data-action="pz-add">Adicionar patamar</button>' +
-      '<div class="label">Objetivos</div>' +
-      S.days.map((day, i) => {
-        // um dia pode ter várias estatísticas (dias de combinação): uma linha por cada
-        const os = (day.objectives || []).filter(x => x && x.stat); if (!os.length) os.push({ stat: 'pts', target: '' });
-        return os.map((o, k) => '<div class="objrow">' + (k ? '<div class="small muted" style="text-align:right">e</div>' : '<div><div class="label">Dia ' + (i + 1) + '</div><div class="small">' + dWeek(day.date) + ', ' + dShort(day.date) + '</div></div>') +
-          '<select class="field" id="obj-stat-' + i + '-' + k + '" data-action="obj-stat" data-i="' + i + '" data-k="' + k + '" aria-label="Estatística ' + (k + 1) + ' do dia ' + (i + 1) + '">' +
-          OBJ_STATS.map(x => '<option value="' + x + '"' + (o.stat === x ? ' selected' : '') + '>' + esc(statLabel(x)) + '</option>').join('') + (OBJ_STATS.includes(o.stat) ? '' : '<option value="' + esc(o.stat) + '" selected>' + esc(statLabel(o.stat)) + '</option>') +
-          '</select><div class="obj-tgt"><input class="field num" id="obj-target-' + i + '-' + k + '" data-action="obj-target" data-i="' + i + '" data-k="' + k + '" type="number" inputmode="numeric" min="1" value="' + esc(o.target) + '" aria-label="Alvo ' + (k + 1) + ' do dia ' + (i + 1) + '">' +
-          (k ? '<button class="btn link small" type="button" data-action="obj-del" data-i="' + i + '" data-k="' + k + '" aria-label="Tirar esta estatística">×</button>' : '') + '</div></div>').join('') +
-          (os.length < 3 && os[0].target ? '<div class="objrow"><span></span><button class="btn link small" type="button" data-action="obj-add" data-i="' + i + '" style="justify-self:start">+ outra estatística no dia ' + (i + 1) + '</button><span></span></div>' : '');
-      }).join('') +
-      '<div class="label">Blockchain</div><div class="small muted">Ligada, os objetivos e os resultados entram sozinhos.</div>' +
-      '<select class="field" id="chainPick" aria-label="Run na blockchain"><option value="">Não ligada</option>' + S.chainRuns.map(c => '<option value="' + esc(c.id) + '"' + (c.id === run.chain_run_id ? ' selected' : '') + '>' + esc(c.name || c.id) + (c.run_start ? ' · ' + new Date(c.run_start * 1000).toISOString().slice(0, 10) : '') + '</option>').join('') + '</select>' +
-      (S.chainRuns.length ? '' : '<div class="small muted">Ainda não há runs lidas da blockchain.</div>') + '</div>');
-  }
   return out.join('');
 }
 function dataHtml() {
@@ -3487,7 +3469,7 @@ function mktFill() {
 }
 // ficha do jogador: um preço por escalão
 function mktBlock(id) {
-  const x = pxOf(id), upd = S.role === 'admin' ? '<button class="btn sm" type="button" data-action="ranks-go" style="margin-top:6px">Atualizar no Top Shot</button>' : '';
+  const x = pxOf(id), upd = '';
   if (x) {
     const rows = [1, 2, 4].map((u, i) => '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">' + (x.c[i] != null ? 'à venda desde <b class="num">' + usd(x.c[i] / 100) + '</b>' : '<span class="muted">nenhum à venda</span>') + '</span></div>').join('');
     return '<div class="mkt-box"><div class="list-head" style="margin-bottom:4px"><span class="label">Mercado do Top Shot</span><span class="small muted">' + esc(ago(x.at)) + '</span></div>' + rows + (Date.now() - Date.parse(x.at) > 6 * 3600e3 ? upd : '') + '</div>';
@@ -4717,7 +4699,9 @@ document.addEventListener('click', async e => {
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id, b.dataset.acc); break;
     case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Endereço copiado: cola-o no Safari.'), () => toast(u)); break; }
-    case 'ranks-go': { if (!b.dataset.ready && edOn()) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'A preparar…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; } delete b.dataset.ready; const J = rankJob(); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; }
+    case 'ranks-go': { const what = String(b.dataset.do || 'ranks,picks').split(',');
+      if (!b.dataset.ready && what.includes('ed')) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'A preparar…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; }
+      delete b.dataset.ready; const J = rankJob(what); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; }
       // na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem favoritos: tem de ser no Safari
       if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Abre no Safari</h3><div class="small">Na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem os favoritos. Abre <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> no <b>Safari</b> (entra com a tua conta da primeira vez) e carrega lá em <b>Atualizar lugares</b>.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copiar o endereço</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
