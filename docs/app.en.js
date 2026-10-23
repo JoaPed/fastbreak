@@ -190,7 +190,7 @@ function injuryBlock(id, j, date) {
   return '<div class="note' + (rec.status === 'probable' ? ' info' : '') + ' stack" style="gap:6px"><div><b>Injury report:</b> ' + injLine(rec) + '. <span class="small">(ESPN, ' + esc(ago(rec.updated_at)) + ')</span></div>' +
     (rec.comment ? '<div class="small">' + esc(rec.comment) + '</div>' : '') + (how ? '<div class="small">' + how + '</div>' : '') +
     (ign ? '<div class="small"><b>Report ignored</b>: the plan counts on him.</div>' : '') +
-    ((S.mine.roster || {})[id] ? '<button class="btn small" type="button" data-action="inj-ignore" data-id="' + esc(id) + '"' + (date ? ' data-date="' + date + '"' : '') + ' data-on="' + (ign ? '0' : '1') + '">' + (ign ? 'Use the report again' : 'Ignore the report (I know he plays)') + '</button>' : '') + '</div>';
+    ((S.mine.roster || {})[id] ? '<button class="btn small" type="button" data-action="inj-ignore" data-id="' + esc(id) + '"' + (date ? ' data-date="' + date + '"' : '') + ' data-on="' + (ign ? '0' : '1') + '">' + (ign ? 'Use the report again' : 'He’ll play (ignore the report)') + '</button>' : '') + '</div>';
 }
 // ---------- em que se baseia cada valor ----------
 const formName = () => (FORM_LEVELS.find(x => x[0] === formLevel) || ['1', 'Normal'])[1];
@@ -2839,7 +2839,7 @@ function renderGrupo() {
   const cell = (x, d) => {
     const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : x.daysRes[d.date], pz = dayPrize(rdays.find(z => z.date === d.date), dr);
     const cls = res === 'win' ? 'w' : res === 'loss' ? 'l' : 'n', tip = dShort(d.date) + (res ? (res === 'win' ? ': won' : ': lost') : '') + (dr && dr.rank && dr.total ? ' · ' + dr.rank + ' of ' + dr.total : '');
-    return '<td class="c ' + cls + (nd && nd.date === d.date && !res ? ' now' : '') + '" title="' + esc(tip) + '"><span class="cb">' + (dr && dr.rank ? dr.rank.toLocaleString('en-GB') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : res ? (res === 'win' ? '✓' : '✕') : '—') + '</span></td>';
+    return '<td class="c ' + cls + (nd && nd.date === d.date && !res ? ' now' : '') + '" title="' + esc(tip) + '">' + (dr && dr.rank ? dr.rank.toLocaleString('en-GB') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : res ? (res === 'win' ? '✓' : '✕') : '—') + '</td>';
   };
   const rows = people.map(x => {
     const rk = x.rk && x.rk.found ? x.rk : null, pz = rk ? prizeAt(rk.rank) : '';
