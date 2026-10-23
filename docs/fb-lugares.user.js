@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      8
+// @version      9
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -173,7 +173,7 @@ async function go() {
     const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
     const run = runs.find(r => /classic/i.test(r.id) && r.league === 'nba' && r.mode === 'RUN_MODE_CLASSIC') || runs.find(r => /nba-classic/.test(r.id));
     if (!run) throw new Error('não encontrei a run Classic da NBA');
-    const lb = run.leaderboardId || ('run:' + run.id), out = { v: 1, at: new Date().toISOString(), run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], cut: {} };
+    const lb = run.leaderboardId || ('run:' + run.id), out = { v: 1, sv: 9, at: new Date().toISOString(), run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], cut: {} };
     let n = 0;
     for (const a of job.accs) {
       say('A ler os lugares… ' + (++n) + ' de ' + job.accs.length);
@@ -219,7 +219,7 @@ async function go() {
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
     if (Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
-    say('Feito: ' + out.accs.filter(x => x.found).length + ' contas na classificação' + (out.px ? ', preços de ' + Object.keys(out.px.p).length + ' jogadores' : '') + (out.ed ? ', cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '') + '. A voltar ao site…');
+    say('Feito: ' + out.accs.filter(x => x.found).length + ' contas na classificação' + (out.px ? ', preços de ' + Object.keys(out.px.p).length + ' jogadores' : '') + (out.ed ? ', cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '') + (out.picks ? ', ' + out.picks.ev.length + ' picks' : out.picksErr ? ', picks: ' + out.picksErr : '') + '. A voltar ao site…');
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }

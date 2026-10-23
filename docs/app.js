@@ -683,9 +683,11 @@ function takeRanksHash() {
   try {
     const d = b64u.dec(m[1]);
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
+    // que script correu: sem "sv" (ou antigo) é o automático antigo, que não lê os picks
+    S.pickNote = !d || !Array.isArray(d.accs) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' jogos.' : d.picksErr ? ' Picks: não deu (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: o script do Top Shot é antigo — se usas o automático (Tampermonkey/Userscripts), reinstala-o ou desliga-o e usa o favorito.' : ' Picks: nenhum aberto.';
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
-    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '')), 300); S.lastSummary = ''; }
+    if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '') + (S.pickNote || '')), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
