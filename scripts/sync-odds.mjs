@@ -31,7 +31,7 @@ for (const date of Object.keys(need)) {
   const markets = [...need[date]].join(',');
   const todays = events.filter(e => etDate(e.commence_time) === date && Date.parse(e.commence_time) > now);
   console.log(date, '·', todays.length, 'jogos por começar · mercados', markets);
-  if (!todays.length) continue;
+  if (!todays.length) { console.log('::notice title=Odds ' + date + '::nenhum jogo por começar'); continue; }
   const byName = {}; let books = new Set();
   for (const ev of todays) {
     const res = await fetch(API + '/events/' + ev.id + '/odds?apiKey=' + KEY + '&regions=us&oddsFormat=american&markets=' + markets);
@@ -50,5 +50,8 @@ for (const date of Object.keys(need)) {
   for (const [id, stats] of Object.entries(players)) merged[id] = Object.assign({}, merged[id] || {}, stats);
   await must(sb.from('odds_days').upsert({ date, players: merged, source: 'The Odds API · ' + books.size + ' casas', updated_at: new Date().toISOString() }));
   console.log('  guardado:', Object.keys(players).length, 'jogadores');
+  // resumo visível na página da execução (anotação): dá para ver sem abrir o registo
+  console.log('::notice title=Odds ' + date + '::' + todays.length + ' jogos por começar · ' + Object.keys(players).length + ' jogadores com linhas agora · ' + Object.keys(merged).length + ' no total do dia · ' + books.size + ' casas · mercados ' + markets);
 }
 console.log('Créditos usados este mês:', used, '· restantes:', remaining);
+console.log('::notice title=Créditos::usados ' + used + ' · restantes ' + remaining);
