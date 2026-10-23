@@ -460,7 +460,7 @@ with sync_playwright() as pw:
     print('E a fazer:', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
     if pg.locator('#tab-hoje button[data-action="fold"][data-k="jogos"][aria-expanded="false"]').count(): pg.click('#tab-hoje button[data-action="fold"][data-k="jogos"]'); pg.wait_for_timeout(300)
     gc = pg.locator('#tab-hoje .card').filter(has=pg.locator('.gcard'))
-    if gc.count(): pg.locator('#tab-hoje .gcard summary').first.click(); pg.wait_for_timeout(200); gc.first.screenshot(path=str(shots / 'jogos-de-hoje.png'))
+    if gc.count(): gc.first.screenshot(path=str(shots / 'jogos-de-hoje.png'))  # só quem joga hoje: já não há lista para abrir
     print('E jogos de hoje:', gc.first.inner_text().replace('\n', ' | ')[:240] if gc.count() else 'ERRO sem cartão', '· caras:', gc.first.locator('.face').count() if gc.count() else 0)
     rk = lineup_card(pg).locator('.row').filter(has=pg.locator('.pill.risk'))
     print('E dia a dia no lineup:', rk.inner_text().replace('\n', ' ')[:160] if rk.count() else 'ERRO sem ⚠', '· ok' if rk.count() and 'se não jogar' in rk.inner_text() else '· ERRO')
