@@ -116,7 +116,8 @@ async function loadPrevGames() {
 // ---------- picks do Fast Break (PredictionService do Top Shot, lidos pelo script com os lugares) ----------
 // S.picksMine = {at, ev: [{id, t, d, lock, max, x, risk, n, home, away, o: [[nome, %pessoal, id NBA, lado, linha, stat]]}], cap, free}
 try { S.picksMine = JSON.parse(localStorage.getItem('fb-picks') || 'null'); } catch (e) { S.picksMine = null; }
-const picksDoc = () => [S.picksMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.picks)).filter(d => d && d.at && Array.isArray(d.ev)).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null;
+// (leituras feitas antes de o site saber dos picks guardaram-nos dentro dos lugares: também servem)
+const picksDoc = () => [S.picksMine, S.ranksMine && S.ranksMine.picks].concat(((S.group || {}).summaries || []).flatMap(x => x.share ? [x.share.picks, x.share.ranks && x.share.ranks.picks] : [])).filter(d => d && d.at && Array.isArray(d.ev)).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null;
 const TEAM_FIX = { NO: 'NOP', GS: 'GSW', SA: 'SAS', NY: 'NYK', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX', BRK: 'BKN', CHO: 'CHA' };
 const teamFix = a => { const x = String(a || '').toUpperCase(); return TEAM_FIX[x] || x; };
 // probabilidade de a equipa da casa ganhar, pelas casas de apostas que a ESPN mostra (moneyline; sem ela, pelo spread)
@@ -614,7 +615,7 @@ async function loadRun(runId) {
   const np = new Map((cgames || []).map(g => [g.id, +g.num_players || null]));
   S.days = (days || []).map(d => ({ date: d.date, objectives: d.objectives || [], games: d.games || [], chain_game_id: d.chain_game_id, numPlayers: np.get(d.chain_game_id) || null }));
   S.mine = mine ? { roster: mine.roster || {}, plan: mine.plan || {} } : { roster: {}, plan: {} };
-  S.mineSeen = mine ? Date.parse(mine.updated_at) : 0;
+  S.mineSeen = mine ? Date.parse(mine.updated_at) : 0; S.mineBase = clone(S.mine);
   S.mineLoaded = true;
   mergeDuplicates();
   syncTierUses();
@@ -906,14 +907,57 @@ function cleanCollectionUses() {
     e.uses = Math.max(0, top - usedCount('main', id)); e.tierUses = top; delete e.su; delete e.sm; delete e.usesManual;
   });
 }
+// Dois aparelhos (PC e telemóvel) gravam o mesmo plano. Antes de gravar vê-se se o outro gravou entretanto: se sim,
+// junta-se — o que mudou neste aparelho desde a última leitura (S.mineBase) fica, o resto vem do servidor (um cadeado
+// posto no PC não é apagado por um telemóvel que tinha o plano antigo aberto). As horas são sempre as do servidor.
+function merge3(base, mine, theirs, depth) {
+  const J = x => JSON.stringify(x === undefined ? null : x);
+  if (J(mine) === J(base)) return theirs === undefined ? undefined : clone(theirs);
+  if (J(theirs) === J(base) || theirs === undefined) return mine;
+  const obj = x => x && typeof x === 'object' && !Array.isArray(x);
+  if (depth > 0 && obj(mine) && obj(theirs)) {
+    const out = {}, b = obj(base) ? base : {};
+    new Set(Object.keys(mine).concat(Object.keys(theirs))).forEach(k => { const v = merge3(b[k], mine[k], theirs[k], depth - 1); if (v !== undefined) out[k] = v; });
+    // apagado neste aparelho (estava na base e já não está): fica apagado, se o outro não o mudou
+    Object.keys(b).forEach(k => { if (!(k in mine) && J(theirs[k]) === J(b[k])) delete out[k]; });
+    return out;
+  }
+  return mine; // os dois mudaram a mesma coisa: fica a deste aparelho (a mais recente aqui)
+}
+async function mineSync(fromSave) {
+  const row = await q(sb.from('user_runs').select('roster,plan,updated_at').eq('run_id', S.runId).eq('user_id', S.session.user.id).maybeSingle());
+  if (!row || !(Date.parse(row.updated_at) > (S.mineSeen || 0))) return false;
+  const srv = { roster: row.roster || {}, plan: row.plan || {} }, base = S.mineBase || { roster: {}, plan: {} };
+  const merged = { roster: merge3(base.roster, S.mine.roster, srv.roster, 2) || {}, plan: merge3(base.plan, S.mine.plan, srv.plan, 5) || {} };
+  S.mine = merged; S.mineBase = clone(srv); S.mineSeen = Date.parse(row.updated_at);
+  if (!fromSave && JSON.stringify(merged) !== JSON.stringify(srv)) saveMine(); // havia mudanças só neste aparelho: grava-as por cima
+  return true;
+}
 function saveNow() {
   mineTimer = null;
   if (!S.session || !S.runId) return;
-  cleanCollectionUses();
-  const row = { user_id: S.session.user.id, run_id: S.runId, roster: S.mine.roster, plan: S.mine.plan };
-  mineSaving = mineSaving.then(() => q(sb.from('user_runs').upsert(row, { onConflict: 'user_id,run_id' }))).then(() => { S.mineSeen = Date.now() + 5000; }).catch(e => toast('Não guardou: ' + errText(e)));
+  const runId = S.runId;
+  mineSaving = mineSaving.then(async () => {
+    if (runId !== S.runId) return;
+    let merged = false;
+    try { merged = await mineSync(true); } catch (e) { /* sem rede para ver: grava o que tem */ }
+    cleanCollectionUses();
+    const snap = clone({ roster: S.mine.roster, plan: S.mine.plan });
+    await q(sb.from('user_runs').upsert({ user_id: S.session.user.id, run_id: runId, roster: snap.roster, plan: snap.plan }, { onConflict: 'user_id,run_id' }));
+    S.mineBase = snap;
+    try { const r = await q(sb.from('user_runs').select('updated_at').eq('run_id', runId).eq('user_id', S.session.user.id).maybeSingle()); if (r) S.mineSeen = Math.max(S.mineSeen || 0, Date.parse(r.updated_at) || 0); } catch (e) {}
+    if (merged) { schedule(); render(); }
+  }).catch(e => toast('Não guardou: ' + errText(e)));
   return mineSaving;
 }
+// com a app aberta: de minuto a minuto vê se o outro aparelho gravou (e ao voltar à app)
+async function mineRefresh() {
+  if (!S.session || !S.runId || !S.mineLoaded || mineTimer || document.visibilityState !== 'visible') return false;
+  try { await mineSaving; if (mineTimer) return false; if (await mineSync(false)) { schedule(); render(); return true; } } catch (e) {}
+  return false;
+}
+setInterval(mineRefresh, 60e3);
+window.addEventListener('focus', () => { mineRefresh(); });
 // cada conta para a Classificação do grupo: vitórias, aros, hoje e (se partilhas o plano) o lineup de cada dia já
 // começado e do próximo, para os outros verem o resultado pelas estatísticas mal os jogos acabem
 function accSummaries() {
@@ -4882,8 +4926,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet'
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible' || !S.runId || !S.session) return;
   try {
-    const mine = await q(sb.from('user_runs').select('*').eq('run_id', S.runId).eq('user_id', S.session.user.id).maybeSingle());
-    if (mine && Date.parse(mine.updated_at) > (S.mineSeen || 0)) { S.mine = { roster: mine.roster || {}, plan: mine.plan || {} }; S.mineSeen = Date.parse(mine.updated_at); }
+    await mineRefresh();
     await Promise.all([loadGroup(), loadInjuries()]); applyChainResults(); schedule();
     refreshOdds();
   } catch (err) { /* sem rede: fica como está */ }
