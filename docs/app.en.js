@@ -4171,6 +4171,16 @@ async function lineupSheet(date) {
   L.busy = false;
   if (S.lu === L && $('luBody')) luRender();
 }
+// com várias contas: pôr o jogador nesta conta nesta noite exige uma carta que já está a ser usada noutra conta?
+// (a k-ésima jogada de cada conta precisa de uma carta com ≥ k usos e cada carta só joga numa conta por noite)
+function tierBlocked(id, acc, date) {
+  if (!S.multi) return null;
+  const cd = (collectionInfo(id).cards || []).slice().sort((a, b) => b - a); if (!cd.length) return null;
+  const nth = k => { const r = S.multi.byKey[k]; return usedCount(k, id) + (r ? r.normal.days.filter(d => d.date < date && d.lineup.includes(id)).length : 0) + 1; };
+  const others = accounts().map(a => a.id).filter(k => k !== acc && ((((S.multi.byKey[k] || {}).normal || { days: [] }).days.find(d => d.date === date) || {}).lineup || []).includes(id));
+  const req = others.concat([acc]).map(nth).sort((a, b) => b - a);
+  return req.some((r, j) => r > (cd[j] || 0)) ? { others, need: nth(acc) } : null;
+}
 function luRender() {
   const L = S.lu, r = S.result, v = view(); if (!L || !r || !v) return;
   const date = L.date, { md, d } = dayInfo(date), day = S.days.find(x => x.date === date) || {}, dn = S.days.indexOf(day) + 1;
@@ -4222,8 +4232,8 @@ function luRender() {
   const full = locks.size >= size, banSet = new Set(bans);
   // todos na lista (para a procura encontrar qualquer um); sem procura, só os 8 primeiros até "Ver todos"
   const candRows = cand.map((pi, k) => {
-    const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
-    return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (tir ? 'removed from this day' : !uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan')) + pvHtml(objVals(md, pi, false)) +
+    const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
+    return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (tb ? 'the card it needs already plays tonight in ' + tb.others.map(accLabel).join(', ') : tir ? 'removed from this day' : !uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan')) + pvHtml(objVals(md, pi, false)) +
       (gaps.length ? '<button class="lu-ic add" type="button" data-action="lu-fill" data-out="' + esc(gaps[0]) + '" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' in place of ' + esc(nameOf(gaps[0])) + '" title="Put in the empty spot"' + (uses ? '' : ' disabled') + '>' + icoPlus + '</button>' :
       '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' to the lineup" title="' + (full ? 'You already have ' + size + ' locked: unlock one first' : 'Add to the lineup and lock') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '</li>';
   }).join('');
@@ -4268,9 +4278,9 @@ function luPickSheet(date, out) {
   const playing = FB.teamsOn(day), banPis = [...bans].map(id => r.model.pIndex.get(id)).filter(pi => pi != null && playing.has(r.model.players[pi].team) && !md.elig.includes(pi) && r.model.players[pi].id !== out);
   const cand = md.elig.filter(pi => { const id = r.model.players[pi].id; return !d.lineup.includes(id); }).sort((a, b) => weight(b) - weight(a)).concat(banPis);
   const rows = cand.map(pi => {
-    const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
+    const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
     return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row" type="button" data-action="lu-fill" data-out="' + esc(out) + '" data-id="' + esc(id) + '" data-date="' + date + '"' + (uses ? '' : ' disabled') + '><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</div>' +
-      '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (!uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan') + (bans.has(id) ? ' · removed from this day' : '') + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
+      '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (tb ? 'the card it needs already plays tonight in ' + tb.others.map(accLabel).join(', ') : !uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan') + (bans.has(id) ? ' · removed from this day' : '') + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
   }).join('');
   if (S.lu) S.lu.q = '';
   openSheet('<h3>Who comes in?</h3><div class="small muted">In place of ' + esc(nameOf(out)) + ' · day ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
