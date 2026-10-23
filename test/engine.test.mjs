@@ -361,5 +361,20 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   const gw = FB.planGroup(run, [{ key: 'main', roster, plan: {} }, { key: 's1', roster, plan: {} }], odds, { now: NOW, hint: gh });
   ok('contas: com ponto de partida não fica pior', gw.objective >= gb.objective - 1e-9, [gw.objective, gb.objective]);
 }
+// cadeados que obrigam as duas contas à 2.ª jogada na mesma noite com um só Rare: aviso (clash com tier)
+{
+  const star = Object.entries(roster.players).map(([id, p]) => [id, run.days.filter(d => d.games.some(g => g.includes(p.team))).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const ro = JSON.parse(JSON.stringify(roster));
+  Object.assign(ro.players[star], { uses: 2, copies: 3, cards: [2, 1, 1], hold: { main: [2, 1], s1: [1] } });
+  const dts = run.days.filter(d => d.games.some(gm => gm.includes(ro.players[star].team))).map(d => d.date);
+  const pl = () => ({ played: Object.fromEntries(run.days.filter(d => d.date < dts[1]).map(d => [d.date, { done: true, result: 'win', lineup: d.date === dts[0] ? [star] : [] }])), locks: { [dts[1]]: [star] } });
+  const ro1 = JSON.parse(JSON.stringify(ro)); ro1.players[star].uses = 1;
+  const g = FB.planGroup(run, [{ key: 'main', roster: ro1, plan: pl() }, { key: 's1', roster: ro1, plan: pl() }], odds, { now: NOW });
+  const c = g.clashes.find(x => x.date === dts[1] && x.id === star);
+  ok('escalões: 2.ª jogada nas duas contas com 1 Rare (fixado nas duas) → aviso', !!(c && c.tier && c.req.join() === '2,2'), g.clashes);
+  const ro2 = JSON.parse(JSON.stringify(ro1)); ro2.players[star].cards = [2, 2, 1];
+  const g2 = FB.planGroup(run, [{ key: 'main', roster: ro2, plan: pl() }, { key: 's1', roster: ro2, plan: pl() }], odds, { now: NOW });
+  ok('escalões: com 2 cartas de 2 usos já não há aviso', !g2.clashes.some(x => x.date === dts[1] && x.id === star && x.tier), g2.clashes);
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);

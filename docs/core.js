@@ -1221,7 +1221,17 @@
     const clashes = [];
     const byDate = {};
     keys.forEach((k, a) => res[a].days.forEach(d => d.lineup.forEach(id => { const key = d.date + '|' + id; (byDate[key] = byDate[key] || []).push(k); })));
-    Object.entries(byDate).forEach(([key, ks]) => { const [date, id] = key.split('|'); if (ks.length > (cp[id] || 1)) clashes.push({ date, id, accounts: ks }); });
+    const cardsById = {}; players.forEach(p => { if (Array.isArray(p.cards) && p.cards.length) cardsById[p.id] = p.cards.slice().sort((x, y) => y - x); });
+    // n.º da jogada de cada conta com o jogador nessa noite (as já feitas mais as do plano antes dessa noite)
+    const nth = (a, id, date) => ((pastById[keys[a]] || {})[id] || 0) + res[a].days.filter(d => d.date < date && d.lineup.includes(id)).length + 1;
+    Object.entries(byDate).forEach(([key, ks]) => {
+      const [date, id] = key.split('|');
+      if (ks.length > (cp[id] || 1)) { clashes.push({ date, id, accounts: ks }); return; }
+      // escalões: a k-ésima jogada precisa de uma carta com ≥ k usos, e cada carta só joga numa conta por noite
+      const cd = cardsById[id]; if (!cd) return;
+      const req = ks.map(k => nth(keys.indexOf(k), id, date)).sort((x, y) => y - x);
+      if (req.some((r, j) => r > (cd[j] || 0))) clashes.push({ date, id, accounts: ks, tier: true, req, cards: cd });
+    });
     return { keys, byKey, transfers, clashes, objective: best.total };
   }
 

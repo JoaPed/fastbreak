@@ -1382,7 +1382,12 @@ function renderJornada(el) {
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, true));
   // avisos curtos
   const note = (txt, info) => html.push('<div class="note' + (info ? ' info' : '') + '">' + txt + '</div>');
-  if (S.multi) { const cl = S.multi.clashes.filter(c => c.date === nd.date); if (cl.length) note('Fixado em duas contas: ' + cl.map(c => esc(nameOf(c.id)) + ' (' + c.accounts.map(accLabel).map(esc).join(', ') + ')').join(' · ') + '. Só joga por uma.'); }
+  if (S.multi) {
+    const cl = S.multi.clashes.filter(c => c.date === nd.date && !c.tier); if (cl.length) note('Fixado em duas contas: ' + cl.map(c => esc(nameOf(c.id)) + ' (' + c.accounts.map(accLabel).map(esc).join(', ') + ')').join(' · ') + '. Só joga por uma.');
+    // cartas que não chegam: ex. 2.ª jogada nas duas contas com um só Rare
+    S.multi.clashes.filter(c => c.date === nd.date && c.tier).forEach(c => { const top = c.req[0], n = c.cards.filter(u => u >= top).length;
+      note('<b>' + esc(nameOf(c.id)) + '</b> hoje em ' + c.accounts.map(accLabel).map(esc).join(' + ') + ': para isto são precisas ' + c.req.length + ' cartas com pelo menos ' + top + ' usos e tens ' + n + ' (cartas dele: ' + c.cards.map(usesN).join(' · ') + '). Tira-o ou solta o cadeado numa das contas.'); });
+  }
   if (d.noObjective) note('Este dia ainda não tem objetivo.', true);
   if (d.perPlayer) note('Objetivo por jogador: cada um tem de lá chegar sozinho. Confirma o lineup à mão.');
   if ((nd.objectives || []).some(x => x && /pip/.test(x.stat))) note('Pontos na área: estimados a partir dos lançamentos de 2.', true);
