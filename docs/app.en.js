@@ -177,7 +177,7 @@ function picksCard() {
   const e = best.e, o = e.o[best.k], other = e.o[1 - best.k] || [''], cap = P.cap || 100;
   const what = e.t === 'game_winner' ? '<b>' + esc(o[0]) + '</b> wins' : e.t === 'player_duel' ? '<b>' + esc(o[0]) + '</b> scores more than ' + esc(other[0]) : '<b>' + esc(String(e.d).replace(/^Will\s+/i, '').replace(/\s+record.*$/i, '')) + '</b> · ' + esc(o[0]);
   const team = e.t === 'game_winner' ? (String(o[2]) === String(e.hid) ? e.home : e.away) : null;
-  return '<div class="card pick-card"><div class="pk-top"><span class="eyebrow">Pick of the day ' + helpBtn('picks') + '</span><span class="small muted">' + (e.risk ? 'losing costs the points' : 'losing gives the points back') + '</span></div>' +
+  return '<div class="card pick-card"><div class="pk-top"><span class="eyebrow">Pick of the day ' + helpBtn('picks') + '</span></div>' +
     '<div class="pk-main">' + (team ? teamLogo(teamFix(team)) : '') + '<div style="min-width:0;flex:1"><div class="pk-what">' + what + '</div><div class="ps">' + hm(Date.parse(e.lock)) + ' · ' + (best.ours ? 'odds ' + pct(best.p) + ' · crowd ' + Math.round(o[1]) + '%' : 'crowd ' + Math.round(o[1]) + '% (no odds yet)') + '</div></div>' +
     '<div class="pk-pts num"><b>' + cap + '</b><small>points</small></div></div></div>';
 }
@@ -1323,6 +1323,7 @@ function renderJornada(el) {
     (S.multi ? groupLine(nd) : '') +
     (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : !isCur ? '' : '') + '</div>');
   const luAt = html.length; // o lineup vem logo a seguir ao placar (sem ter de descer)
+  if (isCur && !live) html.push(picksCard());
   if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
   // ao vivo: o plano sugere mudar quem ainda não jogou
   if (live && d.live && (d.live.out.length || d.live.in.length)) {
@@ -1392,7 +1393,6 @@ function renderJornada(el) {
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '') +
     bansLine + '</div>');
-  if (isCur && !live) html.push(picksCard());
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
   html.push(todayPlayersCard(r, md, nd, isCur));
   if (isCur) html.push(betterCard(), buyLine());
