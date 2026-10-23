@@ -2769,8 +2769,8 @@ function renderGrupo() {
   const days = S.days.filter(d => d.date <= today || (nd && nd.date === d.date) || people.some(x => x.daysRes[d.date]));
   const money = c => { const v = c / 100; return '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('pt-PT')); };
   const prizeAt = r => { const b = R && (R.bands || []).find(z => r >= z[0] && r <= z[1]); return !b ? '' : b[2] ? money(b[2]) : b[3] || ''; };
-  // prémio de um dia (créditos): pelas faixas desse dia (ou as do Classic: 150, 100, 50, 20, 10, 5, 3, 2 até ao 100.º), só para quem ganhou o dia
-  const dayPrize = (d, dr) => { if (!dr || !dr.rank || !dr.won) return 0; const bands = d && d.bands && d.bands.length ? d.bands : DAY_BANDS, b = bands.find(z => dr.rank >= z[0] && dr.rank <= z[1]); return b ? b[2] : 0; };
+  // prémio de um dia (créditos): pelas faixas desse dia (ou as do Classic: 150, 100, 50, 20, 10, 5, 3, 2 até ao 100.º), pelo lugar, mesmo que se tenha perdido o dia
+  const dayPrize = (d, dr) => { if (!dr || !dr.rank) return 0; const bands = d && d.bands && d.bands.length ? d.bands : DAY_BANDS, b = bands.find(z => dr.rank >= z[0] && dr.rank <= z[1]); return b ? b[2] : 0; };
   const rdays = (R && R.days) || [];
   const lastPaid = R && (R.bands || []).length ? Math.max(...R.bands.map(b => b[1])) : null, qual = R && R.qual;
   const zone = r => (qual && r <= qual ? ' z-q' : lastPaid && r <= lastPaid ? ' z-p' : '');
