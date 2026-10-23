@@ -2724,7 +2724,13 @@ function shareDoc() {
   const locks = {}, pm = planOf('main'), today = todayET();
   Object.entries(pm.locks || {}).forEach(([d, ids]) => { if (d >= today && (ids || []).length) locks[d] = ids.slice(); });
   Object.entries(pm.live || {}).forEach(([d, l]) => { if (d < today || !l || !l.active) return; Object.entries(l.players || {}).forEach(([id, e]) => { if (e && (e.state === 'jogo' || e.state === 'fim')) { const a = (locks[d] = locks[d] || []); if (!a.includes(id)) a.push(id); } }); });
-  return { roster, use, lineups, locks };
+  // as smurfs: o lineup do plano em cada dia e o que está fixado (para o grupo ver em Lineups)
+  const al = {};
+  if (S.multi) accounts().forEach(a => { if (a.id === 'main') return; const r = S.multi.byKey[a.id]; if (!r) return; const lu = {}, lk = {};
+    r.normal.days.forEach(d => { if (d.lineup.length) lu[d.date] = d.lineup.slice(); });
+    Object.entries(planOf(a.id).locks || {}).forEach(([d, ids]) => { if (d >= today && (ids || []).length) lk[d] = ids.slice(); });
+    if (Object.keys(lu).length) al[a.id] = { label: a.label, lu, lk }; });
+  return Object.assign({ roster, use, lineups, locks }, Object.keys(al).length ? { al } : {});
 }
 const groupName = uid => (S.group.profiles.find(p => p.user_id === uid) || {}).display_name || 'Sem nome';
 const sharing = s => !!(s && s.share && s.share.roster) && ((S.group.profiles.find(p => p.user_id === s.user_id) || {}).share_plan !== false);
@@ -2740,22 +2746,33 @@ function lineupsHtml() {
     const day = md.day, mine = ((myV.days.find(d => d.date === day.date) || {}).lineup) || [];
     const myLocks = (((curPlan().locks || {})[day.date]) || []).concat(Object.entries((((curPlan().live || {})[day.date]) || {}).players || {}).filter(([, e]) => e && (e.state === 'jogo' || e.state === 'fim')).map(([id]) => id));
     // por jogador: quem o leva neste dia (os mais escolhidos em cima), com cadeado em quem o fixou
-    const people = [{ uid: me, ids: mine, lk: new Set(myLocks) }].concat(shared.map(s => ({ uid: s.user_id, ids: ((s.share.lineups || {})[day.date]) || [], lk: new Set((s.share.locks || {})[day.date] || []) })));
+    // cada conta é uma linha: a principal de cada um e, a seguir, as smurfs (as minhas do plano; as dos outros do que partilharam)
+    const myName = (S.profile || {}).display_name || 'Tu';
+    const people = [{ uid: me, key: me, name: myName, ids: mine, lk: new Set(myLocks) }];
+    if (S.multi) accounts().forEach(a => { if (a.id === 'main') return; const rr = S.multi.byKey[a.id], ids = ((rr && rr.normal.days.find(d => d.date === day.date)) || {}).lineup || [];
+      if (ids.length) people.push({ uid: me, key: me + ':' + a.id, name: a.label, smurf: true, ids, lk: new Set(((planOf(a.id).locks || {})[day.date]) || []) }); });
+    shared.forEach(s => {
+      people.push({ uid: s.user_id, key: s.user_id, name: groupName(s.user_id), at: s.updated_at, ids: ((s.share.lineups || {})[day.date]) || [], lk: new Set((s.share.locks || {})[day.date] || []) });
+      const al = s.share.al || {}, accs = s.share.accs || {};
+      [...new Set(Object.keys(al).concat(Object.keys(accs)))].filter(k => k !== 'main').forEach(k => { const x = al[k] || {}, ids = (x.lu || {})[day.date] || ((accs[k] || {}).lu || {})[day.date] || [];
+        if (ids.length) people.push({ uid: s.user_id, key: s.user_id + ':' + k, name: x.label || (accs[k] || {}).label || k, smurf: true, at: s.updated_at, ids, lk: new Set((x.lk || {})[day.date] || []) }); });
+    });
     const by = new Map(); people.forEach(p => p.ids.forEach(id => { (by.get(id) || by.set(id, []).get(id)).push(p); }));
     const list = [...by.entries()].sort((a, b) => (b[1].length - a[1].length) || ((a[1][0].uid === me ? 0 : 1) - (b[1][0].uid === me ? 0 : 1)) || String(lastName(a[0])).localeCompare(String(lastName(b[0]))));
     const myLu = new Set(mine);
     if (S.luView === 'pessoa') {
       // por pessoa: o lineup de cada um; em destaque os jogadores que também estão no teu
-      const prow = p => { const s = p.uid === me ? null : shared.find(x => x.user_id === p.uid);
+      const prow = p => {
         const pl = id => { const same = p.uid !== me && myLu.has(id), lk = p.lk.has(id);
           return '<button type="button" class="lp-pl' + (same ? ' same' : '') + '" data-action="pform" data-id="' + esc(id) + '" title="' + esc(nameOf(id)) + (lk ? ' (fixado)' : '') + (same ? ' · também no teu' : '') + '">' + face(id, 'sm') + (lk ? '<i class="lp-lk">' + icoLock + '</i>' : '') + '<span class="lp-nm">' + esc(lastName(id) || id) + '</span></button>'; };
-        return '<li class="row lp-row"><div class="lp-who">' + avatar(p.uid, p.uid === me ? (S.profile || {}).display_name || 'Tu' : groupName(p.uid)) + '<div style="min-width:0"><div class="nm">' + esc(p.uid === me ? 'Tu' : groupName(p.uid)) + '</div>' + (s && s.updated_at ? '<div class="small muted">' + esc(ago(s.updated_at)) + '</div>' : '') + '</div></div>' +
+        const sub = p.smurf ? 'smurf' + (p.uid === me ? '' : ' de ' + groupName(p.uid)) : p.at ? ago(p.at) : '';
+        return '<li class="row lp-row' + (p.smurf ? ' smurf' : '') + '"><div class="lp-who">' + avatar(p.key, p.name) + '<div style="min-width:0"><div class="nm">' + esc(p.key === me ? 'Tu' : p.name) + '</div>' + (sub ? '<div class="small muted lp-sub">' + esc(sub) + '</div>' : '') + '</div></div>' +
           '<div class="lp-pls">' + (p.ids.length ? p.ids.map(pl).join('') : '<span class="small muted">sem jogadores</span>') + '</div></li>'; };
       return '<div class="card"><div class="list-head"><h2>Dia ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div><ul class="list">' + people.map(prow).join('') + '</ul></div>';
     }
     const rows = list.map(([id, ps]) => '<li' + (myLu.has(id) ? ' class="lu-mine"' : '') + '><button class="row lu-pl" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></div>' +
       '<div class="ps">' + esc(((S.players.get(String(canon(id))) || {}).team) || '') + '</div></div></span>' +
-      '<span class="lu-who">' + ps.map(p => '<span class="lu-av' + (p.lk.has(id) ? ' lk' : '') + '" title="' + esc(p.uid === me ? 'Tu' : groupName(p.uid)) + (p.lk.has(id) ? ' (fixado)' : '') + '">' + avatar(p.uid, p.uid === me ? (S.profile || {}).display_name || 'Tu' : groupName(p.uid)) + (p.lk.has(id) ? '<i>' + icoLock + '</i>' : '') + '</span>').join('') + '</span><b class="lu-n num">' + ps.length + '</b></button></li>').join('');
+      '<span class="lu-who">' + ps.map(p => '<span class="lu-av' + (p.lk.has(id) ? ' lk' : '') + '" title="' + esc(p.key === me ? 'Tu' : p.name) + (p.lk.has(id) ? ' (fixado)' : '') + '">' + avatar(p.key, p.name) + (p.lk.has(id) ? '<i>' + icoLock + '</i>' : '') + '</span>').join('') + '</span><b class="lu-n num">' + ps.length + '</b></button></li>').join('');
     return '<div class="card"><div class="list-head"><h2>Dia ' + (day.idx + 1) + ' · ' + esc(objsText(day)) + '</h2><span class="small muted">' + dWeek(day.date) + ', ' + dShort(day.date) + '</span></div>' + (rows ? '<ul class="list">' + rows + '</ul>' : '<div class="row small muted">Ninguém tem lineup para este dia.</div>') + '</div>';
   });
   const pv = S.luView === 'pessoa';

@@ -1926,6 +1926,7 @@
  "<div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Agora não</button><button class=\"btn primary\" type=\"button\" data-action=\"ed-apply\">Aplicar</button></div>": "<div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Not now</button><button class=\"btn primary\" type=\"button\" data-action=\"ed-apply\">Apply</button></div>",
  "A preparar…": "Preparing…",
  "Raridade e ASP aplicados: os usos do grupo foram acertados.": "Rarity and ASP applied: the group’s uses were adjusted.",
+ " smurf": null,
  "normal": null,
  "sem": null,
  "odds": null,

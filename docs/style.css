@@ -957,8 +957,11 @@ p, .note { text-wrap: pretty; }
 .lu-mine-key { color: var(--accent); font-weight: 600; }
 /* lineups do grupo, por pessoa: as caras do lineup de cada um */
 .lp-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; }
-.lp-who { display: flex; align-items: center; gap: 8px; width: 94px; flex: none; min-width: 0; }
-.lp-who .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-who { display: flex; align-items: center; gap: 8px; width: clamp(96px, 28%, 170px); flex: none; min-width: 0; }
+.lp-who .nm { font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lp-who .lp-sub { overflow-wrap: anywhere; line-height: 1.25; }
+.lp-row.smurf { padding-top: 6px; }
+.lp-row.smurf .avatar { width: 26px; height: 26px; font-size: 11px; opacity: .85; }
 .lp-pls { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px 2px; }
 .lp-pl { position: relative; border: 0; background: none; padding: 3px 0 0; color: inherit; font: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; cursor: pointer; }
 .lp-pl .face { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .85); }
@@ -981,3 +984,15 @@ p, .note { text-wrap: pretty; }
 .ed-loose summary { cursor: pointer; }
 .mo-u { display: flex; flex-direction: column; align-items: center; }
 .ed-row .ps { white-space: normal; }
+/* o nome em cima (inteiro) e as caras por baixo (igual no telemóvel e no computador) */
+@media all {
+  .lp-row { flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 12px; }
+  .lp-who { width: auto; }
+  .lp-who .avatar { width: 24px; height: 24px; font-size: 10px; }
+  .lp-who > div { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .lp-who .nm { -webkit-line-clamp: 1; overflow-wrap: normal; white-space: nowrap; text-overflow: ellipsis; display: block; }
+  .lp-who .lp-sub { white-space: nowrap; }
+  .lp-row.smurf { padding-top: 6px; }
+}
+/* computador: as caras não se espalham pela largura toda */
+@media (min-width: 561px) { .lp-pls { grid-template-columns: repeat(5, minmax(0, 96px)); justify-content: start; gap: 4px 8px; } }
