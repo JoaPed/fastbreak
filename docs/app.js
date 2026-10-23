@@ -3568,7 +3568,7 @@ function edApply() {
   publishSummary(); render();
 }
 // a leitura das cartas no Top Shot só conta a partir da próxima run (decidido a 23 out)
-const edOn = () => !!(S.days && S.days.length && S.days[0].date >= '2026-10-25');
+const edOn = () => true; // ligado (o João quis ler já nesta run)
 const edMapOf = ed => new Map(Object.entries((ed && ed.p) || {}).map(([id, rows]) => [id, { rows, at: ed.at }]));
 // o que muda com a leitura por confirmar: por pessoa do grupo, os jogadores cujos usos por run mudam, e porquê
 const cardTxt = (it, e) => [e && e.tier ? e.tier : null, String(it.s || ''), e && e.asp > 0 ? 'ASP ' + usd(e.asp / 100) + (aspBand(e.asp) ? ' (' + aspBand(e.asp)[2] + ')' : '') : null].filter(Boolean).join(' · ');
