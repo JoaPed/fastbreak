@@ -203,9 +203,9 @@ with sync_playwright() as pw:
     pg.evaluate('document.dispatchEvent(new Event("visibilitychange"))')
     pg.wait_for_function('() => { const l = (__FAKE_DB.tables.user_runs[0].plan || {}).live; return l && Object.values(l)[0] && Object.keys(Object.values(l)[0].players || {}).length; }', timeout=15000)
     pg.wait_for_timeout(500)
-    print('B ao vivo (sozinho):', pg.locator('.hero .hero-top').inner_text().replace('\n', ' '), '·', lineup_card(pg).locator('.list-head').inner_text().replace('\n', ' '))
+    print('B ao vivo (sozinho):', pg.locator('.hero .jc-txt').inner_text().replace('\n', ' '))
     print('B ao vivo:', store(pg, 'Object.values(__FAKE_DB.tables.user_runs[0].plan.live)[0].players'))
-    print('B placar ao vivo:', pg.locator('.hero .bar-cap').inner_text().replace('\n', ' '))
+    print('B placar ao vivo:', pg.locator('.hero .jc-sub').first.inner_text().replace('\n', ' '))
 
     pg.click('#t-run'); pg.wait_for_timeout(400)
     print('B run (prémios):', pg.locator('#tab-run .run-board').inner_text().replace('\n', ' | '), '// distribuição:', pg.locator('#tab-run .dist i').count(), 'barras ·', pg.locator('#tab-run .dist-legend').inner_text().replace('\n', ' '))

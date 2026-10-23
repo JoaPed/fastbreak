@@ -937,3 +937,15 @@ p, .note { text-wrap: pretty; }
 .sp-txt { font-size: 11.5px; }
 .jc-btns .jc-share { flex: none; width: 44px; padding: 0; display: grid; place-items: center; }
 .share-img { width: 100%; height: auto; border-radius: 14px; display: block; }
+/* Classificação: quadrados dos dias mais pequenos (a cor vai num quadrado dentro da célula) */
+.gc { border-spacing: 2px 3px; }
+.gc td.c { background: none !important; outline: 0 !important; padding: 2px 1px; min-width: 0; }
+.gc td.c .cb { display: inline-grid; place-items: center; min-width: 44px; padding: 4px 3px; border-radius: 7px; font-size: 11.5px; line-height: 1.15; }
+.gc td.c.w .cb { background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); }
+.gc td.c.l .cb { background: var(--surface-2); color: var(--muted); }
+.gc td.c.now .cb { outline: 1px dashed var(--ball); min-height: 26px; }
+.gc .rr b { font-size: 15px; }
+.gc small.dz { font-size: 9.5px; margin-top: 1px; }
+.jc-bars { display: grid; gap: 5px; position: relative; margin-top: 2px; }
+.jc-bars .bar { height: 6px; }
+.jc-final { position: relative; color: var(--board-ink); padding-inline: 0; }
