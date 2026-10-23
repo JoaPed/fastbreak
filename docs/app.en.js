@@ -114,6 +114,74 @@ async function loadPrevGames() {
   try { const games = await espnBoard(prev); S.prevGames = { [prev]: games.flatMap(g => [g.away, g.home]).filter(Boolean) }; schedule(); } catch (e) { /* sem rede: o dia 1 fica sem jogos seguidos */ }
 }
 
+// ---------- picks do Fast Break (PredictionService do Top Shot, lidos pelo script com os lugares) ----------
+// S.picksMine = {at, ev: [{id, t, d, lock, max, x, risk, n, home, away, o: [[nome, %pessoal, id NBA, lado, linha, stat]]}], cap, free}
+try { S.picksMine = JSON.parse(localStorage.getItem('fb-picks') || 'null'); } catch (e) { S.picksMine = null; }
+const picksDoc = () => [S.picksMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.picks)).filter(d => d && d.at && Array.isArray(d.ev)).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null;
+const TEAM_FIX = { NO: 'NOP', GS: 'GSW', SA: 'SAS', NY: 'NYK', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX', BRK: 'BKN', CHO: 'CHA' };
+const teamFix = a => { const x = String(a || '').toUpperCase(); return TEAM_FIX[x] || x; };
+// probabilidade de a equipa da casa ganhar, pelas casas de apostas que a ESPN mostra (moneyline; sem ela, pelo spread)
+S.gOdds = {};
+function espnOdds(c) {
+  const o = ((c && c.odds) || [])[0]; if (!o) return null;
+  const ml = x => { if (x == null || x === '') return null; const v = +String(x).replace(/[^0-9+.-]/g, ''); return isFinite(v) && v ? FB.impliedProb(v) : null; };
+  let h = ml((o.homeTeamOdds || {}).moneyLine), a = ml((o.awayTeamOdds || {}).moneyLine);
+  if ((h == null || a == null) && o.moneyline) { const g = k => { const z = o.moneyline[k] || {}; return ml((z.close || z.current || z.open || {}).odds); }; h = g('home'); a = g('away'); }
+  if (h != null && a != null && h + a > 0) return { pHome: h / (h + a), src: 'ml' };
+  // "BOS -5.5": favorito e vantagem; a diferença final é ~normal com desvio de 12 pontos
+  const m = /^([A-Z]{2,4})\s*(-?\d+(?:\.\d+)?)/.exec(String(o.details || ''));
+  const cs = c.competitors || [], home = teamFix(((cs.find(x => x.homeAway === 'home') || {}).team || {}).abbreviation);
+  if (m && +m[2] !== 0) { const pf = FB.normCdf(Math.abs(+m[2]) / 12); return { pHome: teamFix(m[1]) === home ? pf : 1 - pf, src: 'spread' }; }
+  return null;
+}
+async function loadGameOdds(date) {
+  const G = S.gOdds[date]; if (G && (G.busy || Date.now() - G.at < 30 * 60e3)) return;
+  S.gOdds[date] = Object.assign(G || { m: {} }, { busy: true });
+  try {
+    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + date.replace(/-/g, ''), { cache: 'no-store' });
+    const js = res.ok ? await res.json() : { events: [] }, m = {};
+    (js.events || []).forEach(ev => { const c = (ev.competitions || [])[0] || {}, cs = c.competitors || [], side = h => teamFix(((cs.find(x => x.homeAway === h) || {}).team || {}).abbreviation); const o = espnOdds(c); if (o) m[side('away') + '@' + side('home')] = o; });
+    S.gOdds[date] = { at: Date.now(), m };
+  } catch (e) { S.gOdds[date] = { at: Date.now(), m: (G && G.m) || {} }; }
+  if (S.tab === 'hoje') render();
+}
+// probabilidade de cada opção de um pick (as nossas; null = só se sabe a % do pessoal)
+function pickProbs(e, date) {
+  if (e.t === 'game_winner' && e.home && e.away) {
+    const M = (S.gOdds[date] || {}).m || {}, g0 = M[teamFix(e.away) + '@' + teamFix(e.home)], gr = M[teamFix(e.home) + '@' + teamFix(e.away)];
+    const g = g0 || (gr ? { pHome: 1 - gr.pHome } : null); if (!g) return null;
+    const hi = e.o.findIndex(o => e.hid && String(o[2]) === String(e.hid)); if (hi < 0) return null;
+    return e.o.map((o, i) => (i === hi ? g.pHome : 1 - g.pHome));
+  }
+  // pontos de um jogador: as odds dele (linha e probabilidade de passar) dão a média e o desvio
+  const find = catalogIndex(), dist = name => { const p = find(name); const od = p && (((S.odds[date] || {}).players || {})[p.id] || {}).pts; if (!od || od.line == null) return null;
+    const pOver = FB.devig(od.over, od.under); if (pOver == null) return null; const sd = Math.max(4, 0.3 * od.line); return { mu: od.line + sd * FB.invNorm(pOver), sd }; };
+  if (e.t === 'player_over_under' && e.o.length === 2) {
+    const d = dist(String(e.d).replace(/^Will\s+/i, '').replace(/\s+record.*$/i, '')); const th = e.o[0][4]; if (!d || th == null) return null;
+    const pOver = 1 - FB.normCdf((th - d.mu) / d.sd); return e.o.map(o => (o[3] === 'under' ? 1 - pOver : pOver));
+  }
+  if (e.t === 'player_duel' && e.o.length === 2) {
+    const a = dist(e.o[0][0]), b = dist(e.o[1][0]); if (!a || !b) return null;
+    const p0 = FB.normCdf((a.mu - b.mu) / Math.sqrt(a.sd * a.sd + b.sd * b.sd)); return [p0, 1 - p0];
+  }
+  return null;
+}
+function picksCard() {
+  const P = picksDoc(); if (!P) return '';
+  const now = Date.now(), ev = P.ev.filter(e => Date.parse(e.lock) > now && Date.parse(e.lock) - now < 30 * 3600e3);
+  if (!ev.length) return '';
+  const date = todayET(); if (ev.some(e => e.t === 'game_winner')) loadGameOdds(date);
+  // o pick recomendado: o favorito mais seguro (odds mais baixas) para dobrar os pontos do dia; sem odds, pela % do pessoal
+  const rows = ev.map(e => { const pr = pickProbs(e, date), crowd = e.o.map(o => o[1] / 100), use = pr || crowd, k = use.indexOf(Math.max(...use)); return { e, k, p: use[k], ours: !!pr, crowd: crowd[k] }; });
+  const best = rows.filter(x => x.ours).sort((a, b) => b.p - a.p)[0] || rows.slice().sort((a, b) => b.p - a.p)[0];
+  const e = best.e, o = e.o[best.k], other = e.o[1 - best.k] || [''], cap = P.cap || 100;
+  const what = e.t === 'game_winner' ? '<b>' + esc(o[0]) + '</b> wins' : e.t === 'player_duel' ? '<b>' + esc(o[0]) + '</b> scores more than ' + esc(other[0]) : '<b>' + esc(String(e.d).replace(/^Will\s+/i, '').replace(/\s+record.*$/i, '')) + '</b> · ' + esc(o[0]);
+  const team = e.t === 'game_winner' ? (String(o[2]) === String(e.hid) ? e.home : e.away) : null;
+  return '<div class="card pick-card"><div class="pk-top"><span class="eyebrow">Pick of the day ' + helpBtn('picks') + '</span><span class="small muted">' + (e.risk ? 'losing costs the points' : 'losing gives the points back') + '</span></div>' +
+    '<div class="pk-main">' + (team ? teamLogo(teamFix(team)) : '') + '<div style="min-width:0;flex:1"><div class="pk-what">' + what + '</div><div class="ps">' + hm(Date.parse(e.lock)) + ' · ' + (best.ours ? 'odds ' + pct(best.p) + ' · crowd ' + Math.round(o[1]) + '%' : 'crowd ' + Math.round(o[1]) + '% (no odds yet)') + '</div></div>' +
+    '<div class="pk-pts num"><b>' + cap + '</b><small>points</small></div></div></div>';
+}
+
 // ---------- utilidades ----------
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -253,6 +321,7 @@ const HELP = {
   premios: ['Prizes', 'Each ring is the chance of finishing the run with at least that many wins: full means certain. Green likely, yellow a toss-up, red hard. The plan picks the lineups to raise these chances.'],
   dist: ['Wins at the end', 'The chance of each win total at the end of the run. The colours mark the prize tiers; the outline is the most likely total.'],
   contas: ['Accounts', 'The plan pools your accounts’ collections as if they were one and picks each account’s lineup. Tap an account to see its prizes.'],
+  picks: ['Pick of the day', 'Of today’s Fast Break picks (read on Top Shot when the admin updates), the safest one: the favourite with the lowest odds, to double the day’s points. The probability comes from the bookmakers (the game’s win line; for players, the points odds); «crowd» is the % of people who already picked it on Top Shot. Without odds, it goes by the crowd %.'],
   mudar: ['Change the lineup', 'Tap the lock to lock in who must play, the × to remove someone from this day (it leaves an empty spot: tap + to choose who comes in, or let the plan choose) and the + under Add to lineup to bring in a player the plan left out. The plan fills in the rest and redoes the run after each change. At the top you see what changes compared with the plan’s suggestion: the day’s win, the expected wins in the run, the prizes and the other days where someone comes in or goes out (uses spent today are no longer there). To undo, tap the lock again or Back to the plan’s suggestion.'],
   dias: ['Days', 'The whole run: each day’s goal, the plan’s lineup and the predicted win. For days already played, the result and the total made, which come in by themselves from the game stats. Tap a day to open it in Matchday.'],
   analise: ['Analysis', 'Each day’s prediction is saved until the first game. Then you see the prediction next to what happened: wins, totals and each player (100% = did as predicted). With few days, luck weighs a lot.'],
@@ -596,6 +665,7 @@ function adoptMine() {
   const me = S.session && S.session.user.id, own = ((S.group || {}).summaries || []).find(x => x.user_id === me), sh = own && own.share;
   if (!sh) return;
   if (sh.px && sh.px.at && sh.px.p && (!S.pxMine || !S.pxMine.at || sh.px.at > S.pxMine.at)) { S.pxMine = sh.px; S.pxIdx = null; try { localStorage.setItem('fb-px', JSON.stringify(sh.px)); } catch (e) {} }
+  if (sh.picks && sh.picks.at && Array.isArray(sh.picks.ev) && (!S.picksMine || !S.picksMine.at || sh.picks.at > S.picksMine.at)) { S.picksMine = sh.picks; try { localStorage.setItem('fb-picks', JSON.stringify(sh.picks)); } catch (e) {} }
   if (sh.ed && sh.ed.at && sh.ed.p && (!S.edMine || !S.edMine.at || sh.ed.at > S.edMine.at)) { S.edMine = sh.ed; S.edIdx = null; try { localStorage.setItem('fb-ed', JSON.stringify(sh.ed)); } catch (e) {} }
   if (sh.ranks && sh.ranks.at && (!S.ranksMine || !S.ranksMine.at || sh.ranks.at > S.ranksMine.at)) { S.ranksMine = sh.ranks; try { localStorage.setItem('fb-ranks', JSON.stringify(sh.ranks)); } catch (e) {} }
 }
@@ -613,6 +683,7 @@ function takeRanksHash() {
   try {
     const d = b64u.dec(m[1]);
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
+    if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
     if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Ranks updated: ' + d.accs.filter(x => x.found).length + ' accounts on the Top Shot leaderboard.' + (S.pxNew != null ? ' Prices for ' + S.pxNew + ' players' + (S.pxMissN ? ' (' + S.pxMissN + ' not found on Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cards: ' + S.edNew.err + '.' : ' Rarity and ASP of the cards of ' + S.edNew.n + ' players.') : '')), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
@@ -877,7 +948,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: { at: S.edMine.at, p: S.edMine.p, t: S.edMine.t } } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: { at: S.edMine.at, p: S.edMine.p, t: S.edMine.t } } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -1321,6 +1392,7 @@ function renderJornada(el) {
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '') +
     bansLine + '</div>');
+  if (isCur && !live) html.push(picksCard());
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
   html.push(todayPlayersCard(r, md, nd, isCur));
   if (isCur) html.push(betterCard(), buyLine());

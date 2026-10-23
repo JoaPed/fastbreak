@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      7
+// @version      8
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -165,17 +165,6 @@ async function picks(addr) {
   try { const u = await call('PredictionService/GetUserPredictionSummary', { product: 'nba', userFlowAddress: String(addr || '').replace(/^0x/, '') }); out.cap = +u.dailyActivePointsCap || null; out.free = !!u.freePicks; } catch (e) {}
   return out;
 }
-// pontos dos picks de cada conta do grupo: a entrada dela na classificação dos picks (ou o resumo, se for dessa conta)
-async function groupPicks(accs) {
-  const out = {};
-  for (const a of accs) {
-    const addr = String(a.a).replace(/^0x/, '').toLowerCase(); let e = null, src = null;
-    try { const r = await call('PredictionService/GetPredictionLeaderboard', { product: 'nba', limit: '1', offset: '0', userFlowAddress: addr }); const u = r.userEntry; if (u && String(u.userFlowAddress || '').toLowerCase() === addr) { e = u; src = 'lb'; } } catch (err) {}
-    if (!e) { try { const u = await call('PredictionService/GetUserPredictionSummary', { product: 'nba', userFlowAddress: addr }); if (u && String(u.userFlowAddress || '').toLowerCase() === addr) { e = u; src = 'sum'; } } catch (err) {} }
-    if (e) out[addr] = { pts: +e.seasonalPointsEarned || 0, w: +e.wins || 0, l: +e.losses || 0, st: +e.currentStreak || 0, best: e.bestStreak != null ? +e.bestStreak : null, rank: e.rank != null ? +e.rank : null, tier: e.tierName || null, used: e.dailyActivePointsUsed != null ? +e.dailyActivePointsUsed : null, src };
-  }
-  return out;
-}
 let started = false;
 async function go() {
   if (started) return; started = true;
@@ -226,7 +215,7 @@ async function go() {
     // preços: o mais barato à venda de cada jogador que o site pediu, em cada escalão (como no Marketplace do Top Shot)
     if (Array.isArray(job.pl) && job.pl.length) { try { out.px = await prices(job.pl); } catch (err) { out.px = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     // picks do dia (jogos abertos e % do pessoal): servem para as sugestões na Jornada
-    try { say('A ler os picks…'); out.picks = await picks(job.accs[0] && job.accs[0].a); out.picks.acc = await groupPicks(job.accs); } catch (err) { out.picksErr = String(err.message || err).slice(0, 80); }
+    try { say('A ler os picks…'); out.picks = await picks(job.accs[0] && job.accs[0].a); } catch (err) { out.picksErr = String(err.message || err).slice(0, 80); }
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
     if (Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
