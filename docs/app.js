@@ -1040,8 +1040,25 @@ const dayOver = day => Date.now() > dayEnd(day);
 // Dias que já acabaram sem resultado registado (não jogaste, ou o resultado ainda não chegou da blockchain): o plano
 // deixa de contar com eles (não gasta usos nem os mostra como "hoje"); continuam por registar em Run → Dias
 const skippedDays = acc => { const pl = planOf(acc || S.acc).played || {}; return S.days.filter(d => !(pl[d.date] && pl[d.date].done) && dayOver(d)); };
+// lineup mantido (keep, ao tirar um cadeado) que já não pode ser: o jogador está fixado noutra conta nessa noite e
+// não há Moments/cartas para as duas (ex.: 2.ª jogada nas duas com um só Rare). Sai do "mantido" e o plano escolhe outro
+function keepConflict(acc, date, id) {
+  const ids = accounts().map(a => a.id), me = ids.indexOf(acc);
+  const others = ids.filter((k, j) => k !== acc && ((((planOf(k).locks || {})[date]) || []).includes(id) || (j < me && (((planOf(k).keep || {})[date]) || []).includes(id))));
+  if (!others.length) return false;
+  const ci = collectionInfo(id);
+  if (others.length + 1 > (ci.copies || 1)) return true;
+  const cd = (ci.cards || []).slice().sort((a, b) => b - a); if (!cd.length) return false;
+  const req = others.concat([acc]).map(k => usedCount(k, id) + 1).sort((a, b) => b - a);
+  return req.some((r, j) => r > (cd[j] || 0));
+}
 function planForEngine(acc) {
-  const pa = planOf(acc), sk = skippedDays(acc);
+  let pa = planOf(acc); const sk = skippedDays(acc);
+  if (accounts().length > 1 && pa.keep) {
+    const keep = {}; let cut = false;
+    Object.entries(pa.keep).forEach(([d, ids]) => { const ok = (ids || []).filter(id => !keepConflict(acc, d, id)); if (ok.length !== (ids || []).length) cut = true; keep[d] = ok; });
+    if (cut) pa = Object.assign({}, pa, { keep });
+  }
   if (!sk.length) return pa;
   const played = Object.assign({}, pa.played || {});
   sk.forEach(d => { played[d.date] = { done: true, result: 'none', lineup: [], auto: true }; });
