@@ -4112,11 +4112,13 @@ function luRender() {
   }
   // pôr no lineup: quem joga neste dia e não está, do que mais rende para o que menos (com os dias em que o plano o usa)
   const weight = luSortKey(md);
-  const cand = md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a));
-  const full = locks.size >= size, shown = L.all ? cand : cand.slice(0, 8);
-  const candRows = shown.map(pi => {
-    const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id);
-    return '<li class="lu-row">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (!uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan')) + pvHtml(objVals(md, pi, false)) +
+  const playing = FB.teamsOn(day), banPis = bans.map(id => r.model.pIndex.get(id)).filter(pi => pi != null && playing.has(r.model.players[pi].team) && !md.elig.includes(pi));
+  const cand = md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a)).concat(banPis);
+  const full = locks.size >= size, banSet = new Set(bans);
+  // todos na lista (para a procura encontrar qualquer um); sem procura, só os 8 primeiros até "Ver todos"
+  const candRows = cand.map((pi, k) => {
+    const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
+    return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (tir ? 'removed from this day' : !uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan')) + pvHtml(objVals(md, pi, false)) +
       (gaps.length ? '<button class="lu-ic add" type="button" data-action="lu-fill" data-out="' + esc(gaps[0]) + '" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' in place of ' + esc(nameOf(gaps[0])) + '" title="Put in the empty spot"' + (uses ? '' : ' disabled') + '>' + icoPlus + '</button>' :
       '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' to the lineup" title="' + (full ? 'You already have ' + size + ' locked: unlock one first' : 'Add to the lineup and lock') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '</li>';
   }).join('');
@@ -4125,11 +4127,22 @@ function luRender() {
     (gaps.length ? '<div class="note info">Tap + to choose who comes in' + (gaps.length > 1 ? ' for each empty spot' : '') + '. Until then, the numbers are for the lineup before the swap.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + d.lineup.length + ' of ' + size + (locks.size ? ' · ' + plural(locks.size, 'locked', 'locked') : '') + '</span></div>' + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Nobody in the lineup: the plan saves the uses for other days.</div>') + '</div>' +
     (bad ? '<div class="note">Locked but can’t play this day: ' + bad + '</div>' : '') + chHtml +
-    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to the lineup</h2><span class="small muted">' + plural(cand.length, 'player', 'players') + '</span></div>' + luSortChips(md, 'data-date="' + date + '"') + '<ul class="list">' + candRows + '</ul>' + (cand.length > shown.length ? '<button class="btn quiet" type="button" data-action="lu-all" data-date="' + date + '" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
-    (bans.length ? '<div class="card"><div class="list-head"><h2>Removed from this day</h2></div><ul class="list">' + bans.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span><button class="btn small" type="button" data-action="lu-unban" data-id="' + esc(id) + '" data-date="' + date + '">Restore</button></li>').join('') + '</ul></div>' : '') +
+    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to the lineup</h2><span class="small muted" id="luCount">' + plural(cand.length, 'player', 'players') + '</span></div>' +
+      '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player" value="' + esc(L.q || '') + '"></div>' + luSortChips(md, 'data-date="' + date + '"') +
+      '<ul class="list" id="luCand">' + candRows + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>' + (cand.length > 8 && !L.all ? '<button class="btn quiet" type="button" id="luAllBtn" data-action="lu-all" data-date="' + date + '" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
     (mine ? '<button class="btn" type="button" data-action="lu-reset" data-date="' + date + '">Back to the plan’s suggestion</button>' : '') + '</div>';
   openSheet(html);
+  luFilter();
   if (keep) p0.scrollTop = keep;
+}
+// procura em "Pôr no lineup": mostra só quem tem o nome (ou a equipa) escrito, entre todos os que jogam nesse dia
+function luFilter() {
+  const ul = $('luCand'); if (!ul) return;
+  const inp = $('luSearch'), qn = norm(inp ? inp.value : ''), rows = [...ul.querySelectorAll('li[data-n]')];
+  let n = 0;
+  rows.forEach(li => { const ok = qn ? li.dataset.n.includes(qn) : !li.classList.contains('lu-more'); li.hidden = !ok; if (ok) n++; });
+  const none = ul.querySelector('.lu-none'); if (none) none.hidden = !(qn && !n);
+  const all = $('luAllBtn'); if (all) all.hidden = !!qn;
 }
 // ordem de quem pode entrar: pelos objetivos juntos (o que mais rende) ou só por uma das estatísticas do dia
 S.luSort = null;
@@ -4146,14 +4159,17 @@ function luPickSheet(date, out) {
   const day = md.day, bans = new Set(((curPlan().bans || {})[date]) || []);
   const weight = luSortKey(md);
   const later = id => v.days.filter(x => x.date !== date && x.lineup.includes(id)).map(x => x.idx + 1);
-  const cand = md.elig.filter(pi => { const id = r.model.players[pi].id; return !d.lineup.includes(id) && !bans.has(id); }).sort((a, b) => weight(b) - weight(a));
+  // também os tirados deste dia (voltam a entrar com um toque)
+  const playing = FB.teamsOn(day), banPis = [...bans].map(id => r.model.pIndex.get(id)).filter(pi => pi != null && playing.has(r.model.players[pi].team) && !md.elig.includes(pi) && r.model.players[pi].id !== out);
+  const cand = md.elig.filter(pi => { const id = r.model.players[pi].id; return !d.lineup.includes(id); }).sort((a, b) => weight(b) - weight(a)).concat(banPis);
   const rows = cand.map(pi => {
     const p = r.model.players[pi], id = p.id, uses = r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
-    return '<li><button class="row" type="button" data-action="lu-fill" data-out="' + esc(out) + '" data-id="' + esc(id) + '" data-date="' + date + '"' + (uses ? '' : ' disabled') + '><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</div>' +
-      '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (!uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan') + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
+    return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row" type="button" data-action="lu-fill" data-out="' + esc(out) + '" data-id="' + esc(id) + '" data-date="' + date + '"' + (uses ? '' : ' disabled') + '><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</div>' +
+      '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (!uses ? 'no uses' : ds.length ? 'in the plan: ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : 'not in the plan') + (bans.has(id) ? ' · removed from this day' : '') + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
   }).join('');
+  if (S.lu) S.lu.q = '';
   openSheet('<h3>Who comes in?</h3><div class="small muted">In place of ' + esc(nameOf(out)) + ' · day ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +
-    luSortChips(md, 'data-date="' + date + '" data-out="' + esc(out) + '"') + (rows ? '<ul class="list card">' + rows + '</ul>' : '<div class="note info">None of your other players has a game this day.</div>') +
+    (rows ? '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player"></div>' : '') + luSortChips(md, 'data-date="' + date + '" data-out="' + esc(out) + '"') + (rows ? '<ul class="list card" id="luCand">' + rows + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>' : '<div class="note info">None of your other players has a game this day.</div>') +
     '<button class="btn" type="button" data-action="lu-auto" data-id="' + esc(out) + '" data-date="' + date + '">Let the plan choose</button>', () => lineupSheet(date));
 }
 // troca: sai quem estava no lugar livre (tirado do dia), entra o escolhido (fixado); a run é refeita e o Mudar mostra o efeito
@@ -4161,10 +4177,11 @@ function luFill(date, out, pick) {
   const P = curPlan(), size = ((dayInfo(date).md) || {}).size || 5;
   const locks = new Set(((P.locks || {})[date]) || []); locks.delete(out); locks.add(pick);
   if (locks.size > size) { toast('You already have ' + size + ' players locked this day: unlock one first.'); return; }
-  const bans = [...new Set((((P.bans || {})[date]) || []).concat([out]))].filter(x => x !== pick);
+  const keep = keepWith(date, pick, out);
+  // com o lineup mantido (keep) quem sai não fica "tirado": continua na lista para voltar a entrar com um toque
+  const bans = [...new Set((((P.bans || {})[date]) || []).concat(keep ? [] : [out]))].filter(x => x !== pick);
   if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== out);
   lineupSheet(date); luBusy(true);
-  const keep = keepWith(date, pick, out);
   planPatch(Object.assign({ locks: { [date]: [...locks] }, bans: { [date]: bans } }, keep ? { keep: { [date]: keep } } : {}), !!keep);
 }
 // enquanto a run é refeita: a folha fica esbatida (e volta ao topo quando a mudança mexe no lineup)
@@ -4786,6 +4803,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'apSearch') renderSearch(e.target.value);
   if (e.target.id === 'buySearch') renderBuySearch(e.target.value);
   if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
+  if (e.target.id === 'luSearch') { if (S.lu && $('luCount')) S.lu.q = e.target.value; luFilter(); }
 });
 // (sem redesenhar Ajustes ao sair de um campo: isso apagava o formulário a meio de um clique em Guardar)
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });

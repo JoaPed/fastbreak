@@ -996,3 +996,7 @@ p, .note { text-wrap: pretty; }
 }
 /* computador: as caras não se espalham pela largura toda */
 @media (min-width: 561px) { .lp-pls { grid-template-columns: repeat(5, minmax(0, 96px)); justify-content: start; gap: 4px 8px; } }
+/* procura em "Pôr no lineup" e "Quem entra?" */
+.lu-search { padding: 0 16px 8px; }
+.lu-search .field { width: 100%; }
+#sheetPanel > .lu-search { padding: 8px 0 4px; }

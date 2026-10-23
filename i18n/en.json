@@ -1522,25 +1522,24 @@
  "fixados": "locked",
  "<div class=\"row small muted\">Ninguém no lineup: o plano guarda os usos para outros dias.</div>": "<div class=\"row small muted\">Nobody in the lineup: the plan saves the uses for other days.</div>",
  "<div class=\"note\">Fixados que não podem jogar neste dia: ": "<div class=\"note\">Locked but can’t play this day: ",
- "<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">": "<div class=\"card\"><div class=\"list-head\"><h2>Add to the lineup</h2><span class=\"small muted\">",
  "jogador": {
   "en": "player",
   "at": {
    "toast(k + ': ' + tier + (changed ? ' · usos de ' + plural(changed, 'jogador', 'jogadores') + ' atualizados' : ''));": "player",
    "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">' + plural(cand.length, 'jogador', 'jogadores') + '</sp": true,
-   "return '<div class=\"seg pl-seg lu-seg\" role=\"group\" aria-label=\"Como ver os lineups\">' + [['jogador', 'Por jogador'], ['pessoa', 'Por pessoa']].map(([k, l]) => ": null
+   "return '<div class=\"seg pl-seg lu-seg\" role=\"group\" aria-label=\"Como ver os lineups\">' + [['jogador', 'Por jogador'], ['pessoa', 'Por pessoa']].map(([k, l]) => ": null,
+   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">' + plural(cand.length, 'jogador', 'jogado": "player"
   }
  },
  "jogadores": {
   "en": "players",
   "at": {
    "toast(k + ': ' + tier + (changed ? ' · usos de ' + plural(changed, 'jogador', 'jogadores') + ' atualizados' : ''));": "players",
-   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">' + plural(cand.length, 'jogador', 'jogadores') + '</sp": true
+   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">' + plural(cand.length, 'jogador', 'jogadores') + '</sp": true,
+   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">' + plural(cand.length, 'jogador', 'jogado": "players"
   }
  },
  "\" style=\"margin:4px 16px 14px\">Ver todos (": "\" style=\"margin:4px 16px 14px\">See all (",
- "<div class=\"card\"><div class=\"list-head\"><h2>Tirados deste dia</h2></div><ul class=\"list\">": "<div class=\"card\"><div class=\"list-head\"><h2>Removed from this day</h2></div><ul class=\"list\">",
- "\">Repor</button></li>": "\">Restore</button></li>",
  "\">Voltar à sugestão do plano</button>": "\">Back to the plan’s suggestion</button>",
  "De volta à sugestão do plano.": "Back to the plan’s suggestion.",
  " shut": null,
@@ -1929,6 +1928,13 @@
  "Atualizar lugares, preços e cartas": "Update ranks, prices and cards",
  "Atualizar lugares e preços": "Update ranks and prices",
  "let series: UInt32 = TopShot.getSetSeries(setID: m.data.setID) ?? 0\n        let sub = TopShot.getSubeditionByNFTID(id)\n        out.append([TopShot.getPlayMetaDataByField(playID: m.data.playID, field: \"FullName\") ?? \"\", TopShot.getSetName(setID: m.data.setID) ?? \"\", series.toString(), id.toString(), m.data.setID.toString(), m.data.playID.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: \"Tier\") ?? \"\", sub?.name ?? \"\", m.data.serialNumber.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: \"DateOfMoment\") ?? \"\"])": null,
+ " lu-more": null,
+ "tirado deste dia": "removed from this day",
+ " · tirado deste dia": " · removed from this day",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">": "<div class=\"card\"><div class=\"list-head\"><h2>Add to the lineup</h2><span class=\"small muted\" id=\"luCount\">",
+ "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Procurar jogador ou equipa…\" autocomplete=\"off\" aria-label=\"Procurar jogador\" value=\"": "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Search player or team…\" autocomplete=\"off\" aria-label=\"Search player\" value=\"",
+ "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Procurar jogador ou equipa…\" autocomplete=\"off\" aria-label=\"Procurar jogador\"></div>": "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Search player or team…\" autocomplete=\"off\" aria-label=\"Search player\"></div>",
+ "<li class=\"row small muted lu-none\" hidden>Ninguém com esse nome a jogar neste dia.</li></ul>": "<li class=\"row small muted lu-none\" hidden>Nobody with that name plays on this day.</li></ul>",
  "normal": null,
  "sem": null,
  "odds": null,
