@@ -1107,7 +1107,9 @@ async function shareLineup(date) {
   const W = 1080, PAD = 48, RH = 168, H = PAD * 2 + RH * d.lineup.length, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'), font = (w, px) => w + ' ' + px + 'px "IBM Plex Sans", system-ui, sans-serif';
   g.fillStyle = '#1B2638'; g.fillRect(0, 0, W, H);
-  const photo = id => new Promise(ok => { const e = espnIdOf(id); if (!e) return ok(null); const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = 'https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/' + encodeURIComponent(e) + '.png&w=260&h=190'; setTimeout(() => ok(null), 6000); });
+  // fotos: primeiro a cópia guardada no próprio site (heads/, tarefa das médias), senão a da ESPN (se a ESPN deixar)
+  const load = (src, cors) => new Promise(ok => { const im = new Image(); if (cors) im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; setTimeout(() => ok(null), 6000); });
+  const photo = async id => { const e = espnIdOf(id); if (!e) return null; return (await load(siteBase() + 'heads/' + encodeURIComponent(e) + '.png')) || load('https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/' + encodeURIComponent(e) + '.png&w=260&h=190', true); };
   const imgs = await Promise.all(d.lineup.map(photo));
   const locks = new Set(((curPlan().locks || {})[date]) || []);
   d.lineup.forEach((id, i) => {

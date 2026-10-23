@@ -4,6 +4,7 @@ on:
     - cron: '17 9 * * *'     # todos os dias às 09:17 UTC
   workflow_dispatch:
 concurrency: { group: stats, cancel-in-progress: false }
+permissions: { contents: write, pages: write }
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -18,3 +19,13 @@ jobs:
       - run: npm ci --omit=dev
       - run: node scripts/sync-schedule.mjs
       - run: node scripts/sync-stats.mjs
+      # fotos dos jogadores no próprio site (para a imagem do lineup que se partilha)
+      - name: Fotos dos jogadores
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          node scripts/sync-heads.mjs || echo "::warning::fotos: falhou"
+          if [ -n "$(git status --porcelain docs/heads)" ]; then
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/heads && git commit -q -m "Fotos dos jogadores (tarefa das médias)" && git pull -q --rebase && git push -q
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null || true
+          fi
