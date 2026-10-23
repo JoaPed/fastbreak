@@ -248,8 +248,8 @@ export function formOf(p) {
   const log = (p && p.log) || [];
   if (!log.length) return null;
   const l10 = log.slice(-10), l5 = log.slice(-5);
-  // jogos: [data, adversário, ...GAME_KEYS] (compacto, do mais recente para o mais antigo)
-  const games = l5.slice().reverse().map(g => [g.date, g.opp || null].concat(GAME_KEYS.map(k => (isNum(g[k]) ? Math.round(g[k]) : null))));
+  // jogos: [data, adversário, ...GAME_KEYS] (compacto, do mais recente para o mais antigo; os últimos 10)
+  const games = l10.slice().reverse().map(g => [g.date, g.opp || null].concat(GAME_KEYS.map(k => (isNum(g[k]) ? Math.round(g[k]) : null))));
   return { n10: l10.length, n5: l5.length, l10: meanOf(l10), l5: meanOf(l5), last: log[log.length - 1].date, games };
 }
 // Equipas: totais de cada jogo (soma dos jogadores) a favor e contra, últimos 15 jogos

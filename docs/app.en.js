@@ -237,6 +237,7 @@ function basisHtml(p, info, o, md, id, many) {
   steps.push('<b>In the plan</b>: ' + (info.pPlay < 1 ? pct(info.pPlay) + ' × ' + f1(muIf) + ' = ' : '') + '<b class="num">' + f1(info.mu) + '</b> ' + u + ' expected (± ' + f1(Math.sqrt(info.v || 0)) + ').');
   return '<div class="card panel basis"><h2>What it is based on' + (many ? ' · ' + u : '') + '</h2><ol class="steps">' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol></div>';
 }
+const icoShare = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 const icoLock = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Locked"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 // ---------- ajuda: as explicações ficam atrás de um (?) ao lado dos títulos ----------
 const HELP = {
@@ -1099,6 +1100,48 @@ function dayStrip(sel) {
     return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="hd" data-date="' + day.date + '" aria-pressed="' + (day.date === sel) + '"><b class="num">' + (i + 1) + '</b><small>' + (now ? 'Today' : dWeek(day.date)) + '</small><span class="ds-v num">' + val + '</span>' + sr + (inj ? '<i class="ds-inj" title="Injury in the lineup"></i>' : '') + '</button>';
   }).join('') + '</div>';
 }
+async function shareLineup(date) {
+  const r = S.result, v = view(), { md, d } = dayInfo(date); if (!r || !md || !d || !d.lineup.length) return;
+  const day = md.day, objLine = (day.objectives || []).filter(x => x && x.stat).map(x => x.target + ' ' + statShort(x.stat)).join(' + ');
+  const text = 'Fast Break · Day ' + (day.idx + 1) + ' (' + dWeek(date) + ' ' + dShort(date) + ')\n' + objLine;
+  toast('Preparing the image…');
+  const W = 1080, PAD = 48, RH = 168, H = PAD * 2 + RH * d.lineup.length, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), font = (w, px) => w + ' ' + px + 'px "IBM Plex Sans", system-ui, sans-serif';
+  g.fillStyle = '#1B2638'; g.fillRect(0, 0, W, H);
+  const photo = id => new Promise(ok => { const e = espnIdOf(id); if (!e) return ok(null); const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = 'https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/' + encodeURIComponent(e) + '.png&w=260&h=190'; setTimeout(() => ok(null), 6000); });
+  const imgs = await Promise.all(d.lineup.map(photo));
+  const locks = new Set(((curPlan().locks || {})[date]) || []);
+  d.lineup.forEach((id, i) => {
+    const pi = r.model.pIndex.get(id), p = r.model.players[pi], y = PAD + i * RH, cx = PAD + 62, cy = y + RH / 2, R = 62;
+    if (i) { g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(PAD, y, W - PAD * 2, 2); }
+    g.save(); g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.closePath(); g.fillStyle = TEAM_COLOR[p.team] || '#334'; g.fill(); g.clip();
+    if (imgs[i]) { const im = imgs[i], sc = (R * 2.4) / im.width; g.drawImage(im, cx - im.width * sc / 2, cy - R * 0.95, im.width * sc, im.height * sc); }
+    else { g.fillStyle = '#fff'; g.font = font(700, 40); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(initials(p.name), cx, cy); }
+    g.restore(); g.lineWidth = 4; g.strokeStyle = '#0b0f16'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#F5F7FB'; g.font = font(600, 44);
+    g.fillText((locks.has(id) ? '🔒 ' : '') + p.name, cx + R + 32, cy - 6);
+    g.fillStyle = '#9EABBE'; g.font = font(400, 32); g.fillText(p.team + ' ' + opp(p.team, day), cx + R + 32, cy + 40);
+    const vals = objVals(md, pi, false), fv = x => (Math.abs(x.v) >= 10 ? f0(x.v) : f1(x.v));
+    g.textAlign = 'right'; const lines = vals.length, top = cy - (lines - 1) * 26;
+    vals.forEach((x, k) => { const yy = top + k * 52 + 14; g.font = font(600, 26); g.fillStyle = '#9EABBE'; const lab = statShort(x.o.stat); g.fillText(lab, W - PAD, yy); const lw = g.measureText(lab).width; g.font = font(800, 46); g.fillStyle = '#F5F7FB'; g.fillText(fv(x), W - PAD - lw - 12, yy); });
+  });
+  const blob = await new Promise(ok => { try { cv.toBlob(ok, 'image/png'); } catch (e) { ok(null); } });
+  if (!blob) { try { await navigator.clipboard.writeText(text); } catch (e) {} toast('Could not make the image. The text was copied.'); return; }
+  // a partilha precisa de um toque "fresco" (o iPhone recusa depois de esperar pelas fotos): mostra a imagem e o botão
+  const file = new File([blob], 'lineup-dia-' + (day.idx + 1) + '.png', { type: 'image/png' }), url = URL.createObjectURL(blob);
+  S.shareDoc = { file, text, url };
+  openSheet('<h3>Share the lineup</h3><div class="small muted" style="white-space:pre-line">' + esc(text) + '</div><img class="share-img" src="' + url + '" alt="Lineup for day ' + (day.idx + 1) + '">' +
+    '<button class="btn primary" type="button" data-action="share-go">' + icoShare + ' Share</button>');
+}
+async function shareGo() {
+  const D = S.shareDoc; if (!D) return;
+  try { if (navigator.canShare && navigator.canShare({ files: [D.file] })) { await navigator.share({ files: [D.file], text: D.text }); return; } }
+  catch (e) { if (e && e.name === 'AbortError') return; }
+  // sem partilha de ficheiros (computador): descarrega a imagem e copia o texto
+  const a = document.createElement('a'); a.href = D.url; a.download = D.file.name; document.body.appendChild(a); a.click(); a.remove();
+  try { await navigator.clipboard.writeText(D.text); } catch (e) {}
+  toast('Image downloaded and text copied: paste it into WhatsApp.');
+}
 function jornadaNav(date, sub) {
   const accs = groupMode() ? accounts().map(a => {
     const R = S.multi && S.multi.byKey[a.id], dd = R && R.normal.days.find(x => x.date === date), pl = ((planOf(a.id).played || {})[date]) || null;
@@ -1245,7 +1288,7 @@ function renderJornada(el) {
   if (compact) {
     const objLine = (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + ' ' + esc(statShort(x.stat))).join(' + ');
     const perStat = t ? d.totals.map(x => '<span>' + esc(statShort(x.stat)) + ' <b class="num">' + f1(x.mu) + '</b>/' + x.target + ' · ' + pct(FB.probAtLeast(x.mu, x.sd * x.sd, x.target)) + '</span>').join('<span aria-hidden="true"> · </span>') : '';
-    const btns = [isCur && !d.noObjective && d.lineup.length ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change lineup</button>' : ''].filter(Boolean);
+    const btns = [isCur && !d.noObjective && d.lineup.length ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Share the lineup" title="Share the lineup">' + icoShare + '</button>' : ''].filter(Boolean);
     html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Today' : 'Day ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn('lineup') + '</span>' +
       '<div class="jc-sub">' + (d.noObjective ? 'No target' : d.lineup.length ? perStat : '') + '</div><div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1st game ' + hm(tips[0]) : '') + '</div></div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
       (d.lineup.length ? '<ul class="list jc-list">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') + bansLine +
@@ -2271,12 +2314,23 @@ function specHtml() {
   const disp = ranked.slice(0, 80).map(x => ((x.p.avg.hist || {}).d || {})[stat]).filter(x => x > 0), dMed = median(disp);
   const rank = new Map(ranked.map((x, i) => [x.p.id, i + 1]));
   const top = ranked.filter(x => S.spec.scope !== 'new' || !(S.mine.roster || {})[x.p.id]).slice(0, 15), u = esc(statShort(stat));
+  // intervalo de cada um: o mais baixo e o mais alto dos últimos jogos (≥ 3) ou, sem jogos, a média ± o desvio da época passada
+  const gv = (g, k) => { const v = j => g[2 + GK.indexOf(j)]; if (k === 'dreb') return v('reb') != null && v('oreb') != null ? v('reb') - v('oreb') : null; return GK.includes(k) ? v(k) : null; };
+  const rangeOf = x => {
+    const vals = ((((x.p.avg || {}).form) || {}).games || []).map(g => gv(g, stat)).filter(v => v != null);
+    if (vals.length >= 3) return { lo: Math.min(...vals), hi: Math.max(...vals), txt: Math.min(...vals) + '–' + Math.max(...vals) + ' in the last ' + vals.length + ' games' };
+    const d = (((x.p.avg || {}).hist || {}).d || {})[stat]; if (!(d > 0)) return null;
+    const sd = Math.sqrt(d * x.v); return { lo: Math.max(0, x.v - sd), hi: x.v + sd, txt: 'usually ' + f0(Math.max(0, x.v - sd)) + '–' + f0(x.v + sd) };
+  };
+  const rgs = new Map(top.map(x => [x.p.id, rangeOf(x)])), sc = Math.max(1, ...top.map(x => Math.max(x.v, (rgs.get(x.p.id) || {}).hi || 0))) * 1.05;
   const rows = top.map(x => {
-    const p = x.p, i = rank.get(p.id) - 1, mine = !!(S.mine.roster || {})[p.id], pr = ptsRank.get(p.id) || 999, d = ((p.avg.hist || {}).d || {})[stat], ir = injRec(p.id);
+    const p = x.p, i = rank.get(p.id) - 1, rg = rgs.get(p.id), pr = ptsRank.get(p.id) || 999, d = ((p.avg.hist || {}).d || {})[stat], ir = injRec(p.id);
     const reg = d > 0 && dMed ? (d <= dMed * 0.85 ? '<span class="badge" title="Varies little from game to game (last season)">consistent</span>' : d >= dMed * 1.2 ? '<span class="pill duv" title="Varies a lot from game to game (last season)">streaky</span>' : '') : '';
     const spec = stat !== 'pts' && i < 30 && pr > 75 ? '<span class="pill ok" title="At the top of this stat but outside the 75 best scorers">specialist</span>' : '';
     return '<li><button class="row spec-row" type="button" data-action="pform" data-id="' + esc(p.id) + '"><span class="who">' + face(p.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(p.name) + '</span>' + spec + reg + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' in PTS' : '') + (p.gp ? ' · ' + plural(+p.gp, 'game', 'games') + ' this season' : ' · last season') + '</div></div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
+      '<div class="ps">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' in PTS' : '') + '</div>' +
+      (rg ? '<div class="sp-rng" aria-hidden="true"><i class="r" style="left:' + (rg.lo / sc * 100).toFixed(1) + '%;width:' + Math.max(1.5, (rg.hi - rg.lo) / sc * 100).toFixed(1) + '%"></i><i class="m" style="left:' + (x.v / sc * 100).toFixed(1) + '%"></i></div><div class="ps sp-txt">' + rg.txt + '</div>' : '') +
+      '</div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">' + u + '</div></div></button></li>';
   }).join('');
   const rd = runDays[stat];
   return '<div class="card"><div class="list-head"><h2>Specialists ' + helpBtn('especialistas') + '</h2><span class="small muted">per game</span></div>' +
@@ -4424,6 +4478,8 @@ document.addEventListener('click', async e => {
     case 'buy-sheet': closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
     case 'buy-retry': S.autoBuyErr = null; S.autoBuy = null; autoBuyBusy = null; render(); scheduleAutoBuy(); break;
     case 'better-use': useBetter(); break;
+    case 'lu-share': shareLineup(date); break;
+    case 'share-go': shareGo(); break;
     case 'better-no': S.better = null; render(); break;
     case 'buy-detail': buyDetailSheet(b.dataset.src, id); break;
     case 'buy-player': S.mine.roster[id] ? rosterSheet(id) : catalogSheet(id); break;
