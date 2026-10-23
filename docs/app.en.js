@@ -3605,6 +3605,7 @@ function edIndex() {
   return m;
 }
 const TS_TIER = t => { const x = /ULTIMATE|LEGENDARY|RARE|FANDOM|COMMON/i.exec(String(t || '')); return x ? x[0][0] + x[0].slice(1).toLowerCase() : null; };
+const setBaseN = n => norm(n).replace(/\s*\d+$/, ''); // "Base Set6" (blockchain) = "Base Set" (Top Shot)
 const isStd = p => !p || /^(standard|base|none|default)$/i.test(String(p).trim());
 // edição do Top Shot de uma carta: mesmo jogador e set; depois paralelo, série, setID/playID e tiragem. Se ficarem
 // várias, o escalão só conta se for o mesmo em todas e o ASP é o mais baixo (nunca dá usos a mais)
@@ -3612,7 +3613,7 @@ function cardEd(col, fid, idx) {
   const it = ((col || {}).items || {})[fid]; if (!it) return null;
   const E = (idx || edIndex()).get(String(it.p)); if (!E) return null;
   const [base, ...rest] = String(it.s || '').split(' · '), sub = rest.join(' · ');
-  let c = E.rows.filter(r => norm(r[0]) === norm(base));
+  let c = E.rows.filter(r => setBaseN(r[0]) === setBaseN(base));
   c = c.filter(r => sub ? !isStd(r[1]) && (norm(r[1]) === norm(sub) || norm(r[1]).includes(norm(sub)) || norm(sub).includes(norm(r[1]))) : isStd(r[1]));
   const narrow = f => { const d = c.filter(f); if (d.length) c = d; };
   if (it.se != null) narrow(r => r[5] == null || +r[5] === +it.se);

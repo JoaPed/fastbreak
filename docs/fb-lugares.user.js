@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      3
+// @version      4
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -104,6 +104,8 @@ async function prices(pl) {
 // ---- raridade e ASP de cada carta do grupo ----
 // O site manda, por jogador, os sets das cartas que o grupo tem (job.cs = [[id, nome, [sets]]]). Aqui pedem-se as edições
 // desse jogador e ficam as desses sets: [set, paralelo, escalão, ASP em cêntimos, tiragem, série, setID e playID da Flow]
+// nome do set sem o número da série no fim (na blockchain "Base Set6", no site "Base Set")
+const setBase = n => norm(n).replace(/\s*\d+$/, '');
 const ED_TIERS = ['COMMON', 'FANDOM', 'RARE', 'LEGENDARY', 'ULTIMATE'];
 let edLimit = '100', edMode = 0; // 0: sem escalão · 1: todos os escalões juntos · 2: um escalão de cada vez
 const pick = (o, rx, d = 0) => { if (!o || typeof o !== 'object' || d > 2) return null; for (const [k, v] of Object.entries(o)) { if (rx.test(k) && v != null && typeof v !== 'object' && String(v) !== '') return v; } for (const v of Object.values(o)) { if (v && typeof v === 'object' && !Array.isArray(v)) { const r = pick(v, rx, d + 1); if (r != null) return r; } } return null; };
@@ -125,7 +127,7 @@ async function editionsOf(nba) {
 }
 async function editions(cs) {
   const find = matcher(await tsPlayers()), ed = { at: new Date().toISOString(), p: {}, miss: [] }, todo = [];
-  cs.forEach(([id, name, sets]) => { const n = find(name); if (n) todo.push([id, n, new Set((sets || []).map(norm))]); else ed.miss.push(id); });
+  cs.forEach(([id, name, sets]) => { const n = find(name); if (n) todo.push([id, n, new Set((sets || []).map(setBase))]); else ed.miss.push(id); });
   let done = 0, fails = 0;
   const work = async () => {
     for (let x; (x = todo.shift());) {
@@ -134,7 +136,7 @@ async function editions(cs) {
         if (!ed.keys && es[0]) ed.keys = Object.keys(es[0]).concat(Object.keys(es[0].set || {}).map(k => 'set.' + k)).slice(0, 60);
         const rows = [];
         es.forEach(e => {
-          const set = (e.set && (e.set.name || e.set.setName)) || e.setName || ''; if (!x[2].has(norm(set))) return;
+          const set = (e.set && (e.set.name || e.set.setName)) || e.setName || ''; if (!x[2].has(setBase(set))) return;
           const par = e.parallel && typeof e.parallel === 'object' ? (e.parallel.name || e.parallel.label || '') : (e.parallel || e.parallelName || '');
           const asp = e.averageSalePriceCents != null ? +e.averageSalePriceCents : null;
           rows.push([set, String(par || ''), String(e.tier || ''), asp, e.maxMintSize != null ? +e.maxMintSize : null, pick(e.set, /series(number)?$|^flowSeries/i), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i)]);
