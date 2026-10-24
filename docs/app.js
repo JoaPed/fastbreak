@@ -1828,7 +1828,7 @@ async function opcoesSheet(fetchLive) {
       const later = outs.map(id => { const ds = x.ev.res.days.filter(dd => dd.date !== date && dd.lineup.includes(id)).map(dd => dd.idx + 1); return ds.length ? esc(lastName(id)) + ' fica para ' + (ds.length > 1 ? 'os dias ' : 'o dia ') + ds.join(', ') : ''; }).filter(Boolean);
       const tag = x === best ? '<span class="small up">o melhor</span>' : isNow(x) ? '<span class="small muted">o que tens</span>' : '';
       return '<div class="card panel op-card' + (x === best ? ' best' : '') + '"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + tag + '</div>' +
-        '<div class="small">Hoje <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run ≈ <b class="num">' + f1(r.wins + x.ev.res.expected) + '</b> vitórias</div>' +
+        '<div class="small">Hoje <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · resto da run ≈ <b class="num">' + f1(x.ev.res.days.filter(dd => dd.date !== date).reduce((t, dd) => t + (dd.P || 0), 0)) + '</b> vitórias</div>' +
         (r.prizes.length ? '<div class="small muted">Prémios: ' + prizeTxt(x.ev.res) + '</div>' : '') +
         (() => { const rk = !during && r.model.days[0] ? x.a0.lineup.filter(id => riskOf(r.model.days[0], id)) : []; return rk.length ? '<div class="small c-warn">⚠ Conta com ' + rk.map(id => esc(lastName(id))).join(', ') + ' a jogar (' + esc((INJ_LABEL[(injRec(rk[0]) || {}).status] || 'dúvida').toLowerCase()) + ').</div>' : ''; })() +
         ((ins.length || outs.length) ? '<div class="small muted">' + cap([outs.length ? 'sai ' + outs.map(id => esc(lastName(id)) + (during && tipOf(nd, id) ? ' (' + tipOf(nd, id) + ')' : '')).join(', ') : '', ins.length ? 'entra ' + ins.map(id => esc(lastName(id))).join(', ') : ''].filter(Boolean).join(' · ')) + (later.length ? '. ' + later.join(' · ') : '') + '.</div>' : '') +
@@ -4233,13 +4233,19 @@ function luRender() {
   let head;
   if (!B) head = '<div class="small muted" id="luProg">' + (L.err ? '<span class="down">Não consegui calcular a sugestão do plano.</span>' : 'A calcular a sugestão do plano…') + '</div>';
   else {
-    const dP = pp(d.P) - pp(B.P), dE = ew - B.ew;
+    // hoje e o resto da run em separado: o que a escolha de hoje faz aos outros dias (vitórias esperadas neles)
+    const rest = days => days.filter(x => x.date !== date).reduce((t, x) => t + (x.P || 0), 0);
+    const dP = pp(d.P) - pp(B.P), rNow = rest(v.days), rB = rest(B.days), dR = rNow - rB;
+    const f2 = x => (Math.round(x * 100) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
     head = '<div class="kv lu-kv"><div><div class="label">Vitória hoje</div><div class="v num c-' + tone(d.P) + '">' + pct(d.P) + '</div><div class="small muted">' + (!mine ? 'a sugestão do plano' : 'sugestão ' + pct(B.P) + (dP ? ' · <b class="' + (dP > 0 ? 'up' : 'down') + '">' + sgn(dP, Math.abs(dP) + ' pp') + '</b>' : '')) + '</div></div>' +
-      '<div><div class="label">Vitórias na run</div><div class="v num">' + f1(ew) + '</div><div class="small muted">' + (!mine ? 'esperadas' : 'sugestão ' + f1(B.ew) + (Math.abs(dE) >= 0.05 ? ' · <b class="' + (dE > 0 ? 'up' : 'down') + '">' + sgn(dE, f1(Math.abs(dE))) + '</b>' : '')) + '</div></div></div>';
+      '<div><div class="label">Resto da run</div><div class="v num">' + f1(rNow) + '</div><div class="small muted">' + (!mine ? 'vitórias esperadas nos outros dias' : Math.abs(dR) < 0.05 ? 'igual à sugestão' : 'sugestão ' + f1(rB) + ' · <b class="' + (dR > 0 ? 'up' : 'down') + '">' + sgn(dR, f2(Math.abs(dR))) + '</b>') + '</div></div></div>';
     if (mine) {
       const pz = r.prizes.map((p, i) => ({ p, a: B.probs[i] || 0, b: v.prizeProbs[i] || 0 })).filter(x => pp(x.a) !== pp(x.b));
-      const worse = dE < -0.05 || pz.some(x => pp(x.b) < pp(x.a)), better = !worse && (dE > 0.05 || pz.some(x => pp(x.b) > pp(x.a)));
-      head += (worse ? '<div class="note"><b>Custa</b> à run face à sugestão. Mantém se sabes algo que o plano não sabe (minutos, lesão).</div>' : better ? '<div class="note info"><b>Melhor</b> do que a sugestão do plano.</div>' : '<div class="note info">Quase igual à sugestão do plano.</div>') +
+      const todayTxt = dP ? ' (hoje ' + sgn(dP, Math.abs(dP) + ' pp') + ')' : '';
+      head += (dR <= -0.3 ? '<div class="note"><b>Afeta o resto da run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' vitórias esperadas nos outros dias' + todayTxt + '. Mantém se sabes algo que o plano não sabe (minutos, lesão).</div>'
+        : dR <= -0.05 ? '<div class="note info"><b>Mexe pouco no resto da run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' vitórias nos outros dias' + todayTxt + '.</div>'
+        : dR >= 0.05 ? '<div class="note info"><b>Melhora o resto da run:</b> ' + sgn(dR, f2(dR)) + ' vitórias nos outros dias' + todayTxt + '.</div>'
+        : '<div class="note info"><b>O resto da run não muda.</b> ' + (dP ? 'A diferença é só hoje' + todayTxt + '.' : 'Igual à sugestão do plano.') + '</div>') +
         (pz.length ? '<div class="small muted">Prémios: ' + pz.map(x => x.p.wins + 'V ' + pct(x.a) + ' → ' + pct(x.b)).join(' · ') + '</div>' : '');
     }
   }

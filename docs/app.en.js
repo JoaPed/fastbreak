@@ -1829,7 +1829,7 @@ async function opcoesSheet(fetchLive) {
       const later = outs.map(id => { const ds = x.ev.res.days.filter(dd => dd.date !== date && dd.lineup.includes(id)).map(dd => dd.idx + 1); return ds.length ? esc(lastName(id)) + ' is kept for ' + (ds.length > 1 ? 'days ' : 'day ') + ds.join(', ') : ''; }).filter(Boolean);
       const tag = x === best ? '<span class="small up">the best</span>' : isNow(x) ? '<span class="small muted">what you have</span>' : '';
       return '<div class="card panel op-card' + (x === best ? ' best' : '') + '"><div class="list-head" style="padding:0"><h2>' + esc(x.title) + '</h2>' + tag + '</div>' +
-        '<div class="small">Today <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · Run ≈ <b class="num">' + f1(r.wins + x.ev.res.expected) + '</b> wins</div>' +
+        '<div class="small">Today <b class="num c-' + tone(x.a0.P) + '">' + pct(x.a0.P) + '</b> · rest of the run ≈ <b class="num">' + f1(x.ev.res.days.filter(dd => dd.date !== date).reduce((t, dd) => t + (dd.P || 0), 0)) + '</b> wins</div>' +
         (r.prizes.length ? '<div class="small muted">Prizes: ' + prizeTxt(x.ev.res) + '</div>' : '') +
         (() => { const rk = !during && r.model.days[0] ? x.a0.lineup.filter(id => riskOf(r.model.days[0], id)) : []; return rk.length ? '<div class="small c-warn">⚠ Counts on ' + rk.map(id => esc(lastName(id))).join(', ') + ' playing (' + esc((INJ_LABEL[(injRec(rk[0]) || {}).status] || 'questionable').toLowerCase()) + ').</div>' : ''; })() +
         ((ins.length || outs.length) ? '<div class="small muted">' + cap([outs.length ? 'out: ' + outs.map(id => esc(lastName(id)) + (during && tipOf(nd, id) ? ' (' + tipOf(nd, id) + ')' : '')).join(', ') : '', ins.length ? 'in: ' + ins.map(id => esc(lastName(id))).join(', ') : ''].filter(Boolean).join(' · ')) + (later.length ? '. ' + later.join(' · ') : '') + '.</div>' : '') +
@@ -4234,13 +4234,19 @@ function luRender() {
   let head;
   if (!B) head = '<div class="small muted" id="luProg">' + (L.err ? '<span class="down">Couldn’t work out the plan’s suggestion.</span>' : 'Working out the plan’s suggestion…') + '</div>';
   else {
-    const dP = pp(d.P) - pp(B.P), dE = ew - B.ew;
+    // hoje e o resto da run em separado: o que a escolha de hoje faz aos outros dias (vitórias esperadas neles)
+    const rest = days => days.filter(x => x.date !== date).reduce((t, x) => t + (x.P || 0), 0);
+    const dP = pp(d.P) - pp(B.P), rNow = rest(v.days), rB = rest(B.days), dR = rNow - rB;
+    const f2 = x => (Math.round(x * 100) / 100).toLocaleString('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
     head = '<div class="kv lu-kv"><div><div class="label">Win today</div><div class="v num c-' + tone(d.P) + '">' + pct(d.P) + '</div><div class="small muted">' + (!mine ? 'the plan’s suggestion' : 'suggestion ' + pct(B.P) + (dP ? ' · <b class="' + (dP > 0 ? 'up' : 'down') + '">' + sgn(dP, Math.abs(dP) + ' pp') + '</b>' : '')) + '</div></div>' +
-      '<div><div class="label">Wins in the run</div><div class="v num">' + f1(ew) + '</div><div class="small muted">' + (!mine ? 'expected' : 'suggestion ' + f1(B.ew) + (Math.abs(dE) >= 0.05 ? ' · <b class="' + (dE > 0 ? 'up' : 'down') + '">' + sgn(dE, f1(Math.abs(dE))) + '</b>' : '')) + '</div></div></div>';
+      '<div><div class="label">Rest of the run</div><div class="v num">' + f1(rNow) + '</div><div class="small muted">' + (!mine ? 'expected wins on the other days' : Math.abs(dR) < 0.05 ? 'same as the suggestion' : 'suggestion ' + f1(rB) + ' · <b class="' + (dR > 0 ? 'up' : 'down') + '">' + sgn(dR, f2(Math.abs(dR))) + '</b>') + '</div></div></div>';
     if (mine) {
       const pz = r.prizes.map((p, i) => ({ p, a: B.probs[i] || 0, b: v.prizeProbs[i] || 0 })).filter(x => pp(x.a) !== pp(x.b));
-      const worse = dE < -0.05 || pz.some(x => pp(x.b) < pp(x.a)), better = !worse && (dE > 0.05 || pz.some(x => pp(x.b) > pp(x.a)));
-      head += (worse ? '<div class="note"><b>Costs</b> the run compared with the suggestion. Keep it if you know something the plan doesn’t (minutes, injury).</div>' : better ? '<div class="note info"><b>Better</b> than the plan’s suggestion.</div>' : '<div class="note info">Almost the same as the plan’s suggestion.</div>') +
+      const todayTxt = dP ? ' (today ' + sgn(dP, Math.abs(dP) + ' pp') + ')' : '';
+      head += (dR <= -0.3 ? '<div class="note"><b>Affects the rest of the run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' expected wins on the other days' + todayTxt + '. Keep it if you know something the plan doesn’t (minutes, injury).</div>'
+        : dR <= -0.05 ? '<div class="note info"><b>Barely touches the rest of the run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' wins on the other days' + todayTxt + '.</div>'
+        : dR >= 0.05 ? '<div class="note info"><b>Improves the rest of the run:</b> ' + sgn(dR, f2(dR)) + ' wins on the other days' + todayTxt + '.</div>'
+        : '<div class="note info"><b>The rest of the run doesn’t change.</b> ' + (dP ? 'The difference is only today' + todayTxt + '.' : 'Same as the plan’s suggestion.') + '</div>') +
         (pz.length ? '<div class="small muted">Prizes: ' + pz.map(x => x.p.wins + 'V ' + pct(x.a) + ' → ' + pct(x.b)).join(' · ') + '</div>' : '');
     }
   }
