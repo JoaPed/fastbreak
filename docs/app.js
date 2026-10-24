@@ -3296,6 +3296,7 @@ const icoX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 function openSheet(html, back) {
   S.sheetBack = back || null;
   const p = $('sheetPanel');
+  if (S.lu && $('luBody')) S.lu.y = p.scrollTop; // ao sair do Mudar para outra folha (jogador, quem entra): voltar ao mesmo sítio
   if ($('sheet').hidden) S.sheetFrom = document.activeElement;
   p.innerHTML = '<div class="sheet-bar">' + (back ? '<button class="sheet-ic" type="button" data-action="sheet-back" aria-label="Voltar">' + icoBack + '</button>' : '<span></span>') +
     '<div class="grab" aria-hidden="true"></div><button class="sheet-ic" type="button" data-action="close-sheet" aria-label="Fechar">' + icoX + '</button></div>' + html;
@@ -3307,13 +3308,31 @@ function openSheet(html, back) {
   sheetGuard();
 }
 function closeSheet(fromBack) {
-  $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; S.sheetPl = null; S.lu = null; $('app').inert = false;
+  $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; S.sheetPl = null; S.lu = null; $('app').inert = false; sheetFit();
   const f = S.sheetFrom; S.sheetFrom = null;
   if (f && f.isConnected && typeof f.focus === 'function') f.focus({ preventScroll: true });
   if (!fromBack) sheetUnguard();
 }
 // botão/gesto de voltar do telemóvel: com uma folha aberta, volta à folha anterior ou fecha-a (em vez de sair da app).
 // Enquanto há uma folha aberta fica uma entrada a mais no histórico; ao fechar de outra maneira (×, fundo, Esc) sai.
+// teclado do telemóvel: no iPhone o teclado tapa o fundo do ecrã sem encolher a página, e a folha (presa ao fundo)
+// ficava por baixo dele. Com o teclado aberto a folha ocupa só a parte visível; a procura do Mudar sobe para o topo.
+function sheetFit() {
+  const vv = window.visualViewport, sh = $('sheet'); if (!vv || !sh) return;
+  const kb = !sh.hidden && vv.scale < 1.05 && window.innerHeight - vv.height > 80, was = sh.classList.contains('kb');
+  sh.classList.toggle('kb', kb);
+  if (kb) { sh.style.top = vv.offsetTop + 'px'; sh.style.height = vv.height + 'px'; sh.style.bottom = 'auto'; sh.style.setProperty('--vvh', vv.height + 'px'); }
+  else if (was) { sh.style.top = sh.style.height = sh.style.bottom = ''; sh.style.removeProperty('--vvh'); }
+  const a = document.activeElement;
+  if (kb && !was && a && a.id === 'luSearch') luSearchTop(a);
+}
+if (window.visualViewport) { visualViewport.addEventListener('resize', sheetFit); visualViewport.addEventListener('scroll', sheetFit); }
+function luSearchTop(inp) {
+  const p = $('sheetPanel'); if (!p || !p.contains(inp)) return;
+  const c = inp.closest('.card') || inp, bar = p.querySelector('.sheet-bar');
+  p.scrollTop += c.getBoundingClientRect().top - p.getBoundingClientRect().top - (bar ? bar.offsetHeight : 0) - 4;
+}
+document.addEventListener('focusin', e => { if (e.target && e.target.id === 'luSearch') { const t = e.target; luSearchTop(t); setTimeout(() => { if (document.activeElement === t) { sheetFit(); luSearchTop(t); } }, 350); } });
 function sheetGuard() { try { if (!(history.state && history.state.fbSheet)) history.pushState({ fbSheet: 1 }, ''); } catch (e) { /* sem histórico: só os botões */ } }
 function sheetUnguard() { setTimeout(() => { try { if ($('sheet').hidden && history.state && history.state.fbSheet) { S.popIgnore = true; history.back(); } } catch (e) {} }, 0); }
 window.addEventListener('popstate', () => {
@@ -4225,7 +4244,7 @@ function candLine(r, pi, tb, ds, tir, date) {
 function luRender() {
   const L = S.lu, r = S.result, v = view(); if (!L || !r || !v) return;
   const date = L.date, { md, d } = dayInfo(date), day = S.days.find(x => x.date === date) || {}, dn = S.days.indexOf(day) + 1;
-  const p0 = $('sheetPanel'), keep = $('luBody') && !L.toTop ? p0.scrollTop : 0; L.toTop = false;
+  const p0 = $('sheetPanel'), keep = L.toTop ? 0 : $('luBody') ? p0.scrollTop : L.y || 0; L.toTop = false; L.y = 0;
   const tip = firstTipOf(day);
   if (!md || !d || (tip != null && Date.now() >= tip)) { openSheet('<h3>Lineup do dia ' + dn + '</h3><div class="note info" id="luBody">Os jogos deste dia já começaram: as mudanças fazem-se em Sugestões para hoje.</div>'); return; }
   const locks = new Set(((curPlan().locks || {})[date]) || []), bans = ((curPlan().bans || {})[date]) || [], size = md.size;
@@ -4275,11 +4294,15 @@ function luRender() {
   // pôr no lineup: quem joga neste dia e não está, do que mais rende para o que menos (com os dias em que o plano o usa)
   const weight = luSortKey(md);
   const playing = FB.teamsOn(day), banPis = bans.map(id => r.model.pIndex.get(id)).filter(pi => pi != null && playing.has(r.model.players[pi].team) && !md.elig.includes(pi));
-  const cand = md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a)).concat(banPis);
+  // quem acabou de sair (lugar livre) fica no topo da lista: o + volta a pô-lo, sem ter de pôr outro primeiro
+  const outPis = gaps.map(id => r.model.pIndex.get(id)).filter(pi => pi != null);
+  const cand = outPis.concat(md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a)), banPis);
   const full = locks.size >= size, banSet = new Set(bans);
   // todos na lista (para a procura encontrar qualquer um); sem procura, só os 8 primeiros até "Ver todos"
   const candRows = cand.map((pi, k) => {
     const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
+    if (gaps.includes(id)) return '<li class="lu-row" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">acabou de sair · o + volta a pô-lo</span>') + pvHtml(objVals(md, pi, false)) +
+      '<button class="lu-ic add" type="button" data-action="lu-undo" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Voltar a pôr ' + esc(p.name) + ' no lineup" title="Voltar a pôr">' + icoPlus + '</button></li>';
     return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + candLine(r, pi, tb, ds, tir, date)) + pvHtml(objVals(md, pi, false)) +
       (gaps.length ? '<button class="lu-ic add" type="button" data-action="lu-fill" data-out="' + esc(gaps[0]) + '" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Pôr ' + esc(p.name) + ' no lugar de ' + esc(nameOf(gaps[0])) + '" title="Pôr no lugar livre"' + (uses ? '' : ' disabled') + '>' + icoPlus + '</button>' :
       '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Pôr ' + esc(p.name) + ' no lineup" title="' + (full ? 'Já tens ' + size + ' fixados: solta um primeiro' : 'Pôr no lineup e fixar') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '</li>';
@@ -4323,8 +4346,10 @@ function luPickSheet(date, out) {
   const later = id => v.days.filter(x => x.date !== date && x.lineup.includes(id)).map(x => x.idx + 1);
   // também os tirados deste dia (voltam a entrar com um toque)
   const playing = FB.teamsOn(day), banPis = [...bans].map(id => r.model.pIndex.get(id)).filter(pi => pi != null && playing.has(r.model.players[pi].team) && !md.elig.includes(pi) && r.model.players[pi].id !== out);
+  const outPi = r.model.pIndex.get(out);
   const cand = md.elig.filter(pi => { const id = r.model.players[pi].id; return !d.lineup.includes(id); }).sort((a, b) => weight(b) - weight(a)).concat(banPis);
-  const rows = cand.map(pi => {
+  const back = outPi == null ? '' : (p => '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row" type="button" data-action="lu-undo" data-back="1" data-id="' + esc(out) + '" data-date="' + date + '"><span class="who">' + face(out, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">acabou de sair · toca para o manter</span></div></div></span>' + pvHtml(objVals(md, outPi, false)) + '</button></li>')(r.model.players[outPi]);
+  const rows = back + cand.map(pi => {
     const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
     return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row" type="button" data-action="lu-fill" data-out="' + esc(out) + '" data-id="' + esc(id) + '" data-date="' + date + '"' + (uses ? '' : ' disabled') + '><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</div>' +
       '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + candLine(r, pi, tb, ds, bans.has(id), date) + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
@@ -4778,7 +4803,7 @@ document.addEventListener('click', async e => {
     case 'lu-lock': { const on = !(((curPlan().locks || {})[date]) || []).includes(id); luBusy(); if (!lockToggle(id, date, on)) luRender(); break; }
     case 'lu-add': luBusy(true); if (!lockToggle(id, date, true)) luRender(); break;
     case 'lu-ban': if (S.lu) { S.lu.out = (S.lu.out || []).concat([id]); luRender(); } break; // fica um lugar livre: nada muda até escolheres
-    case 'lu-undo': if (S.lu) { S.lu.out = (S.lu.out || []).filter(x => x !== id); luRender(); } break;
+    case 'lu-undo': if (S.lu) { S.lu.out = (S.lu.out || []).filter(x => x !== id); if (b.dataset.back) lineupSheet(date); else luRender(); } break;
     case 'lu-pick': luPickSheet(date, id); break;
     case 'lu-fill': luFill(date, b.dataset.out, id); break;
     case 'lu-auto': if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== id); lineupSheet(date); luBusy(); banToggle(id, date, true); break;

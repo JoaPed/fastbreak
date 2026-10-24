@@ -1026,3 +1026,5 @@ p, .note { text-wrap: pretty; }
 .lu-l2 { display: block; }
 .lu-l2 b { color: var(--ink); font-weight: 600; }
 .lu-warn { color: var(--warn); font-weight: 600; }
+/* teclado aberto: a folha cabe na parte visível do ecrã (ver sheetFit) */
+.sheet.kb .sheet-panel { max-height: calc(var(--vvh, 100vh) - 8px); padding-bottom: 12px; }
