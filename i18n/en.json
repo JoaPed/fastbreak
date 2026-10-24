@@ -1951,6 +1951,8 @@
  "<div class=\"note info\"><b>O resto da run não muda.</b> ": "<div class=\"note info\"><b>The rest of the run doesn’t change.</b> ",
  "A diferença é só hoje": "The difference is only today",
  "Igual à sugestão do plano.": "Same as the plan’s suggestion.",
+ "<div class=\"small muted\">Dá o mesmo lineup: ": "<div class=\"small muted\">Same lineup as: ",
+ "<div class=\"small muted\">Não deu para calcular: ": "<div class=\"small muted\">Couldn’t calculate: ",
  "normal": null,
  "sem": null,
  "odds": null,

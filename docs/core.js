@@ -742,8 +742,11 @@
   function alternativeSeeds(model, normal) {
     const md = model.days[0], d0 = normal && normal.days[0];
     if (!md || !d0 || !d0.lineupIdx.length || !md.objs.length) return [];
-    const out = [{ kind: 'allin', lineupIdx: bestSingleDay(model, 0) }];
-    const locked = new Set(md.locks);
+    // o lineup mantido (kept) não conta como escolha: as alternativas podem mexer nele
+    const hard = md.kept && md.kept.size ? md.locks.filter(p => !md.kept.has(p)) : md.locks;
+    const m0 = hard.length === md.locks.length ? model : Object.assign({}, model, { days: [Object.assign({}, md, { locks: hard })].concat(model.days.slice(1)) });
+    const out = [{ kind: 'allin', lineupIdx: bestSingleDay(m0, 0) }];
+    const locked = new Set(hard);
     const weight = p => md.objs.reduce((t, _, k) => t + md.mu[p][k] / md.T[k], 0);
     d0.lineupIdx.filter(p => !locked.has(p)).sort((x, y) => weight(y) - weight(x)).slice(0, 3).forEach(p => out.push({ kind: 'save', player: p }));
     return out;

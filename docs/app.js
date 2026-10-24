@@ -1737,9 +1737,9 @@ function evalAlt(mod) {
   return { res: g.byKey[S.acc].normal, total: g.objective, group: g };
 }
 const altMods = {
-  fix: (date, ids) => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = ids.slice(); plan.bans[date] = (plan.bans[date] || []).filter(x => !ids.includes(x)); },
-  ban: (date, id) => plan => { plan.bans = plan.bans || {}; plan.bans[date] = (plan.bans[date] || []).concat([id]); if (plan.locks && plan.locks[date]) plan.locks[date] = plan.locks[date].filter(x => x !== id); },
-  clear: date => plan => { if (plan.locks) plan.locks[date] = []; if (plan.bans) plan.bans[date] = []; },
+  fix: (date, ids) => plan => { plan.locks = plan.locks || {}; plan.bans = plan.bans || {}; plan.locks[date] = ids.slice(); plan.bans[date] = (plan.bans[date] || []).filter(x => !ids.includes(x)); if (plan.keep) delete plan.keep[date]; },
+  ban: (date, id) => plan => { plan.bans = plan.bans || {}; plan.bans[date] = (plan.bans[date] || []).concat([id]); if (plan.locks && plan.locks[date]) plan.locks[date] = plan.locks[date].filter(x => x !== id); if (plan.keep && plan.keep[date]) plan.keep[date] = plan.keep[date].filter(x => x !== id); },
+  clear: date => plan => { if (plan.locks) plan.locks[date] = []; if (plan.bans) plan.bans[date] = []; if (plan.keep) delete plan.keep[date]; },
 };
 // ---- Sugestões para hoje (antes "Opções"): o plano comparado com as alternativas, cada uma com a run toda refeita ----
 // Antes dos jogos: ir com tudo hoje ou guardar um dos que mais pesam. Durante os jogos (com os pontos que já
@@ -1816,10 +1816,10 @@ async function opcoesSheet(fetchLive) {
   const base = during ? ((liveDoc(date) || {}).lineup || []) : d0.lineup;
   const lkey = x => [...x.a0.lineup].sort().join('|'), baseKey = [...base].sort().join('|');
   const isNow = x => x.now || lkey(x) === baseKey; // é o que já tens (nada a mudar)
-  const res = [];
+  const res = [], failed = [];
   const draw = busy => {
-    // escolhas com o mesmo lineup hoje: fica a primeira (o plano antes das outras)
-    const list = []; const seen = new Set(); res.forEach(x => { const k = lkey(x); if (!seen.has(k)) { seen.add(k); list.push(x); } });
+    // escolhas com o mesmo lineup hoje: fica a primeira (o plano antes das outras); as outras ficam escritas nela
+    const list = [], seen = new Map(); res.forEach(x => { const k = lkey(x); if (!seen.has(k)) { x.same = []; seen.set(k, x); list.push(x); } else seen.get(k).same.push(x.title); });
     if (!busy) list.sort((x, y) => (y.ev.total - x.ev.total) || ((y.plan ? 1 : 0) - (x.plan ? 1 : 0)));
     S.opcoes = list;
     const best = busy ? null : list[0];
@@ -1832,14 +1832,16 @@ async function opcoesSheet(fetchLive) {
         (r.prizes.length ? '<div class="small muted">Prémios: ' + prizeTxt(x.ev.res) + '</div>' : '') +
         (() => { const rk = !during && r.model.days[0] ? x.a0.lineup.filter(id => riskOf(r.model.days[0], id)) : []; return rk.length ? '<div class="small c-warn">⚠ Conta com ' + rk.map(id => esc(lastName(id))).join(', ') + ' a jogar (' + esc((INJ_LABEL[(injRec(rk[0]) || {}).status] || 'dúvida').toLowerCase()) + ').</div>' : ''; })() +
         ((ins.length || outs.length) ? '<div class="small muted">' + cap([outs.length ? 'sai ' + outs.map(id => esc(lastName(id)) + (during && tipOf(nd, id) ? ' (' + tipOf(nd, id) + ')' : '')).join(', ') : '', ins.length ? 'entra ' + ins.map(id => esc(lastName(id))).join(', ') : ''].filter(Boolean).join(' · ')) + (later.length ? '. ' + later.join(' · ') : '') + '.</div>' : '') +
+        (x.same && x.same.length ? '<div class="small muted">Dá o mesmo lineup: ' + x.same.map(esc).join(', ') + '</div>' : '') +
         (isNow(x) ? '' : '<button class="btn' + (x === best ? ' primary' : '') + '" type="button" data-action="op-use" data-i="' + k + '">Escolher</button>') + '</div>';
-    }).join('') + (busy || list.length ? '' : '<div class="note info">Não deu para refazer a run.</div>');
+    }).join('') + (busy || list.length ? '' : '<div class="note info">Não deu para refazer a run.</div>') +
+      (!busy && failed.length ? '<div class="small muted">Não deu para calcular: ' + failed.map(esc).join(', ') + '.</div>' : '');
   };
   draw(true);
   for (let k = 0; k < opts.length; k++) {
     await new Promise(ok => setTimeout(ok, 30));
     if (!$('opCards')) return; // fechou a folha
-    try { const ev = await evalAltAsync(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); } catch (e) { console.warn(e); }
+    try { const ev = await evalAltAsync(opts[k].mod), a0 = ev.res.days[0]; if (a0 && a0.date === date) res.push(Object.assign({ ev, a0 }, opts[k])); else failed.push(opts[k].title); } catch (e) { console.warn(e); failed.push(opts[k].title); }
     draw(k < opts.length - 1);
   }
 }
