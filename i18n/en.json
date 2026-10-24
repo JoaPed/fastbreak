@@ -1724,8 +1724,6 @@
  "À espera das estatísticas dos jogos…": "Waiting for the box scores…",
  "Escolhe quem jogou.": "Pick who played.",
  "</span><span class=\"gapb-t\"><b>Lugar livre</b><span>põe alguém da lista de baixo</span></span></span></div></li>": "</span><span class=\"gapb-t\"><b>Empty spot</b><span>add someone from the list below</span></span></span></div></li>",
- "<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">o que fizeram nesse dia</span></div><ul class=\"list\">": "<div class=\"card\"><div class=\"list-head\"><h2>Add to lineup</h2><span class=\"small muted\">what they did that day</span></div><ul class=\"list\">",
- "<button class=\"btn quiet\" type=\"button\" data-action=\"past-lu-all\" style=\"margin:4px 16px 14px\">Ver todos (": "<button class=\"btn quiet\" type=\"button\" data-action=\"past-lu-all\" style=\"margin:4px 16px 14px\">See all (",
  ">Guardar</button>": ">Save</button>",
  "\">Não joguei este dia</button></div>": "\">I didn’t play this day</button></div>",
  "<tr class=\"tot\"><td class=\"who2\"><span><b>Grupo</b></span></td><td></td>": "<tr class=\"tot\"><td class=\"who2\"><span><b>Group</b></span></td><td></td>",
@@ -1958,6 +1956,8 @@
  "\" aria-label=\"Voltar a pôr ": "\" aria-label=\"Put back ",
  " no lineup\" title=\"Voltar a pôr\">": " in the lineup\" title=\"Put back\">",
  "<span class=\"lu-l2\">acabou de sair · toca para o manter</span></div></div></span>": "<span class=\"lu-l2\">just taken out · tap to keep him</span></div></div></span>",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">o que fizeram nesse dia</span></div>": "<div class=\"card\"><div class=\"list-head\"><h2>Add to lineup</h2><span class=\"small muted\">what they did that day</span></div>",
+ "<button class=\"btn quiet\" type=\"button\" id=\"luAllBtn\" data-action=\"past-lu-all\" style=\"margin:4px 16px 14px\">Ver todos (": "<button class=\"btn quiet\" type=\"button\" id=\"luAllBtn\" data-action=\"past-lu-all\" style=\"margin:4px 16px 14px\">See all (",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2163,7 +2163,8 @@
    "val = '&nbsp;'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</span>';": true,
    "const ring = res ? winRing(1, res === 'win' ? 'good' : 'bad', res === 'win' ? '✓' : '✕', res === 'win' ? 'vitória' : 'derrota') : winRing(0, 'mute', wait ? '…' ": true,
    "toast(c ? 'Lineup mudado: ' + (c.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup mudado. O resultado é refeito quando ho": true,
-   "val = p.result === 'win' ? '✓' : '✕'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</": "loss"
+   "val = p.result === 'win' ? '✓' : '✕'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</": "loss",
+   "toast((c ? 'Lineup mudado: ' + (c.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup mudado. O resultado é refeito quando h": true
   }
  },
  "derrotas": {

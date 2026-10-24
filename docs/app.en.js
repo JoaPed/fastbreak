@@ -4096,6 +4096,23 @@ function capLocks(plan, before, acc) {
   Object.keys(plan.lockAt).forEach(k => { const i = k.indexOf('|'); if (!(L[k.slice(0, i)] || []).includes(k.slice(i + 1))) delete plan.lockAt[k]; });
   return dropped;
 }
+// um dia passado corrigido gastou mais um uso (ex.: o jogador estava fixado em todos os usos que restavam):
+// tira os cadeados a mais, dos dias mais longe para os mais perto (os do dia que já começou ficam)
+function capOver(plan, ids, acc) {
+  const L = plan.locks || {}, pl = plan.played || {}, today = todayET(), dropped = [];
+  const roster = engineInputs(acc || S.acc).roster.players, started = d => { const day = S.days.find(x => x.date === d), t = day ? firstTipOf(day) : null; return t != null && Date.now() >= t; };
+  [...new Set(ids)].forEach(id => {
+    const u = Math.max(0, Math.floor(+((roster[id] || {}).uses || 0)));
+    const on = Object.keys(L).filter(d => d >= today && !(pl[d] && pl[d].done) && (L[d] || []).includes(id)).sort();
+    const fixed = on.filter(started), free = on.filter(d => !started(d));
+    free.slice(Math.max(0, u - fixed.length)).forEach(d => {
+      L[d] = L[d].filter(y => y !== id); dropped.push([d, id]);
+      if (plan.keep && plan.keep[d]) plan.keep[d] = plan.keep[d].filter(y => y !== id);
+      if (plan.lockAt) delete plan.lockAt[d + '|' + id];
+    });
+  });
+  return dropped;
+}
 const dayNo = date => S.days.findIndex(d => d.date === date) + 1;
 const capMsg = dr => (dr.length ? ' No uses for more days: removed the lock of ' + [...new Set(dr.map(([, id]) => id))].map(id => { const n = dr.filter(x => x[1] === id).map(x => dayNo(x[0])).sort((a, b) => a - b); return lastName(id) + (n.length > 1 ? ' on days ' : ' on day ') + n.join(', '); }).join('; ') + '.' : '');
 // muda o plano (cópia ou o verdadeiro) e aplica a regra dos usos aos cadeados novos
@@ -4413,7 +4430,7 @@ function luEditSheet() {
   const weight = id => { const a = valsOf(id); return a === 'dnp' ? -1 : a.reduce((t, x, k) => t + x.v / (+objs[k].target || 1), 0); };
   const sub = id => esc(pTeam(id)) + ' ' + esc(opp(pTeam(id), day));
   const pv = id => { const a = valsOf(id); return a === 'dnp' ? '<div class="pv"><div class="u">did not play</div></div>' : pvHtml(a); };
-  const row = (id, inLu) => '<li class="lu-row"><div class="lu-main">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></span><span class="ps">' + sub(id) + '</span></span></div>' + pv(id) +
+  const row = (id, inLu, k) => '<li class="lu-row' + (!inLu && k >= 10 && !E.all ? ' lu-more' : '') + '"' + (inLu ? '' : ' data-n="' + esc(norm(nameOf(id)) + ' ' + String(pTeam(id) || '').toLowerCase()) + '"') + '><div class="lu-main">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></span><span class="ps">' + sub(id) + '</span></span></div>' + pv(id) +
     (inLu ? '<button class="lu-ic" type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-label="Remove ' + esc(nameOf(id)) + '" title="Remove">' + icoX + '</button>'
       : '<button class="lu-ic add" type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-label="Add ' + esc(nameOf(id)) + '" title="' + (E.ids.length >= lim ? 'You already have ' + lim + ': remove one first' : 'Add to lineup') + '"' + (E.ids.length >= lim ? ' disabled' : '') + '>' + icoPlus + '</button>') + '</li>';
   // em cima: o que este lineup fez nesse dia e o resultado
@@ -4422,12 +4439,14 @@ function luEditSheet() {
     : '<div class="small muted">' + (E.ids.length ? 'Waiting for the box scores…' : 'Pick who played.') + '</div>';
   const inRows = E.ids.map(id => row(id, true)).join('') + Array.from({ length: Math.max(0, lim - E.ids.length) }, () => '<li class="lu-row lu-gap"><div class="gapb"><span class="gapb-go" style="cursor:default"><span class="gapb-ic">' + icoPlus + '</span><span class="gapb-t"><b>Empty spot</b><span>add someone from the list below</span></span></span></div></li>').join('');
   const cand = Object.keys(S.mine.roster || {}).filter(id => !E.ids.includes(id) && teams.has(pTeam(id))).sort((a, b) => weight(b) - weight(a) || nameOf(a).localeCompare(nameOf(b)));
-  const shown = E.all ? cand : cand.slice(0, 10);
   openSheet('<h3>Lineup for day ' + dn + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="pastLu" class="stack">' + head +
     '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + E.ids.length + ' of ' + lim + '</span></div><ul class="list">' + inRows + '</ul></div>' +
-    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to lineup</h2><span class="small muted">what they did that day</span></div><ul class="list">' + shown.map(id => row(id, false)).join('') + '</ul>' + (cand.length > shown.length ? '<button class="btn quiet" type="button" data-action="past-lu-all" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
+    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to lineup</h2><span class="small muted">what they did that day</span></div>' +
+      '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player" value="' + esc(E.q || '') + '"></div>' +
+      '<ul class="list" id="luCand">' + cand.map((id, k) => row(id, false, k)).join('') + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>' + (cand.length > 10 && !E.all ? '<button class="btn quiet" type="button" id="luAllBtn" data-action="past-lu-all" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
     '<button class="btn primary" type="button" data-action="past-lu-save"' + (E.ids.length ? '' : ' disabled') + '>Save</button>' +
     '<button class="btn link small" type="button" data-action="undo-result" data-date="' + date + '">I didn’t play this day</button></div>');
+  luFilter();
   if (keep) $('sheetPanel').scrollTop = keep;
 }
 function luEditSave() {
@@ -4445,9 +4464,12 @@ function luEditSave() {
   if (c) Object.assign(patch, { done: true, result: c.res, box: true, tot: c.tot, points: c.objs.length === 1 ? c.tot[0] : null });
   else if (cur.done) Object.assign(patch, { box: false, tot: null, points: null });
   planPatch({ played: { [date]: patch } });
+  const dr = capOver(curPlan(), E.ids.filter(id => !old.includes(id)));
+  if (dr.length) { schedule(); saveMine(); }
   S.luEdit = null; closeSheet();
   if (!c) setTimeout(() => { const B = S.box[date]; if (B) B.at = 0; boxTick(); }, 0);
-  toast(c ? 'Lineup changed: ' + (c.res === 'win' ? 'win' : 'loss') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup changed. The result is redone once the box scores are in.');
+  if (!c && dr.length) setTimeout(() => toast(capMsg(dr).trim()), 3500); // o aviso do resultado refeito vem por cima: repete este depois
+  toast((c ? 'Lineup changed: ' + (c.res === 'win' ? 'win' : 'loss') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup changed. The result is redone once the box scores are in.') + capMsg(dr));
 }
 function recordResult(date, res) {
   const cur = ((curPlan().played || {})[date]) || null;
@@ -4993,7 +5015,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'apSearch') renderSearch(e.target.value);
   if (e.target.id === 'buySearch') renderBuySearch(e.target.value);
   if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
-  if (e.target.id === 'luSearch') { if (S.lu && $('luCount')) S.lu.q = e.target.value; luFilter(); }
+  if (e.target.id === 'luSearch') { if (S.lu && $('luCount')) S.lu.q = e.target.value; if (S.luEdit && $('pastLu')) S.luEdit.q = e.target.value; luFilter(); }
 });
 // (sem redesenhar Ajustes ao sair de um campo: isso apagava o formulário a meio de um clique em Guardar)
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
