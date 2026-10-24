@@ -4206,9 +4206,19 @@ function tierBlocked(id, acc, date) {
   if (!S.multi) return null;
   const cd = (collectionInfo(id).cards || []).slice().sort((a, b) => b - a); if (!cd.length) return null;
   const nth = k => { const r = S.multi.byKey[k]; return usedCount(k, id) + (r ? r.normal.days.filter(d => d.date < date && d.lineup.includes(id)).length : 0) + 1; };
-  const others = accounts().map(a => a.id).filter(k => k !== acc && ((((S.multi.byKey[k] || {}).normal || { days: [] }).days.find(d => d.date === date) || {}).lineup || []).includes(id));
+  // o lineup que a outra conta joga nessa noite: o submetido/ao vivo, se já se sabe; senão o do plano
+  const luOf = k => lineupFor(k, date) || ((((S.multi.byKey[k] || {}).normal || { days: [] }).days.find(d => d.date === date) || {}).lineup || []);
+  const others = accounts().map(a => a.id).filter(k => k !== acc && luOf(k).includes(id));
   const req = others.concat([acc]).map(nth).sort((a, b) => b - a);
   return req.some((r, j) => r > (cd[j] || 0)) ? { others, need: nth(acc) } : null;
+}
+// 2.ª linha de quem pode entrar: os usos que tem e os dias em que o plano o usa; aviso a amarelo se hoje não dá
+function candLine(r, pi, tb, ds, tir, date) {
+  const nd = nextDay(), dn = S.days.findIndex(x => x.date === date) + 1;
+  if (tb) return '<span class="lu-l2 lu-warn">⚠ O Moment necessário já joga na ' + esc(tb.others.map(accLabel).join(' e na ')) + (nd && nd.date === date ? '' : ' no dia ' + dn) + '</span>';
+  const u = r.model.uses[pi] || 0;
+  if (!u) return '<span class="lu-l2">sem usos</span>';
+  return '<span class="lu-l2"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') + ds.join(', ') : 'fora do plano') + '</span>';
 }
 function luRender() {
   const L = S.lu, r = S.result, v = view(); if (!L || !r || !v) return;
@@ -4262,7 +4272,7 @@ function luRender() {
   // todos na lista (para a procura encontrar qualquer um); sem procura, só os 8 primeiros até "Ver todos"
   const candRows = cand.map((pi, k) => {
     const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
-    return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (tb ? 'a carta que chega já joga hoje em ' + tb.others.map(accLabel).join(', ') : tir ? 'tirado deste dia' : !uses ? 'sem usos' : ds.length ? 'no plano: ' + (ds.length > 1 ? 'dias ' : 'dia ') + ds.join(', ') : 'fora do plano')) + pvHtml(objVals(md, pi, false)) +
+    return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + candLine(r, pi, tb, ds, tir, date)) + pvHtml(objVals(md, pi, false)) +
       (gaps.length ? '<button class="lu-ic add" type="button" data-action="lu-fill" data-out="' + esc(gaps[0]) + '" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Pôr ' + esc(p.name) + ' no lugar de ' + esc(nameOf(gaps[0])) + '" title="Pôr no lugar livre"' + (uses ? '' : ' disabled') + '>' + icoPlus + '</button>' :
       '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Pôr ' + esc(p.name) + ' no lineup" title="' + (full ? 'Já tens ' + size + ' fixados: solta um primeiro' : 'Pôr no lineup e fixar') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '</li>';
   }).join('');
@@ -4309,7 +4319,7 @@ function luPickSheet(date, out) {
   const rows = cand.map(pi => {
     const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
     return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row" type="button" data-action="lu-fill" data-out="' + esc(out) + '" data-id="' + esc(id) + '" data-date="' + date + '"' + (uses ? '' : ' disabled') + '><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</div>' +
-      '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · ' + (tb ? 'a carta que chega já joga hoje em ' + tb.others.map(accLabel).join(', ') : !uses ? 'sem usos' : ds.length ? 'no plano: ' + (ds.length > 1 ? 'dias ' : 'dia ') + ds.join(', ') : 'fora do plano') + (bans.has(id) ? ' · tirado deste dia' : '') + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
+      '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + candLine(r, pi, tb, ds, bans.has(id), date) + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
   }).join('');
   if (S.lu) S.lu.q = '';
   openSheet('<h3>Quem entra?</h3><div class="small muted">No lugar de ' + esc(nameOf(out)) + ' · dia ' + (day.idx + 1) + ', ' + dShort(date) + '</div>' +

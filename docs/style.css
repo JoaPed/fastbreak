@@ -1022,3 +1022,7 @@ p, .note { text-wrap: pretty; }
 .ds.loss[aria-pressed="true"] { background: linear-gradient(to top, color-mix(in srgb, var(--bad) 22%, var(--surface)), var(--surface) 70%); }
 .ds.win[aria-pressed="true"] .ds-v { color: var(--good); opacity: 1; } .ds.loss[aria-pressed="true"] .ds-v { color: var(--bad); opacity: 1; }
 .ds-inj { width: 6px; height: 6px; top: 5px; right: 5px; }
+/* quem pode entrar: usos e dias na 2.ª linha; aviso a amarelo quando hoje não dá */
+.lu-l2 { display: block; }
+.lu-l2 b { color: var(--ink); font-weight: 600; }
+.lu-warn { color: var(--warn); font-weight: 600; }

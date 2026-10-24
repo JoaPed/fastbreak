@@ -1488,7 +1488,6 @@
  " · sai ": " · out ",
  " · entra ": " · in ",
  "<li class=\"row small muted\" style=\"display:block\">e mais ": "<li class=\"row small muted\" style=\"display:block\">and ",
- "no plano: ": "in the plan: ",
  "\" aria-label=\"Pôr ": "\" aria-label=\"Add ",
  " no lineup\" title=\"": " to the lineup\" title=\"",
  " fixados: solta um primeiro": " locked: unlock one first",
@@ -1897,8 +1896,6 @@
  "<div class=\"note info\">Antes da próxima run, carrega em <b>Ler de novo</b>: assim cada carta fica com a raridade e o ASP certos do Top Shot.</div>": "<div class=\"note info\">Before the next run, tap <b>Read again</b>: that way each card gets the right rarity and ASP from Top Shot.</div>",
  "let series: UInt32 = TopShot.getSetSeries(setID: m.data.setID) ?? 0\n        let sub = TopShot.getSubeditionByNFTID(id)\n        out.append([TopShot.getPlayMetaDataByField(playID: m.data.playID, field: \"FullName\") ?? \"\", TopShot.getSetName(setID: m.data.setID) ?? \"\", series.toString(), id.toString(), m.data.setID.toString(), m.data.playID.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: \"Tier\") ?? \"\", sub?.name ?? \"\", m.data.serialNumber.toString(), TopShot.getPlayMetaDataByField(playID: m.data.playID, field: \"DateOfMoment\") ?? \"\"])": null,
  " lu-more": null,
- "tirado deste dia": "removed from this day",
- " · tirado deste dia": " · removed from this day",
  "<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">": "<div class=\"card\"><div class=\"list-head\"><h2>Add to the lineup</h2><span class=\"small muted\" id=\"luCount\">",
  "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Procurar jogador ou equipa…\" autocomplete=\"off\" aria-label=\"Procurar jogador\" value=\"": "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Search player or team…\" autocomplete=\"off\" aria-label=\"Search player\" value=\"",
  "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Procurar jogador ou equipa…\" autocomplete=\"off\" aria-label=\"Procurar jogador\"></div>": "<div class=\"lu-search\"><input class=\"field\" id=\"luSearch\" type=\"search\" placeholder=\"Search player or team…\" autocomplete=\"off\" aria-label=\"Search player\"></div>",
@@ -1942,7 +1939,10 @@
  " usos e tens ": " uses and you have ",
  " (cartas dele: ": " (his cards: ",
  "). Tira-o ou solta o cadeado numa das contas.": "). Remove him or unlock him in one of the accounts.",
- "a carta que chega já joga hoje em ": "the card it needs already plays tonight in ",
+ " e na ": " and on ",
+ "<span class=\"lu-l2\">sem usos</span>": "<span class=\"lu-l2\">no uses left</span>",
+ "joga ": "plays ",
+ "<span class=\"lu-l2 lu-warn\">⚠ O Moment necessário já joga na ": "<span class=\"lu-l2 lu-warn\">⚠ Needed Moment already plays on ",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2097,7 +2097,8 @@
    "const tn = tierName(R.U), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (g > 0 ? '+' + plura": "uses",
    "'<div class=\"pl-uses' + (none ? ' none' : full ? ' full' : '') + '\"><b class=\"num\">' + (f.uses >= UNL - 30 ? '∞' : f.uses) + '</b><span>' + (f.uses === 1 ? 'uso": "uses",
    "'<div class=\"pv mo-u' + (cu === u ? ' top' : '') + '\"><div class=\"v num\">' + usesN(cu) + '</div><div class=\"u\">' + (cu === 1 ? 'uso' : 'usos') + '</div></div></": "uses",
-   "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "uses"
+   "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "uses",
+   "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "uses"
   }
  },
  "uso": {
@@ -2128,7 +2129,8 @@
    "const tn = tierName(R.U), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (g > 0 ? '+' + plura": "use",
    "'<div class=\"pl-uses' + (none ? ' none' : full ? ' full' : '') + '\"><b class=\"num\">' + (f.uses >= UNL - 30 ? '∞' : f.uses) + '</b><span>' + (f.uses === 1 ? 'uso": "use",
    "'<div class=\"pv mo-u' + (cu === u ? ' top' : '') + '\"><div class=\"v num\">' + usesN(cu) + '</div><div class=\"u\">' + (cu === 1 ? 'uso' : 'usos') + '</div></div></": "use",
-   "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "use"
+   "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "use",
+   "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "use"
   }
  },
  "derrota": {
