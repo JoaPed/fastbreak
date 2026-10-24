@@ -1248,8 +1248,8 @@ function dayStrip(sel) {
     const p = pl[day.date], { md, d } = dayInfo(day.date), now = !!nd0 && nd0.date === day.date;
     let val = '–', cls = '', sr = '';
     if (p && p.done && (p.result === 'win' || p.result === 'loss')) {
-      // dia jogado: o quadrado fica verde ou vermelho (suave), sem números
-      val = '&nbsp;'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class="vh">' + (p.result === 'win' ? 'win' : 'loss') + '</span>';
+      // dia jogado: caixa como as outras com um degradê verde ou vermelho por baixo e ✓ / ✕ no lugar da percentagem
+      val = p.result === 'win' ? '✓' : '✕'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class="vh">' + (p.result === 'win' ? 'win' : 'loss') + '</span>';
     }
     else if (md && d && !d.noObjective && d.lineup.length) { val = pct(d.P); cls = ' c-' + dTone(d.P); }
     else if (!md && !(p && p.noAuto) && lineupFor(S.acc, day.date)) val = '…'; // passou: à espera das estatísticas

@@ -1652,8 +1652,6 @@
  " c-bad": null,
  "hot": null,
  "cold": null,
- "teu": "yours",
- "teus": "yours",
  "<span class=\"badge\">no lineup</span>": "<span class=\"badge\">in lineup</span>",
  " · volta ": " · back ",
  "<small>joga</small></span></button></li>": "<small>plays</small></span></button></li>",
@@ -1682,7 +1680,6 @@
  "Ajustes e perfil": "Settings and profile",
  "page": "page",
  "Smurf de ": "Smurf of ",
- "&nbsp;": "&nbsp;",
  "g-ok": "g-ok",
  "g-no": "g-no",
  "kok": "kok",
@@ -2148,7 +2145,8 @@
    "chip = '<span class=\"pchip num ' + (win ? 'p-good' : 'p-bad') + '\">' + (tot ? tot.map(f0).join('·') : resMark(pl.result)) + '<span class=\"vh\"> ' + (win ? 'vitór": true,
    "val = '&nbsp;'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</span>';": true,
    "const ring = res ? winRing(1, res === 'win' ? 'good' : 'bad', res === 'win' ? '✓' : '✕', res === 'win' ? 'vitória' : 'derrota') : winRing(0, 'mute', wait ? '…' ": true,
-   "toast(c ? 'Lineup mudado: ' + (c.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup mudado. O resultado é refeito quando ho": true
+   "toast(c ? 'Lineup mudado: ' + (c.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(c.objs, c.tot) + ').' : 'Lineup mudado. O resultado é refeito quando ho": true,
+   "val = p.result === 'win' ? '✓' : '✕'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class=\"vh\">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</": "loss"
   }
  },
  "derrotas": {

@@ -572,11 +572,11 @@ p, .note { text-wrap: pretty; }
 .ds small { font-size: 11px; color: var(--muted); line-height: 1.1; }
 .ds .ds-v { font-size: 11px; font-weight: 700; color: var(--muted); }
 /* dias jogados: o quadrado fica verde ou vermelho suave (sem letra), com o total feito */
-.ds.win { background: var(--good-bg); border-color: var(--good-bg); border-color: color-mix(in srgb, var(--good) 30%, var(--good-bg)); }
-.ds.loss { background: var(--bad-bg); border-color: var(--bad-bg); border-color: color-mix(in srgb, var(--bad) 30%, var(--bad-bg)); }
-.ds.win .ds-v { color: var(--good); } .ds.loss .ds-v { color: var(--bad); }
-.ds.win[aria-pressed="true"] { background: var(--good); border-color: var(--good); color: var(--surface); }
-.ds.loss[aria-pressed="true"] { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.ds.win { background: linear-gradient(to top, color-mix(in srgb, var(--good) 22%, var(--surface)), var(--surface) 70%); border-color: color-mix(in srgb, var(--good) 30%, var(--line)); }
+.ds.loss { background: linear-gradient(to top, color-mix(in srgb, var(--bad) 22%, var(--surface)), var(--surface) 70%); border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+.ds.win .ds-v, .ds.loss .ds-v { font-size: 13px; font-weight: 900; } .ds.win .ds-v { color: var(--good); } .ds.loss .ds-v { color: var(--bad); }
+
+
 .ds.c-good .ds-v { color: var(--good); } .ds.c-warn .ds-v { color: var(--warn); } .ds.c-bad .ds-v { color: var(--bad); }
 .ds.now { border-color: var(--ball); }
 .ds.now small { color: var(--ball-ink); font-weight: 700; }
@@ -1015,3 +1015,10 @@ p, .note { text-wrap: pretty; }
 .ts-read { display: grid; grid-template-columns: minmax(0, 190px) 1fr; gap: 10px; align-items: center; margin: 6px 0; }
 .g-chip.g-oth { background: var(--surface-2); font-weight: 500; } .g-chip.g-oth small { color: var(--muted); font-size: 11px; }
 .rec-acc { font-size: 12px; color: var(--muted); margin-left: 6px; }
+
+/* dia jogado selecionado: fica com a cor e ganha um contorno branco (não fica todo branco como os outros) */
+.ds.win[aria-pressed="true"], .ds.loss[aria-pressed="true"] { color: var(--ink); outline: 2px solid var(--ink); outline-offset: -2px; }
+.ds.win[aria-pressed="true"] { background: linear-gradient(to top, color-mix(in srgb, var(--good) 22%, var(--surface)), var(--surface) 70%); }
+.ds.loss[aria-pressed="true"] { background: linear-gradient(to top, color-mix(in srgb, var(--bad) 22%, var(--surface)), var(--surface) 70%); }
+.ds.win[aria-pressed="true"] .ds-v { color: var(--good); opacity: 1; } .ds.loss[aria-pressed="true"] .ds-v { color: var(--bad); opacity: 1; }
+.ds-inj { width: 6px; height: 6px; top: 5px; right: 5px; }
