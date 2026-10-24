@@ -1157,7 +1157,8 @@ function renderHeader() {
   const bits = [];
   if (run.fictitious) bits.push('<span class="chip">Teste</span>');
   // uma linha só: em que dia vai e o registo (as datas estão na faixa da Jornada)
-  if (r) { const nd = nextDay(), m = mainResult(); bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span>', runDots(nd) + recChip(m.wins, m.losses)); }
+  // com smurfs: o registo e as bolinhas da conta com mais vitórias (em empate, a principal)
+  if (r) { const nd = nextDay(), bk = bestAcc(), m = S.multi ? S.multi.byKey[bk] : r; bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span>', runDots(nd, bk) + recChip(m.wins, m.losses) + (S.multi && accounts().length > 1 ? '<span class="rec-acc">' + esc(accLabel(bk)) + '</span>' : '')); }
   else if (S.days.length) bits.push('<span>' + dShort(S.days[0].date) + ' – ' + dShort(S.days[S.days.length - 1].date) + '</span>');
   $('runMeta').innerHTML = bits.join('<span aria-hidden="true">·</span>');
 }
@@ -1167,8 +1168,12 @@ const ord = n => (LANG === 'en' ? n + ([11, 12, 13].includes(n % 100) ? 'th' : (
 // registo compacto: "0–1" (verde as vitórias, vermelho as derrotas), com o texto completo para leitores de ecrã
 const recChip = (w, l) => '<span class="recc" title="' + recordTxt(w, l) + '"><span class="vh">' + recordTxt(w, l) + '</span><b class="w" aria-hidden="true">' + w + '</b><i aria-hidden="true">–</i><b class="l" aria-hidden="true">' + l + '</b></span>';
 // a run num traço de pontos: verde ganho, vermelho perdido, contorno no dia de hoje (conta principal)
-function runDots(nd) {
-  const pl = planOf('main').played || {};
+function bestAcc() {
+  if (!S.multi) return 'main';
+  let best = 'main', bw = -1; accounts().forEach(a => { const x = S.multi.byKey[a.id]; if (x && x.wins > bw) { bw = x.wins; best = a.id; } }); return best;
+}
+function runDots(nd, acc) {
+  const pl = planOf(acc || 'main').played || {};
   return '<span class="rdots" aria-hidden="true">' + S.days.map(d => { const p = pl[d.date]; return '<i class="' + (p && p.done ? (p.result === 'win' ? 'w' : 'l') : nd && nd.date === d.date ? 'n' : '') + '"></i>'; }).join('') + '</span>';
 }
 const recordTxt = (w, l) => (w + l === 0 ? 'ainda sem resultados' : plural(w, 'vitória', 'vitórias') + ', ' + plural(l, 'derrota', 'derrotas'));

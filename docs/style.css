@@ -1014,3 +1014,4 @@ p, .note { text-wrap: pretty; }
 /* Admin: leituras no Top Shot */
 .ts-read { display: grid; grid-template-columns: minmax(0, 190px) 1fr; gap: 10px; align-items: center; margin: 6px 0; }
 .g-chip.g-oth { background: var(--surface-2); font-weight: 500; } .g-chip.g-oth small { color: var(--muted); font-size: 11px; }
+.rec-acc { font-size: 12px; color: var(--muted); margin-left: 6px; }
