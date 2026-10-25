@@ -173,7 +173,8 @@ async function go() {
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
-    say('Feito: ' + [want.has('ranks') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
+    const luN = (out.days || []).reduce((t, d) => t + Object.values(d.accs || {}).filter(a => a.lu && a.lu.length).length, 0);
+    say('Feito: ' + [want.has('ranks') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('ranks') && (out.days || []).length ? luN + ' lineups em ' + out.days.length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }
@@ -243,7 +244,7 @@ async function readRanks(out) {
         const d = { luv: 1, id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || null, name: c.name, final: /FINAL/.test(c.status || ''), objs: (c.objectives || []).map(o => [o.statAbbreviation || o.statKey, +o.target]), accs: {}, asked: job.accs.map(a => String(a.a).replace(/^0x/, '').toLowerCase()), bands: ((c.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']) };
         const lbc = c.leaderboardId || ('contest:' + c.id);
         for (const a of job.accs) {
-          say('A ler os dias… ' + k + ' de ' + cs.length);
+          say('A ler os dias e os lineups… ' + k + ' de ' + cs.length);
           try {
             const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: lbc, subjectId: String(a.a).replace(/^0x/, '').toLowerCase() });
             if (r.totalCount) d.total = +r.totalCount;

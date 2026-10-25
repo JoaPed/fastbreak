@@ -230,7 +230,8 @@
    "const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top ": true,
    "if (d && Array.isArray(d.accs)) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [],": " players",
    "if (d && !gotRanks) setTimeout(() => toast('Lido no Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' n": " players",
-   "if (gotRanks) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.": " players"
+   "if (gotRanks) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.": " players",
+   "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true
   }
  },
  " PTS": null,
@@ -2042,6 +2043,7 @@
  "<div class=\"card op-card\"><div class=\"list-head\"><h2>Dia ": "<div class=\"card op-card\"><div class=\"list-head\"><h2>Day ",
  "<h3>Lineups acertados</h3><div class=\"small muted\">Os lineups que levaste no Top Shot não eram os que estavam na app. A app passou a usar os que levaste e acertou os usos desses jogadores.</div>": "<h3>Lineups corrected</h3><div class=\"small muted\">The lineups you played on Top Shot weren’t the ones in the app. The app now uses the ones you played and corrected those players’ uses.</div>",
  "<button class=\"btn primary\" type=\"button\" data-action=\"close-sheet\">OK</button>": null,
+ " Lineups: ": " Lineups: ",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2101,7 +2103,8 @@
    "return '<div class=\"card\"><div class=\"list-head\"><h2>Dias ' + helpBtn('dias') + '</h2><span class=\"small muted\">' + recordTxt(r.wins, r.losses) + '</span></div>": false,
    "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "days",
    "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "days",
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true,
+   "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true
   }
  },
  "dia": {
@@ -2112,7 +2115,8 @@
    "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true,
    "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "day",
    "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "day",
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true,
+   "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true
   }
  },
  "jogo": {
