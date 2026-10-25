@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      11
+// @version      12
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -172,7 +172,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 11, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 12, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     if (want.has('ranks')) await readRanks(out);
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
     if (want.has('run')) { try { out.runs = await readRun(); } catch (err) { out.runErr = String(err.message || err).slice(0, 80); } }
@@ -239,6 +239,9 @@ async function readRanks(out) {
     }
     // cada dia da run (os que já fecharam e o de hoje, se já começou): lugar de cada conta nesse dia e se ganhou.
     // Os dias que o site já tem fechados (job.known) não se voltam a pedir.
+    // nomes dos jogadores (id da NBA → nome), para o site ligar os lineups aos seus jogadores
+    const idName = {};
+    try { Object.entries(await tsPlayers()).forEach(([n, id]) => { if (!idName[id]) idName[id] = n; }); } catch (err) {}
     try {
       const cs = ((await call('GameEngineService/SearchContests', { product: 'nba', runId: run.id })).contests || [])
         .filter(c => c.locksAt && Date.parse(c.locksAt) <= Date.now() && !(job.known || []).includes(c.id))
@@ -247,14 +250,24 @@ async function readRanks(out) {
       let k = 0;
       for (const c of cs) {
         k++;
-        const d = { id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || null, name: c.name, final: /FINAL/.test(c.status || ''), objs: (c.objectives || []).map(o => [o.statAbbreviation || o.statKey, +o.target]), accs: {}, asked: job.accs.map(a => String(a.a).replace(/^0x/, '').toLowerCase()), bands: ((c.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']) };
+        const d = { luv: 1, id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || null, name: c.name, final: /FINAL/.test(c.status || ''), objs: (c.objectives || []).map(o => [o.statAbbreviation || o.statKey, +o.target]), accs: {}, asked: job.accs.map(a => String(a.a).replace(/^0x/, '').toLowerCase()), bands: ((c.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']) };
         const lbc = c.leaderboardId || ('contest:' + c.id);
         for (const a of job.accs) {
           say('A ler os dias… ' + k + ' de ' + cs.length);
           try {
             const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: lbc, subjectId: String(a.a).replace(/^0x/, '').toLowerCase() });
             if (r.totalCount) d.total = +r.totalCount;
-            if (r.found) { const e = r.entry || {}; d.accs[String(a.a).replace(/^0x/, '').toLowerCase()] = { rank: +e.rank, score: +e.score, won: +e.score >= 1e6, ds: e.displayScore != null ? +e.displayScore : null }; }
+            if (r.found) {
+              const e = r.entry || {}, ak = String(a.a).replace(/^0x/, '').toLowerCase(), x = d.accs[ak] = { rank: +e.rank, score: +e.score, won: +e.score >= 1e6, ds: e.displayScore != null ? +e.displayScore : null };
+              // o lineup que levou: a classificação do dia anda por marcador (pontos + desempate da linha anterior);
+              // com os dele (desempate + 1) a 1.ª linha é ele
+              try {
+                const cur = btoa(JSON.stringify({ s: +e.score, t: +e.tiebreakerScore + 1, a: 0, u: '' })).replace(/=+$/, '');
+                const st = await call('GameEngineService/GetContestStandings', { contestId: c.id, limit: 2, cursor: cur });
+                const row = (st.rows || []).find(z => String(z.flowAddress || '').toLowerCase() === ak);
+                if (row) { x.lu = (row.lineup || []).slice().sort((p, q) => +p.slotIndex - +q.slotIndex).filter(z => z.playerId).map(z => [String(z.playerId), idName[String(z.playerId)] || '']); if (row.lineupHidden) x.luh = 1; }
+              } catch (err) {}
+            }
           } catch (err) {}
         }
         out.days.push(d);
