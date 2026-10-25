@@ -324,6 +324,21 @@ with sync_playwright() as pw:
     pg.click('#tab-run button[data-action="sub"][data-sub="premios"]'); pg.wait_for_timeout(300)
     pg.click('#t-hoje'); pg.wait_for_timeout(400)
     print('C a fazer (com trocas):', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
+    # mandar um Moment marcado como feito: o plano passa a contar com ele na outra conta (sai o "Mandar de")
+    trk = pg.locator('#tab-hoje .todo .todo-ck[data-k*="|tr|"][aria-pressed="false"]')
+    if trk.count():
+        k0 = trk.first.get_attribute('data-k'); m0 = trk.count()
+        pid_, acc_ = k0.split('|tr|')[1].split('|')[0], k0.split('>')[1].split('|')[0]
+        pg.click('#tab-hoje button[data-action="acc"][data-acc="%s"]' % acc_); pg.wait_for_timeout(500)
+        badge = lambda: pg.evaluate("(n) => [...document.querySelectorAll('#tab-hoje .row')].filter(r => r.textContent.includes(n) && r.textContent.includes('Mandar de')).length", nm_)
+        nm_ = pg.evaluate("(id) => (__FAKE_DB.tables.user_runs[0].roster[id] || {}).name || id", pid_); nm_ = nm_.split(' ')[-1]
+        b0 = badge()
+        pg.click('#tab-hoje button[data-action="acc"][data-acc="main"]'); pg.wait_for_timeout(400)
+        pg.locator('#tab-hoje .todo .todo-ck[data-k="%s"]' % k0).click(); pg.wait_for_timeout(2500)
+        pg.click('#tab-hoje button[data-action="acc"][data-acc="%s"]' % acc_); pg.wait_for_timeout(500)
+        print('C mandado (%s → %s): trocas por fazer %d → %d · "Mandar de" na conta %d → %d' % (pid_, acc_, m0, pg.locator('#tab-hoje .todo .todo-ck[data-k*="|tr|"][aria-pressed="false"]').count(), b0, badge()))
+        pg.click('#tab-hoje button[data-action="acc"][data-acc="main"]'); pg.wait_for_timeout(400)
+        pg.evaluate("localStorage.removeItem('fb-todo')")
     n0 = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count()
     if n0:
         pg.locator('#tab-hoje .todo .todo-ck').first.click(); pg.wait_for_timeout(300)

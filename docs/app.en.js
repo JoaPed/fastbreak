@@ -912,6 +912,13 @@ function setUsesOf(e, acc, n) { if (acc === 'main') e.uses = n; else { e.su = e.
 // carta só joga numa conta, e a k-ésima jogada de uma conta precisa de uma carta com pelo menos k usos: com 1 Rare +
 // 4 Common, as duas contas podem jogá-lo na mesma noite (uma com o Rare, a outra com um Common, se for a 1.ª jogada
 // dela), mas a 2.ª jogada de cada conta precisa do Rare. copies = Moments; cards = usos de cada um; hold = onde estão.
+// Moments que marcaste como mandados (A fazer) depois da última leitura da carteira: contam já na conta para onde foram
+// (até a carteira ser lida outra vez)
+function sentSince(col, id) {
+  const t0 = Date.parse(col.read_at || 0) || 0, pre = (S.runId || '') + '|tr|' + id + '|', out = [];
+  Object.entries(TODO_DONE).forEach(([k, at]) => { if (!k.startsWith(pre) || !(+at > t0)) return; const m = k.slice(pre.length).match(/^([^>|]+)>([^|]+)\|/); if (m) out.push([m[1], m[2]]); });
+  return out;
+}
 function collectionInfo(id) {
   const col = ((S.profile || {}).collection) || {}, c = (col.players || {})[id];
   if (!c || !c.owners) return { copies: 1, owner: null, hold: null };
@@ -919,12 +926,15 @@ function collectionInfo(id) {
   if (fids.length) {
     const u = fids.map(f => cardUses(col, f)), top = Math.max(...u), nTop = u.filter(x => x === top).length;
     const hold = {}; fids.forEach((f, i) => { const a = col.items[f].a || 'main'; (hold[a] = hold[a] || []).push(u[i]); });
+    sentSince(col, id).forEach(([from, to]) => { const h = hold[from]; if (!h || !h.length) return; const k = h.indexOf(Math.max(...h)); (hold[to] = hold[to] || []).push(h.splice(k, 1)[0]); if (!h.length) delete hold[from]; });
     const keys = Object.keys(hold);
     return { copies: fids.length, owner: fids.length === 1 ? keys[0] : null, hold, cards: u.slice().sort((x, y) => y - x), moments: fids.length, topUses: top, nTop };
   }
   const keys = Object.keys(c.owners).filter(k => c.owners[k] > 0), n = keys.reduce((a, k) => a + c.owners[k], 0);
   const hold = {}; keys.forEach(k => { hold[k] = +c.owners[k]; });
-  return { copies: Math.max(1, n), owner: n === 1 ? keys[0] : null, hold }; // hold: quantos Moments dele há em cada conta
+  sentSince(col, id).forEach(([from, to]) => { if (!(hold[from] > 0)) return; hold[from]--; hold[to] = (hold[to] || 0) + 1; if (!hold[from]) delete hold[from]; });
+  const ks = Object.keys(hold);
+  return { copies: Math.max(1, n), owner: n === 1 ? ks[0] : null, hold }; // hold: quantos Moments dele há em cada conta
 }
 
 // ---------- gravar ----------
@@ -5138,7 +5148,7 @@ document.addEventListener('click', async e => {
     case 'buy-more': buyMore(); break;
     case 'keep-clear': planPatch({ keep: { [b.dataset.date]: null } }, true); toast('The plan picks this day again.'); break;
     case 'locks-fix': { const r = S.result, L = {}; ((r && r.model.droppedLocks) || []).forEach(x => { L[x.date] = (L[x.date] || (curPlan().locks || {})[x.date] || []).filter(id => id !== x.player); }); if (Object.keys(L).length) { planPatch({ locks: L }); toast('Extra locks removed. Plan redone.'); } break; }
-    case 'todo-tick': { const k = b.dataset.k; if (TODO_DONE[k]) delete TODO_DONE[k]; else { TODO_DONE[k] = Date.now(); toast('Done ✓'); } todoSave(); render(); break; }
+    case 'todo-tick': { const k = b.dataset.k; if (TODO_DONE[k]) delete TODO_DONE[k]; else { TODO_DONE[k] = Date.now(); toast('Done ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
     case 'fold': { const k = b.dataset.k; S.fold[k] = !S.fold[k]; try { localStorage.setItem('fb-fold', JSON.stringify(S.fold)); } catch (e) {} render(); break; }
     case 'lu-all': if (S.lu) { S.lu.all = true; luRender(); } break;
