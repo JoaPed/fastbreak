@@ -1054,3 +1054,14 @@ p, .note { text-wrap: pretty; }
 /* Classificação: o título de cada dia abre os lineups que o grupo levou */
 .gc-day { border: 0; background: none; padding: 0; font: inherit; font-weight: 800; color: var(--accent); cursor: pointer; white-space: nowrap; }
 .lp-list .lp-pl { cursor: default; }
+/* Jogadores → Vender */
+.sell-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sell-row .who { min-width: 0; flex: 1; }
+.sell-row .ps .tpill { vertical-align: 1px; }
+.sell-why { color: var(--muted); }
+.sell-g { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.sell-g b { font-family: var(--font-display); font-size: 20px; color: var(--good); line-height: 1.1; }
+.sell-g.none b { color: var(--muted); }
+.sell-g small { font-size: 11px; color: var(--muted); }
+.sell-txt { padding: 4px 16px; }
+.sell-txt p { margin: 10px 0; line-height: 1.45; }

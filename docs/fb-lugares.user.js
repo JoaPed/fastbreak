@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      14
+// @version      15
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -110,6 +110,9 @@ const setBase = n => norm(n).replace(/\s*\d+$/, '');
 // data (2026-04-19) a partir do que vier: texto ISO, "Apr 19, 2026" ou segundos
 const isoDay = v => { if (v == null || v === '') return null; const t = /^\d{9,11}$/.test(String(v)) ? +v * 1000 : /^\d{12,14}$/.test(String(v)) ? +v : Date.parse(String(v).replace(' +0000 UTC', 'Z').replace(' ', 'T')) || Date.parse(String(v)); return isFinite(t) && t > 0 ? new Date(t).toISOString().slice(0, 10) : null; };
 const ED_TIERS = ['COMMON', 'FANDOM', 'RARE', 'LEGENDARY', 'ULTIMATE'];
+// usos por run de uma edição (regras do grupo): mínimo do escalão (Common/Fandom 1, Rare 2, Legendary 4, Ultimate ∞)
+// e o ASP só sobe (≤ 10 $ 1, ≤ 50 $ 2, ≤ 300 $ 3, ≤ 1000 $ 4, mais ∞; 0 não conta)
+const usesOfEd = (tier, asp) => { const t = String(tier || '').toUpperCase(), f = /ULTIMATE/.test(t) ? 99 : /LEGENDARY/.test(t) ? 4 : /RARE/.test(t) ? 2 : 1, a = +asp || 0, b = a <= 0 ? 0 : a <= 1000 ? 1 : a <= 5000 ? 2 : a <= 30000 ? 3 : a <= 100000 ? 4 : 99; return Math.max(f, b); };
 let edLimit = '100', edMode = 0; // 0: sem escalão · 1: todos os escalões juntos · 2: um escalão de cada vez
 const pick = (o, rx, d = 0) => { if (!o || typeof o !== 'object' || d > 2) return null; for (const [k, v] of Object.entries(o)) { if (rx.test(k) && v != null && typeof v !== 'object' && String(v) !== '') return v; } for (const v of Object.values(o)) { if (v && typeof v === 'object' && !Array.isArray(v)) { const r = pick(v, rx, d + 1); if (r != null) return r; } } return null; };
 async function editionsOf(nba) {
@@ -137,14 +140,18 @@ async function editions(cs) {
       try {
         const es = await editionsOf(x[1]);
         if (!ed.keys && es[0]) ed.keys = Object.keys(es[0]).concat(Object.keys(es[0].set || {}).map(k => 'set.' + k)).slice(0, 60);
-        const rows = [];
+        const rows = [], mk = {};
         es.forEach(e => {
-          const set = (e.set && (e.set.name || e.set.setName)) || e.setName || ''; if (!x[2].has(setBase(set))) return;
+          const set = (e.set && (e.set.name || e.set.setName)) || e.setName || '';
           const par = e.parallel && typeof e.parallel === 'object' ? (e.parallel.name || e.parallel.label || '') : (e.parallel || e.parallelName || '');
-          const asp = e.averageSalePriceCents != null ? +e.averageSalePriceCents : null;
-          rows.push([set, String(par || ''), String(e.tier || ''), asp, e.maxMintSize != null ? +e.maxMintSize : null, pick(e.set, /series(number)?$|^flowSeries/i), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i), isoDay(pick(e, /date.?of.?moment|moment.?date|play.?date|game.?date/i))]);
+          const asp = e.averageSalePriceCents != null ? +e.averageSalePriceCents : null, ask = e.lowAskCents != null && +e.lowAskCents > 0 ? +e.lowAskCents : null;
+          // mercado: a mais barata à venda para cada número de usos (escalão + ASP, regras do grupo), de qualquer set
+          if (ask) { const u = usesOfEd(e.tier, asp); if (!mk[u] || ask < mk[u][1]) mk[u] = [u, ask, String(e.tier || ''), asp, set, String(par || ''), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i)]; }
+          if (!x[2].has(setBase(set))) return;
+          rows.push([set, String(par || ''), String(e.tier || ''), asp, e.maxMintSize != null ? +e.maxMintSize : null, pick(e.set, /series(number)?$|^flowSeries/i), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i), isoDay(pick(e, /date.?of.?moment|moment.?date|play.?date|game.?date/i)), ask]);
         });
         ed.p[x[0]] = rows;
+        const mkl = Object.values(mk).sort((a, b) => a[0] - b[0]); if (mkl.length) (ed.mk = ed.mk || {})[x[0]] = mkl;
       } catch (e) { fails++; }
       done++; if (done % 5 === 0) say('A ler a raridade e o ASP das cartas… ' + done + ' de ' + (done + todo.length) + ' jogadores');
       if (fails > 30 && Object.keys(ed.p).length < 3) throw new Error('as edições não responderam');
@@ -172,7 +179,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 12, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 13, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
     if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
