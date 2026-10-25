@@ -337,7 +337,7 @@ const HELP = {
   porque: ['Em que se baseia', 'Odds das casas de apostas quando há; senão médias da época com a forma e o adversário. O número de cada jogador (pp) é quanto ele soma à vitória do dia: sem ele, entrava o melhor que sobra. “Poupa outros”: está aqui para guardar alguém melhor para outro dia. Os de fora estão guardados para outros dias ou rendem menos.'],
   comparar: ['Comparar', 'Todos os teus jogadores com jogo neste dia. Números grandes: últimos 5 jogos; pequenos: época. Adv.: quanto o adversário concede desta estatística. Toca num título para ordenar e num jogador para abrir a ficha.'],
   transf: ['Transferências', 'Um Moment só joga por uma conta em cada noite. Antes da noite indicada, oferece o Moment à outra conta no Top Shot e depois lê as carteiras outra vez (Jogadores → Coleção).'],
-  vender: ['Vender', 'Cartas de todas as tuas contas. Não usadas: jogadores que nenhuma conta usa no resto da run. Repetidas: jogadores com mais de uma carta (com várias contas, cada carta só joga numa conta por noite; ficam as com mais usos). Poupar: trocar a tua por uma do mesmo jogador com os mesmos usos à venda mais barata. Low ask = a carta mais barata à venda dessa edição; ao vender o Top Shot fica com 5%.'],
+  vender: ['Vender', 'Cartas de todas as tuas contas. Não usadas: jogadores que nenhuma conta usou nem usa no resto da run (e em quantas runs isso já aconteceu). Repetidas: jogadores com cartas a mais para o que o plano usa (cada conta que o usa n vezes precisa de uma carta com pelo menos n usos, e cada carta só joga numa conta por noite). Rara a mais: o plano usa-o poucas vezes e uma carta mais barata, com menos usos, chega. Poupar: trocar a tua por uma do mesmo jogador e da mesma raridade à venda mais barata. Low ask = a carta mais barata à venda dessa edição; ao vender o Top Shot fica com 5%.'],
   premios: ['Prémios', 'Cada aro é a probabilidade de acabares a run com pelo menos esse número de vitórias: cheio é certo. Verde provável, amarelo meio-meio, vermelho difícil. O plano escolhe os lineups para subir estas probabilidades.'],
   dist: ['Vitórias no fim', 'A probabilidade de cada total de vitórias no fim da run. As cores marcam os patamares de prémio; o contorno é o total mais provável.'],
   contas: ['Contas', 'O plano junta as coleções das tuas contas como se fossem uma só e escolhe o lineup de cada uma. Toca numa conta para ver os prémios dela.'],
@@ -3805,7 +3805,35 @@ function planDaysOf(id) {
   const k = String(canon(id)), rs = S.multi ? Object.values(S.multi.byKey) : [S.result];
   return rs.reduce((n, r) => n + ((r && r.normal && r.normal.days) || []).filter(d => d.lineup.some(x => String(canon(x)) === k)).length, 0);
 }
-// por jogador: as cartas (com usos, raridade e preço), quantas contas e quantos dias no plano
+// quantas vezes cada conta o usa nesta run: dias já jogados + o plano para os que faltam
+function usageOf(id) {
+  const k = String(canon(id)), per = {};
+  accounts().forEach(a => {
+    const played = Object.values(planOf(a.id).played || {}).filter(p => p && p.done && (p.lineup || []).some(x => String(canon(x)) === k)).length;
+    const r = S.multi ? S.multi.byKey[a.id] : a.id === 'main' ? S.result : null;
+    const plan = ((r && r.normal && r.normal.days) || []).filter(d => d.lineup.some(x => String(canon(x)) === k)).length;
+    if (played + plan) per[a.id] = played + plan;
+  });
+  const ns = Object.values(per);
+  return { per, total: ns.reduce((t, x) => t + x, 0), max: ns.length ? Math.max(...ns) : 0, accs: ns.length };
+}
+// jogadores usados nas outras runs (por run): {runId: Set(ids)}; lido uma vez quando se abre o Vender
+async function loadPastUse() {
+  if (S.pastUse || S.pastUseBusy || !S.session) return; S.pastUseBusy = true;
+  try {
+    const rows = (await q(sb.from('user_runs').select('run_id,plan').eq('user_id', S.session.user.id))) || [], out = {};
+    rows.filter(r => r.run_id !== S.runId && S.runs.some(x => x.id === r.run_id && !x.fictitious)).forEach(r => {
+      const pls = [r.plan || {}].concat(Object.values(((r.plan || {}).smurfs) || {})), set = new Set(); let any = false;
+      pls.forEach(pl => Object.values(pl.played || {}).forEach(p => { if (p && p.done) { any = true; (p.lineup || []).forEach(x => set.add(String(canon(x)))); } }));
+      if (any) out[r.run_id] = set;
+    });
+    S.pastUse = out;
+  } catch (e) { S.pastUse = {}; }
+  S.pastUseBusy = false; render();
+}
+// por jogador: as cartas (com usos, raridade e preço), o uso nesta run e que cartas chegam para ele.
+// Cada conta que o usa n vezes precisa de uma carta com ≥ n usos (cada carta só joga numa conta por noite);
+// escolhem-se as mais baratas que cheguem. As outras podem ir.
 function sellPlayers() {
   const col = (S.profile || {}).collection; if (!col || !col.items) return null;
   const N = Math.max(1, accounts().length), by = {};
@@ -3813,14 +3841,23 @@ function sellPlayers() {
   return Object.entries(by).map(([id, fs]) => {
     const cards = fs.map(f => { const it = col.items[f], e = cardEd(col, f), u = cardUses(col, f), t = (e && e.tier) || momentTier(col, f); return { f, it, e, u, t, ask: e && e.ask ? e.ask : null, asp: e && e.asp > 0 ? e.asp : null }; })
       .sort((a, b) => (b.u - a.u) || ((a.ask == null ? 1e12 : a.ask) - (b.ask == null ? 1e12 : b.ask)));
-    cards.forEach((c, i) => { c.keep = i < N; });
+    const use = S.result ? usageOf(id) : null;
+    cards.forEach(c => { c.keep = false; });
+    if (use && use.total) {
+      Object.values(use.per).sort((a, b) => b - a).forEach(n => {
+        const c = cards.filter(x => !x.keep && x.u >= n).sort((a, b) => (a.u - b.u) || ((a.ask == null ? 1e12 : a.ask) - (b.ask == null ? 1e12 : b.ask)))[0]
+          || cards.filter(x => !x.keep).sort((a, b) => b.u - a.u)[0];
+        if (c) c.keep = true;
+      });
+    } else if (!use) cards.slice(0, N).forEach(c => { c.keep = true; });
     const tc = {}; cards.forEach(c => { tc[c.t] = (tc[c.t] || 0) + 1; });
-    // valor: nas repetidas só as cartas a mais (as que ficam são as dos usos máximos, não se vendem)
-    return { id, cards, tc, N, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: cards.filter(c => !c.keep).reduce((t, c) => t + (c.ask || 0), 0), nExtra: cards.filter(c => !c.keep).length, team: pTeam(id) || '' };
+    const extra = cards.filter(c => !c.keep);
+    return { id, cards, tc, N, use, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: extra.reduce((t, c) => t + (c.ask || 0), 0), nExtra: extra.length, team: pTeam(id) || '' };
   });
 }
 const tcTxt = tc => TIERS.slice().reverse().filter(t => tc[t]).map(t => tc[t] + ' ' + t).join(' · ');
-// trocas que poupam: a tua carta (à venda por X) por uma do mesmo jogador com pelo menos os mesmos usos (por Y)
+const useTxt = u => !u || !u.total ? 'não usado nesta run' : 'usado ' + plural(u.total, 'vez', 'vezes') + ' nesta run' + (u.accs > 1 ? ' (até ' + u.max + ' por conta)' : '');
+// trocas que poupam: a tua carta (à venda por X) por uma do mesmo jogador da mesma raridade (por Y)
 function sellSwaps(ps) {
   const out = [];
   ps.forEach(P => { const mk = mkOf(P.id); if (!mk) return;
@@ -3834,30 +3871,48 @@ function sellSwaps(ps) {
     }); });
   return out.sort((a, b) => b.save - a.save);
 }
+// rara a mais: o plano usa-o poucas vezes (por conta) e a carta que o joga dá mais usos do que precisa; vender essa e
+// comprar a mais barata que chegue (quando não tens outra que chegue)
+function sellDowngrades(ps) {
+  const out = [];
+  ps.forEach(P => { if (!P.use || !P.use.total) return; const mk = mkOf(P.id);
+    P.cards.filter(c => c.keep && c.ask && c.u > 1).forEach(c => {
+      const need = P.use.max; if (need >= c.u) return;
+      const alt = mk ? mk.list.filter(m => m[0] >= need && m[0] < c.u).sort((a, b) => a[1] - b[1])[0] : null;
+      if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
+      if (save >= 100) out.push({ P, c, alt, save, need });
+    }); });
+  return out.sort((a, b) => b.save - a.save);
+}
 function sellHtml() {
   const col = (S.profile || {}).collection;
   if (!col || !col.items) return '<div class="note info">Lê a tua carteira primeiro (Jogadores → Coleção).</div>';
+  loadPastUse();
   const ps = sellPlayers() || [], hasPx = ps.some(P => P.cards.some(c => c.ask));
-  const unused = S.result ? ps.filter(P => !P.days).sort((a, b) => b.value - a.value) : [];
-  const reps = ps.filter(P => P.cards.length > 1).sort((a, b) => (b.extra - a.extra) || (b.nExtra - a.nExtra) || (b.cards.length - a.cards.length));
-  const swaps = sellSwaps(ps);
-  S.sellData = { ps, swaps };
-  const tabs = [['naousadas', 'Não usadas', unused.length], ['repetidas', 'Repetidas', reps.length], ['poupar', 'Poupar', swaps.length]];
+  const past = S.pastUse || {}, pastIds = Object.keys(past);
+  ps.forEach(P => { P.idle = 1 + pastIds.filter(r => !past[r].has(String(canon(P.id)))).length; }); // runs seguidas... e as outras em que não o usaste
+  const unused = S.result ? ps.filter(P => P.use && !P.use.total).sort((a, b) => (b.idle - a.idle) || (b.value - a.value)) : [];
+  const reps = ps.filter(P => P.cards.length > 1 && P.use && P.use.total && P.nExtra).sort((a, b) => (b.extra - a.extra) || (b.nExtra - a.nExtra));
+  const swaps = sellSwaps(ps), downs = sellDowngrades(ps);
+  S.sellData = { ps, swaps, downs };
+  const tabs = [['naousadas', 'Não usadas', unused.length], ['repetidas', 'Repetidas', reps.length], ['raras', 'Rara a mais', downs.length], ['poupar', 'Poupar', swaps.length]];
   const tab = tabs.some(x => x[0] === S.sellTab) ? S.sellTab : 'naousadas';
   const keyOf = P => esc(norm(nameOf(P.id)) + ' ' + String(P.team).toLowerCase() + ' ' + Object.keys(P.tc).join(' ').toLowerCase());
-  const prow = (P, sub, rep) => { const v = rep ? P.extra : P.value, lbl = rep ? (P.nExtra ? (P.nExtra > 1 ? 'low ask, a mais' : 'low ask') : 'todas jogam') : P.cards.length > 1 ? 'low ask, todas' : 'low ask';
+  const prow = (P, sub, rep) => { const v = rep ? P.extra : P.value, lbl = rep ? (P.nExtra > 1 ? 'low ask, a mais' : 'low ask') : P.cards.length > 1 ? 'low ask, todas' : 'low ask';
     return '<li data-n="' + keyOf(P) + '"><button class="row sell-row" type="button" data-action="sell-player" data-id="' + esc(P.id) + '"><span class="who">' + face(P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(P.id)) + '</span></div>' +
     '<div class="ps">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + '</div>' + (sub ? '<div class="ps sell-why">' + sub + '</div>' : '') + '</div></span>' +
-    '<span class="sell-g' + (v ? '' : ' none') + '"><b class="num">' + (v ? usd(v / 100) : '—') + '</b><small>' + (v || (rep && !P.nExtra) ? lbl : 'sem preço') + '</small></span></button></li>'; };
-  const srow = (x, i) => { const it = x.c.it, [base] = String(it.s || '').split(' · ');
-    return '<li data-n="' + keyOf(x.P) + '"><button class="row sell-row" type="button" data-action="sell-swap" data-i="' + i + '"><span class="who">' + face(x.P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.P.id)) + '</span></div>' +
+    '<span class="sell-g' + (v ? '' : ' none') + '"><b class="num">' + (v ? usd(v / 100) : '—') + '</b><small>' + (v ? lbl : 'sem preço') + '</small></span></button></li>'; };
+  const srow = (x, i, act, line) => { const it = x.c.it, [base] = String(it.s || '').split(' · ');
+    return '<li data-n="' + keyOf(x.P) + '"><button class="row sell-row" type="button" data-action="' + act + '" data-i="' + i + '"><span class="who">' + face(x.P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.P.id)) + '</span></div>' +
       '<div class="ps"><span class="tpill t-' + (TIER_CLS[x.c.t] || 'c') + '">' + esc(x.c.t) + '</span> ' + esc(base) + (it.n ? ' #' + f0(it.n) : '') + (groupMode() ? ' · ' + esc(accLabel(it.a)) : '') + '</div>' +
-      '<div class="ps sell-why">Vendes por <b class="num">' + usd(x.c.ask / 100) + '</b> · compras por <b class="num">' + usd(x.alt[1] / 100) + '</b>' + (x.less ? ' · <span class="c-warn">dá ' + usesTxt(x.alt[0]) + '</span>' : '') + '</div></div></span>' +
+      '<div class="ps sell-why">' + line + '</div></div></span>' +
       '<span class="sell-g"><b class="num">+' + usd(x.save / 100) + '</b><small>poupas</small></span></button></li>'; };
+  const idleTxt = P => P.idle > 1 ? '<b class="c-warn">Sem uso em ' + P.idle + ' runs</b> (esta e ' + plural(P.idle - 1, 'outra', 'outras') + ')' : 'Não usado em toda a run (dias jogados e plano)';
   let list = '', empty = '';
-  if (tab === 'naousadas') { list = unused.map(P => prow(P, 'Não entra no plano no resto da run')).join(''); empty = S.result ? 'Todos os teus jogadores entram no plano.' : 'Sem plano calculado.'; }
-  if (tab === 'repetidas') { list = reps.map(P => prow(P, P.nExtra ? plural(P.nExtra, 'carta a mais', 'cartas a mais') + ' para ' + nContas(P.N) : 'Precisas de todas para ' + nContas(P.N), true)).join(''); empty = 'Não tens jogadores com mais de uma carta.'; }
-  if (tab === 'poupar') { list = swaps.map(srow).join(''); empty = hasPx ? 'Nenhuma troca que poupe pelo menos $1.' : 'Faltam os preços do mercado.'; }
+  if (tab === 'naousadas') { list = unused.map(P => prow(P, idleTxt(P))).join(''); empty = S.result ? 'Todos os teus jogadores são usados nesta run.' : 'Sem plano calculado.'; }
+  if (tab === 'repetidas') { list = reps.map(P => prow(P, esc(useTxt(P.use)) + ' · ' + plural(P.nExtra, 'carta a mais', 'cartas a mais'), true)).join(''); empty = 'Nenhum jogador com cartas a mais para o que o plano usa.'; }
+  if (tab === 'raras') { list = downs.map((x, i) => srow(x, i, 'sell-down', esc(useTxt(x.P.use)) + ' · chega ' + (x.need === 1 ? 'uma Common' : 'uma de ' + usesTxt(x.need)) + ' por <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'Nenhuma carta com mais usos do que o plano precisa que compense trocar.' : 'Faltam os preços do mercado.'; }
+  if (tab === 'poupar') { list = swaps.map((x, i) => srow(x, i, 'sell-swap', 'Vendes por <b class="num">' + usd(x.c.ask / 100) + '</b> · compras por <b class="num">' + usd(x.alt[1] / 100) + '</b>' + (x.less ? ' · <span class="c-warn">dá ' + usesTxt(x.alt[0]) + '</span>' : ''))).join(''); empty = hasPx ? 'Nenhuma troca que poupe pelo menos $1.' : 'Faltam os preços do mercado.'; }
   const ed = S.edMine && S.edMine.at ? S.edMine.at : null;
   return '<div class="card"><div class="list-head"><h2>Vender ' + helpBtn('vender') + '</h2><span class="small muted">preços ' + (ed ? ago(ed) : 'por ler') + '</span></div>' +
     '<div class="lu-search"><input class="field" id="sellSearch" type="search" placeholder="Jogador, equipa ou raridade…" autocomplete="off" aria-label="Procurar jogador, equipa ou raridade" value="' + esc(S.sellQ || '') + '"></div>' +
@@ -3878,26 +3933,27 @@ function sellCardLi(c, tag) {
   return '<li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[c.t] || 'c') + '">' + esc(c.t) + '</span>' + (tag ? '<span class="badge">' + tag + '</span>' : '') + '</div>' +
     '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
     // os detalhes em linhas separadas (numa só, o ASP ficava cortado)
-    [[it.n ? '#' + f0(it.n) + (it.m ? ' de ' + f0(it.m) : '') : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).join(' · '), usesTxt(c.u), c.asp ? 'ASP ' + usd(c.asp / 100) : 'ASP —'].filter(Boolean).map(x => '<div class="ps sell-d">' + esc(x) + '</div>').join('') + '</div>' +
+    [[it.n ? '#' + f0(it.n) + (it.m ? ' de ' + f0(it.m) : '') : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).join(' · '), usesTxt(c.u) + ' · ' + (c.asp ? 'ASP ' + usd(c.asp / 100) : 'ASP —')].filter(Boolean).map(x => '<div class="ps sell-d">' + esc(x) + '</div>').join('') + '</div>' +
     '<div class="sell-g' + (c.ask ? '' : ' none') + '"><b class="num">' + (c.ask ? usd(c.ask / 100) : '—') + '</b><small>' + (c.ask ? 'low ask' : 'sem preço') + '</small>' + (c.ask ? '<small>recebes ' + usd(c.ask * (1 - SELL_FEE) / 100) + '</small>' : '') + '</div></li>';
 }
 function sellPlayerSheet(id) {
   const P = ((S.sellData || {}).ps || []).find(x => String(x.id) === String(id)); if (!P) return;
   const rep = P.cards.length > 1;
-  openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class="small muted">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia', 'dias') + ' no plano' : '') + '</div>' +
-    (P.days === 0 ? '<div class="note info">Nenhuma das tuas contas o usa no resto da run.</div>' : '') +
-    (rep ? '<div class="small muted">Com ' + nContas(P.N) + ' só ' + (P.N === 1 ? 'uma carta joga' : P.N + ' cartas jogam') + ' em cada noite: ficam as com mais usos (marcadas). As outras podes vender — por exemplo a Common mais cara.</div>' : '') +
+  openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class="small muted">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + ' · ' + esc(useTxt(P.use)) + '</div>' +
+    (P.use && !P.use.total ? '<div class="note info">Nenhuma das tuas contas o usou nem o usa no resto da run' + (P.idle > 1 ? ', e também não o usaste em ' + plural(P.idle - 1, 'outra run', 'outras runs') : '') + '.</div>' : '') +
+    (rep && P.use && P.use.total ? '<div class="small muted">Cada conta que o usa n vezes precisa de uma carta com pelo menos n usos, e cada carta só joga numa conta por noite. Para o que o plano usa chegam as marcadas "fica" (as mais baratas que chegam); as outras podes vender.</div>' : '') +
     '<div class="card"><ul class="list">' + P.cards.map(c => sellCardLi(c, rep ? (c.keep ? 'fica' : 'a mais') : '')).join('') + '</ul></div>' +
     '<div class="small muted">Low ask = a mais barata à venda dessa edição agora. Recebes = low ask − 5% do Top Shot; para vender mais depressa, põe um pouco abaixo.</div>');
 }
-function sellSwapSheet(i) {
-  const x = ((S.sellData || {}).swaps || [])[i]; if (!x) return;
+function sellSwapSheet(i, down) {
+  const x = ((S.sellData || {})[down ? 'downs' : 'swaps'] || [])[i]; if (!x) return;
   const a = x.alt;
-  openSheet('<h3>' + esc(nameOf(x.P.id)) + '</h3><div class="small muted">Trocar por uma igual mais barata</div>' +
+  openSheet('<h3>' + esc(nameOf(x.P.id)) + '</h3><div class="small muted">' + (down ? 'Rara a mais: ' + esc(useTxt(x.P.use)) : 'Trocar por uma igual mais barata') + '</div>' +
+    (down ? '<div class="note info">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' chega. Se o quiseres usar mais vezes nas próximas runs, a tua dá ' + esc(usesTxt(x.c.u)) + '.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>A tua</h2></div><ul class="list">' + sellCardLi(x.c, '') + '</ul></div>' +
-    '<div class="card"><div class="list-head"><h2>A que compras</h2></div><ul class="list"><li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[TS_TIER(a[2])] || 'c') + '">' + esc(TS_TIER(a[2]) || a[2]) + '</span></div><div class="mo-set">' + esc(a[4]) + (a[5] && !isStd(a[5]) ? ' <span class="muted">· ' + esc(a[5]) + '</span>' : '') + '</div><div class="ps sell-d">' + esc(usesTxt(a[0])) + '</div><div class="ps sell-d">' + (a[3] > 0 ? 'ASP ' + usd(a[3] / 100) : 'ASP —') + '</div></div><div class="sell-g"><b class="num">' + usd(a[1] / 100) + '</b><small>low ask</small></div></li></ul></div>' +
+    '<div class="card"><div class="list-head"><h2>A que compras</h2></div><ul class="list"><li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[TS_TIER(a[2])] || 'c') + '">' + esc(TS_TIER(a[2]) || a[2]) + '</span></div><div class="mo-set">' + esc(a[4]) + (a[5] && !isStd(a[5]) ? ' <span class="muted">· ' + esc(a[5]) + '</span>' : '') + '</div><div class="ps sell-d">' + esc(usesTxt(a[0])) + ' · ' + (a[3] > 0 ? 'ASP ' + usd(a[3] / 100) : 'ASP —') + '</div></div><div class="sell-g"><b class="num">' + usd(a[1] / 100) + '</b><small>low ask</small></div></li></ul></div>' +
     '<div class="card panel">' + [['Vendes a tua (low ask)', usd(x.c.ask / 100)], ['Comissão (5%)', '−' + usd(x.c.ask * SELL_FEE / 100)], ['Compras a outra (low ask)', '−' + usd(a[1] / 100)], ['Poupas', '<b class="c-good">+' + usd(x.save / 100) + '</b>']].map(([k, v]) => '<div class="status-line"><span>' + k + '</span><span>' + v + '</span></div>').join('') + '</div>' +
-    (x.less ? '<div class="note">A outra dá ' + esc(usesTxt(x.alt[0])) + ' por run e a tua dá ' + esc(usesTxt(x.c.u)) + ' (o ASP dela é mais baixo).</div>' : '<div class="small muted">Mesma raridade, com os mesmos usos (' + esc(usesTxt(x.c.u)) + ') ou mais.</div>') +
+    (down ? '' : x.less ? '<div class="note">A outra dá ' + esc(usesTxt(x.alt[0])) + ' por run e a tua dá ' + esc(usesTxt(x.c.u)) + ' (o ASP dela é mais baixo).</div>' : '<div class="small muted">Mesma raridade, com os mesmos usos (' + esc(usesTxt(x.c.u)) + ') ou mais.</div>') +
     '<div class="small muted">Preços do mercado ' + ago(mkOf(x.P.id).at) + ': confirma no Top Shot antes de vender.</div>');
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
@@ -5299,6 +5355,7 @@ document.addEventListener('click', async e => {
     case 'run-review': runReviewSheet(); break;
     case 'sell-player': sellPlayerSheet(id); break;
     case 'sell-swap': sellSwapSheet(+b.dataset.i); break;
+    case 'sell-down': sellSwapSheet(+b.dataset.i, true); break;
     case 'sell-tab': S.sellTab = b.dataset.v; try { localStorage.setItem('fb-sell-tab', S.sellTab); } catch (e) {} render(); sellFilter(); break;
     case 'day-lus': dayLineupsSheet(date); break;
     case 'run-apply': b.disabled = true; await runApply(+b.dataset.i); break;
