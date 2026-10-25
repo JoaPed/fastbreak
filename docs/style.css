@@ -1072,3 +1072,4 @@ p, .note { text-wrap: pretty; }
 .frow .pn { flex-wrap: wrap; row-gap: 2px; }
 .frow .pn .nm { white-space: normal; overflow: visible; text-overflow: clip; }
 .ps.fx { margin-top: 2px; }
+.sell-card .ps.sell-d { white-space: normal; overflow: visible; line-height: 1.35; }
