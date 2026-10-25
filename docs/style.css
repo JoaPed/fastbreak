@@ -1037,15 +1037,15 @@ p, .note { text-wrap: pretty; }
 /* "O lineup de hoje mudou": quem sai (vermelho) → quem entra (verde) */
 .op-card .list { margin: 0; }
 .op-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px 16px; }
-.op-p { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.op-p { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; text-align: center; }
 .op-p .face { flex: none; }
 .op-out .face { box-shadow: 0 0 0 2px var(--bad); }
 .op-in .face { box-shadow: 0 0 0 2px var(--good); }
-.op-t { display: flex; flex-direction: column; min-width: 0; }
+.op-t { display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; }
 .op-l { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .op-out .op-l { color: var(--bad); }
 .op-in .op-l { color: var(--good); }
-.op-n { font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.op-n { font-weight: 700; font-size: 15px; line-height: 1.2; overflow-wrap: break-word; min-width: 0; max-width: 100%; }
 .op-arrow { color: var(--muted); font-size: 18px; }
 .op-btns { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 16px 14px; }
 .op-btns .btn { flex: 1 1 140px; justify-content: center; }

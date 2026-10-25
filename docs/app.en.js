@@ -793,7 +793,7 @@ function applyChainResults() {
   const roster = S.mine.roster;
   const byName = new Map();
   Object.keys(roster).forEach(id => { const nm = norm(nameOf(id)); if (nm) byName.set(nm, id); });
-  let changed = 0, nTs = 0;
+  let changed = 0, nTs = 0; const fixes = [];
   accounts().forEach(acc => {
     const mine = S.group.chain.filter(c => c.user_id === uid && c.date && (c.account || 'main') === acc.id);
     // dias fechados lidos no Top Shot (lugar, se ganhou e o lineup), para os dias que a blockchain não tem
@@ -819,26 +819,46 @@ function applyChainResults() {
         else if (ids.length === (c.ids || c.lineup || []).length && ids.slice().sort().join() !== old.slice().sort().join()) {
           old.filter(id => !ids.includes(id)).forEach(id => { const e = roster[id]; if (e) setUsesOf(e, acc.id, usesEff(e, id, acc.id) + 1); });
           ids.filter(id => !old.includes(id)).forEach(id => { const e = roster[id]; if (e) setUsesOf(e, acc.id, Math.max(0, usesEff(e, id, acc.id) - 1)); });
+          if (c.ts) fixes.push({ acc: acc.id, date: c.date, old: old.slice(), now: ids.slice() });
           cur.lineup = ids; upd = true;
         }
         if (upd) { ch++; if (c.ts) nTs++; }
         return;
       }
-      const finished = Date.now() - Date.parse(c.date + 'T12:00:00Z') > 30 * 3600e3;
+      const finished = c.ts || Date.now() - Date.parse(c.date + 'T12:00:00Z') > 30 * 3600e3; // do Top Shot: só vêm dias fechados
       if (!finished && !c.win) return; // ainda a decorrer: espera pelo fim
       const ids = c.ids || (c.lineup || []).map(n => byName.get(norm(n))).filter(Boolean);
       ids.forEach(id => { const e = roster[id]; if (e) setUsesOf(e, acc.id, Math.max(0, usesEff(e, id, acc.id) - 1)); });
+      const pj = (((plan.proj || {})[c.date]) || {}).lineup || [];
+      if (c.ts && pj.length && pj.slice().sort().join() !== ids.slice().sort().join()) fixes.push({ acc: acc.id, date: c.date, old: pj.slice(), now: ids.slice() });
       played[c.date] = Object.assign({ done: true, result: res, lineup: ids, points: c.points }, c.ts ? { ts: true } : { chain: true });
       ch++; if (c.ts) nTs++;
     });
     if (ch) { plan.played = played; changed += ch; }
   });
+  if (fixes.length) { S.luFix = fixes; setTimeout(luFixShow, 800); }
   if (changed) {
     saveMine();
-    toast(nTs === changed ? (changed === 1 ? 'One day corrected with the lineup you played (Top Shot).' : changed + ' days corrected with the lineups you played (Top Shot).') : changed === 1 ? 'One result read from the blockchain.' : changed + ' results read from the blockchain.');
+    if (!fixes.length) toast(nTs === changed ? (changed === 1 ? 'One day corrected with the lineup you played (Top Shot).' : changed + ' days corrected with the lineups you played (Top Shot).') : changed === 1 ? 'One result read from the blockchain.' : changed + ' results read from the blockchain.');
   }
 }
 
+// "O lineup que levaste não era o da app": dias acertados pelo lineup lido no Top Shot (quem estava na app e quem
+// levaste mesmo); os usos já foram acertados
+function luFixShow() {
+  const F = S.luFix; if (!F || !F.length) return;
+  if (!$('sheet').hidden) { setTimeout(luFixShow, 2000); return; }
+  S.luFix = null;
+  const multi = accounts().length > 1;
+  const who = (id, k) => '<span class="op-p ' + k + '">' + face(id, 'sm') + '<span class="op-t"><span class="op-l">' + (k === 'op-out' ? 'In the app' : 'You played') + '</span><span class="op-n">' + esc(nameOf(id)) + '</span></span></span>';
+  const card = f => {
+    const outs = f.old.filter(id => !f.now.includes(id)), ins = f.now.filter(id => !f.old.includes(id)), n = Math.max(outs.length, ins.length);
+    return '<div class="card op-card"><div class="list-head"><h2>Day ' + dayNo(f.date) + (multi ? ' · ' + esc(accLabel(f.acc)) : '') + '</h2><span class="small muted">' + dWeek(f.date) + ', ' + dShort(f.date) + '</span></div><ul class="list">' +
+      Array.from({ length: n }, (_, i) => '<li class="op-pair">' + (outs[i] ? who(outs[i], 'op-out') : '<span></span>') + '<span class="op-arrow" aria-hidden="true">→</span>' + (ins[i] ? who(ins[i], 'op-in') : '<span></span>') + '</li>').join('') + '</ul></div>';
+  };
+  openSheet('<h3>Lineups corrected</h3><div class="small muted">The lineups you played on Top Shot weren’t the ones in the app. The app now uses the ones you played and corrected those players’ uses.</div>' +
+    F.slice().sort((x, y) => x.date.localeCompare(y.date)).map(card).join('') + '<button class="btn primary" type="button" data-action="close-sheet">OK</button>');
+}
 // ---------- contas (principal + smurf) ----------
 const smurfList = () => { const x = (S.profile || {}).smurfs; return Array.isArray(x) ? x.filter(a => a && a.id) : []; };
 const groupMode = () => smurfList().length > 0;
