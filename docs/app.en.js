@@ -338,7 +338,7 @@ const HELP = {
   porque: ['What it’s based on', 'Bookmaker odds when there are any; otherwise season averages with form and opponent. Each player’s number (pp) is how much he adds to the day’s win: without him, the best one left would come in. “Saves others”: he’s here so someone better can be kept for another day. The ones left out are saved for other days or are worth less.'],
   comparar: ['Compare', 'All your players with a game this day. Big numbers: last 5 games; small: season. Opp.: how much the opponent allows of this stat. Tap a header to sort and a player to open his card.'],
   transf: ['Transfers', 'A Moment only plays for one account each night. Before the night shown, gift the Moment to the other account on Top Shot, then read the wallets again (Players → Collection).'],
-  vender: ['Sell', 'Cards from all your accounts that you could sell. Extra copy: each card plays for only one account per night, so per player you only need as many cards as you have accounts (the ones with the most uses stay). Not in the plan: no account uses him for the rest of the run. Swap: one of his cards with the same uses is listed for less than you get for yours. Values already take off Top Shot’s 5%.'],
+  vender: ['Sell', 'Cards from all your accounts. Not used: players no account uses for the rest of the run. Duplicates: players with more than one card (with several accounts, each card plays for one account per night; the ones with the most uses stay). Save: swap yours for one of the same player with the same uses listed for less. Low ask = the cheapest listing of that edition; when selling Top Shot keeps 5%.'],
   premios: ['Prizes', 'Each ring is the chance of finishing the run with at least that many wins: full means certain. Green likely, yellow a toss-up, red hard. The plan picks the lineups to raise these chances.'],
   dist: ['Wins at the end', 'The chance of each win total at the end of the run. The colours mark the prize tiers; the outline is the most likely total.'],
   contas: ['Accounts', 'The plan pools your accounts’ collections as if they were one and picks each account’s lineup. Tap an account to see its prizes.'],
@@ -2346,7 +2346,7 @@ function renderPlantel() {
   if (sub === 'forma') { box.innerHTML = formaHtml(); return; }
   if (sub === 'lesoes') { box.innerHTML = lesoesHtml(); return; }
   if (sub === 'comprar') { box.innerHTML = buyHtml(); return; }
-  if (sub === 'vender') { box.innerHTML = sellHtml(); return; }
+  if (sub === 'vender') { if (typingField('plSub')) return; box.innerHTML = sellHtml(); sellFilter(); return; }
   if (sub === 'colecao') { box.innerHTML = collectionCard(false); return; }
   if (!S.runId || S.calcError) {
     box.innerHTML = collectionCard(false) + (S.calcError ? empty('Error', S.calcError) : '');
@@ -3734,13 +3734,14 @@ function mktBlock(id) {
   return '<div class="mkt-box"' + (m ? '' : ' data-mk="' + esc(id) + '"') + '><div class="label" style="margin-bottom:4px">Top Shot marketplace</div>' + (m ? (rows ? rows + '<div class="small muted">Approximate (read from the blockchain). For the exact price, update on Top Shot.</div>' : '<div class="small muted">None of his Moments seen listed.</div>') + upd : '<div class="small muted">Reading prices…</div>') + '</div>';
 }
 // ---------- Vender ----------
-// Cartas de todas as tuas contas que podes vender, com o que ganhas (comissão do Top Shot: 5% na venda):
-// · cópia a mais: cada carta só joga numa conta por noite, por isso de cada jogador chegam tantas cartas quantas contas
-//   tens (ficam as com mais usos; com os mesmos usos fica a mais barata)
-// · não entra no plano: nenhuma conta o usa nos dias que faltam desta run
-// · troca: há uma carta dele à venda, com pelo menos os mesmos usos, mais barata do que o que recebes pela tua
+// Três listas, das cartas de todas as tuas contas (procura por jogador, equipa ou raridade):
+// · Não usadas: jogadores que nenhuma conta usa no resto da run (todas as cartas deles)
+// · Repetidas: jogadores com mais de uma carta, com quantas de cada raridade; ao tocar, cada carta com o preço
+// · Poupar: trocar a tua por uma igual (os mesmos usos ou mais) à venda mais barata; poupas a diferença (−5% na venda)
+// O preço de cada carta é a mais barata à venda da mesma edição (low ask), lida com as Cartas (ASP) no Admin.
 const SELL_FEE = 0.05;
-S.sellSort = (() => { try { return localStorage.getItem('fb-sell-sort') || 'gain'; } catch (e) { return 'gain'; } })();
+const nContas = n => n + (n === 1 ? ' account' : ' accounts');
+S.sellTab = (() => { try { return localStorage.getItem('fb-sell-tab') || 'naousadas'; } catch (e) { return 'naousadas'; } })();
 function mkOf(id) {
   let best = null;
   [S.edMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ed)).forEach(d => { if (!d || !d.mk || !d.mk[id]) return; const at = (d.t || {})[id] || d.at; if (!best || at > best.at) best = { list: d.mk[id], at }; });
@@ -3750,72 +3751,93 @@ function planDaysOf(id) {
   const k = String(canon(id)), rs = S.multi ? Object.values(S.multi.byKey) : [S.result];
   return rs.reduce((n, r) => n + ((r && r.normal && r.normal.days) || []).filter(d => d.lineup.some(x => String(canon(x)) === k)).length, 0);
 }
-function sellItems() {
+// por jogador: as cartas (com usos, raridade e preço), quantas contas e quantos dias no plano
+function sellPlayers() {
   const col = (S.profile || {}).collection; if (!col || !col.items) return null;
   const N = Math.max(1, accounts().length), by = {};
   Object.entries(col.items).forEach(([f, it]) => { if (it && it.p != null) (by[it.p] = by[it.p] || []).push(f); });
-  const out = [];
-  Object.entries(by).forEach(([id, fs]) => {
-    const cards = fs.map(f => { const it = col.items[f], e = cardEd(col, f), u = cardUses(col, f), t = (e && e.tier) || momentTier(col, f), sale = e && e.ask ? e.ask : e && e.asp > 0 ? e.asp : null; return { f, it, e, u, t, sale, by: e && e.ask ? 'ask' : sale ? 'asp' : null }; })
-      .sort((a, b) => (b.u - a.u) || ((a.sale == null ? 1e12 : a.sale) - (b.sale == null ? 1e12 : b.sale)));
-    const keep = cards.slice(0, N), days = planDaysOf(id), mk = mkOf(id), get = c => (c.sale ? c.sale * (1 - SELL_FEE) : null);
-    cards.forEach((c, i) => {
-      const why = [];
-      if (i >= N) why.push('sobra');
-      if (S.result && !days) why.push('parado');
-      let alt = null;
-      if (i < N && c.by === 'ask' && mk) {
-        alt = mk.list.filter(m => m[0] >= c.u && !(c.it.si != null && m[6] != null && +m[6] === +c.it.si && +m[7] === +c.it.pi)).sort((a, b) => a[1] - b[1])[0] || null;
-        if (alt && get(c) - alt[1] >= 100) why.push('troca'); else alt = null;
-      }
-      if (!why.length) return;
-      // o que ganhas: a carta toda se ela não faz falta; numa troca, o que sobra depois de comprar a outra
-      const swapOnly = why.length === 1 && why[0] === 'troca';
-      out.push({ id, c, why, keep, days, alt, N, n: cards.length, mkAt: mk && mk.at, gain: swapOnly ? get(c) - alt[1] : get(c), cash: !swapOnly });
-    });
+  return Object.entries(by).map(([id, fs]) => {
+    const cards = fs.map(f => { const it = col.items[f], e = cardEd(col, f), u = cardUses(col, f), t = (e && e.tier) || momentTier(col, f); return { f, it, e, u, t, ask: e && e.ask ? e.ask : null, asp: e && e.asp > 0 ? e.asp : null }; })
+      .sort((a, b) => (b.u - a.u) || ((a.ask == null ? 1e12 : a.ask) - (b.ask == null ? 1e12 : b.ask)));
+    cards.forEach((c, i) => { c.keep = i < N; });
+    const tc = {}; cards.forEach(c => { tc[c.t] = (tc[c.t] || 0) + 1; });
+    return { id, cards, tc, N, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), team: pTeam(id) || '' };
   });
-  return out;
+}
+const tcTxt = tc => TIERS.slice().reverse().filter(t => tc[t]).map(t => tc[t] + ' ' + t).join(' · ');
+// trocas que poupam: a tua carta (à venda por X) por uma do mesmo jogador com pelo menos os mesmos usos (por Y)
+function sellSwaps(ps) {
+  const out = [];
+  ps.forEach(P => { const mk = mkOf(P.id); if (!mk) return;
+    P.cards.forEach(c => { if (!c.ask) return;
+      const [cb, ...cs] = String(c.it.s || '').split(' · '), same = m => (c.it.si != null && m[6] != null ? +m[6] === +c.it.si && +m[7] === +c.it.pi : setBaseN(m[4]) === setBaseN(cb) && (isStd(m[5]) ? !cs.length : norm(m[5]) === norm(cs.join(' · '))));
+      const alt = mk.list.filter(m => m[0] >= c.u && !same(m)).sort((a, b) => a[1] - b[1])[0];
+      if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
+      if (save >= 100) out.push({ P, c, alt, save });
+    }); });
+  return out.sort((a, b) => b.save - a.save);
 }
 function sellHtml() {
   const col = (S.profile || {}).collection;
   if (!col || !col.items) return '<div class="note info">Read your wallet first (Players → Collection).</div>';
-  const items = sellItems() || [], hasPx = Object.keys(col.items).some(f => (cardEd(col, f) || {}).ask);
-  const sorts = [['gain', 'Profit'], ['value', 'Value'], ['days', 'Least used'], ['name', 'Name']];
-  const k = S.sellSort, val = x => (x.c.sale || 0);
-  items.sort((a, b) => k === 'value' ? val(b) - val(a) : k === 'days' ? (a.days - b.days) || ((b.gain || 0) - (a.gain || 0)) : k === 'name' ? nameOf(a.id).localeCompare(nameOf(b.id)) : ((b.gain || 0) - (a.gain || 0)));
-  S.sellList = items;
-  const WHY = { sobra: 'Extra copy', parado: 'Not in the plan', troca: 'Swap for a cheaper one' };
-  const tot = items.reduce((t, x) => t + (x.gain > 0 ? x.gain : 0), 0);
-  const ed = S.edMine && S.edMine.at ? S.edMine.at : null;
-  const row = (x, i) => {
-    const it = x.c.it, [base] = String(it.s || '').split(' · ');
-    return '<li><button class="row sell-row" type="button" data-action="sell-why" data-i="' + i + '"><span class="who">' + face(x.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span></div>' +
+  const ps = sellPlayers() || [], hasPx = ps.some(P => P.cards.some(c => c.ask));
+  const unused = S.result ? ps.filter(P => !P.days).sort((a, b) => b.value - a.value) : [];
+  const reps = ps.filter(P => P.cards.length > 1).sort((a, b) => (b.cards.length - a.cards.length) || (b.value - a.value));
+  const swaps = sellSwaps(ps);
+  S.sellData = { ps, swaps };
+  const tabs = [['naousadas', 'Not used', unused.length], ['repetidas', 'Duplicates', reps.length], ['poupar', 'Save', swaps.length]];
+  const tab = tabs.some(x => x[0] === S.sellTab) ? S.sellTab : 'naousadas';
+  const keyOf = P => esc(norm(nameOf(P.id)) + ' ' + String(P.team).toLowerCase() + ' ' + Object.keys(P.tc).join(' ').toLowerCase());
+  const prow = (P, sub) => '<li data-n="' + keyOf(P) + '"><button class="row sell-row" type="button" data-action="sell-player" data-id="' + esc(P.id) + '"><span class="who">' + face(P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(P.id)) + '</span></div>' +
+    '<div class="ps">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + '</div>' + (sub ? '<div class="ps sell-why">' + sub + '</div>' : '') + '</div></span>' +
+    '<span class="sell-g' + (P.value ? '' : ' none') + '"><b class="num">' + (P.value ? usd(P.value / 100) : '—') + '</b><small>' + (P.value ? (P.cards.length > 1 ? 'low ask, all' : 'low ask') : 'no price') + '</small></span></button></li>';
+  const srow = (x, i) => { const it = x.c.it, [base] = String(it.s || '').split(' · ');
+    return '<li data-n="' + keyOf(x.P) + '"><button class="row sell-row" type="button" data-action="sell-swap" data-i="' + i + '"><span class="who">' + face(x.P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.P.id)) + '</span></div>' +
       '<div class="ps"><span class="tpill t-' + (TIER_CLS[x.c.t] || 'c') + '">' + esc(x.c.t) + '</span> ' + esc(base) + (it.n ? ' #' + f0(it.n) : '') + (groupMode() ? ' · ' + esc(accLabel(it.a)) : '') + '</div>' +
-      '<div class="ps sell-why">' + (x.c.sale ? '<b class="num">' + usd(x.c.sale / 100) + '</b>' + (x.c.by === 'ask' ? '' : ' (ASP)') + ' · ' : '') + x.why.map(w => WHY[w]).join(' · ') + '</div></div></span>' +
-      '<span class="sell-g' + (x.gain > 0 ? '' : ' none') + '"><b class="num">' + (x.gain != null ? '+' + usd(x.gain / 100) : '—') + '</b><small>' + (x.cash ? 'you get' : 'profit') + '</small></span></button></li>';
-  };
-  return '<div class="card"><div class="list-head"><h2>Sell ' + helpBtn('vender') + '</h2><span class="small muted">' + items.length + (items.length === 1 ? ' card' : ' cards') + (tot ? ' · up to +' + usd(tot / 100) : '') + '</span></div>' +
-    '<div class="small muted" style="padding:0 16px 6px">Across all your accounts. Prices ' + (ed ? 'read ' + ago(ed) : 'not read yet') + ', already minus Top Shot’s 5%. Tap a card to see why.</div>' +
-    '<div class="chips scroll" role="group" aria-label="Sort" style="padding:0 16px 8px">' + sorts.map(([v, l]) => '<button type="button" data-action="sell-sort" data-v="' + v + '" aria-pressed="' + (k === v) + '">' + l + '</button>').join('') + '</div>' +
+      '<div class="ps sell-why">Sell for <b class="num">' + usd(x.c.ask / 100) + '</b> · buy for <b class="num">' + usd(x.alt[1] / 100) + '</b></div></div></span>' +
+      '<span class="sell-g"><b class="num">+' + usd(x.save / 100) + '</b><small>saved</small></span></button></li>'; };
+  let list = '', empty = '';
+  if (tab === 'naousadas') { list = unused.map(P => prow(P, 'Not in the plan for the rest of the run')).join(''); empty = S.result ? 'All your players are in the plan.' : 'No plan calculated.'; }
+  if (tab === 'repetidas') { list = reps.map(P => prow(P, P.cards.length > P.N ? plural(P.cards.length - P.N, 'extra card', 'extra cards') + ' for ' + nContas(P.N) : '')).join(''); empty = 'You have no players with more than one card.'; }
+  if (tab === 'poupar') { list = swaps.map(srow).join(''); empty = hasPx ? 'No swap that saves at least $1.' : 'Market prices are missing.'; }
+  const ed = S.edMine && S.edMine.at ? S.edMine.at : null;
+  return '<div class="card"><div class="list-head"><h2>Sell ' + helpBtn('vender') + '</h2><span class="small muted">prices ' + (ed ? ago(ed) : 'not read yet') + '</span></div>' +
+    '<div class="lu-search"><input class="field" id="sellSearch" type="search" placeholder="Player, team or rarity…" autocomplete="off" aria-label="Search player, team or rarity" value="' + esc(S.sellQ || '') + '"></div>' +
+    '<div class="chips scroll" role="group" aria-label="List" style="padding:0 16px 8px">' + tabs.map(([v, l, n]) => '<button type="button" data-action="sell-tab" data-v="' + v + '" aria-pressed="' + (tab === v) + '">' + l + ' <span class="muted">' + n + '</span></button>').join('') + '</div>' +
     (!hasPx ? '<div class="note info" style="margin:0 16px 10px">Card prices are missing: ' + (S.role === 'admin' ? 'read them in Settings → Admin → <b>Cards (ASP)</b>.' : 'ask the group admin to read the <b>Cards (ASP)</b>.') + '</div>' : '') +
-    (items.length ? '<ul class="list">' + items.map(row).join('') + '</ul>' : '<div class="row small muted">Nothing to suggest: no extra cards, all of them are in the plan and no swap pays off.</div>') + '</div>';
+    (list ? '<ul class="list" id="sellList">' + list + '<li class="row small muted sell-none" hidden>No one with that name, team or rarity.</li></ul>' : '<div class="row small muted">' + empty + '</div>') + '</div>';
 }
-function sellWhySheet(i) {
-  const x = (S.sellList || [])[i]; if (!x) return;
-  const it = x.c.it, [base, ...sub] = String(it.s || '').split(' · '), cardLbl = c => c.t + ' · ' + String(c.it.s || '').split(' · ')[0] + (c.it.n ? ' #' + f0(c.it.n) : '') + (groupMode() ? ' (' + accLabel(c.it.a) + ')' : '') + ' · ' + usesTxt(c.u);
-  const p = [];
-  if (x.why.includes('sobra')) p.push('<b>Extra copy.</b> You have ' + x.n + ' of his cards and ' + x.N + (x.N === 1 ? ' account' : ' accounts') + '. Each card plays for one account per night, so you only need ' + x.N + '. You keep: ' + x.keep.map(c => esc(cardLbl(c))).join('; ') + '.');
-  if (x.why.includes('parado')) p.push('<b>Not in the plan.</b> None of your accounts uses him on the days left in this run.');
-  if (x.alt) { const a = x.alt; p.push('<b>Swap for a cheaper one.</b> There’s a ' + esc(TS_TIER(a[2]) || a[2]) + ' (' + esc(a[4]) + (a[5] && !isStd(a[5]) ? ' · ' + esc(a[5]) : '') + ') listed for <b>' + usd(a[1] / 100) + '</b> with ' + usesTxt(a[0]) + ' per run, the same or more than yours. Sell yours and buy that one: you’re up <b>+' + usd((x.c.sale * (1 - SELL_FEE) - a[1]) / 100) + '</b> with the same uses.'); }
-  const fee = x.c.sale ? x.c.sale * SELL_FEE : null;
-  const lines = [['Card', esc(x.c.t) + ' · ' + esc(base) + (sub.length ? ' · ' + esc(sub.join(' · ')) : '') + (it.n ? ' #' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') : '')], groupMode() ? ['Account', esc(accLabel(it.a))] : null, ['Uses', usesTxt(x.c.u)],
-    ['Listed from', x.c.e && x.c.e.ask ? usd(x.c.e.ask / 100) + ' <span class="muted">(cheapest of this edition)</span>' : '—'], ['ASP', x.c.e && x.c.e.asp > 0 ? usd(x.c.e.asp / 100) : '—'],
-    x.c.sale ? ['Fee (5%)', '−' + usd(fee / 100)] : null, x.c.sale ? ['You get', '<b>' + usd((x.c.sale - fee) / 100) + '</b>' + (x.c.by === 'asp' ? ' <span class="muted">(by ASP)</span>' : '')] : null,
-    ['Days in the plan', S.result ? String(x.days) : '—']].filter(Boolean);
-  openSheet('<h3>' + esc(nameOf(x.id)) + '</h3><div class="small muted">Why I suggest selling this card</div>' +
-    '<div class="card sell-txt">' + p.map(t => '<p>' + t + '</p>').join('') + '</div>' +
-    '<div class="card panel">' + lines.map(([a, b]) => '<div class="status-line"><span>' + a + '</span><span>' + b + '</span></div>').join('') + '</div>' +
-    '<div class="small muted">The sale price is the cheapest listing of this edition right now; to sell faster, list a bit below it.</div>');
+function sellFilter() {
+  const ul = $('sellList'); if (!ul) return;
+  const q = norm(($('sellSearch') || {}).value || ''); let n = 0;
+  ul.querySelectorAll('li[data-n]').forEach(li => { const ok = !q || li.dataset.n.includes(q); li.hidden = !ok; if (ok) n++; });
+  const none = ul.querySelector('.sell-none'); if (none) none.hidden = !(q && !n);
+}
+// uma carta numa linha: raridade, set, número, conta, usos e o preço (low ask e ASP)
+function sellCardLi(c, tag) {
+  const it = c.it, [base, ...sub] = String(it.s || '').split(' · ');
+  return '<li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[c.t] || 'c') + '">' + esc(c.t) + '</span>' + (tag ? '<span class="badge">' + tag + '</span>' : '') + '</div>' +
+    '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
+    '<div class="ps">' + [it.n ? '#' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') : '', groupMode() ? accLabel(it.a) : '', usesTxt(c.u), c.asp ? 'ASP ' + usd(c.asp / 100) : ''].filter(Boolean).map(esc).join(' · ') + '</div></div>' +
+    '<div class="sell-g' + (c.ask ? '' : ' none') + '"><b class="num">' + (c.ask ? usd(c.ask / 100) : '—') + '</b><small>' + (c.ask ? 'low ask' : 'no price') + '</small>' + (c.ask ? '<small>you get ' + usd(c.ask * (1 - SELL_FEE) / 100) + '</small>' : '') + '</div></li>';
+}
+function sellPlayerSheet(id) {
+  const P = ((S.sellData || {}).ps || []).find(x => String(x.id) === String(id)); if (!P) return;
+  const rep = P.cards.length > 1;
+  openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class="small muted">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'day', 'days') + ' in the plan' : '') + '</div>' +
+    (P.days === 0 ? '<div class="note info">None of your accounts uses him for the rest of the run.</div>' : '') +
+    (rep ? '<div class="small muted">With ' + nContas(P.N) + ' only ' + (P.N === 1 ? 'one card plays' : P.N + ' cards play') + ' each night: the ones with the most uses stay (marked). You can sell the others — for example the priciest Common.</div>' : '') +
+    '<div class="card"><ul class="list">' + P.cards.map(c => sellCardLi(c, rep ? (c.keep ? 'keep' : 'extra') : '')).join('') + '</ul></div>' +
+    '<div class="small muted">Low ask = the cheapest listing of that edition right now. You get = low ask − Top Shot’s 5%; to sell faster, list a bit below.</div>');
+}
+function sellSwapSheet(i) {
+  const x = ((S.sellData || {}).swaps || [])[i]; if (!x) return;
+  const a = x.alt;
+  openSheet('<h3>' + esc(nameOf(x.P.id)) + '</h3><div class="small muted">Swap for a cheaper equivalent</div>' +
+    '<div class="card"><div class="list-head"><h2>Yours</h2></div><ul class="list">' + sellCardLi(x.c, '') + '</ul></div>' +
+    '<div class="card"><div class="list-head"><h2>The one you buy</h2></div><ul class="list"><li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[TS_TIER(a[2])] || 'c') + '">' + esc(TS_TIER(a[2]) || a[2]) + '</span></div><div class="mo-set">' + esc(a[4]) + (a[5] && !isStd(a[5]) ? ' <span class="muted">· ' + esc(a[5]) + '</span>' : '') + '</div><div class="ps">' + esc(usesTxt(a[0])) + (a[3] > 0 ? ' · ASP ' + usd(a[3] / 100) : '') + '</div></div><div class="sell-g"><b class="num">' + usd(a[1] / 100) + '</b><small>low ask</small></div></li></ul></div>' +
+    '<div class="card panel">' + [['Sell yours (low ask)', usd(x.c.ask / 100)], ['Fee (5%)', '−' + usd(x.c.ask * SELL_FEE / 100)], ['Buy the other (low ask)', '−' + usd(a[1] / 100)], ['You save', '<b class="c-good">+' + usd(x.save / 100) + '</b>']].map(([k, v]) => '<div class="status-line"><span>' + k + '</span><span>' + v + '</span></div>').join('') + '</div>' +
+    '<div class="small muted">You keep the same uses (' + esc(usesTxt(x.c.u)) + ' or more). Market prices ' + ago(mkOf(x.P.id).at) + ': check on Top Shot before selling.</div>');
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
 // (p. ex. dos dois Luka, só um é Rare); os usos por run do jogador são os da melhor carta
@@ -5214,8 +5236,9 @@ document.addEventListener('click', async e => {
     case 'wallet-sheet': await walletSheet(); break;
     case 'ed-review': edReviewSheet(); break;
     case 'run-review': runReviewSheet(); break;
-    case 'sell-why': sellWhySheet(+b.dataset.i); break;
-    case 'sell-sort': S.sellSort = b.dataset.v; try { localStorage.setItem('fb-sell-sort', S.sellSort); } catch (e) {} render(); break;
+    case 'sell-player': sellPlayerSheet(id); break;
+    case 'sell-swap': sellSwapSheet(+b.dataset.i); break;
+    case 'sell-tab': S.sellTab = b.dataset.v; try { localStorage.setItem('fb-sell-tab', S.sellTab); } catch (e) {} render(); sellFilter(); break;
     case 'day-lus': dayLineupsSheet(date); break;
     case 'run-apply': b.disabled = true; await runApply(+b.dataset.i); break;
     case 'ed-apply': closeSheet(); edApply(); toast('Rarity and ASP applied: the group’s uses were adjusted.'); break;
@@ -5351,6 +5374,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'apSearch') renderSearch(e.target.value);
   if (e.target.id === 'buySearch') renderBuySearch(e.target.value);
   if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
+  if (e.target.id === 'sellSearch') { S.sellQ = e.target.value; sellFilter(); }
   if (e.target.id === 'luSearch') { if (S.lu && $('luCount')) S.lu.q = e.target.value; if (S.luEdit && $('pastLu')) S.luEdit.q = e.target.value; luFilter(); }
 });
 // (sem redesenhar Ajustes ao sair de um campo: isso apagava o formulário a meio de um clique em Guardar)

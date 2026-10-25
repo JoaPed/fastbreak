@@ -1065,3 +1065,6 @@ p, .note { text-wrap: pretty; }
 .sell-g small { font-size: 11px; color: var(--muted); }
 .sell-txt { padding: 4px 16px; }
 .sell-txt p { margin: 10px 0; line-height: 1.45; }
+.sell-card { display: flex; align-items: center; gap: 10px; }
+.sell-card .sell-g b { font-size: 17px; }
+.sell-row .ps .muted, [data-action="sell-tab"] .muted { font-weight: 600; }
