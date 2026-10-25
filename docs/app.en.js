@@ -3761,7 +3761,8 @@ function sellPlayers() {
       .sort((a, b) => (b.u - a.u) || ((a.ask == null ? 1e12 : a.ask) - (b.ask == null ? 1e12 : b.ask)));
     cards.forEach((c, i) => { c.keep = i < N; });
     const tc = {}; cards.forEach(c => { tc[c.t] = (tc[c.t] || 0) + 1; });
-    return { id, cards, tc, N, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), team: pTeam(id) || '' };
+    // valor: nas repetidas só as cartas a mais (as que ficam são as dos usos máximos, não se vendem)
+    return { id, cards, tc, N, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: cards.filter(c => !c.keep).reduce((t, c) => t + (c.ask || 0), 0), nExtra: cards.filter(c => !c.keep).length, team: pTeam(id) || '' };
   });
 }
 const tcTxt = tc => TIERS.slice().reverse().filter(t => tc[t]).map(t => tc[t] + ' ' + t).join(' · ');
@@ -3782,15 +3783,16 @@ function sellHtml() {
   if (!col || !col.items) return '<div class="note info">Read your wallet first (Players → Collection).</div>';
   const ps = sellPlayers() || [], hasPx = ps.some(P => P.cards.some(c => c.ask));
   const unused = S.result ? ps.filter(P => !P.days).sort((a, b) => b.value - a.value) : [];
-  const reps = ps.filter(P => P.cards.length > 1).sort((a, b) => (b.cards.length - a.cards.length) || (b.value - a.value));
+  const reps = ps.filter(P => P.cards.length > 1).sort((a, b) => (b.extra - a.extra) || (b.nExtra - a.nExtra) || (b.cards.length - a.cards.length));
   const swaps = sellSwaps(ps);
   S.sellData = { ps, swaps };
   const tabs = [['naousadas', 'Not used', unused.length], ['repetidas', 'Duplicates', reps.length], ['poupar', 'Save', swaps.length]];
   const tab = tabs.some(x => x[0] === S.sellTab) ? S.sellTab : 'naousadas';
   const keyOf = P => esc(norm(nameOf(P.id)) + ' ' + String(P.team).toLowerCase() + ' ' + Object.keys(P.tc).join(' ').toLowerCase());
-  const prow = (P, sub) => '<li data-n="' + keyOf(P) + '"><button class="row sell-row" type="button" data-action="sell-player" data-id="' + esc(P.id) + '"><span class="who">' + face(P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(P.id)) + '</span></div>' +
+  const prow = (P, sub, rep) => { const v = rep ? P.extra : P.value, lbl = rep ? (P.nExtra ? (P.nExtra > 1 ? 'low ask, extras' : 'low ask') : 'all play') : P.cards.length > 1 ? 'low ask, all' : 'low ask';
+    return '<li data-n="' + keyOf(P) + '"><button class="row sell-row" type="button" data-action="sell-player" data-id="' + esc(P.id) + '"><span class="who">' + face(P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(P.id)) + '</span></div>' +
     '<div class="ps">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + '</div>' + (sub ? '<div class="ps sell-why">' + sub + '</div>' : '') + '</div></span>' +
-    '<span class="sell-g' + (P.value ? '' : ' none') + '"><b class="num">' + (P.value ? usd(P.value / 100) : '—') + '</b><small>' + (P.value ? (P.cards.length > 1 ? 'low ask, all' : 'low ask') : 'no price') + '</small></span></button></li>';
+    '<span class="sell-g' + (v ? '' : ' none') + '"><b class="num">' + (v ? usd(v / 100) : '—') + '</b><small>' + (v || (rep && !P.nExtra) ? lbl : 'no price') + '</small></span></button></li>'; };
   const srow = (x, i) => { const it = x.c.it, [base] = String(it.s || '').split(' · ');
     return '<li data-n="' + keyOf(x.P) + '"><button class="row sell-row" type="button" data-action="sell-swap" data-i="' + i + '"><span class="who">' + face(x.P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.P.id)) + '</span></div>' +
       '<div class="ps"><span class="tpill t-' + (TIER_CLS[x.c.t] || 'c') + '">' + esc(x.c.t) + '</span> ' + esc(base) + (it.n ? ' #' + f0(it.n) : '') + (groupMode() ? ' · ' + esc(accLabel(it.a)) : '') + '</div>' +
@@ -3798,7 +3800,7 @@ function sellHtml() {
       '<span class="sell-g"><b class="num">+' + usd(x.save / 100) + '</b><small>saved</small></span></button></li>'; };
   let list = '', empty = '';
   if (tab === 'naousadas') { list = unused.map(P => prow(P, 'Not in the plan for the rest of the run')).join(''); empty = S.result ? 'All your players are in the plan.' : 'No plan calculated.'; }
-  if (tab === 'repetidas') { list = reps.map(P => prow(P, P.cards.length > P.N ? plural(P.cards.length - P.N, 'extra card', 'extra cards') + ' for ' + nContas(P.N) : '')).join(''); empty = 'You have no players with more than one card.'; }
+  if (tab === 'repetidas') { list = reps.map(P => prow(P, P.nExtra ? plural(P.nExtra, 'extra card', 'extra cards') + ' for ' + nContas(P.N) : 'You need them all for ' + nContas(P.N), true)).join(''); empty = 'You have no players with more than one card.'; }
   if (tab === 'poupar') { list = swaps.map(srow).join(''); empty = hasPx ? 'No swap that saves at least $1.' : 'Market prices are missing.'; }
   const ed = S.edMine && S.edMine.at ? S.edMine.at : null;
   return '<div class="card"><div class="list-head"><h2>Sell ' + helpBtn('vender') + '</h2><span class="small muted">prices ' + (ed ? ago(ed) : 'not read yet') + '</span></div>' +
