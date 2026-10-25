@@ -4290,6 +4290,19 @@ function keepWith(date, id, out) {
   }
   return L.concat([id]);
 }
+// fixar o lineup todo desse dia (os que lá estão agora, menos os lugares livres) ou soltar todos (o lineup fica igual)
+function lockAll(date, on) {
+  const { md, d } = dayInfo(date); if (!md || !d) return;
+  const gaps = (S.lu && S.lu.date === date && S.lu.out) || [];
+  if (on) {
+    const ids = d.lineup.filter(id => !gaps.includes(id)).slice(0, md.size);
+    const dr = planPatch({ locks: { [date]: ids }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => !ids.includes(x)) } });
+    toast(plural(ids.length, 'player locked', 'players locked') + '.' + capMsg(dr));
+  } else {
+    planPatch({ locks: { [date]: [] }, keep: { [date]: d.lineup.slice() } }, true);
+    toast('All unlocked. The lineup stays the same.');
+  }
+}
 function lockToggle(id, date, on) {
   const cur = new Set(((curPlan().locks || {})[date]) || []);
   if (on) {
@@ -4425,7 +4438,8 @@ function luRender() {
   const bad = (d.badLocks || []).map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '">unlock</button>').join(' · ');
   const html = '<h3>Lineup for day ' + dn + ' ' + helpBtn('mudar') + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="luBody" class="stack">' + head +
     (gaps.length ? '<div class="note info">Tap + to choose who comes in' + (gaps.length > 1 ? ' for each empty spot' : '') + '. Until then, the numbers are for the lineup before the swap.</div>' : '') +
-    '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + d.lineup.length + ' of ' + size + (locks.size ? ' · ' + plural(locks.size, 'locked', 'locked') : '') + '</span></div>' + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Nobody in the lineup: the plan saves the uses for other days.</div>') + '</div>' +
+    '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + d.lineup.length + ' of ' + size + (locks.size ? ' · ' + plural(locks.size, 'locked', 'locked') : '') + '</span></div>' +
+      (d.lineup.length ? (d.lineup.every(id => locks.has(id)) ? '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="0" data-date="' + date + '">' + icoLockBtn + ' Unlock all</button></div>' : '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="1" data-date="' + date + '">' + icoLockBtn + ' Lock all</button></div>') : '') + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Nobody in the lineup: the plan saves the uses for other days.</div>') + '</div>' +
     (bad ? '<div class="note">Locked but can’t play this day: ' + bad + '</div>' : '') + chHtml +
     (cand.length ? '<div class="card"><div class="list-head"><h2>Add to the lineup</h2><span class="small muted" id="luCount">' + plural(cand.length, 'player', 'players') + '</span></div>' +
       '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player" value="' + esc(L.q || '') + '"></div>' + luSortChips(md, 'data-date="' + date + '"') +
@@ -4538,10 +4552,10 @@ function luEditSheet() {
   const cand = Object.keys(S.mine.roster || {}).filter(id => !E.ids.includes(id) && teams.has(pTeam(id))).sort((a, b) => weight(b) - weight(a) || nameOf(a).localeCompare(nameOf(b)));
   openSheet('<h3>Lineup for day ' + dn + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="pastLu" class="stack">' + head +
     '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + E.ids.length + ' of ' + lim + '</span></div><ul class="list">' + inRows + '</ul></div>' +
+    '<button class="btn primary" type="button" data-action="past-lu-save"' + (E.ids.length ? '' : ' disabled') + '>Save</button>' +
     (cand.length ? '<div class="card"><div class="list-head"><h2>Add to lineup</h2><span class="small muted">what they did that day</span></div>' +
       '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player" value="' + esc(E.q || '') + '"></div>' +
       '<ul class="list" id="luCand">' + cand.map((id, k) => row(id, false, k)).join('') + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>' + (cand.length > 10 && !E.all ? '<button class="btn quiet" type="button" id="luAllBtn" data-action="past-lu-all" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
-    '<button class="btn primary" type="button" data-action="past-lu-save"' + (E.ids.length ? '' : ' disabled') + '>Save</button>' +
     '<button class="btn link small" type="button" data-action="undo-result" data-date="' + date + '">I didn’t play this day</button></div>');
   luFilter();
   if (keep) $('sheetPanel').scrollTop = keep;
@@ -4920,6 +4934,7 @@ document.addEventListener('click', async e => {
     case 'unban': banToggle(id, date, false); luBack(date); break;
     // Mudar o lineup (folha com o que muda face à sugestão do plano)
     case 'lu-edit': S.lu = null; lineupSheet(date); break;
+    case 'lu-lockall': luBusy(); lockAll(date, b.dataset.on === '1'); break;
     case 'lu-lock': { const on = !(((curPlan().locks || {})[date]) || []).includes(id); luBusy(); if (!lockToggle(id, date, on)) luRender(); break; }
     case 'lu-add': luBusy(true); if (!lockToggle(id, date, true)) luRender(); break;
     case 'lu-ban': if (S.lu) { S.lu.out = (S.lu.out || []).concat([id]); luRender(); } break; // fica um lugar livre: nada muda até escolheres

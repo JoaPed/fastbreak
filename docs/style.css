@@ -1028,3 +1028,7 @@ p, .note { text-wrap: pretty; }
 .lu-warn { color: var(--warn); font-weight: 600; }
 /* teclado aberto: a folha cabe na parte visível do ecrã (ver sheetFit) */
 .sheet.kb .sheet-panel { max-height: calc(var(--vvh, 100vh) - 8px); padding-bottom: 12px; }
+/* Mudar o lineup: fixar/soltar todos, por baixo do título "No lineup" */
+.lu-all { padding: 0 16px 6px; }
+.lu-all .btn { display: inline-flex; align-items: center; gap: 6px; }
+.lu-all .btn svg { width: 14px; height: 14px; }
