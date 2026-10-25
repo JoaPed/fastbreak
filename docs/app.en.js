@@ -658,7 +658,8 @@ async function loadGroup() {
   S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [], loaded: true };
   adoptMine();
   if (S.mineLoaded) syncTierUses(); // raridade e ASP das cartas lidos por alguém do grupo
-  if (S.edReview && S.edPending && edOn()) { S.edReview = false; setTimeout(edReviewSheet, 900); } // leitura nova: mostra o que muda antes de aplicar
+  if (S.edReview && S.edPending && edOn()) { S.edReview = false; setTimeout(edReviewSheet, 900); }
+  if (S.runReview && S.runRead) { S.runReview = false; setTimeout(runReviewSheet, 900); } // run lida no Top Shot: mostra o que muda // leitura nova: mostra o que muda antes de aplicar
 }
 // os lugares e preços que eu li noutro sítio (o Safari e a app do ecrã principal guardam coisas à parte, ou outro
 // aparelho) vêm do meu resumo publicado; sem isto, o resumo seguinte publicava-se sem eles e desapareciam para todos
@@ -688,6 +689,7 @@ function takeRanksHash() {
     S.pickNote = !d || !Array.isArray(d.accs) || (Array.isArray(d.do) && !d.do.includes('picks')) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' games.' : d.picksErr ? ' Picks: failed (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: the Top Shot script is old — if you use the automatic one (Tampermonkey/Userscripts), reinstall it or turn it off and use the bookmark.' : ' Picks: none open.';
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
+    if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runReview = true; S.pickNote = (S.pickNote || '') + (d.runs ? ' Run: ' + (d.runs.length ? d.runs.map(r => r.days.length + ' days').join(', ') : 'no Classic run') + '.' : ' Run: didn’t work (' + (d.runErr || '?') + ').'); delete d.runs; }
     const gotRanks = d && Array.isArray(d.accs) && (!Array.isArray(d.do) || d.do.includes('ranks'));
     if (d && !gotRanks) setTimeout(() => toast('Read on Top Shot.' + (S.pxNew != null ? ' Prices for ' + S.pxNew + ' players' + (S.pxMissN ? ' (' + S.pxMissN + ' not found)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cards: ' + S.edNew.err + '.' : ' Rarity and ASP of the cards of ' + S.edNew.n + ' players.') : '') + (S.pickNote || '')), 300);
     if (gotRanks) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Ranks updated: ' + d.accs.filter(x => x.found).length + ' accounts on the Top Shot leaderboard.' + (S.pxNew != null ? ' Prices for ' + S.pxNew + ' players' + (S.pxMissN ? ' (' + S.pxMissN + ' not found on Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cards: ' + S.edNew.err + '.' : ' Rarity and ASP of the cards of ' + S.edNew.n + ' players.') : '') + (S.pickNote || '')), 300); S.lastSummary = ''; }
@@ -3256,6 +3258,99 @@ async function chainImport(cid) {
   try { localStorage.removeItem('fb-run'); } catch (e) {}
   await loadShared(); await loadRun(id); compute(); render(); renderAjustes();
 }
+// ---- run lida no Top Shot (botão "Run e prémios" do Admin): cria ou completa a run do site ----
+// Serve de reserva à tarefa da blockchain: dias, objetivos de cada dia e prémios (da run e de cada dia).
+const runSlug = n => (String(n || 'run').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)) || 'run';
+const tsObjs = d => (d.objs || []).map(o => { const stat = FB.mapStat(o.k) || FB.mapStat(o.a), x = { stat, target: +o.t || 0, name: o.a || o.k || '?' }; if (/INDIVIDUAL|EACH|PER_PLAYER|SINGLE/i.test(String(o.ty || (o.raw || {}).type || ''))) x.each = true; return x; });
+const objKey = list => JSON.stringify((list || []).filter(o => o && o.stat && +o.target > 0).map(o => [o.stat, +o.target, !!o.each]));
+async function runPlan(x) {
+  const days = (x.days || []).filter(d => d.date).sort((a, b) => a.date.localeCompare(b.date));
+  const start = days.length ? days[0].date : x.starts ? etDay(Date.parse(x.starts)) : null;
+  const end = days.length ? days[days.length - 1].date : x.ends ? etDay(Date.parse(x.ends) - 12 * 3600e3) : start;
+  if (!start) return null;
+  const n = String(x.name || x.id || '').match(/run\s*(\d+)/i);
+  const name = n ? 'Run ' + n[1] + ' · Classic' : (x.name || 'Run Classic');
+  const site = S.runs.find(r => !r.fictitious && r.start_date && Math.abs(Date.parse(r.start_date) - Date.parse(start)) <= 3 * 864e5) || null;
+  let have = [];
+  if (site) have = site.id === S.runId ? S.days : ((await q(sb.from('run_days').select('date,objectives').eq('run_id', site.id)).catch(() => [])) || []);
+  const byDate = new Map(have.map(d => [d.date, d]));
+  const unknown = new Set();
+  const rows = days.map(d => {
+    const objs = tsObjs(d); objs.filter(o => !o.stat).forEach(o => unknown.add(o.name));
+    const ok = objs.filter(o => o.stat && o.target > 0).map(o => { const y = { stat: o.stat, target: o.target }; if (o.each) y.each = true; return y; });
+    const h = byDate.get(d.date);
+    const kind = !h ? 'k-new' : !ok.length ? 'k-same' : objKey(h.objectives) === objKey(ok) ? 'k-same' : 'k-chg';
+    return { date: d.date, objs: ok, old: h ? h.objectives || [] : null, kind, n: d.n, unk: objs.filter(o => !o.stat).map(o => o.name) };
+  });
+  const id = site ? site.id : (S.runs.some(r => r.id === runSlug(name)) ? runSlug(name) + '-' + start.replace(/-/g, '').slice(2) : runSlug(name));
+  return { x, start, end, name: site ? site.name : name, id, site, rows, unknown: [...unknown], extend: site && (start < site.start_date || end > site.end_date) };
+}
+async function runReviewSheet() {
+  const R = S.runRead; if (!R) return;
+  const money = c => { const v = c / 100; return '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('en-GB')); };
+  const bandTxt = bs => (bs || []).map(b => (b[0] === b[1] ? b[0] + '.º' : b[0] + '–' + b[1]) + ' ' + (b[2] ? money(b[2]) : esc(b[3] || ''))).join(' · ');
+  const plans = [];
+  for (const x of R.runs) plans.push(await runPlan(x));
+  const today = todayET(), prev = S.runs.filter(r => !r.fictitious && (r.prizes || []).length).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0];
+  const card = (P, i) => {
+    if (!P) return '<div class="note">' + esc(R.runs[i].name || R.runs[i].id) + ': no dates (Top Shot doesn’t show the days yet).</div>';
+    const x = P.x, ch = P.rows.filter(r => r.kind !== 'k-same').length + (P.extend ? 1 : 0), withObj = P.rows.filter(r => r.objs.length).length;
+    const rows = P.rows.map((r, k) => '<li class="row"><span><b>Day ' + (k + 1) + '</b> <span class="muted">' + dWeek(r.date) + ' ' + dShort(r.date) + '</span><br>' + (r.objs.length ? esc(objsText({ objectives: r.objs })) : r.unk.length ? '<span class="muted">' + esc(r.unk.join(' + ')) + ' (unknown stat)</span>' : '<span class="muted">goal not out yet</span>') +
+      (r.kind === 'k-chg' ? '<br><span class="small muted">before: ' + esc(objsText({ objectives: r.old })) + '</span>' : '') + '</span><span class="pill' + (r.kind === 'k-new' ? ' ok' : r.kind === 'k-chg' ? ' duv' : '') + '">' + (r.kind === 'k-new' ? 'new' : r.kind === 'k-chg' ? 'changes' : 'same') + '</span></li>').join('');
+    const dayBands = ((x.days || []).find(d => (d.bands || []).length) || {}).bands || [];
+    return '<div class="card"><div class="list-head"><h2>' + esc(P.name) + '</h2><span class="small muted">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plural(P.rows.length || 0, 'day', 'days') + '</span></div>' +
+      '<div class="row small" style="display:block">' + (P.site ? 'Already on the site' + (P.site.chain_run_id ? ' (linked to the blockchain)' : '') + '. ' : 'Not on the site yet: it will be created. ') + withObj + ' of ' + P.rows.length + ' days with a goal.' + (P.extend ? ' The dates change to ' + dShort(P.start) + ' – ' + dShort(P.end) + '.' : '') + '</div>' +
+      (P.unknown.length ? '<div class="note">Stat I don’t know: ' + esc(P.unknown.join(', ')) + ' (those goals are left out).</div>' : '') +
+      (x.daysErr ? '<div class="note">Couldn’t read the days: ' + esc(x.daysErr) + '</div>' : '') +
+      (rows ? '<ul class="list">' + rows + '</ul>' : '') +
+      '<div class="row small" style="display:block"><b>Run prizes</b>' + (x.qual ? ' (top ' + x.qual + ' qualify)' : '') + ': ' + (x.bands.length ? bandTxt(x.bands) : '<span class="muted">Top Shot didn’t show them</span>') + '</div>' +
+      (dayBands.length ? '<div class="row small" style="display:block"><b>Daily prizes</b>: ' + bandTxt(dayBands) + '</div>' : '') +
+      (!P.site ? '<div class="row small muted" style="display:block">Win tiers for the plan: ' + (prev ? 'those of ' + esc(prev.name) + ' (' + prev.prizes.map(p => p.wins + 'W').join(' · ') + ')' : 'none') + '. ' + (P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today) ? 'It becomes the active run.' : 'It becomes active when it starts (tap Run and prizes again that day).') + '</div>' : '') +
+      '<div class="btns" style="padding:4px 16px 14px"><button class="btn primary" type="button" data-action="run-apply" data-i="' + i + '"' + (ch || !P.site || (P.start <= today && !P.site.active && P.site.end_date >= today) ? '' : ' disabled') + '>' + (!P.site ? 'Create the run' : ch ? 'Apply ' + plural(ch, 'change', 'changes') : P.start <= today && !P.site.active && P.site.end_date >= today ? 'Activate the run' : 'Nothing to change') + '</button></div></div>';
+  };
+  const raw = R.runs.length ? JSON.stringify({ run: R.runs[0].raw, dia: ((R.runs[0].days || [])[0] || {}).raw, objetivo: ((((R.runs[0].days || [])[0] || {}).objs || [])[0] || {}).raw }, null, 1) : '';
+  openSheet('<h3>Run read on Top Shot</h3><div class="small muted">' + (R.at ? 'Read ' + ago(R.at) + '. ' : '') + 'Check before applying.</div>' +
+    (R.err ? '<div class="note">Didn’t work: ' + esc(R.err) + '</div>' : '') +
+    (!R.runs.length && !R.err ? '<div class="note info">Top Shot didn’t show any NBA Classic run. If the new run hasn’t started yet, try on its first day.</div>' : '') +
+    plans.map(card).join('') +
+    (raw ? '<details class="small muted"><summary>Fields read (for troubleshooting)</summary><pre style="white-space:pre-wrap;word-break:break-all">' + esc(raw) + '</pre></details>' : ''));
+}
+async function runApply(i) {
+  const R = S.runRead, x = R && R.runs[i]; if (!x) return;
+  const P = await runPlan(x); if (!P) return;
+  const today = todayET(), others = S.runs.filter(r => r.active && !r.fictitious && r.id !== P.id);
+  let ok = true, active = false;
+  if (!P.site) {
+    active = P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today);
+    const prev = S.runs.filter(r => !r.fictitious && (r.prizes || []).length).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0];
+    if (active && S.runs.some(r => r.active)) ok = await adminWrite(sb.from('runs').update({ active: false }).eq('active', true));
+    if (ok) ok = await adminWrite(sb.from('runs').insert({ id: P.id, name: P.name, mode: 'classic', start_date: P.start, end_date: P.end, prizes: prev ? prev.prizes : [], active, fictitious: false }));
+  } else {
+    const patch = {};
+    if (P.start < P.site.start_date) patch.start_date = P.start;
+    if (P.end > P.site.end_date) patch.end_date = P.end;
+    if (P.start <= today && !P.site.active && P.site.end_date >= today) { patch.active = true; active = true; if (others.length) ok = await adminWrite(sb.from('runs').update({ active: false }).eq('active', true)); }
+    if (ok && Object.keys(patch).length) ok = await adminWrite(sb.from('runs').update(patch).eq('id', P.id));
+    active = active || P.site.active;
+  }
+  if (!ok) return;
+  let nNew = 0, nCh = 0;
+  for (const r of P.rows) {
+    if (r.kind === 'k-new') {
+      let games = [];
+      try { games = (await espnBoard(r.date)).filter(g => g.away && g.home).map(g => [g.away, g.home, g.start || null, 'espn:' + g.id]); } catch (e) { /* os jogos chegam com a tarefa do calendário */ }
+      if (await adminWrite(sb.from('run_days').upsert({ run_id: P.id, date: r.date, objectives: r.objs, games }, { onConflict: 'run_id,date' }))) nNew++;
+    } else if (r.kind === 'k-chg') {
+      if (await adminWrite(sb.from('run_days').update({ objectives: r.objs }).eq('run_id', P.id).eq('date', r.date))) nCh++;
+    }
+  }
+  toast((P.site ? P.name + ': ' : P.name + ' created: ') + [nNew ? plural(nNew, 'new day', 'new days') : '', nCh ? plural(nCh, 'goal changed', 'goals changed') : ''].filter(Boolean).join(', ') + (active ? ' · active run' : '') + '.');
+  try { if (active) localStorage.removeItem('fb-run'); } catch (e) {}
+  await loadShared();
+  if (active || P.id === S.runId) await loadRun(P.id);
+  compute(); render(); renderAjustes();
+  runReviewSheet();
+}
 function adminHtml(run) {
   const out = [];
   const site = location.origin + location.pathname;
@@ -3264,6 +3359,8 @@ function adminHtml(run) {
     (S.edPending && edOn() ? '<div class="note sug"><div>Card reading waiting for your OK (rarity and ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">See what changes</button></div></div>' : '') +
     '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Ranks and picks</button><span class="small muted">Quick. Once a day, before the games.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="px">Player prices</button><span class="small muted">1–2 minutes. Now and then.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run and prizes</button><span class="small muted">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>' +
+    (S.runRead ? '<div class="note sug"><div>Run read on Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">See what changes</button></div></div>' : '') +
     (edOn() ? '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="ed">Cards (ASP)</button><span class="small muted">1–2 minutes. Rarity and ASP of every card in the group.</span></div>' : '') +
     '<div class="small muted">On Top Shot tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div></div>');
   const imp = chainImportCard(); if (imp) out.push(imp);
@@ -4882,6 +4979,8 @@ document.addEventListener('click', async e => {
     case 'paste-sheet': pasteSheet(); break;
     case 'wallet-sheet': await walletSheet(); break;
     case 'ed-review': edReviewSheet(); break;
+    case 'run-review': runReviewSheet(); break;
+    case 'run-apply': b.disabled = true; await runApply(+b.dataset.i); break;
     case 'ed-apply': closeSheet(); edApply(); toast('Rarity and ASP applied: the group’s uses were adjusted.'); break;
     case 'wallet-apply': b.disabled = true; await walletApply(); break;
     case 'col-to-roster': collectionToRoster(); break;

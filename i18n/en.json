@@ -150,7 +150,8 @@
   "en": " days ago",
   "at": {
    "const ago = iso => { if (!iso) return 'nunca'; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); if (m < 2) return 'agora'; if (m < 60) return 'há '": " days ago",
-   "html.push('<div class=\"card\"><div class=\"list-head\"><h2>Estatísticas que mais saem</h2><span class=\"small muted\">' + F.days + ' dias' + (F.classic ? ' Classic' ": " days"
+   "html.push('<div class=\"card\"><div class=\"list-head\"><h2>Estatísticas que mais saem</h2><span class=\"small muted\">' + F.days + ' dias' + (F.classic ? ' Classic' ": " days",
+   "if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runReview ": " days"
   }
  },
  " cada": {
@@ -1183,6 +1184,7 @@
  "Poupar os ": "Save the ",
  "<div class=\"chips\" role=\"group\" aria-label=\"Lineup submetido\">": "<div class=\"chips\" role=\"group\" aria-label=\"Submitted lineup\">",
  " fica para ": " is kept for ",
+ "igual": "same",
  " primary": null,
  "<div class=\"note info\">Não deu para refazer a run.</div>": "<div class=\"note info\">Couldn't redo the run.</div>",
  " jogadores.": " players.",
@@ -1958,6 +1960,60 @@
  "<span class=\"lu-l2\">acabou de sair · toca para o manter</span></div></div></span>": "<span class=\"lu-l2\">just taken out · tap to keep him</span></div></div></span>",
  "<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">o que fizeram nesse dia</span></div>": "<div class=\"card\"><div class=\"list-head\"><h2>Add to lineup</h2><span class=\"small muted\">what they did that day</span></div>",
  "<button class=\"btn quiet\" type=\"button\" id=\"luAllBtn\" data-action=\"past-lu-all\" style=\"margin:4px 16px 14px\">Ver todos (": "<button class=\"btn quiet\" type=\"button\" id=\"luAllBtn\" data-action=\"past-lu-all\" style=\"margin:4px 16px 14px\">See all (",
+ " (esses objetivos ficam de fora).</div>": " (those goals are left out).</div>",
+ " (ligada à blockchain)": " (linked to the blockchain)",
+ " (top ": " (top ",
+ " As datas mudam para ": " The dates change to ",
+ " Run: ": " Run: ",
+ " Run: não deu (": " Run: didn’t work (",
+ " criada: ": " created: ",
+ " dias com objetivo.": " days with a goal.",
+ " duv": null,
+ " ok": null,
+ " qualifica)": " qualify)",
+ " · run ativa": " · active run",
+ ": sem datas (o Top Shot ainda não mostra os dias).</div>": ": no dates (Top Shot doesn’t show the days yet).</div>",
+ "<br><span class=\"small muted\">antes: ": "<br><span class=\"small muted\">before: ",
+ "<details class=\"small muted\"><summary>Campos lidos (para diagnóstico)</summary><pre style=\"white-space:pre-wrap;word-break:break-all\">": "<details class=\"small muted\"><summary>Fields read (for troubleshooting)</summary><pre style=\"white-space:pre-wrap;word-break:break-all\">",
+ "<div class=\"note info\">O Top Shot não mostrou nenhuma run Classic da NBA. Se a run nova ainda não começou, tenta no primeiro dia.</div>": "<div class=\"note info\">Top Shot didn’t show any NBA Classic run. If the new run hasn’t started yet, try on its first day.</div>",
+ "<div class=\"note sug\"><div>Run lida no Top Shot.</div><div class=\"btns\"><button class=\"btn primary\" type=\"button\" data-action=\"run-review\">Ver o que muda</button></div></div>": "<div class=\"note sug\"><div>Run read on Top Shot.</div><div class=\"btns\"><button class=\"btn primary\" type=\"button\" data-action=\"run-review\">See what changes</button></div></div>",
+ "<div class=\"note\">Estatística que não conheço: ": "<div class=\"note\">Stat I don’t know: ",
+ "<div class=\"note\">Não deu: ": "<div class=\"note\">Didn’t work: ",
+ "<div class=\"note\">Não li os dias: ": "<div class=\"note\">Couldn’t read the days: ",
+ "<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ": "<div class=\"row small muted\" style=\"display:block\">Win tiers for the plan: ",
+ "<div class=\"row small\" style=\"display:block\"><b>Prémios da run</b>": "<div class=\"row small\" style=\"display:block\"><b>Run prizes</b>",
+ "<div class=\"row small\" style=\"display:block\"><b>Prémios de cada dia</b>: ": "<div class=\"row small\" style=\"display:block\"><b>Daily prizes</b>: ",
+ "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run\">Run e prémios</button><span class=\"small muted\">Rápido. Quando sai uma run nova, se a blockchain não a trouxer.</span></div>": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run\">Run and prizes</button><span class=\"small muted\">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>",
+ "<h3>Run lida no Top Shot</h3><div class=\"small muted\">": "<h3>Run read on Top Shot</h3><div class=\"small muted\">",
+ "<li class=\"row\"><span><b>Dia ": "<li class=\"row\"><span><b>Day ",
+ "<span class=\"muted\">o Top Shot não mostrou</span>": "<span class=\"muted\">Top Shot didn’t show them</span>",
+ "<span class=\"muted\">objetivo ainda não saiu</span>": "<span class=\"muted\">goal not out yet</span>",
+ "Ainda não está no site: vai ser criada. ": "Not on the site yet: it will be created. ",
+ "Aplicar ": "Apply ",
+ "Ativar a run": "Activate the run",
+ "Confirma antes de aplicar.</div>": "Check before applying.</div>",
+ "Criar a run": "Create the run",
+ "Fica a run ativa.": "It becomes the active run.",
+ "Fica ativa quando começar (carrega outra vez em Run e prémios nesse dia).": "It becomes active when it starts (tap Run and prizes again that day).",
+ "Já está no site": "Already on the site",
+ "Lida ": "Read ",
+ "Nada a mudar": "Nothing to change",
+ "Run Classic": null,
+ "run_id,date": null,
+ "dia novo": "new day",
+ "dias novos": "new days",
+ "muda": "changes",
+ "novo": "new",
+ "mudança": "change",
+ "mudanças": "changes",
+ "nenhuma run Classic": "no Classic run",
+ "objetivo mudado": "goal changed",
+ "objetivos mudados": "goals changed",
+ "os da ": "those of ",
+ "k-new": null,
+ "k-same": null,
+ "k-chg": null,
+ " (não conheço)</span>": " (unknown stat)</span>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2016,7 +2072,8 @@
    "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>Dias ' + helpBtn('dias') + '</h2><span class=\"small muted\">' + recordTxt(r.wins, r.losses) + '</span></div>": false,
    "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "days",
-   "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "days"
+   "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "days",
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true
   }
  },
  "dia": {
@@ -2026,7 +2083,8 @@
    "if (top.length) html.push('<div class=\"card\"><div class=\"list-head\"><h2>Os jogadores que mais usaste</h2><span class=\"small muted\">dias ganhos com ele</span></d": "day",
    "'<div class=\"kv\" style=\"padding:0 16px 12px\"><div><div class=\"label\">Usados</div><div class=\"v num\">' + usedTot + '</div><div class=\"small muted\">' + plural(clo": true,
    "(ch.length > 6 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(ch.length - 6, 'dia', 'dias') + '</li>' : '') + '</ul></div>';": "day",
-   "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "day"
+   "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "day",
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true
   }
  },
  "jogo": {
@@ -2209,7 +2267,8 @@
  "nenhum": {
   "en": "none",
   "at": {
-   "'<div class=\"status-line\"><span>Código atual</span><span class=\"kbd\">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'nenhum') + '</span></div>' +": "none"
+   "'<div class=\"status-line\"><span>Código atual</span><span class=\"kbd\">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'nenhum') + '</span></div>' +": "none",
+   "(!P.site ? '<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ' + (prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.ma": true
   }
  },
  "membro": {

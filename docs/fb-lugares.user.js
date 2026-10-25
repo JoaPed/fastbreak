@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         FB lugares
-// @description  Fast Break (Top Shot): lugar na run de cada conta do grupo, preços do mercado e raridade e ASP das cartas, para o site joaped.github.io/fastbreak. Só corre quando vens do site (Classificação → Atualizar lugares).
+// @description  Fast Break (Top Shot): lugar na run de cada conta do grupo, preços do mercado e raridade e ASP das cartas, e a run com os prémios, para o site joaped.github.io/fastbreak. Só corre quando vens do site (Classificação → Atualizar lugares).
 // @match        https://nbatopshot.com/*
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      10
+// @version      11
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -172,8 +172,10 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 10, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 11, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     if (want.has('ranks')) await readRanks(out);
+    // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
+    if (want.has('run')) { try { out.runs = await readRun(); } catch (err) { out.runErr = String(err.message || err).slice(0, 80); } }
     // preços: o mais barato à venda de cada jogador que o site pediu, em cada escalão (como no Marketplace do Top Shot)
     if (want.has('px') && Array.isArray(job.pl) && job.pl.length) { try { out.px = await prices(job.pl); } catch (err) { out.px = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     // picks do dia (jogos abertos e % do pessoal): servem para o pick do dia na Jornada
@@ -181,10 +183,41 @@ async function go() {
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
-    say('Feito: ' + [want.has('ranks') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
+    say('Feito: ' + [want.has('ranks') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }
+}
+// a run Classic da NBA (a que está a decorrer e, se o Top Shot já a mostrar, a seguinte): dias com os objetivos,
+// jogadores por lineup e prémios da run e de cada dia. Vai também uma amostra dos campos (sem objetos) para se
+// perceber o formato se alguma coisa não for lida.
+const prim = o => { const r = {}; Object.entries(o || {}).slice(0, 40).forEach(([k, v]) => { if (v == null || typeof v !== 'object') r[k] = typeof v === 'string' ? v.slice(0, 80) : v; }); return r; };
+const bandsOf = x => (((x || {}).reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']);
+const etDay = t => { const ms = Date.parse(t); return isFinite(ms) ? new Date(ms - 4 * 3600e3).toISOString().slice(0, 10) : null; };
+async function readRun() {
+  say('A ler a run e os prémios…');
+  const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
+  const nba = runs.filter(r => (!r.league || r.league === 'nba') && (r.mode === 'RUN_MODE_CLASSIC' || /classic/i.test(String(r.id) + ' ' + (r.name || ''))));
+  const out = [];
+  for (const r of nba.slice(0, 4)) {
+    const x = { id: r.id, name: r.name || null, mode: r.mode || null, starts: r.startsAt || r.startAt || r.opensAt || null, ends: r.endsAt || null, bands: bandsOf(r), qual: r.reward && r.reward.qualifier ? +r.reward.qualifier.rankHigh : null, raw: prim(r), days: [] };
+    try {
+      let cs = [], page = null;
+      for (let i = 0; i < 6; i++) {
+        const res = await call('GameEngineService/SearchContests', Object.assign({ product: 'nba', runId: r.id }, page ? { pageToken: page } : {}));
+        cs = cs.concat(res.contests || []);
+        page = res.nextPageToken || null; if (!page) break;
+      }
+      x.days = cs.map((c, i) => ({
+        id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || etDay(c.locksAt || c.startsAt), name: c.name || null, locks: c.locksAt || null, status: c.status || null,
+        n: +(c.lineupSize || c.numPlayers || c.rosterSize || c.maxLineupSize || c.playerCount || 0) || null,
+        objs: (c.objectives || []).map(o => Object.assign({ k: o.statKey || null, a: o.statAbbreviation || null, t: +o.target, ty: o.type || o.objectiveType || o.scope || o.aggregation || o.mode || null }, i === 0 ? { raw: prim(o) } : {})),
+        bands: bandsOf(c), raw: i === 0 ? prim(c) : undefined,
+      })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    } catch (err) { x.daysErr = String(err.message || err).slice(0, 80); }
+    out.push(x);
+  }
+  return out;
 }
 // lugares na run e em cada dia, de cada conta do grupo
 async function readRanks(out) {

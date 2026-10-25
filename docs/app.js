@@ -657,7 +657,8 @@ async function loadGroup() {
   S.group = { profiles: profiles || [], summaries: (summaries || []).map(x => (x.share && S.alias.size ? Object.assign({}, x, { share: canonDeep(x.share, S.alias) }) : x)), members: members || [], chain: chain || [], loaded: true };
   adoptMine();
   if (S.mineLoaded) syncTierUses(); // raridade e ASP das cartas lidos por alguém do grupo
-  if (S.edReview && S.edPending && edOn()) { S.edReview = false; setTimeout(edReviewSheet, 900); } // leitura nova: mostra o que muda antes de aplicar
+  if (S.edReview && S.edPending && edOn()) { S.edReview = false; setTimeout(edReviewSheet, 900); }
+  if (S.runReview && S.runRead) { S.runReview = false; setTimeout(runReviewSheet, 900); } // run lida no Top Shot: mostra o que muda // leitura nova: mostra o que muda antes de aplicar
 }
 // os lugares e preços que eu li noutro sítio (o Safari e a app do ecrã principal guardam coisas à parte, ou outro
 // aparelho) vêm do meu resumo publicado; sem isto, o resumo seguinte publicava-se sem eles e desapareciam para todos
@@ -687,6 +688,7 @@ function takeRanksHash() {
     S.pickNote = !d || !Array.isArray(d.accs) || (Array.isArray(d.do) && !d.do.includes('picks')) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' jogos.' : d.picksErr ? ' Picks: não deu (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: o script do Top Shot é antigo — se usas o automático (Tampermonkey/Userscripts), reinstala-o ou desliga-o e usa o favorito.' : ' Picks: nenhum aberto.';
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
+    if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runReview = true; S.pickNote = (S.pickNote || '') + (d.runs ? ' Run: ' + (d.runs.length ? d.runs.map(r => r.days.length + ' dias').join(', ') : 'nenhuma run Classic') + '.' : ' Run: não deu (' + (d.runErr || '?') + ').'); delete d.runs; }
     const gotRanks = d && Array.isArray(d.accs) && (!Array.isArray(d.do) || d.do.includes('ranks'));
     if (d && !gotRanks) setTimeout(() => toast('Lido no Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '') + (S.pickNote || '')), 300);
     if (gotRanks) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x.found).length + ' contas na classificação do Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' não encontrados no Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cartas: ' + S.edNew.err + '.' : ' Raridade e ASP das cartas de ' + S.edNew.n + ' jogadores.') : '') + (S.pickNote || '')), 300); S.lastSummary = ''; }
@@ -3255,6 +3257,99 @@ async function chainImport(cid) {
   try { localStorage.removeItem('fb-run'); } catch (e) {}
   await loadShared(); await loadRun(id); compute(); render(); renderAjustes();
 }
+// ---- run lida no Top Shot (botão "Run e prémios" do Admin): cria ou completa a run do site ----
+// Serve de reserva à tarefa da blockchain: dias, objetivos de cada dia e prémios (da run e de cada dia).
+const runSlug = n => (String(n || 'run').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)) || 'run';
+const tsObjs = d => (d.objs || []).map(o => { const stat = FB.mapStat(o.k) || FB.mapStat(o.a), x = { stat, target: +o.t || 0, name: o.a || o.k || '?' }; if (/INDIVIDUAL|EACH|PER_PLAYER|SINGLE/i.test(String(o.ty || (o.raw || {}).type || ''))) x.each = true; return x; });
+const objKey = list => JSON.stringify((list || []).filter(o => o && o.stat && +o.target > 0).map(o => [o.stat, +o.target, !!o.each]));
+async function runPlan(x) {
+  const days = (x.days || []).filter(d => d.date).sort((a, b) => a.date.localeCompare(b.date));
+  const start = days.length ? days[0].date : x.starts ? etDay(Date.parse(x.starts)) : null;
+  const end = days.length ? days[days.length - 1].date : x.ends ? etDay(Date.parse(x.ends) - 12 * 3600e3) : start;
+  if (!start) return null;
+  const n = String(x.name || x.id || '').match(/run\s*(\d+)/i);
+  const name = n ? 'Run ' + n[1] + ' · Classic' : (x.name || 'Run Classic');
+  const site = S.runs.find(r => !r.fictitious && r.start_date && Math.abs(Date.parse(r.start_date) - Date.parse(start)) <= 3 * 864e5) || null;
+  let have = [];
+  if (site) have = site.id === S.runId ? S.days : ((await q(sb.from('run_days').select('date,objectives').eq('run_id', site.id)).catch(() => [])) || []);
+  const byDate = new Map(have.map(d => [d.date, d]));
+  const unknown = new Set();
+  const rows = days.map(d => {
+    const objs = tsObjs(d); objs.filter(o => !o.stat).forEach(o => unknown.add(o.name));
+    const ok = objs.filter(o => o.stat && o.target > 0).map(o => { const y = { stat: o.stat, target: o.target }; if (o.each) y.each = true; return y; });
+    const h = byDate.get(d.date);
+    const kind = !h ? 'k-new' : !ok.length ? 'k-same' : objKey(h.objectives) === objKey(ok) ? 'k-same' : 'k-chg';
+    return { date: d.date, objs: ok, old: h ? h.objectives || [] : null, kind, n: d.n, unk: objs.filter(o => !o.stat).map(o => o.name) };
+  });
+  const id = site ? site.id : (S.runs.some(r => r.id === runSlug(name)) ? runSlug(name) + '-' + start.replace(/-/g, '').slice(2) : runSlug(name));
+  return { x, start, end, name: site ? site.name : name, id, site, rows, unknown: [...unknown], extend: site && (start < site.start_date || end > site.end_date) };
+}
+async function runReviewSheet() {
+  const R = S.runRead; if (!R) return;
+  const money = c => { const v = c / 100; return '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('pt-PT')); };
+  const bandTxt = bs => (bs || []).map(b => (b[0] === b[1] ? b[0] + '.º' : b[0] + '–' + b[1]) + ' ' + (b[2] ? money(b[2]) : esc(b[3] || ''))).join(' · ');
+  const plans = [];
+  for (const x of R.runs) plans.push(await runPlan(x));
+  const today = todayET(), prev = S.runs.filter(r => !r.fictitious && (r.prizes || []).length).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0];
+  const card = (P, i) => {
+    if (!P) return '<div class="note">' + esc(R.runs[i].name || R.runs[i].id) + ': sem datas (o Top Shot ainda não mostra os dias).</div>';
+    const x = P.x, ch = P.rows.filter(r => r.kind !== 'k-same').length + (P.extend ? 1 : 0), withObj = P.rows.filter(r => r.objs.length).length;
+    const rows = P.rows.map((r, k) => '<li class="row"><span><b>Dia ' + (k + 1) + '</b> <span class="muted">' + dWeek(r.date) + ' ' + dShort(r.date) + '</span><br>' + (r.objs.length ? esc(objsText({ objectives: r.objs })) : r.unk.length ? '<span class="muted">' + esc(r.unk.join(' + ')) + ' (não conheço)</span>' : '<span class="muted">objetivo ainda não saiu</span>') +
+      (r.kind === 'k-chg' ? '<br><span class="small muted">antes: ' + esc(objsText({ objectives: r.old })) + '</span>' : '') + '</span><span class="pill' + (r.kind === 'k-new' ? ' ok' : r.kind === 'k-chg' ? ' duv' : '') + '">' + (r.kind === 'k-new' ? 'novo' : r.kind === 'k-chg' ? 'muda' : 'igual') + '</span></li>').join('');
+    const dayBands = ((x.days || []).find(d => (d.bands || []).length) || {}).bands || [];
+    return '<div class="card"><div class="list-head"><h2>' + esc(P.name) + '</h2><span class="small muted">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plural(P.rows.length || 0, 'dia', 'dias') + '</span></div>' +
+      '<div class="row small" style="display:block">' + (P.site ? 'Já está no site' + (P.site.chain_run_id ? ' (ligada à blockchain)' : '') + '. ' : 'Ainda não está no site: vai ser criada. ') + withObj + ' de ' + P.rows.length + ' dias com objetivo.' + (P.extend ? ' As datas mudam para ' + dShort(P.start) + ' – ' + dShort(P.end) + '.' : '') + '</div>' +
+      (P.unknown.length ? '<div class="note">Estatística que não conheço: ' + esc(P.unknown.join(', ')) + ' (esses objetivos ficam de fora).</div>' : '') +
+      (x.daysErr ? '<div class="note">Não li os dias: ' + esc(x.daysErr) + '</div>' : '') +
+      (rows ? '<ul class="list">' + rows + '</ul>' : '') +
+      '<div class="row small" style="display:block"><b>Prémios da run</b>' + (x.qual ? ' (top ' + x.qual + ' qualifica)' : '') + ': ' + (x.bands.length ? bandTxt(x.bands) : '<span class="muted">o Top Shot não mostrou</span>') + '</div>' +
+      (dayBands.length ? '<div class="row small" style="display:block"><b>Prémios de cada dia</b>: ' + bandTxt(dayBands) + '</div>' : '') +
+      (!P.site ? '<div class="row small muted" style="display:block">Patamares de vitórias para o plano: ' + (prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.map(p => p.wins + 'V').join(' · ') + ')' : 'nenhum') + '. ' + (P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today) ? 'Fica a run ativa.' : 'Fica ativa quando começar (carrega outra vez em Run e prémios nesse dia).') + '</div>' : '') +
+      '<div class="btns" style="padding:4px 16px 14px"><button class="btn primary" type="button" data-action="run-apply" data-i="' + i + '"' + (ch || !P.site || (P.start <= today && !P.site.active && P.site.end_date >= today) ? '' : ' disabled') + '>' + (!P.site ? 'Criar a run' : ch ? 'Aplicar ' + plural(ch, 'mudança', 'mudanças') : P.start <= today && !P.site.active && P.site.end_date >= today ? 'Ativar a run' : 'Nada a mudar') + '</button></div></div>';
+  };
+  const raw = R.runs.length ? JSON.stringify({ run: R.runs[0].raw, dia: ((R.runs[0].days || [])[0] || {}).raw, objetivo: ((((R.runs[0].days || [])[0] || {}).objs || [])[0] || {}).raw }, null, 1) : '';
+  openSheet('<h3>Run lida no Top Shot</h3><div class="small muted">' + (R.at ? 'Lida ' + ago(R.at) + '. ' : '') + 'Confirma antes de aplicar.</div>' +
+    (R.err ? '<div class="note">Não deu: ' + esc(R.err) + '</div>' : '') +
+    (!R.runs.length && !R.err ? '<div class="note info">O Top Shot não mostrou nenhuma run Classic da NBA. Se a run nova ainda não começou, tenta no primeiro dia.</div>' : '') +
+    plans.map(card).join('') +
+    (raw ? '<details class="small muted"><summary>Campos lidos (para diagnóstico)</summary><pre style="white-space:pre-wrap;word-break:break-all">' + esc(raw) + '</pre></details>' : ''));
+}
+async function runApply(i) {
+  const R = S.runRead, x = R && R.runs[i]; if (!x) return;
+  const P = await runPlan(x); if (!P) return;
+  const today = todayET(), others = S.runs.filter(r => r.active && !r.fictitious && r.id !== P.id);
+  let ok = true, active = false;
+  if (!P.site) {
+    active = P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today);
+    const prev = S.runs.filter(r => !r.fictitious && (r.prizes || []).length).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0];
+    if (active && S.runs.some(r => r.active)) ok = await adminWrite(sb.from('runs').update({ active: false }).eq('active', true));
+    if (ok) ok = await adminWrite(sb.from('runs').insert({ id: P.id, name: P.name, mode: 'classic', start_date: P.start, end_date: P.end, prizes: prev ? prev.prizes : [], active, fictitious: false }));
+  } else {
+    const patch = {};
+    if (P.start < P.site.start_date) patch.start_date = P.start;
+    if (P.end > P.site.end_date) patch.end_date = P.end;
+    if (P.start <= today && !P.site.active && P.site.end_date >= today) { patch.active = true; active = true; if (others.length) ok = await adminWrite(sb.from('runs').update({ active: false }).eq('active', true)); }
+    if (ok && Object.keys(patch).length) ok = await adminWrite(sb.from('runs').update(patch).eq('id', P.id));
+    active = active || P.site.active;
+  }
+  if (!ok) return;
+  let nNew = 0, nCh = 0;
+  for (const r of P.rows) {
+    if (r.kind === 'k-new') {
+      let games = [];
+      try { games = (await espnBoard(r.date)).filter(g => g.away && g.home).map(g => [g.away, g.home, g.start || null, 'espn:' + g.id]); } catch (e) { /* os jogos chegam com a tarefa do calendário */ }
+      if (await adminWrite(sb.from('run_days').upsert({ run_id: P.id, date: r.date, objectives: r.objs, games }, { onConflict: 'run_id,date' }))) nNew++;
+    } else if (r.kind === 'k-chg') {
+      if (await adminWrite(sb.from('run_days').update({ objectives: r.objs }).eq('run_id', P.id).eq('date', r.date))) nCh++;
+    }
+  }
+  toast((P.site ? P.name + ': ' : P.name + ' criada: ') + [nNew ? plural(nNew, 'dia novo', 'dias novos') : '', nCh ? plural(nCh, 'objetivo mudado', 'objetivos mudados') : ''].filter(Boolean).join(', ') + (active ? ' · run ativa' : '') + '.');
+  try { if (active) localStorage.removeItem('fb-run'); } catch (e) {}
+  await loadShared();
+  if (active || P.id === S.runId) await loadRun(P.id);
+  compute(); render(); renderAjustes();
+  runReviewSheet();
+}
 function adminHtml(run) {
   const out = [];
   const site = location.origin + location.pathname;
@@ -3263,6 +3358,8 @@ function adminHtml(run) {
     (S.edPending && edOn() ? '<div class="note sug"><div>Leitura das cartas por confirmar (raridade e ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">Ver o que muda</button></div></div>' : '') +
     '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Lugares e picks</button><span class="small muted">Rápido. Uma vez por dia, antes dos jogos.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="px">Preços dos jogadores</button><span class="small muted">1–2 minutos. De vez em quando.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run e prémios</button><span class="small muted">Rápido. Quando sai uma run nova, se a blockchain não a trouxer.</span></div>' +
+    (S.runRead ? '<div class="note sug"><div>Run lida no Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">Ver o que muda</button></div></div>' : '') +
     (edOn() ? '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="ed">Cartas (ASP)</button><span class="small muted">1–2 minutos. Raridade e ASP de cada carta do grupo.</span></div>' : '') +
     '<div class="small muted">No Top Shot toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div></div>');
   const imp = chainImportCard(); if (imp) out.push(imp);
@@ -4881,6 +4978,8 @@ document.addEventListener('click', async e => {
     case 'paste-sheet': pasteSheet(); break;
     case 'wallet-sheet': await walletSheet(); break;
     case 'ed-review': edReviewSheet(); break;
+    case 'run-review': runReviewSheet(); break;
+    case 'run-apply': b.disabled = true; await runApply(+b.dataset.i); break;
     case 'ed-apply': closeSheet(); edApply(); toast('Raridade e ASP aplicados: os usos do grupo foram acertados.'); break;
     case 'wallet-apply': b.disabled = true; await walletApply(); break;
     case 'col-to-roster': collectionToRoster(); break;
