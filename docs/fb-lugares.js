@@ -163,7 +163,8 @@ async function go() {
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
     const out = { v: 1, sv: 12, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
-    if (want.has('ranks')) await readRanks(out);
+    // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
+    if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
     if (want.has('run')) { try { out.runs = await readRun(); } catch (err) { out.runErr = String(err.message || err).slice(0, 80); } }
     // preços: o mais barato à venda de cada jogador que o site pediu, em cada escalão (como no Marketplace do Top Shot)
@@ -174,7 +175,7 @@ async function go() {
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
     const luN = (out.days || []).reduce((t, d) => t + Object.values(d.accs || {}).filter(a => a.lu && a.lu.length).length, 0);
-    say('Feito: ' + [want.has('ranks') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('ranks') && (out.days || []).length ? luN + ' lineups em ' + out.days.length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
+    say('Feito: ' + [want.has('ranks') || want.has('lu') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('lu') ? luN + ' lineups em ' + (out.days || []).length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }
@@ -211,7 +212,7 @@ async function readRun() {
   return out;
 }
 // lugares na run e em cada dia, de cada conta do grupo
-async function readRanks(out) {
+async function readRanks(out, withLu) {
   {
     say('A ver a run…');
     const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
@@ -232,7 +233,7 @@ async function readRanks(out) {
     // Os dias que o site já tem fechados (job.known) não se voltam a pedir.
     // nomes dos jogadores (id da NBA → nome), para o site ligar os lineups aos seus jogadores
     const idName = {};
-    try { Object.entries(await tsPlayers()).forEach(([n, id]) => { if (!idName[id]) idName[id] = n; }); } catch (err) {}
+    if (withLu) try { Object.entries(await tsPlayers()).forEach(([n, id]) => { if (!idName[id]) idName[id] = n; }); } catch (err) {}
     try {
       const cs = ((await call('GameEngineService/SearchContests', { product: 'nba', runId: run.id })).contests || [])
         .filter(c => c.locksAt && Date.parse(c.locksAt) <= Date.now() && !(job.known || []).includes(c.id))
@@ -241,10 +242,10 @@ async function readRanks(out) {
       let k = 0;
       for (const c of cs) {
         k++;
-        const d = { luv: 1, id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || null, name: c.name, final: /FINAL/.test(c.status || ''), objs: (c.objectives || []).map(o => [o.statAbbreviation || o.statKey, +o.target]), accs: {}, asked: job.accs.map(a => String(a.a).replace(/^0x/, '').toLowerCase()), bands: ((c.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']) };
+        const d = { luv: withLu ? 1 : undefined, id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || null, name: c.name, final: /FINAL/.test(c.status || ''), objs: (c.objectives || []).map(o => [o.statAbbreviation || o.statKey, +o.target]), accs: {}, asked: job.accs.map(a => String(a.a).replace(/^0x/, '').toLowerCase()), bands: ((c.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']) };
         const lbc = c.leaderboardId || ('contest:' + c.id);
         for (const a of job.accs) {
-          say('A ler os dias e os lineups… ' + k + ' de ' + cs.length);
+          say((withLu ? 'A ler os lineups… ' : 'A ler os dias… ') + k + ' de ' + cs.length);
           try {
             const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: lbc, subjectId: String(a.a).replace(/^0x/, '').toLowerCase() });
             if (r.totalCount) d.total = +r.totalCount;
@@ -252,7 +253,7 @@ async function readRanks(out) {
               const e = r.entry || {}, ak = String(a.a).replace(/^0x/, '').toLowerCase(), x = d.accs[ak] = { rank: +e.rank, score: +e.score, won: +e.score >= 1e6, ds: e.displayScore != null ? +e.displayScore : null };
               // o lineup que levou: a classificação do dia anda por marcador (pontos + desempate da linha anterior);
               // com os dele (desempate + 1) a 1.ª linha é ele
-              try {
+              if (withLu) try {
                 const cur = btoa(JSON.stringify({ s: +e.score, t: +e.tiebreakerScore + 1, a: 0, u: '' })).replace(/=+$/, '');
                 const st = await call('GameEngineService/GetContestStandings', { contestId: c.id, limit: 2, cursor: cur });
                 const row = (st.rows || []).find(z => String(z.flowAddress || '').toLowerCase() === ak);

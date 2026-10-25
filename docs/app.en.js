@@ -690,16 +690,17 @@ function takeRanksHash() {
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
     if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runReview = true; S.pickNote = (S.pickNote || '') + (d.runs ? ' Run: ' + (d.runs.length ? d.runs.map(r => r.days.length + ' days').join(', ') : 'no Classic run') + '.' : ' Run: didn’t work (' + (d.runErr || '?') + ').'); delete d.runs; }
-    const gotRanks = d && Array.isArray(d.accs) && (!Array.isArray(d.do) || d.do.includes('ranks'));
+    const gotRanks = d && Array.isArray(d.accs) && (!Array.isArray(d.do) || d.do.includes('ranks') || d.do.includes('lu'));
     if (d && !gotRanks) setTimeout(() => toast('Read on Top Shot.' + (S.pxNew != null ? ' Prices for ' + S.pxNew + ' players' + (S.pxMissN ? ' (' + S.pxMissN + ' not found)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cards: ' + S.edNew.err + '.' : ' Rarity and ASP of the cards of ' + S.edNew.n + ' players.') : '') + (S.pickNote || '')), 300);
-    if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).length; const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Ranks updated: ' + d.accs.filter(x => x.found).length + ' accounts on the Top Shot leaderboard.' + (luD ? ' Lineups: ' + luN + ' in ' + plural(luD, 'day', 'days') + '.' : '') + (S.pxNew != null ? ' Prices for ' + S.pxNew + ' players' + (S.pxMissN ? ' (' + S.pxMissN + ' not found on Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cards: ' + S.edNew.err + '.' : ' Rarity and ASP of the cards of ' + S.edNew.n + ' players.') : '') + (S.pickNote || '')), 300); S.lastSummary = ''; }
+    if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).length; const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Ranks updated: ' + d.accs.filter(x => x.found).length + ' accounts on the Top Shot leaderboard.' + (Array.isArray(d.do) && d.do.includes('lu') ? ' Lineups: ' + luN + ' in ' + plural(luD, 'day', 'days') + '.' : '') + (S.pxNew != null ? ' Prices for ' + S.pxNew + ' players' + (S.pxMissN ? ' (' + S.pxMissN + ' not found on Top Shot)' : '') + '.' : '') + (S.edNew ? (S.edNew.err ? ' Cards: ' + S.edNew.err + '.' : ' Rarity and ASP of the cards of ' + S.edNew.n + ' players.') : '') + (S.pickNote || '')), 300); S.lastSummary = ''; }
   } catch (e) { console.warn('lugares', e); }
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 }
 // junta os dias (lugar de cada conta em cada dia): os novos por cima dos antigos, conta a conta
 function mergeRankDays(a, b) {
   const by = new Map(); (a || []).forEach(d => by.set(d.id, JSON.parse(JSON.stringify(d))));
-  (b || []).forEach(d => { const o = by.get(d.id); by.set(d.id, o ? Object.assign(o, d, { accs: Object.assign({}, o.accs, d.accs), final: d.final || o.final, asked: [...new Set((o.asked || []).concat(d.asked || []))] }) : d); });
+  // conta a conta junta os campos (uma leitura só dos lugares não apaga o lineup lido antes)
+  (b || []).forEach(d => { const o = by.get(d.id); if (!o) { by.set(d.id, d); return; } const accs = Object.assign({}, o.accs); Object.entries(d.accs || {}).forEach(([k, v]) => { accs[k] = Object.assign({}, accs[k], v); }); by.set(d.id, Object.assign(o, d, { accs, luv: d.luv || o.luv, final: d.final || o.final, asked: [...new Set((o.asked || []).concat(d.asked || []))] })); });
   return [...by.values()].sort((x, y) => String(x.date || x.id).localeCompare(String(y.date || y.id)));
 }
 // os lugares mais recentes do grupo (os meus ou os que outro membro publicou); os dias juntam-se de todos os da mesma run
@@ -723,7 +724,7 @@ function rankJob(what) {
     if (p.flow_address) accs.push({ a: addrKey(p.flow_address), uid: p.user_id, acc: 'main' });
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
-  const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && d.luv && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
+  const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && (!want.includes('lu') || d.luv) && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
   return Object.assign({ accs, back: siteBase(), known, do: want }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {});
 }
 // as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
@@ -3424,7 +3425,8 @@ function adminHtml(run) {
   // leituras no Top Shot (só o admin): cada uma abre o Fast Break no Top Shot e volta com o que leu
   out.push('<div class="card panel"><h2>Read on Top Shot</h2>' +
     (S.edPending && edOn() ? '<div class="note sug"><div>Card reading waiting for your OK (rarity and ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">See what changes</button></div></div>' : '') +
-    '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Ranks and picks</button><span class="small muted">Quick. Once a day, before the games.</span></div>' +
+    '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Standings and picks</button><span class="small muted">Quick. Once a day, before the games.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="lu">Lineups</button><span class="small muted">The lineup each account played on the days that closed. In the morning.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="px">Player prices</button><span class="small muted">1–2 minutes. Now and then.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run and prizes</button><span class="small muted">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>' +
     (S.runRead ? '<div class="note sug"><div>Run read on Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">See what changes</button></div></div>' : '') +
