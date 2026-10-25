@@ -558,8 +558,8 @@ with sync_playwright() as pw:
     pg.click('#tab-plantel button[data-action="sub"][data-sub="forma"]'); pg.wait_for_timeout(300); 
     print('E forma (meus):', pg.locator('#plSub').inner_text().replace('\n', ' | ')[:500])
     pg.screenshot(path=str(shots / 'jogadores-forma.png'), full_page=True)
-    pg.click('#plSub button[data-action="forma-scope"][data-v="all"]'); pg.wait_for_timeout(300)
-    print('E forma (NBA):', pg.locator('#plSub .frow').count(), 'linhas ·', (pg.locator('#plSub .frow').first.inner_text().replace('\n', ' | ') if pg.locator('#plSub .frow').count() else ''))
+    pg.locator('#plSub button[data-action="forma-day"]').nth(1).click(); pg.wait_for_timeout(300)
+    print('E forma (dia 2):', pg.locator('#plSub .frow').count(), 'linhas ·', (pg.locator('#plSub .frow').first.inner_text().replace('\n', ' | ') if pg.locator('#plSub .frow').count() else ''))
     if pg.locator('#plSub .frow').count():
         pg.locator('#plSub .frow').last.click(); pg.wait_for_timeout(300)
         print('E ficha da forma:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:200]); pg.click('#sheetPanel button[data-action="close-sheet"]')

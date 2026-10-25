@@ -1068,3 +1068,7 @@ p, .note { text-wrap: pretty; }
 .sell-card { display: flex; align-items: center; gap: 10px; }
 .sell-card .sell-g b { font-size: 17px; }
 .sell-row .ps .muted, [data-action="sell-tab"] .muted { font-weight: 600; }
+/* Forma da run: o nome inteiro, com o "no plano" por baixo se não couber */
+.frow .pn { flex-wrap: wrap; row-gap: 2px; }
+.frow .pn .nm { white-space: normal; overflow: visible; text-overflow: clip; }
+.ps.fx { margin-top: 2px; }

@@ -352,7 +352,7 @@ const HELP = {
   colecao: ['Collection', 'Your Moments read from the blockchain (all accounts), saved in your profile for every run. Uses per run of each player: those of the best card. Moments of players outside this NBA season don’t count.'],
   comprar: ['Buy', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
   especialistas: ['Specialists', 'The NBA’s best in each stat (this season mixed with last). Stats are ordered by how often they come up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.'],
-  forma: ['Form', 'Average of the last 5 games vs the season. The bars are the last 5 games (most recent on the right); the line is the season average.'],
+  forma: ['Run form', 'Pick one of the next days. Hot: your players who play that day with their last-5 average above the season (≥ 8%) in the goal’s stats. Cold: those in that day’s plan below the season. Minutes: who plays 3+ minutes more or less than his season average. Might play less: games the favourite wins 85%+ of the time (ESPN odds, only near the game) — if it’s decided early, stars rest or are spared. The bars are the last games (most recent on the right); the line is the season average.'],
   lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. For the rest of the NBA only the important ones show (20+ minutes or 12+ points).'],
   classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
   lineups: ['Group lineups', 'For each day, the players each person’s plan puts in the lineup (it changes until the game), most picked on top, and who takes them. Lock: that person already locked him or he is already playing. Highlighted: the ones in your lineup for that day. «By person» shows each person’s lineup, with a ring on the players also in yours.'],
@@ -1532,6 +1532,7 @@ function renderJornada(el) {
     // Moment que ainda está noutra conta: tem de ser mandado antes deste jogo
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Send from ' + esc(accLabel(tr.from)) + '</span> ' + ps;
+    if (!live && !S.gOdds[nd.date]) loadGameOdds(nd.date);
     let stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
     let rl = '';
     if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);
@@ -1539,7 +1540,7 @@ function renderJornada(el) {
       rl = '<div class="risk-sub">if he sits: ' + (sb ? '<b>' + esc(lastName(sb.id)) + '</b> (today ' + pct(sb.P) + ')' : 'no swap after his game') + '</div>'; }
     // ao vivo, com o jogo já começado: tocar abre as estatísticas do jogo
     const gid = live && /^(jogo\??|fim)$/.test(info.liveState || '') ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
-    return '<li><button class="row" type="button" ' + (/^espn:/.test(gid) ? 'data-action="game-box" data-gid="' + esc(gid) + '"' : 'data-action="player"') + ' data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div>' + rl + '</div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
+    return '<li><button class="row" type="button" ' + (/^espn:/.test(gid) ? 'data-action="game-box" data-gid="' + esc(gid) + '"' : 'data-action="player"') + ' data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div>' + rl + (live ? '' : fxHtml(id, nd, [...new Set(md.objs.map(x => x.stat))])) + '</div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
   }).join('');
   const allFinal = live && d.live.submitted.length && d.live.submitted.every(id => ((lp[id] || {}).state) === 'fim');
   // antes dos jogos: Mudar (fixar, tirar e pôr jogadores um a um, com o que muda face à sugestão)
@@ -2416,13 +2417,14 @@ function plFacts(ctx, p) {
   const sh = mdNext ? shareOf(mdNext, pi) : null;
   const usedN = Object.values(played).filter(pl => pl && pl.done && (pl.lineup || []).includes(p.id)).length;
   const ir = injRec(p.id), col = (S.profile || {}).collection, ci = col && (col.players || {})[p.id];
-  return { pi, left, sh, mdNext, usedN, plan: (planned[p.id] || new Set()).size, uses: p.uses || 0, ir: ir && !p.injIgnore ? ir : null, tier: ci && ci.bySet ? bestTier(col, ci) : null, other: Object.keys(elsewhere[p.id] || {}).length };
+  const fStats = nd ? [...new Set((nd.objectives || []).filter(o => o && o.stat).map(o => o.stat))] : [];
+  return { pi, left, sh, mdNext, usedN, plan: (planned[p.id] || new Set()).size, uses: p.uses || 0, ir: ir && !p.injIgnore ? ir : null, tier: ci && ci.bySet ? bestTier(col, ci) : null, other: Object.keys(elsewhere[p.id] || {}).length, fStats, fp: formDay(p.id, fStats.length ? fStats : ['pts']) };
 }
-const PL_SORTS = [['plano', 'In the plan'], ['proximo', 'Next day'], ['usos', 'Uses'], ['jogos', 'Games'], ['nome', 'Name']];
-const PL_FILTERS = [['todos', 'All'], ['proximo', 'Play on the next day'], ['plano', 'In the plan'], ['sobram', 'Uses to spare'], ['semusos', 'No uses'], ['lesao', 'Injured']];
+const PL_SORTS = [['plano', 'In the plan'], ['proximo', 'Next day'], ['forma', 'Form'], ['usos', 'Uses'], ['jogos', 'Games'], ['nome', 'Name']];
+const PL_FILTERS = [['todos', 'All'], ['proximo', 'Play on the next day'], ['plano', 'In the plan'], ['quente', 'In form'], ['frio', 'Out of form'], ['sobram', 'Uses to spare'], ['semusos', 'No uses'], ['lesao', 'Injured']];
 function plFilter(ctx) {
   const PV = S.plView, facts = new Map(ctx.list.map(p => [p.id, plFacts(ctx, p)]));
-  const test = { todos: () => true, proximo: f => f.sh != null, plano: f => f.plan > 0, sobram: f => f.uses > f.plan, semusos: f => f.uses <= 0, lesao: f => !!f.ir };
+  const test = { todos: () => true, proximo: f => f.sh != null, plano: f => f.plan > 0, quente: f => f.fp != null && f.fp >= 0.08, frio: f => f.fp != null && f.fp <= -0.08, sobram: f => f.uses > f.plan, semusos: f => f.uses <= 0, lesao: f => !!f.ir };
   const counts = {}; PL_FILTERS.forEach(([k]) => { counts[k] = ctx.list.filter(p => test[k](facts.get(p.id))).length; });
   const fk = test[PV.filter] ? PV.filter : 'todos';
   const by = {
@@ -2431,6 +2433,7 @@ function plFilter(ctx) {
     usos: (a, b) => (b.f.uses - a.f.uses) || (b.f.plan - a.f.plan),
     jogos: (a, b) => (b.f.left.length - a.f.left.length) || (b.f.uses - a.f.uses),
     nome: (a, b) => String(a.p.name).localeCompare(String(b.p.name)),
+    forma: (a, b) => (b.f.fp == null ? -9 : b.f.fp) - (a.f.fp == null ? -9 : a.f.fp),
   };
   const rows = ctx.list.map(p => ({ p, f: facts.get(p.id) })).filter(x => test[fk](x.f)).sort(by[PV.sort] || by.plano);
   return { rows, counts, fk };
@@ -2463,7 +2466,7 @@ function plListHtml(ctx) {
     const full = f.uses > 0 && f.plan >= f.uses, none = f.uses <= 0;
     return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '">' + face(p.id, 'md') +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (f.tier ? '<span class="tpill t-' + TIER_CLS[f.tier] + '">' + f.tier + '</span>' : '') + st + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'game', 'games') + ' until the end' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +
+      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'game', 'games') + ' until the end' + (nextTxt ? ' · ' + nextTxt : '') + '</div>' + (f.sh != null ? fxHtml(p.id, nd, f.fStats.length ? f.fStats : ['pts']) : '') + '</div>' +
       '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + (f.uses >= UNL - 30 ? '∞' : f.uses) + '</b><span>' + (f.uses === 1 ? 'use' : 'uses') + '</span><small>' + (f.plan ? 'plan ' + f.plan : 'not in the plan') + (f.usedN ? ' · used ' + f.usedN : '') + '</small></div>' +
       plDays(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</button></li>';
   }).join('');
@@ -2499,7 +2502,7 @@ const TEAM_COLOR = { ATL: '#E03A3E', BOS: '#007A33', BKN: '#3A3A3A', CHA: '#1D11
 const teamTag = t => (t ? '<span class="tdot" style="background:' + (TEAM_COLOR[t] || 'var(--faint)') + '" aria-hidden="true"></span> ' + esc(t) : '—');
 const playerObj = id => { const c = S.players.get(String(id)) || {}, e = (S.mine.roster || {})[id] || {}; return { id: String(id), name: e.name || c.name || String(id), team: e.team || c.team || '', avg: e.avg || c.avg || null }; };
 // ---- Forma: últimos 5 jogos face à época ----
-S.forma = { scope: 'mine', stat: null };
+S.forma = { day: null };
 const FORM_STATS = ['pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'min'];
 const statName = k => (k === 'min' ? 'MIN' : statShort(k));
 function gameVals(g) { const o = {}; GK.forEach((k, i) => { o[k] = g[2 + i]; }); return o; }
@@ -2512,26 +2515,75 @@ function sparkSvg(games, stat, avg, season) {
   return '<svg class="spark" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true">' + vals.map((x, i) => '<rect class="' + (season != null && x > season ? 'hi' : '') + '" x="' + (i * (bw + gap)).toFixed(1) + '" y="' + y(x).toFixed(1) + '" width="' + bw + '" height="' + Math.max(1.5, H - 1 - y(x)).toFixed(1) + '" rx="1.5"></rect>').join('') +
     (season != null ? '<line x1="0" x2="' + W + '" y1="' + y(season).toFixed(1) + '" y2="' + y(season).toFixed(1) + '"></line>' : '') + '</svg>';
 }
+// forma numa estatística: últimos 5 jogos face à época ({pct, l5, season}; null com menos de 3 jogos)
+function formPct(id, stat) {
+  const fi = FB.formInfo(playerObj(id), stat);
+  if (!fi || fi.l5 == null || fi.season == null || (fi.n5 || 0) < 3) return null;
+  return { pct: (fi.l5 - fi.season) / Math.max(1, Math.abs(fi.season)), l5: fi.l5, season: fi.season };
+}
+// forma média nas estatísticas de um dia (as do objetivo)
+function formDay(id, stats) { const xs = stats.map(st => formPct(id, st)).filter(Boolean); return xs.length ? xs.reduce((t, x) => t + x.pct, 0) / xs.length : null; }
+// minutos nos últimos 5 jogos face à época ({l5, season, d})
+function minTrend(id) {
+  const c = S.players.get(String(canon(id))), avg = c && c.avg, f = avg && avg.form;
+  if (!f || !Array.isArray(f.games) || !(+avg.min > 0)) return null;
+  const ms = f.games.slice(0, 5).map(g => +gameVals(g).min || 0).filter(m => m > 0);
+  if (ms.length < 3) return null;
+  const l5 = ms.reduce((t, x) => t + x, 0) / ms.length; return { l5, season: +avg.min, d: l5 - +avg.min };
+}
+// jogo desequilibrado (o favorito ganha em ≥ 85% pelas odds da ESPN): quem joga muitos minutos pode jogar menos
+// (descanso no fim de um jogo decidido, ou poupado contra uma equipa muito má)
+function blowout(id, day) {
+  if (!day) return null;
+  const t = pTeam(id), g = FB.gameOf(day, t); if (!g) return null;
+  const o = ((S.gOdds[day.date] || {}).m || {})[g[0] + '@' + g[1]]; if (!o || o.pHome == null) return null;
+  const pf = Math.max(o.pHome, 1 - o.pHome); if (pf < 0.85) return null;
+  const c = S.players.get(String(canon(id))); if (!c || !(+((c.avg || {}).min) >= 28)) return null;
+  const fav = o.pHome >= 0.5 ? g[1] : g[0]; return { fav, p: pf, mine: fav === t };
+}
+const boTxt = b => 'Lopsided game (' + esc(b.fav) + ' ' + Math.round(b.p * 100) + '%): ' + (b.mine ? 'may be rested' : 'may play fewer minutes');
+// linha da forma (estatísticas do dia e minutos) e o aviso de jogo desequilibrado, para o lineup e o plantel
+function fxHtml(id, day, stats) {
+  const parts = [];
+  stats.forEach(st => { const f = formPct(id, st); if (f && Math.abs(f.pct) >= 0.08) parts.push('<b class="' + (f.pct > 0 ? 'c-good' : 'c-bad') + '">' + (f.pct > 0 ? '▲ +' : '▼ −') + Math.round(Math.abs(f.pct) * 100) + '%</b> ' + esc(statShort(st))); });
+  const m = minTrend(id); if (m && Math.abs(m.d) >= 3) parts.push('<b class="' + (m.d > 0 ? 'c-good' : 'c-bad') + '">' + f0(m.l5) + ' min</b> (' + (m.d > 0 ? '+' : '−') + f0(Math.abs(m.d)) + ')');
+  const b = blowout(id, day);
+  return (parts.length ? '<div class="ps fx">' + parts.join(' · ') + ' <span class="muted">over the last 5</span></div>' : '') + (b ? '<div class="risk-sub">⚠ ' + boTxt(b) + '</div>' : '');
+}
+// ---- Forma da run: para cada um dos próximos dias, quem dos teus está quente ou frio no que o dia pede ----
 function formaHtml() {
-  const F = S.forma, nd = nextDay && S.result ? nextDay() : null, o = nd && (nd.objectives || [])[0];
-  const stats = (o && o.stat && !FORM_STATS.includes(o.stat) ? [o.stat] : []).concat(FORM_STATS);
-  const stat = F.stat && stats.includes(F.stat) ? F.stat : (o && o.stat) || 'pts';
-  const mineIds = S.runId && Object.keys(S.mine.roster || {}).length ? Object.keys(S.mine.roster) : Object.keys((((S.profile || {}).collection) || {}).players || {});
-  const pool = F.scope === 'mine' ? mineIds.map(playerObj) : [...S.players.values()].filter(p => p.avg && p.avg.form && (+p.avg.min || 0) >= 18).map(p => playerObj(p.id));
-  const rows = pool.map(p => { const fi = FB.formInfo(p, stat); if (!fi || fi.l5 == null || fi.season == null || (fi.n5 || 0) < 3) return null; return { p, fi, d: (fi.l5 - fi.season) / Math.max(1, Math.abs(fi.season)) }; }).filter(Boolean).sort((a, b) => b.d - a.d);
-  const head = '<div class="card panel filters"><h2>Form ' + helpBtn('forma') + '</h2>' +
-    '<div class="seg acc-seg" role="group" aria-label="Which players"><button type="button" data-action="forma-scope" data-v="mine" aria-pressed="' + (F.scope === 'mine') + '">Mine</button><button type="button" data-action="forma-scope" data-v="all" aria-pressed="' + (F.scope === 'all') + '">Whole NBA</button></div>' +
-    '<div class="chips scroll" role="group" aria-label="Stat">' + stats.map(k => '<button type="button" data-action="forma-stat" data-v="' + esc(k) + '" aria-pressed="' + (k === stat) + '">' + esc(statName(k)) + (o && k === o.stat ? ' · today' : '') + '</button>').join('') + '</div></div>';
-  if (!rows.length) return head + '<div class="note info">' + (pool.length ? 'Form shows up after 3 games this season.' : F.scope === 'mine' ? 'You have no players yet.' : 'No games this season yet.') + '</div>';
-  const u = esc(statName(stat));
-  const row = x => { const pc = Math.round(x.d * 100), cls = pc >= 8 ? 'up' : pc <= -8 ? 'down' : '', ir = injRec(x.p.id);
-    return '<li><button class="frow" type="button" data-action="pform" data-id="' + esc(x.p.id) + '"><span class="who">' + face(x.p.id, 'sm') + '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(x.p.name) + '</span>' + (ir ? '<span class="pill ' + INJ_PILL[ir.status] + '">' + INJ_SHORT[ir.status] + '</span>' : '') + (F.scope === 'all' && S.mine.roster[x.p.id] ? '<span class="badge">yours</span>' : '') + '</span>' +
-      '<span class="ps">' + teamTag(x.p.team) + ' · last 5: <b class="num">' + f1(x.fi.l5) + '</b> · season ' + f1(x.fi.season) + ' ' + u + '</span></span></span>' + sparkSvg(((x.p.avg || {}).form || {}).games, stat, x.p.avg, x.fi.season) +
-      '<span class="delta ' + cls + ' num">' + (pc > 0 ? '+' : pc < 0 ? '−' : '') + Math.abs(pc) + '%<small>vs season</small></span></button></li>'; };
-  const hot = rows.filter(x => x.d >= 0.08), cold = rows.filter(x => x.d <= -0.08).reverse(), steady = rows.filter(x => x.d > -0.08 && x.d < 0.08);
-  const lim = F.scope === 'all' ? 12 : 99;
-  const card = (title, list, note) => list.length ? '<div class="card"><div class="list-head"><h2>' + title + '</h2><span class="small muted">' + (note || list.length) + '</span></div><ul class="list">' + list.slice(0, lim).map(row).join('') + '</ul></div>' : '';
-  return head + card('In form', hot, F.scope === 'all' ? 'the ' + Math.min(lim, hot.length) + ' that rose the most' : '') + card('Out of form', cold, F.scope === 'all' ? 'the ' + Math.min(lim, cold.length) + ' that dropped the most' : '') + (F.scope === 'mine' ? card('Same as the season', steady) : '');
+  const r = S.result, v = view();
+  if (!r || !v || !r.model.days.length) return '<div class="note info">Form shows up once the run is calculated.</div>';
+  const mds = r.model.days.filter(md => md.objs.length).slice(0, 6);
+  if (!mds.length) return '<div class="note info">No goals for the next days yet.</div>';
+  const md = mds.find(x => x.day.date === S.forma.day) || mds[0], day = md.day, dn = dayNo(day.date);
+  if (!S.gOdds[day.date]) loadGameOdds(day.date);
+  const stats = [...new Set(md.objs.map(o => o.stat))], lu = new Set(((v.days.find(x => x.date === day.date)) || {}).lineup || []);
+  const ids = md.elig.map(pi => r.model.players[pi].id).filter(id => (S.mine.roster || {})[id]);
+  const st0 = stats[0], u = esc(statShort(st0));
+  const rowOf = (id, extra) => {
+    const p = playerObj(id), f = formPct(id, st0), fd = formDay(id, stats), pc = fd == null ? null : Math.round(fd * 100);
+    return '<li><button class="frow" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="who">' + face(id, 'sm') + '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(p.name) + '</span>' + (lu.has(id) ? '<span class="pill prov">in the plan</span>' : '') + '</span>' +
+      '<span class="ps">' + teamTag(p.team) + ' ' + esc(opp(p.team, day)) + (f ? ' · last 5: <b class="num">' + f1(f.l5) + '</b> ' + u + ' · season ' + f1(f.season) : '') + '</span>' + (extra || '') + '</span></span>' +
+      sparkSvg(((p.avg || {}).form || {}).games, st0, p.avg, f ? f.season : null) +
+      '<span class="delta ' + (pc >= 8 ? 'up' : pc <= -8 ? 'down' : '') + ' num">' + (pc == null ? '—' : (pc > 0 ? '+' : pc < 0 ? '−' : '') + Math.abs(pc) + '%') + '<small>vs season</small></span></button></li>';
+  };
+  const withF = ids.map(id => ({ id, fd: formDay(id, stats) })).filter(x => x.fd != null);
+  const hot = withF.filter(x => x.fd >= 0.08).sort((a, b) => b.fd - a.fd), cold = withF.filter(x => x.fd <= -0.08 && lu.has(x.id)).sort((a, b) => a.fd - b.fd);
+  const mins = ids.map(id => ({ id, m: minTrend(id) })).filter(x => x.m && Math.abs(x.m.d) >= 3).sort((a, b) => Math.abs(b.m.d) - Math.abs(a.m.d));
+  const bos = ids.map(id => ({ id, b: blowout(id, day) })).filter(x => x.b).sort((a, b) => (lu.has(b.id) ? 1 : 0) - (lu.has(a.id) ? 1 : 0));
+  const minRow = x => { const p = playerObj(x.id), m = x.m;
+    return '<li><button class="frow" type="button" data-action="pform" data-id="' + esc(x.id) + '"><span class="who">' + face(x.id, 'sm') + '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(p.name) + '</span>' + (lu.has(x.id) ? '<span class="pill prov">in the plan</span>' : '') + '</span><span class="ps">' + f0(m.l5) + ' min over the last 5 · season ' + f0(m.season) + '</span></span></span>' +
+      sparkSvg(((p.avg || {}).form || {}).games, 'min', p.avg, m.season) + '<span class="delta ' + (m.d > 0 ? 'up' : 'down') + ' num">' + (m.d > 0 ? '+' : '−') + f0(Math.abs(m.d)) + '<small>min</small></span></button></li>'; };
+  const boRow = x => { const p = playerObj(x.id);
+    return '<li><button class="row" type="button" data-action="pform" data-id="' + esc(x.id) + '"><span class="who">' + face(x.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (lu.has(x.id) ? '<span class="pill prov">in the plan</span>' : '') + '</div><div class="ps">' + teamTag(p.team) + ' ' + esc(opp(p.team, day)) + '</div><div class="risk-sub">⚠ ' + boTxt(x.b) + '</div></div></span></button></li>'; };
+  const card = (title, note, list, empty) => '<div class="card"><div class="list-head"><h2>' + title + '</h2><span class="small muted">' + note + '</span></div>' + (list ? '<ul class="list">' + list + '</ul>' : '<div class="row small muted">' + empty + '</div>') + '</div>';
+  return '<div class="card panel filters"><h2>Run form ' + helpBtn('forma') + '</h2><div class="small muted">For the next days: which of your players are hot or cold in what the day asks for, who is gaining or losing minutes and who might play less.</div>' +
+    '<div class="chips scroll" role="group" aria-label="Day">' + mds.map(x => '<button type="button" data-action="forma-day" data-v="' + x.day.date + '" aria-pressed="' + (x === md) + '">Day ' + dayNo(x.day.date) + ' · ' + esc(x.objs.map(o => statShort(o.stat)).join(' + ')) + '</button>').join('') + '</div></div>' +
+    card('Hot for day ' + dn, 'yours who play', hot.map(x => rowOf(x.id)).join(''), 'None of yours is above his season in these stats.') +
+    card('Cold in the plan for day ' + dn, 'consider swapping', cold.map(x => rowOf(x.id)).join(''), 'No one in this day’s plan is below his season.') +
+    card('Minutes changing', 'last 5 vs season', mins.map(minRow).join(''), 'None of yours playing this day changed minutes (±3).') +
+    (bos.length ? card('Might play less', 'lopsided games', bos.map(boRow).join(''), '') : '');
 }
 // ---- Lesões: o teu plantel primeiro, depois os jogadores importantes do resto da NBA ----
 const INJ_ORDER = { ofs: 0, out: 1, doubtful: 2, questionable: 3, dtd: 4, probable: 5 };
@@ -5293,8 +5345,7 @@ document.addEventListener('click', async e => {
     case 'buy-mode': S.buy.mode = b.dataset.mode; S.buy.results = null; renderPlantel(); break;
     case 'buy-uses': S.buy.uses = +b.dataset.n; S.buy.results = null; renderPlantel(); break;
     case 'pform': S.mine.roster[id] ? rosterSheet(id) : catalogSheet(id); break;
-    case 'forma-scope': S.forma.scope = b.dataset.v; renderPlantel(); break;
-    case 'forma-stat': S.forma.stat = b.dataset.v; renderPlantel(); break;
+    case 'forma-day': S.forma.day = b.dataset.v; renderPlantel(); break;
     case 'borrow-run': b.disabled = true; await borrowRun(); break;
     case 'share-plan': {
       const v = b.dataset.v === '1';
