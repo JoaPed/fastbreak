@@ -656,7 +656,7 @@ export function groupAlertText(items, owners, opts = {}) {
 // "Lineups done?" no grupo: só o aviso, sem nomes (o site não sabe ao certo quem já submeteu)
 export function groupReminderText(R, opts = {}) {
   const hm = hmEn(opts.tz);
-  return '🏀 <b>Lineups done?</b>\n\nToday’s games start at <b>' + hm(R.firstTip) + '</b>' + (R.run ? ' · ' + tgEsc(R.run) : '') + '.';
+  return '🏀 Lineups done?\nToday’s games start at ' + hm(R.firstTip) + '.'; // exatamente assim (pedido do utilizador)
 }
 const andJoin = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0] || '');
 export function alertText(items, opts = {}) {
