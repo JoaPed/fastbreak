@@ -1153,6 +1153,9 @@ function planForEngine(acc) {
   sk.forEach(d => { played[d.date] = { done: true, result: 'none', lineup: [], auto: true }; });
   return Object.assign({}, pa, { played });
 }
+// já não está em nenhuma equipa da NBA (retirado, sem contrato): o catálogo (plantéis da ESPN e quem jogou esta
+// época) não o tem. Jogadores postos à mão (x-…) não contam.
+const gone = id => S.players.size > 200 && !/^x-/.test(String(id)) && !S.players.get(String(canon(id)));
 function engineInputs(acc) {
   acc = acc || 'main';
   const run = S.runs.find(r => r.id === S.runId) || {};
@@ -1161,7 +1164,7 @@ function engineInputs(acc) {
     const c = S.players.get(String(id)) || {}, pk = acc + '|' + id;
     const uses = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, acc);
     const ci = collectionInfo(id);
-    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: 'ok' /* o estado vem do relatório de lesões */, injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, cards: ci.cards || null, owner: ci.owner, hold: ci.hold };
+    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: gone(id) ? 'fora' : 'ok' /* o estado vem do relatório de lesões; quem já não está na NBA fica de fora */, injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, cards: ci.cards || null, owner: ci.owner, hold: ci.hold };
   });
   const odds = { days: {} };
   Object.entries(S.odds).forEach(([d, o]) => { odds.days[d] = { players: o.players || {}, source: o.source, updatedAt: o.updated_at }; });
@@ -2354,7 +2357,7 @@ function renderPlantel() {
   }
   const ids = Object.keys(S.mine.roster || {});
   if (!$('rosterFilter')) {
-    box.innerHTML = '<div class="toolbar"><input class="field" id="rosterFilter" type="search" placeholder="Search the roster…" value="' + esc(S.filter) + '" aria-label="Search the roster"><button class="btn" type="button" data-action="add-player">Add</button></div><div id="plBody" class="stack"></div>';
+    box.innerHTML = '<div class="toolbar"><input class="field" id="rosterFilter" type="search" placeholder="Search the roster…" value="' + esc(S.filter) + '" aria-label="Search the squad"></div><div id="plBody" class="stack"></div>';
   }
   const body = $('plBody'), run = curRun() || {};
   if (!ids.length) {
@@ -3638,7 +3641,7 @@ function rosterSheet(id) {
   S.sheetPl = id;
   const c = S.players.get(String(id)) || {}, v = view();
   const inPlan = v ? v.days.filter(x => x.lineup.includes(id)).map(x => x.idx + 1) : [];
-  const team = e.team || c.team || '';
+  const team = e.team || c.team || '', goneNote = gone(id) ? '<div class="note">He’s no longer on any NBA team (retired or unsigned): the plan doesn’t use him.</div>' : '';
   // usos de cada conta: usados nesta run, restantes (editáveis) e quantos o plano usa
   const planOfAcc = k => { const r = S.multi ? S.multi.byKey[k] : S.result; return r ? r.normal.days.filter(x => x.lineup.includes(id)).length : 0; };
   const usesRows = accounts().map(a => {
@@ -3650,7 +3653,7 @@ function rosterSheet(id) {
   }).join('');
   const games = S.days.filter(d => FB.teamsOn(d).has(team)).length;
   const avg = e.avg || c.avg;
-  openSheet('<div class="who ph">' + face(id, 'lg') + '<div style="min-width:0"><h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + esc(team || 'no team') + ' · ' + games + ' games in the run · in the plan: ' + (inPlan.length ? 'days ' + inPlan.join(', ') : 'no day') + '</div></div></div>' +
+  openSheet('<div class="who ph">' + face(id, 'lg') + '<div style="min-width:0"><h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + esc(team || 'no team') + ' · ' + games + ' games in the run · in the plan: ' + (inPlan.length ? 'days ' + inPlan.join(', ') : 'no day') + '</div></div></div>' + goneNote +
     (() => { const ci = ((((S.profile || {}).collection) || {}).players || {})[id] || (e.moments ? { moments: e.moments, sets: e.sets } : null); if (!ci) return '';
       const col = (S.profile || {}).collection;
       return ci.ids && col && col.items ? '' : '<div class="small muted">In the wallet: ' + (groupMode() && ci.owners ? Object.entries(ci.owners).map(([k, n]) => esc(accLabel(k)) + ' ' + n).join(' · ') : plural(ci.moments || 1, 'Moment', 'Moments')) + (ci.bySet ? ' · ' + esc(usesWhy(col, ci)) : '') + '</div>'; })() +
