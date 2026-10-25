@@ -86,7 +86,7 @@ ok('Telegram: uma mensagem com as lesões dos lineups de toda a gente e de quem 
 runTg(Date.parse('2026-10-21T22:00:00Z'));
 g = readTg();
 const gl = g.sent.find(x => /Lineups done/.test(x.message)) || {}, gs = g.sent.find(x => /Status update/.test(x.message)) || {};
-ok('Telegram: lembrete do lineup só com o aviso, sem nomes', (gl.message || '') === '🏀 Lineups done?\nToday’s games start at ' + (gl.message || '').slice(-6) && !/João|Marquês/.test(gl.message || ''), g.sent.map(x => x.message));
+ok('Telegram: lembrete do lineup só com o aviso, sem nomes', /^🏀 <b>Lineups done\?<\/b>\nToday’s games start at <b>\d\d:\d\d<\/b>\.$/.test(gl.message || '') && !/João|Marquês/.test(gl.message || ''), g.sent.map(x => x.message));
 ok('Telegram: ponto da situação às 23h de quem está em dúvida', /<b>Keshon Gilbert<\/b> \(ATL\) · still <b>day-to-day<\/b>/.test(gs.message || ''), g.sent.map(x => x.message));
 const nTg = g.sent.length;
 runTg(Date.parse('2026-10-21T22:15:00Z'));
