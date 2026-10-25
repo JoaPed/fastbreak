@@ -658,6 +658,11 @@ export function groupReminderText(R, opts = {}) {
   const hm = hmEn(opts.tz);
   return '🏀 <b>Lineups done?</b>\nToday’s games start at <b>' + hm(R.firstTip) + '</b>.'; // assim, com o negrito (pedido do utilizador)
 }
+// Odds do dia lidas (tarefa das odds): convite para ir ver e fixar o lineup
+export function oddsReadyText(firstTip, opts = {}) {
+  const hm = hmEn(opts.tz);
+  return '📈 <b>Today’s odds are in</b>\nThe planner was updated with them, so your lineups <b>may have changed</b>.\nOpen the site, check your lineup and <b>lock it</b> 🔒' + (firstTip ? '\nFirst game at <b>' + hm(firstTip) + '</b> 🏀' : '');
+}
 const andJoin = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0] || '');
 export function alertText(items, opts = {}) {
   const tz = opts.tz || 'Europe/Lisbon';

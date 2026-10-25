@@ -1034,23 +1034,34 @@ function publishNext() {
   const nd = nextDay(), today = nd && nd.date, oldOdds = S.mine.plan.nextOdds || {}, oldNext = S.mine.plan.next || {};
   const nextOdds = {}; Object.values(out).forEach(m => Object.keys(m).forEach(d => { nextOdds[d] = hasOdds(d); }));
   if (today && oldOdds[today] === false && nextOdds[today] && !liveOn(today)) {
-    const ch = Object.keys(out).map(acc => { const a = (oldNext[acc] || {})[today] || [], b = (out[acc] || {})[today] || []; return { acc, outs: a.filter(id => !b.includes(id)), ins: b.filter(id => !a.includes(id)) }; }).filter(c => c.outs.length || c.ins.length);
+    const ch = Object.keys(out).map(acc => { const a = (oldNext[acc] || {})[today] || [], b = (out[acc] || {})[today] || []; return { acc, old: a, now: b, outs: a.filter(id => !b.includes(id)), ins: b.filter(id => !a.includes(id)) }; }).filter(c => c.outs.length || c.ins.length);
     if (ch.length) { S.oddsPop = { date: today, ch }; setTimeout(oddsPopShow, 600); }
   }
   if (JSON.stringify(oldNext) === JSON.stringify(out) && JSON.stringify(oldOdds) === JSON.stringify(nextOdds)) return;
   S.mine.plan.next = out; S.mine.plan.nextOdds = nextOdds; saveMine();
 }
-// "O lineup de hoje mudou": as odds de hoje chegaram e o plano trocou jogadores (uma vez, ao entrar na app)
+// "O lineup de hoje mudou": as odds de hoje chegaram e o plano trocou jogadores (uma vez, ao entrar na app).
+// Por conta: quem sai (vermelho) → quem entra (verde), e escolher entre fixar o novo ou manter o de antes
 function oddsPopShow() {
   const P = S.oddsPop; if (!P) return;
   if (!$('sheet').hidden) { setTimeout(oddsPopShow, 2000); return; } // espera que feches a folha que está aberta
-  S.oddsPop = null;
+  S.oddsPop = null; S.oddsPopLast = P;
   const multi = accounts().length > 1;
-  openSheet('<h3>O lineup de hoje mudou</h3><div class="small muted">Chegaram as odds de hoje e o plano trocou jogadores. Confirma e fixa o lineup antes do 1.º jogo.</div>' +
-    '<div class="card"><ul class="list">' + P.ch.map(c => '<li class="row" style="display:block">' + (multi ? '<b>' + esc(accLabel(c.acc)) + '</b><br>' : '') +
-      (c.outs.length ? 'Sai ' + c.outs.map(id => '<b>' + esc(nameOf(id)) + '</b>').join(', ') : '') + (c.outs.length && c.ins.length ? ' · ' : '') + (c.ins.length ? 'entra ' + c.ins.map(id => '<b>' + esc(nameOf(id)) + '</b>').join(', ') : '') +
-      '<div class="btns" style="margin-top:8px"><button class="btn small primary ib" type="button" data-action="odds-lockall" data-acc="' + esc(c.acc) + '" data-date="' + P.date + '">' + icoLockBtn + ' Fixar este lineup</button></div></li>').join('') + '</ul></div>' +
-    '<button class="btn" type="button" data-action="odds-see" data-date="' + P.date + '">Ver o lineup</button>');
+  const who = (id, k) => '<span class="op-p ' + k + '">' + face(id, 'sm') + '<span class="op-t"><span class="op-l">' + (k === 'op-out' ? 'Sai' : 'Entra') + '</span><span class="op-n">' + esc(nameOf(id)) + '</span></span></span>';
+  const pairs = c => { const n = Math.max(c.outs.length, c.ins.length); return Array.from({ length: n }, (_, i) => '<li class="op-pair">' + (c.outs[i] ? who(c.outs[i], 'op-out') : '<span></span>') + '<span class="op-arrow" aria-hidden="true">→</span>' + (c.ins[i] ? who(c.ins[i], 'op-in') : '<span></span>') + '</li>').join(''); };
+  openSheet('<h3>O lineup de hoje mudou</h3><div class="small muted">Chegaram as odds de hoje e o plano trocou jogadores. Escolhe e fixa antes do 1.º jogo.</div>' +
+    P.ch.map((c, i) => '<div class="card op-card">' + (multi ? '<div class="list-head"><h2>' + esc(accLabel(c.acc)) + '</h2></div>' : '') + '<ul class="list">' + pairs(c) + '</ul>' +
+      '<div class="op-btns" id="opb-' + i + '"><button class="btn primary ib" type="button" data-action="odds-keep" data-k="now" data-i="' + i + '">' + icoLockBtn + ' Fixar o novo</button><button class="btn ib" type="button" data-action="odds-keep" data-k="old" data-i="' + i + '">' + icoLockBtn + ' Manter o anterior</button></div></div>').join('') +
+    '<button class="btn quiet" type="button" data-action="odds-see" data-date="' + P.date + '">Ver o lineup</button>');
+}
+// fixa o lineup escolhido (o novo do plano ou o de antes das odds) nessa conta
+function oddsKeep(i, which) {
+  const P = S.oddsPopLast, c = P && P.ch[i]; if (!c) return;
+  if (c.acc !== S.acc) { S.acc = c.acc; if (S.multi && S.multi.byKey[c.acc]) S.result = S.multi.byKey[c.acc]; }
+  const { md } = dayInfo(P.date), ids = (which === 'old' ? c.old : c.now).slice(0, (md && md.size) || 5);
+  const dr = planPatch({ locks: { [P.date]: ids }, bans: { [P.date]: (((curPlan().bans || {})[P.date]) || []).filter(x => !ids.includes(x)) } });
+  const box = $('opb-' + i); if (box) box.innerHTML = '<span class="op-done">' + icoLockBtn + (which === 'old' ? ' Ficou o lineup anterior' : ' Ficou o lineup novo') + '</span>';
+  toast((which === 'old' ? 'Lineup anterior fixado.' : 'Lineup novo fixado.') + capMsg(dr));
 }
 const nameOf = id => { const r = (S.mine.roster || {})[id]; const p = S.players.get(String(canon(id))); return (r && r.name) || (p && p.name) || String(id); };
 const lastName = id => { const parts = nameOf(id).split(' '); return parts.length > 1 ? parts.slice(1).join(' ') : parts[0]; };
@@ -4955,7 +4966,7 @@ document.addEventListener('click', async e => {
     // Mudar o lineup (folha com o que muda face à sugestão do plano)
     case 'lu-edit': S.lu = null; lineupSheet(date); break;
     case 'lu-lockall': luBusy(); lockAll(date, b.dataset.on === '1'); break;
-    case 'odds-lockall': { const a = b.dataset.acc; if (a && a !== S.acc) { S.acc = a; if (S.multi && S.multi.byKey[a]) S.result = S.multi.byKey[a]; } lockAll(date, true); b.disabled = true; b.textContent = 'Fixado ✓'; break; }
+    case 'odds-keep': oddsKeep(+b.dataset.i, b.dataset.k); break;
     case 'odds-see': closeSheet(); S.hd = date; setSub('hoje', 'lineup'); setTab('hoje'); render(); break;
     case 'lu-lock': { const on = !(((curPlan().locks || {})[date]) || []).includes(id); luBusy(); if (!lockToggle(id, date, on)) luRender(); break; }
     case 'lu-add': luBusy(true); if (!lockToggle(id, date, true)) luRender(); break;
