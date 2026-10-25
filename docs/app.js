@@ -55,7 +55,7 @@ function foldCard(k, title, help, sum, body) {
 function subOf(tab) { const list = SUBS[tab](), cur = S.sub[tab]; return list.some(x => x[0] === cur) ? cur : list[0][0]; }
 function setSub(tab, sub) { S.sub[tab] = sub; try { localStorage.setItem('fb-sub', JSON.stringify(S.sub)); } catch (e) {} }
 function subBar(tab) {
-  const cur = subOf(tab), counts = { lesoes: injuredInRoster().length };
+  const cur = subOf(tab), counts = {};
   return '<nav class="subtabs" aria-label="Partes de ' + esc(tab) + '"><div class="subtabs-in" role="tablist">' + SUBS[tab]().map(([k, l]) => '<button type="button" role="tab" data-action="sub" data-stab="' + tab + '" data-sub="' + k + '" aria-selected="' + (cur === k) + '">' + l + (counts[k] ? '<span class="cnt" aria-label="' + counts[k] + ' no relatório">' + counts[k] + '</span>' : '') + '</button>').join('') + '</div></nav>';
 }
 const injuredInRoster = () => Object.keys((S.mine || {}).roster || {}).filter(id => (S.injuries || {})[id] && !S.mine.roster[id].injIgnore);
@@ -352,7 +352,7 @@ const HELP = {
   comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
   especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
   forma: ['Forma da run', 'Escolhe um dos próximos dias. Quentes: os teus que jogam nesse dia com a média dos últimos 5 jogos acima da época (≥ 8%) nas estatísticas do objetivo. Frios: os do plano desse dia abaixo da época. Minutos: quem joga mais ou menos 3 minutos do que a média da época. Pode jogar menos: jogos em que o favorito ganha em 85% ou mais (odds da ESPN, só perto do jogo) — se ficar decidido cedo, as estrelas descansam ou são poupadas. As barras são os últimos jogos (o mais recente à direita); a linha é a média da época.'],
-  lesoes: ['Lesões', 'Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA só aparecem os importantes (20+ minutos ou 12+ pontos).'],
+  lesoes: ['Lesões', 'Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA, por equipa, aparecem os importantes (20+ minutos ou 12+ pontos); procura um nome ou equipa para ver todos. Toca num jogador para ver a nota completa da ESPN.'],
   classif: ['Classificação', 'Vitórias e derrotas de cada conta, smurfs incluídas: mal os jogos acabam, os dias fecham com as estatísticas dos jogos e o lineup que cada um partilhou. Os aros são a probabilidade de cada um chegar aos prémios. O admin convida amigos em Ajustes → Admin.'],
   lineups: ['Lineups do grupo', 'Para cada dia, os jogadores que o plano de cada um põe no lineup (muda até ao jogo), os mais escolhidos em cima, e quem os leva. Cadeado: essa pessoa já o fixou ou já está em jogo. Em destaque: os que estão no teu lineup desse dia. «Por pessoa» mostra o lineup de cada um, com um anel nos jogadores que também estão no teu.'],
   emprestimos: ['Empréstimos', 'Refaz a tua run com Moments dos amigos, só nos dias em que o plano deles não os usa. Conta com os usos de um Moment dele numa run. No Top Shot ele oferece-te o Moment e tu devolves depois de jogares esse dia.'],
@@ -2347,7 +2347,7 @@ function renderPlantel() {
   if (box.dataset.sub !== sub) { box.innerHTML = ''; box.dataset.sub = sub; }
   else if (sub !== 'plantel' && typingField('plSub')) return;
   if (sub === 'forma') { box.innerHTML = formaHtml(); return; }
-  if (sub === 'lesoes') { box.innerHTML = lesoesHtml(); return; }
+  if (sub === 'lesoes') { if (typingField('plSub')) return; box.innerHTML = lesoesHtml(); injFilter(); return; }
   if (sub === 'comprar') { box.innerHTML = buyHtml(); return; }
   if (sub === 'vender') { if (typingField('plSub')) return; box.innerHTML = sellHtml(); sellFilter(); return; }
   if (sub === 'colecao') { box.innerHTML = collectionCard(false); return; }
@@ -2586,19 +2586,43 @@ function formaHtml() {
 }
 // ---- Lesões: o teu plantel primeiro, depois os jogadores importantes do resto da NBA ----
 const INJ_ORDER = { ofs: 0, out: 1, doubtful: 2, questionable: 3, dtd: 4, probable: 5 };
-function injRow(rec, action) {
-  const c = S.players.get(rec.id) || {};
-  return '<li><button class="row" type="button" data-action="' + action + '" data-id="' + esc(rec.id) + '"><span class="who">' + face(rec.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || rec.name) + '</span><span class="pill ' + INJ_PILL[rec.status] + '">' + esc(INJ_LABEL[rec.status]) + '</span>' + (((S.mine.roster || {})[rec.id] || {}).injIgnore ? '<span class="badge">ignorado</span>' : '') + '</div>' +
-    '<div class="ps">' + teamTag(c.team || rec.team) + (rec.detail ? ' · ' + esc(rec.detail) : '') + (rec.return_date ? ' · regresso previsto ' + dShort(rec.return_date) : '') + (rec.comment ? ' · ' + esc(rec.comment) : '') + '</div></div></span></button></li>';
+const TEAM_NICK = { ATL: 'Hawks', BOS: 'Celtics', BKN: 'Nets', CHA: 'Hornets', CHI: 'Bulls', CLE: 'Cavaliers', DAL: 'Mavericks', DEN: 'Nuggets', DET: 'Pistons', GSW: 'Warriors', HOU: 'Rockets', IND: 'Pacers', LAC: 'Clippers', LAL: 'Lakers', MEM: 'Grizzlies', MIA: 'Heat', MIL: 'Bucks', MIN: 'Timberwolves', NOP: 'Pelicans', NYK: 'Knicks', OKC: 'Thunder', ORL: 'Magic', PHI: '76ers', PHX: 'Suns', POR: 'Trail Blazers', SAC: 'Kings', SAS: 'Spurs', TOR: 'Raptors', UTA: 'Jazz', WAS: 'Wizards' };
+// uma linha por jogador: nome e estado em cima; lesão e regresso em baixo; a nota da ESPN curta (o resto na ficha)
+function injRow(rec, action, opt) {
+  const c = S.players.get(rec.id) || {}, o = opt || {}, t = c.team || rec.team || '';
+  const sub = [o.team ? teamTag(t) : '', rec.detail ? esc(rec.detail) : '', rec.return_date ? 'volta ~' + dShort(rec.return_date) : ''].filter(Boolean).join(' · ');
+  return '<li data-n="' + esc(norm((c.name || rec.name || '') + ' ' + t + ' ' + (TEAM_NICK[t] || ''))) + '"' + (o.minor ? ' data-minor="1" hidden' : '') + '><button class="row" type="button" data-action="' + action + '" data-id="' + esc(rec.id) + '"><span class="who">' + face(rec.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || rec.name) + '</span><span class="pill ' + INJ_PILL[rec.status] + '">' + esc(INJ_LABEL[rec.status]) + '</span></div>' +
+    (sub ? '<div class="ps">' + sub + '</div>' : '') + (rec.comment ? '<div class="ps inj-note">' + esc(rec.comment) + '</div>' : '') + '</div></span></button></li>';
 }
 function lesoesHtml() {
   if (!S.injOk) return '<div class="note info">O relatório de lesões ainda não está ligado (admin: supabase/schema.sql novo e a tarefa "Lesões").</div>';
   const all = Object.values(S.injuries || {}).sort((a, b) => (INJ_ORDER[a.status] - INJ_ORDER[b.status]) || String(a.name).localeCompare(String(b.name)));
-  const mine = all.filter(x => (S.mine.roster || {})[x.id]);
+  const ros = S.mine.roster || {}, mine = all.filter(x => ros[x.id]);
   const imp = x => { const c = S.players.get(x.id); return c && c.avg && ((+c.avg.min || 0) >= 20 || (+c.avg.pts || 0) >= 12); };
-  const others = all.filter(x => !(S.mine.roster || {})[x.id] && imp(x));
-  return '<div class="card inj-list"><div class="list-head"><h2>No teu plantel ' + helpBtn('lesoes') + '</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div>' + (mine.length ? '<ul class="list">' + mine.map(x => injRow(x, 'pl-sheet')).join('') + '</ul>' : '<div class="row small muted" style="display:block">Ninguém lesionado.</div>') + '</div>' +
-    '<div class="card inj-list"><div class="list-head"><h2>Resto da NBA</h2><span class="small muted">' + others.length + ' importantes</span></div>' + (others.length ? '<ul class="list">' + others.map(x => injRow(x, 'pform')).join('') + '</ul>' : '<div class="row small muted" style="display:block">Nenhum jogador importante.</div>') + '</div>';
+  const teamOf = x => (S.players.get(x.id) || {}).team || x.team || '?';
+  const by = {}; all.filter(x => !ros[x.id]).forEach(x => (by[teamOf(x)] = by[teamOf(x)] || []).push(x));
+  const teams = Object.keys(by).sort();
+  const nImp = all.filter(x => !ros[x.id] && imp(x)).length;
+  const grp = t => { const xs = by[t], n = xs.filter(imp).length;
+    return '<li class="inj-team" data-t="' + esc(t) + '"' + (n ? '' : ' hidden') + '><div class="inj-th">' + teamTag(t) + ' <span class="muted">' + esc(TEAM_NICK[t] || '') + '</span></div><ul class="list">' + xs.map(x => injRow(x, 'pform', { minor: !imp(x) })).join('') + '</ul></li>'; };
+  return '<div class="card inj-list"><div class="list-head"><h2>Lesões ' + helpBtn('lesoes') + '</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div>' +
+    '<div class="lu-search"><input class="field" id="injSearch" type="search" placeholder="Jogador ou equipa…" autocomplete="off" aria-label="Procurar jogador ou equipa" value="' + esc(S.injQ || '') + '"></div>' +
+    '<div class="inj-sec"><h3>No teu plantel</h3>' + (mine.length ? '<ul class="list" id="injMine">' + mine.map(x => injRow(x, 'pl-sheet', { team: true })).join('') + '</ul>' : '<div class="row small muted" style="display:block">Ninguém lesionado. ✓</div>') + '</div>' +
+    '<div class="inj-sec"><h3>Resto da NBA <span class="small muted" id="injCount">' + nImp + ' importantes · procura para ver todos</span></h3>' +
+    (teams.length ? '<ul class="inj-teams" id="injTeams">' + teams.map(grp).join('') + '</ul>' : '') +
+    (nImp ? '' : '<div class="row small muted inj-zero" style="display:block">Nenhum jogador importante no relatório.</div>') + '<div class="row small muted inj-none" hidden>Ninguém lesionado com esse nome ou equipa.</div></div></div>';
+}
+// procurar: sem texto mostra os importantes; com texto, todos os do relatório que batem
+function injFilter() {
+  const q = norm(($('injSearch') || {}).value || ''); let n = 0;
+  document.querySelectorAll('#injMine > li').forEach(li => { li.hidden = !!q && !li.dataset.n.includes(q); if (!li.hidden) n++; });
+  document.querySelectorAll('#injTeams > .inj-team').forEach(g => {
+    let k = 0; const tq = q && norm(g.dataset.t + ' ' + (TEAM_NICK[g.dataset.t] || '')).includes(q);
+    g.querySelectorAll('li[data-n]').forEach(li => { const ok = q ? (tq || li.dataset.n.includes(q)) : !li.dataset.minor; li.hidden = !ok; if (ok) k++; });
+    g.hidden = !k; n += k;
+  });
+  const none = document.querySelector('#plSub .inj-none'); if (none) none.hidden = !(q && !n);
+  const zero = document.querySelector('#plSub .inj-zero'); if (zero) zero.hidden = !!q;
 }
 // ficha de um jogador que não está no plantel (forma, lesões, compras)
 function catalogSheet(id) {
@@ -5492,6 +5516,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'buySearch') renderBuySearch(e.target.value);
   if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
   if (e.target.id === 'sellSearch') { S.sellQ = e.target.value; sellFilter(); }
+  if (e.target.id === 'injSearch') { S.injQ = e.target.value; injFilter(); }
   if (e.target.id === 'luSearch') { if (S.lu && $('luCount')) S.lu.q = e.target.value; if (S.luEdit && $('pastLu')) S.luEdit.q = e.target.value; luFilter(); }
 });
 // (sem redesenhar Ajustes ao sair de um campo: isso apagava o formulário a meio de um clique em Guardar)

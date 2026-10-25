@@ -1073,3 +1073,10 @@ p, .note { text-wrap: pretty; }
 .frow .pn .nm { white-space: normal; overflow: visible; text-overflow: clip; }
 .ps.fx { margin-top: 2px; }
 .sell-card .ps.sell-d { white-space: normal; overflow: visible; line-height: 1.35; }
+/* Lesões: procurar, o teu plantel e o resto da NBA por equipa */
+.inj-sec h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0; padding: 12px 16px 6px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.inj-sec h3 .small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.inj-teams { list-style: none; margin: 0; padding: 0; }
+.inj-th { padding: 8px 16px 4px; font-weight: 700; font-size: 14px; border-top: 1px solid var(--line); }
+.inj-th .muted { font-weight: 400; }
+.inj-list .ps.inj-note { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); font-size: 12px; }
