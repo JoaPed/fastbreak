@@ -91,7 +91,26 @@ function applyTheme(t) {
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', t === 'auto' ? (/dark/.test(m.getAttribute('media') || '') ? '#0B1018' : '#EEF1F5') : dark ? '#0B1018' : '#EEF1F5'); });
 }
 // hint: o plano melhor que a procura em segundo plano encontrou (ponto de partida do cálculo; só fica se for melhor)
-const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint; return Object.assign({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn }, h && h.acc && h.run === S.runId ? { hint: h.acc } : {}); };
+const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint; return Object.assign({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn, rested: restedMap() }, h && h.acc && h.run === S.runId ? { hint: h.acc } : {}); };
+// quem não jogou nos últimos dias, apesar de a equipa ter jogado (descansou, lesão): no dia seguinte não é jogo seguido.
+// Pelas fichas da ESPN do dia e pelos últimos jogos de cada um (tarefa das médias). {data: [ids]}
+function restedMap() {
+  const today = todayET(), out = {};
+  const dates = [...new Set(S.days.map(d => d.date).filter(d => d < today).concat(Object.keys(S.prevGames || {})))].sort().slice(-2);
+  dates.forEach(date => {
+    const day = S.days.find(d => d.date === date), teams = day ? FB.teamsOn(day) : new Set((S.prevGames || {})[date] || []);
+    Object.keys(S.mine.roster || {}).forEach(id => { if (teams.has(pTeam(id)) && didPlay(id, date) === false) (out[date] = out[date] || []).push(id); });
+  });
+  return out;
+}
+// jogou nesse dia? true · false (a equipa jogou e ele não) · undefined (não se sabe)
+function didPlay(id, date) {
+  const b = boxFor(date, id); if (b === null) return false; if (b && b.fin) return true;
+  const c = S.players.get(String(canon(id))), f = c && c.avg && c.avg.form;
+  if (!f || !Array.isArray(f.games) || !f.games.length) return undefined;
+  const g = f.games.find(x => x[0] === date); if (g) return (+gameVals(g).min || 0) > 0;
+  const ds = f.games.map(x => x[0]).sort(); return ds[ds.length - 1] > date && ds[0] < date ? false : undefined;
+}
 // siglas da ESPN → siglas do site
 const ESPN_ABBR = { GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX', BRK: 'BKN', CHO: 'CHA' };
 const espnAbbr = a => { const x = String(a || '').toUpperCase(); return ESPN_ABBR[x] || x; };

@@ -365,7 +365,8 @@
       players.forEach((p, pi) => {
         const oddsP = oddsDay[p.id];
         const g = gameOf(day, p.team), opp = g ? (g[0] === p.team ? g[1] : g[0]) : null;
-        const b2b = !!g && yday.has(p.team);
+        // jogo seguido: a equipa jogou na véspera e ele também (quem ficou de fora/descansou ontem não conta)
+        const b2b = !!g && yday.has(p.team) && !((opts.rested || {})[prevDate(day.date)] || []).includes(p.id);
         const mf0 = opts.teams && opp ? (s => { const m = matchup(opts.teams, opp, s); return m ? m.used : 1; }) : null;
         const mf = b2b ? (s => (mf0 ? mf0(s) : 1) * b2bFactor(p, s)) : mf0;
         const injReal = injK && injK[pi] ? injuryOn(injuries[p.id], day.date, injK[pi][di], now) : null;
