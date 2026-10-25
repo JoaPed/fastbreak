@@ -91,5 +91,14 @@ ok('Telegram: ponto da situação às 23h de quem está em dúvida', /<b>Keshon 
 const nTg = g.sent.length;
 runTg(Date.parse('2026-10-21T22:15:00Z'));
 ok('Telegram: não repete', readTg().sent.length === nTg, readTg().sent.length);
+// mensagem das lesões: subida clara, o que o estado quer dizer e a notícia só se for recente
+{
+  const { groupAlertText } = await import(new URL('../scripts/lib.mjs', import.meta.url));
+  const now = Date.parse('2026-10-25T18:00:00Z'), tip = Date.parse('2026-10-25T23:30:00Z');
+  const m = groupAlertText([{ kind: 'change', status: 'dtd', prev: 'out', id: 'lebron', name: 'LeBron James', team: 'PHI', tip, inj: { detail: 'Back', comment: 'Ruled out for Saturday.', reported_at: '2026-10-24T12:00:00Z' } },
+    { kind: 'change', status: 'out', prev: 'questionable', id: 'jo', name: 'Joel Embiid', team: 'PHI', tip, inj: { detail: 'Knee', comment: 'Will not play tonight.', reported_at: '2026-10-25T16:00:00Z' } }], {}, { tz: 'Europe/Lisbon', now });
+  ok('Telegram: lesão que melhora diz "upgraded" e o que quer dizer, sem a notícia antiga', /⬆️ <b>LeBron James<\/b> \(PHI\) · <b>upgraded to Day-to-day<\/b> — may play \(was: out\)/.test(m) && /🩹 Injury: back/.test(m) && !/Saturday/.test(m), m);
+  ok('Telegram: lesão que piora diz "downgraded" e mostra a notícia de hoje com a data', /🚫 <b>Joel Embiid<\/b> \(PHI\) · <b>downgraded to Out<\/b> — won’t play/.test(m) && /📰 News from Oct 25: <i>Will not play tonight.<\/i>/.test(m), m);
+}
 console.log(fails ? fails + ' falha(s)' : 'avisos: tudo certo');
 process.exit(fails ? 1 : 0);

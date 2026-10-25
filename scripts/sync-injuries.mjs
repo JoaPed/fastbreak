@@ -211,7 +211,7 @@ if (TG_TOKEN) {
   const G = buildAlerts({ now, lineups: union.size ? [{ uid: 'grupo', acc: 'tg', date: today, source: 'grupo', players: [...union.values()], firstTip: isFinite(first) ? first : null }] : [], injuries, state: next, statusAt, lastCallMin: LAST_MIN });
   next = G.state;
   if (G.items.length) {
-    const okTg = await sendTg(groupAlertText(G.items, owners, { tz: TZ, spec }));
+    const okTg = await sendTg(groupAlertText(G.items, owners, { tz: TZ, spec, now }));
     note('lesões: ' + G.items.map(i => i.kind + ' ' + i.name).join(', ') + ' → ' + (okTg ? 'enviado' : 'nada enviado'));
     if (!okTg) G.items.forEach(i => { const k = i.date + '|grupo|tg|' + i.id; if (state[k]) next[k] = state[k]; else delete next[k]; });
   }
