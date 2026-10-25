@@ -1049,9 +1049,9 @@ function oddsPopShow() {
   const multi = accounts().length > 1;
   const who = (id, k) => '<span class="op-p ' + k + '">' + face(id, 'sm') + '<span class="op-t"><span class="op-l">' + (k === 'op-out' ? 'Sai' : 'Entra') + '</span><span class="op-n">' + esc(nameOf(id)) + '</span></span></span>';
   const pairs = c => { const n = Math.max(c.outs.length, c.ins.length); return Array.from({ length: n }, (_, i) => '<li class="op-pair">' + (c.outs[i] ? who(c.outs[i], 'op-out') : '<span></span>') + '<span class="op-arrow" aria-hidden="true">→</span>' + (c.ins[i] ? who(c.ins[i], 'op-in') : '<span></span>') + '</li>').join(''); };
-  openSheet('<h3>O lineup de hoje mudou</h3><div class="small muted">Chegaram as odds de hoje e o plano trocou jogadores. Escolhe e fixa antes do 1.º jogo.</div>' +
+  openSheet('<h3>O lineup de hoje mudou</h3><div class="small muted">Chegaram as odds de hoje e o plano trocou jogadores. Se preferes o lineup de antes, mantém-no.</div>' +
     P.ch.map((c, i) => '<div class="card op-card">' + (multi ? '<div class="list-head"><h2>' + esc(accLabel(c.acc)) + '</h2></div>' : '') + '<ul class="list">' + pairs(c) + '</ul>' +
-      '<div class="op-btns" id="opb-' + i + '"><button class="btn primary ib" type="button" data-action="odds-keep" data-k="now" data-i="' + i + '">' + icoLockBtn + ' Fixar o novo</button><button class="btn ib" type="button" data-action="odds-keep" data-k="old" data-i="' + i + '">' + icoLockBtn + ' Manter o anterior</button></div></div>').join('') +
+      '<div class="op-btns" id="opb-' + i + '"><button class="btn" type="button" data-action="odds-keep" data-k="old" data-i="' + i + '">Manter o lineup</button></div></div>').join('') +
     '<button class="btn quiet" type="button" data-action="odds-see" data-date="' + P.date + '">Ver o lineup</button>');
 }
 // fixa o lineup escolhido (o novo do plano ou o de antes das odds) nessa conta
@@ -1060,7 +1060,7 @@ function oddsKeep(i, which) {
   if (c.acc !== S.acc) { S.acc = c.acc; if (S.multi && S.multi.byKey[c.acc]) S.result = S.multi.byKey[c.acc]; }
   const { md } = dayInfo(P.date), ids = (which === 'old' ? c.old : c.now).slice(0, (md && md.size) || 5);
   const dr = planPatch({ locks: { [P.date]: ids }, bans: { [P.date]: (((curPlan().bans || {})[P.date]) || []).filter(x => !ids.includes(x)) } });
-  const box = $('opb-' + i); if (box) box.innerHTML = '<span class="op-done">' + icoLockBtn + (which === 'old' ? ' Ficou o lineup anterior' : ' Ficou o lineup novo') + '</span>';
+  const box = $('opb-' + i); if (box) box.innerHTML = '<span class="op-done">' + (which === 'old' ? 'Ficou o lineup anterior ✓' : 'Ficou o lineup novo ✓') + '</span>';
   toast((which === 'old' ? 'Lineup anterior fixado.' : 'Lineup novo fixado.') + capMsg(dr));
 }
 const nameOf = id => { const r = (S.mine.roster || {})[id]; const p = S.players.get(String(canon(id))); return (r && r.name) || (p && p.name) || String(id); };
