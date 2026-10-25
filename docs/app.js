@@ -3774,9 +3774,11 @@ function sellSwaps(ps) {
   ps.forEach(P => { const mk = mkOf(P.id); if (!mk) return;
     P.cards.forEach(c => { if (!c.ask) return;
       const [cb, ...cs] = String(c.it.s || '').split(' · '), same = m => (c.it.si != null && m[6] != null ? +m[6] === +c.it.si && +m[7] === +c.it.pi : setBaseN(m[4]) === setBaseN(cb) && (isStd(m[5]) ? !cs.length : norm(m[5]) === norm(cs.join(' · '))));
-      const alt = mk.list.filter(m => m[0] >= c.u && !same(m)).sort((a, b) => a[1] - b[1])[0];
+      // a mesma raridade (de qualquer set); de preferência com os mesmos usos ou mais
+      const pool = mk.list.filter(m => TS_TIER(m[2]) === c.t && !same(m)).sort((a, b) => a[1] - b[1]);
+      const alt = pool.find(m => m[0] >= c.u) || pool[0];
       if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
-      if (save >= 100) out.push({ P, c, alt, save });
+      if (save >= 100) out.push({ P, c, alt, save, less: alt[0] < c.u });
     }); });
   return out.sort((a, b) => b.save - a.save);
 }
@@ -3798,7 +3800,7 @@ function sellHtml() {
   const srow = (x, i) => { const it = x.c.it, [base] = String(it.s || '').split(' · ');
     return '<li data-n="' + keyOf(x.P) + '"><button class="row sell-row" type="button" data-action="sell-swap" data-i="' + i + '"><span class="who">' + face(x.P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.P.id)) + '</span></div>' +
       '<div class="ps"><span class="tpill t-' + (TIER_CLS[x.c.t] || 'c') + '">' + esc(x.c.t) + '</span> ' + esc(base) + (it.n ? ' #' + f0(it.n) : '') + (groupMode() ? ' · ' + esc(accLabel(it.a)) : '') + '</div>' +
-      '<div class="ps sell-why">Vendes por <b class="num">' + usd(x.c.ask / 100) + '</b> · compras por <b class="num">' + usd(x.alt[1] / 100) + '</b></div></div></span>' +
+      '<div class="ps sell-why">Vendes por <b class="num">' + usd(x.c.ask / 100) + '</b> · compras por <b class="num">' + usd(x.alt[1] / 100) + '</b>' + (x.less ? ' · <span class="c-warn">dá ' + usesTxt(x.alt[0]) + '</span>' : '') + '</div></div></span>' +
       '<span class="sell-g"><b class="num">+' + usd(x.save / 100) + '</b><small>poupas</small></span></button></li>'; };
   let list = '', empty = '';
   if (tab === 'naousadas') { list = unused.map(P => prow(P, 'Não entra no plano no resto da run')).join(''); empty = S.result ? 'Todos os teus jogadores entram no plano.' : 'Sem plano calculado.'; }
@@ -3808,7 +3810,8 @@ function sellHtml() {
   return '<div class="card"><div class="list-head"><h2>Vender ' + helpBtn('vender') + '</h2><span class="small muted">preços ' + (ed ? ago(ed) : 'por ler') + '</span></div>' +
     '<div class="lu-search"><input class="field" id="sellSearch" type="search" placeholder="Jogador, equipa ou raridade…" autocomplete="off" aria-label="Procurar jogador, equipa ou raridade" value="' + esc(S.sellQ || '') + '"></div>' +
     '<div class="chips scroll" role="group" aria-label="Lista" style="padding:0 16px 8px">' + tabs.map(([v, l, n]) => '<button type="button" data-action="sell-tab" data-v="' + v + '" aria-pressed="' + (tab === v) + '">' + l + ' <span class="muted">' + n + '</span></button>').join('') + '</div>' +
-    (!hasPx ? '<div class="note info" style="margin:0 16px 10px">Faltam os preços das cartas: ' + (S.role === 'admin' ? 'lê-os em Ajustes → Admin → <b>Cartas (ASP)</b>.' : 'pede a quem gere o grupo para ler as <b>Cartas (ASP)</b>.') + '</div>' : '') +
+    (!hasPx ? '<div class="note info" style="margin:0 16px 10px">' + (S.edPending ? 'Há uma leitura das cartas por aplicar: Ajustes → Admin → <b>Ver o que muda</b> → <b>Aplicar</b>.' : 'Faltam os preços das cartas: ' + (S.role === 'admin' ? 'lê-os em Ajustes → Admin → <b>Cartas (ASP)</b>.' : 'pede a quem gere o grupo para ler as <b>Cartas (ASP)</b>.')) +
+      (S.edMine && S.edMine.at ? '<div class="small" style="margin-top:6px">Última leitura ' + ago(S.edMine.at) + ': ' + (S.edMine.nAsk != null ? S.edMine.nAsk + ' edições com preço' : 'sem preços (script antigo: reinstala-o ou usa o favorito)') + (S.edMine.askKeys ? ' · campos: ' + esc(S.edMine.askKeys.join(', ')) : '') + '</div>' : '') + '</div>' : '') +
     (list ? '<ul class="list" id="sellList">' + list + '<li class="row small muted sell-none" hidden>Ninguém com esse nome, equipa ou raridade.</li></ul>' : '<div class="row small muted">' + empty + '</div>') + '</div>';
 }
 function sellFilter() {
@@ -3841,7 +3844,8 @@ function sellSwapSheet(i) {
     '<div class="card"><div class="list-head"><h2>A tua</h2></div><ul class="list">' + sellCardLi(x.c, '') + '</ul></div>' +
     '<div class="card"><div class="list-head"><h2>A que compras</h2></div><ul class="list"><li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[TS_TIER(a[2])] || 'c') + '">' + esc(TS_TIER(a[2]) || a[2]) + '</span></div><div class="mo-set">' + esc(a[4]) + (a[5] && !isStd(a[5]) ? ' <span class="muted">· ' + esc(a[5]) + '</span>' : '') + '</div><div class="ps">' + esc(usesTxt(a[0])) + (a[3] > 0 ? ' · ASP ' + usd(a[3] / 100) : '') + '</div></div><div class="sell-g"><b class="num">' + usd(a[1] / 100) + '</b><small>low ask</small></div></li></ul></div>' +
     '<div class="card panel">' + [['Vendes a tua (low ask)', usd(x.c.ask / 100)], ['Comissão (5%)', '−' + usd(x.c.ask * SELL_FEE / 100)], ['Compras a outra (low ask)', '−' + usd(a[1] / 100)], ['Poupas', '<b class="c-good">+' + usd(x.save / 100) + '</b>']].map(([k, v]) => '<div class="status-line"><span>' + k + '</span><span>' + v + '</span></div>').join('') + '</div>' +
-    '<div class="small muted">Ficas com os mesmos usos (' + esc(usesTxt(x.c.u)) + ' ou mais). Preços do mercado ' + ago(mkOf(x.P.id).at) + ': confirma no Top Shot antes de vender.</div>');
+    (x.less ? '<div class="note">A outra dá ' + esc(usesTxt(x.alt[0])) + ' por run e a tua dá ' + esc(usesTxt(x.c.u)) + ' (o ASP dela é mais baixo).</div>' : '<div class="small muted">Mesma raridade, com os mesmos usos (' + esc(usesTxt(x.c.u)) + ') ou mais.</div>') +
+    '<div class="small muted">Preços do mercado ' + ago(mkOf(x.P.id).at) + ': confirma no Top Shot antes de vender.</div>');
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
 // (p. ex. dos dois Luka, só um é Rare); os usos por run do jogador são os da melhor carta
@@ -4025,7 +4029,7 @@ function edApply() {
   const ed = S.edPending; if (!ed) return;
   const old = S.edMine && S.edMine.p ? S.edMine : { p: {}, t: {} }, t = Object.assign({}, old.t || {});
   Object.keys(ed.p || {}).forEach(id => { t[id] = ed.at; });
-  S.edMine = { at: ed.at, p: Object.assign({}, old.p, ed.p), mk: Object.assign({}, old.mk || {}, ed.mk || {}), t, keys: ed.keys || old.keys, miss: (ed.miss || []).slice(0, 200) }; S.edIdx = null;
+  S.edMine = { at: ed.at, p: Object.assign({}, old.p, ed.p), mk: Object.assign({}, old.mk || {}, ed.mk || {}), t, keys: ed.keys || old.keys, askKeys: ed.askKeys || null, nAsk: ed.nAsk || 0, miss: (ed.miss || []).slice(0, 200) }; S.edIdx = null;
   try { localStorage.setItem('fb-ed', JSON.stringify(S.edMine)); localStorage.removeItem('fb-ed-pending'); } catch (e) {}
   S.edPending = null; S.lastSummary = ''; colTopMemo.col = null;
   if (S.mineLoaded) syncTierUses();
