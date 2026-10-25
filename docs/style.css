@@ -1032,3 +1032,5 @@ p, .note { text-wrap: pretty; }
 .lu-all { padding: 0 16px 6px; }
 .lu-all .btn { display: inline-flex; align-items: center; gap: 6px; }
 .lu-all .btn svg { width: 14px; height: 14px; }
+.btn.ib { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn.ib svg { width: 14px; height: 14px; flex: none; }

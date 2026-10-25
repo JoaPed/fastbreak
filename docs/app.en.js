@@ -1029,8 +1029,29 @@ function publishNext() {
     const v = r.normal, m = {}; v.days.slice(0, 3).forEach(d => { if (d.lineup.length) m[d.date] = d.lineup.slice(); });
     out[a.id] = m;
   });
-  if (JSON.stringify(S.mine.plan.next || {}) === JSON.stringify(out)) return;
-  S.mine.plan.next = out; saveMine();
+  // com que odds foi feito cada dia: se o lineup de hoje tinha sido feito sem as odds de hoje e agora, com elas,
+  // mudou, avisa ao entrar (há quem se esqueça de fixar e o plano troca-lhe os jogadores)
+  const hasOdds = date => !!(S.odds[date] && Object.keys(S.odds[date].players || {}).length);
+  const nd = nextDay(), today = nd && nd.date, oldOdds = S.mine.plan.nextOdds || {}, oldNext = S.mine.plan.next || {};
+  const nextOdds = {}; Object.values(out).forEach(m => Object.keys(m).forEach(d => { nextOdds[d] = hasOdds(d); }));
+  if (today && oldOdds[today] === false && nextOdds[today] && !liveOn(today)) {
+    const ch = Object.keys(out).map(acc => { const a = (oldNext[acc] || {})[today] || [], b = (out[acc] || {})[today] || []; return { acc, outs: a.filter(id => !b.includes(id)), ins: b.filter(id => !a.includes(id)) }; }).filter(c => c.outs.length || c.ins.length);
+    if (ch.length) { S.oddsPop = { date: today, ch }; setTimeout(oddsPopShow, 600); }
+  }
+  if (JSON.stringify(oldNext) === JSON.stringify(out) && JSON.stringify(oldOdds) === JSON.stringify(nextOdds)) return;
+  S.mine.plan.next = out; S.mine.plan.nextOdds = nextOdds; saveMine();
+}
+// "O lineup de hoje mudou": as odds de hoje chegaram e o plano trocou jogadores (uma vez, ao entrar na app)
+function oddsPopShow() {
+  const P = S.oddsPop; if (!P) return;
+  if (!$('sheet').hidden) { setTimeout(oddsPopShow, 2000); return; } // espera que feches a folha que está aberta
+  S.oddsPop = null;
+  const multi = accounts().length > 1;
+  openSheet('<h3>Today’s lineup changed</h3><div class="small muted">Today’s odds are in and the plan swapped players. Check it and lock the lineup before the first game.</div>' +
+    '<div class="card"><ul class="list">' + P.ch.map(c => '<li class="row" style="display:block">' + (multi ? '<b>' + esc(accLabel(c.acc)) + '</b><br>' : '') +
+      (c.outs.length ? 'Out: ' + c.outs.map(id => '<b>' + esc(nameOf(id)) + '</b>').join(', ') : '') + (c.outs.length && c.ins.length ? ' · ' : '') + (c.ins.length ? 'in: ' + c.ins.map(id => '<b>' + esc(nameOf(id)) + '</b>').join(', ') : '') +
+      '<div class="btns" style="margin-top:8px"><button class="btn small primary ib" type="button" data-action="odds-lockall" data-acc="' + esc(c.acc) + '" data-date="' + P.date + '">' + icoLockBtn + ' Lock this lineup</button></div></li>').join('') + '</ul></div>' +
+    '<button class="btn" type="button" data-action="odds-see" data-date="' + P.date + '">See the lineup</button>');
 }
 const nameOf = id => { const r = (S.mine.roster || {})[id]; const p = S.players.get(String(canon(id))); return (r && r.name) || (p && p.name) || String(id); };
 const lastName = id => { const parts = nameOf(id).split(' '); return parts.length > 1 ? parts.slice(1).join(' ') : parts[0]; };
@@ -4935,6 +4956,8 @@ document.addEventListener('click', async e => {
     // Mudar o lineup (folha com o que muda face à sugestão do plano)
     case 'lu-edit': S.lu = null; lineupSheet(date); break;
     case 'lu-lockall': luBusy(); lockAll(date, b.dataset.on === '1'); break;
+    case 'odds-lockall': { const a = b.dataset.acc; if (a && a !== S.acc) { S.acc = a; if (S.multi && S.multi.byKey[a]) S.result = S.multi.byKey[a]; } lockAll(date, true); b.disabled = true; b.textContent = 'Locked ✓'; break; }
+    case 'odds-see': closeSheet(); S.hd = date; setSub('hoje', 'lineup'); setTab('hoje'); render(); break;
     case 'lu-lock': { const on = !(((curPlan().locks || {})[date]) || []).includes(id); luBusy(); if (!lockToggle(id, date, on)) luRender(); break; }
     case 'lu-add': luBusy(true); if (!lockToggle(id, date, true)) luRender(); break;
     case 'lu-ban': if (S.lu) { S.lu.out = (S.lu.out || []).concat([id]); luRender(); } break; // fica um lugar livre: nada muda até escolheres
