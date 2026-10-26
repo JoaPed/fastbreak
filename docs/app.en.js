@@ -842,6 +842,10 @@ function applyChainResults() {
           ids.filter(id => !old.includes(id)).forEach(id => { const e = roster[id]; if (e) setUsesOf(e, acc.id, Math.max(0, usesEff(e, id, acc.id) - 1)); });
           if (c.ts) fixes.push({ acc: acc.id, date: c.date, old: old.slice(), now: ids.slice() });
           cur.lineup = ids; upd = true;
+          // o total era do lineup antigo: refaz-se com as estatísticas deste (agora, ou quando houver as fichas)
+          const dd = S.days.find(d => d.date === c.date), cc = dd && dayCalc(acc.id, dd, ids);
+          if (cc && cc.res === res) { cur.tot = cc.tot; if (cc.objs.length === 1 && c.points == null) cur.points = cc.tot[0]; }
+          else { delete cur.tot; if (c.points == null) delete cur.points; }
         }
         if (upd) { ch++; if (c.ts) nTs++; }
         return;
@@ -5189,6 +5193,20 @@ function autoResults() {
     S.days.forEach((day, i) => {
       if (day.date > today) return;
       const cur = (pa.played || {})[day.date];
+      // fechado pelas estatísticas: se o lineup mudou depois (lido do Top Shot), o total é refeito com o lineup certo
+      if (cur && cur.done && !cur.chain && (cur.lineup || []).length && (cur.box || cur.ts) && !(doneTot(cur, day) || []).length) {
+        const c = dayCalc(a.id, day, cur.lineup); if (!c || c.res !== cur.result) return;
+        Object.assign(cur, { box: true, tot: c.tot }, c.objs.length === 1 && cur.points == null ? { points: c.tot[0] } : {}); n++; return;
+      }
+      if (cur && cur.done && cur.box && !cur.chain && (cur.lineup || []).length) {
+        const c = dayCalc(a.id, day, cur.lineup), t0 = doneTot(cur, day);
+        if (c && t0 && c.tot.join() !== t0.join()) {
+          if (c.res === cur.result) { cur.tot = c.tot; if (c.objs.length === 1) cur.points = c.tot[0]; }
+          else { delete cur.tot; delete cur.points; } // o resultado veio do Top Shot e as fichas não batem: fica só ✓/✕
+          n++;
+        }
+        return;
+      }
       if (cur && (cur.chain || cur.box || (cur.noAuto && !cur.done))) return; // "não joguei" fica
       const c = dayCalc(a.id, day); if (!c) return;
       const extra = Object.assign({ box: true, tot: c.tot }, c.objs.length === 1 ? { points: c.tot[0] } : {});
@@ -5217,6 +5235,8 @@ function boxDates() {
       const pa = planOf(a.id), cur = (pa.played || {})[day.date], sn = (pa.proj || {})[day.date];
       if (today0 && ((((pa.live || {})[day.date]) || {}).active)) return; // o ao vivo desta conta já lê este dia
       if (objs.length && !(cur && (cur.chain || cur.box || (cur.noAuto && !cur.done)))) (lineupFor(a.id, day.date) || []).forEach(id => { if (valsFor(a.id, day.date, id, objs) === undefined) add(id); });
+      // fechado e com o lineup acertado depois (Top Shot): as fichas desse lineup para refazer o total
+      if (objs.length && cur && cur.done && !cur.chain && (cur.box || cur.ts) && (day.date >= lim || !(doneTot(cur, day) || []).length)) (cur.lineup || []).forEach(id => { if (valsFor(a.id, day.date, id, objs) === undefined) add(id); });
       if (day.date >= lim && sn && sn.pl) Object.keys(sn.pl).forEach(id => { if ((sn.act || {})[id] === undefined) add(id); });
     });
     if (objs.length && day.date >= lim && S.tab === 'grupo') groupEntries().forEach(x => { const ids = !x.daysRes[day.date] && x.lu[day.date]; (ids || []).forEach(id => { if (boxFor(day.date, id) === undefined) add(id); }); });
