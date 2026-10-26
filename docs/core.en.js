@@ -847,6 +847,8 @@
     // com várias contas, os desempates (vitórias esperadas sem prémio, total do dia) pesam menos que uma transferência
     const multi = A > 1, AUX = multi ? 0.2 : 1;
     const objs = models.map(m => makeObjective(m, multi && m.prizes.length ? 0.002 : undefined));
+    // prioridade entre contas (opts.W): o valor de cada conta conta W vezes (ex.: 1,2 para a mais bem classificada)
+    const W = models.map((m, a) => (opts.W && +opts.W[a] > 0 ? +opts.W[a] : 1));
     const slots = [];
     models.forEach((m, a) => m.days.forEach((md, d) => slots.push({ a, d, md, date: md.day.date })));
     const S_ = slots.length;
@@ -944,7 +946,7 @@
     const val = new Float64Array(A);
     let T = 0; for (let p = 0; p < P; p++) T += tcOf(p);
     let cur = 0;
-    function refreshVals() { cur = -TC * T; for (let a = 0; a < A; a++) { val[a] = objs[a].value(dayP[a]) + auxSum[a]; cur += val[a]; } }
+    function refreshVals() { cur = -TC * T; for (let a = 0; a < A; a++) { val[a] = W[a] * (objs[a].value(dayP[a]) + auxSum[a]); cur += val[a]; } }
     refreshVals();
 
     function tryReplace(i, x, y) {
@@ -959,7 +961,7 @@
       touched.forEach(a => {
         tmp[a].set(dayP[a]); let ax = auxSum[a];
         rs.forEach(r => { if (slots[r.i].a === a) { tmp[a][slots[r.i].d] = r.p; ax += r.x - aux[r.i]; } });
-        g += objs[a].value(tmp[a]) + ax - val[a];
+        g += W[a] * (objs[a].value(tmp[a]) + ax) - val[a];
       });
       return g;
     }
@@ -1092,7 +1094,7 @@
     }
     const results = models.map((m, a) => {
       const planA = m.days.map((_, d) => plan[bySlot[a][d]]);
-      return summarize(m, planA, Array.from(used[a]), conflicts[a], objs[a], dayP[a], val[a]);
+      return summarize(m, planA, Array.from(used[a]), conflicts[a], objs[a], dayP[a], val[a] / W[a]);
     });
     return { results, total: cur, transfers: T };
   }
@@ -1154,7 +1156,7 @@
     const copies = players.map(p => Math.max(1, Math.floor(+p.copies || 1)));
     const owners = players.map(p => keys.indexOf(p.owner));
     const cards = players.map(p => (Array.isArray(p.cards) && p.cards.length ? p.cards.map(Number).sort((a, b) => b - a) : null));
-    const base = Object.assign({}, opts, { owners, cards: cards.some(Boolean) ? cards : null });
+    const base = Object.assign({}, opts, { owners, cards: cards.some(Boolean) ? cards : null, W: keys.map(k => +((opts.accWeights || {})[k]) || 1) });
     // Moments já usados em dias fechados de cada conta: nessa noite não podem jogar por outra
     const taken = {};
     models.forEach(m => m.allDays.forEach(d => { const pl = m.played[d.date]; if (pl && pl.done) (pl.lineup || []).forEach(id => { const i = m.pIndex.get(id); if (i != null) (taken[d.date] = taken[d.date] || []).push(i); }); }));

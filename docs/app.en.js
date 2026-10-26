@@ -91,7 +91,22 @@ function applyTheme(t) {
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', t === 'auto' ? (/dark/.test(m.getAttribute('media') || '') ? '#0B1018' : '#EEF1F5') : dark ? '#0B1018' : '#EEF1F5'); });
 }
 // hint: o plano melhor que a procura em segundo plano encontrou (ponto de partida do cálculo; só fica se for melhor)
-const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint; return Object.assign({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn, rested: restedMap() }, h && h.acc && h.run === S.runId ? { hint: h.acc } : {}); };
+const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint, pr = prioAcc(); return Object.assign({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn, rested: restedMap() }, h && h.acc && h.run === S.runId ? { hint: h.acc } : {}, pr ? { accWeights: { [pr]: PRIO_W } } : {}); };
+// prioridade entre contas (com smurfs): a conta escolhida, ou a mais bem classificada na Geral (Automática); cada
+// vitória esperada dela vale PRIO_W no plano conjunto. 'eq' = iguais
+const PRIO_W = 1.2;
+function prioAuto() {
+  if (!S.session) return null; const uid = S.session.user.id; let best = null;
+  accounts().forEach(a => { const r = rankOf(accAddr(uid, a.id)); if (r && r.rank != null && (!best || +r.rank < best.rank)) best = { id: a.id, rank: +r.rank }; });
+  return best;
+}
+function prioAcc() {
+  if (!S.mine || !S.mine.plan || accounts().length < 2) return null;
+  const p = S.mine.plan.prio || 'auto';
+  if (p === 'eq') return null;
+  if (p !== 'auto') return accounts().some(a => a.id === p) ? p : null;
+  const b = prioAuto(); return b ? b.id : null;
+}
 // quem não jogou nos últimos dias, apesar de a equipa ter jogado (descansou, lesão): no dia seguinte não é jogo seguido.
 // Pelas fichas da ESPN do dia e pelos últimos jogos de cada um (tarefa das médias). {data: [ids]}
 function restedMap() {
@@ -353,6 +368,7 @@ const HELP = {
   comprar: ['Buy', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
   especialistas: ['Specialists', 'The NBA’s best in each stat (this season mixed with last). Stats are ordered by how often they come up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.'],
   forma: ['Run form', 'Pick one of the next days. Hot: your players who play that day with their last-5 average above the season (≥ 8%) in the goal’s stats. Cold: those in that day’s plan below the season. Minutes: who plays 3+ minutes more or less than his season average. Might play less: games the favourite wins 85%+ of the time (ESPN odds, only near the game) — if it’s decided early, stars rest or are spared. The bars are the last games (most recent on the right); the line is the season average.'],
+  prio: ['Priority between accounts', 'The plan joins your accounts and looks for the most prize money adding them up. Since prizes go to whoever gets furthest, it pays to put the best Moments together in one account, and without priority that can be either one. With priority, each expected win of the chosen account is worth 20% more and the best Moments go to it first; the other plays with the rest. <b>Automatic</b> = the best ranked in the Overall standings (from the places read on Top Shot). <b>Equal</b> = no priority.'],
   lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. In the rest of the NBA, by team, only the important ones show (20+ minutes or 12+ points); search a name or team to see everyone. Tap a player to see the full ESPN note.'],
   classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
   lineups: ['Group lineups', 'For each day, the players each person’s plan puts in the lineup (it changes until the game), most picked on top, and who takes them. Lock: that person already locked him or he is already playing. Highlighted: the ones in your lineup for that day. «By person» shows each person’s lineup, with a ring on the players also in yours.'],
@@ -1155,8 +1171,9 @@ async function holdCheck(key) {
     if (calcKey !== key || !out) return;
     const resOf = k => multi ? (out.group.byKey[k] || {}).normal : out.res;
     const curOf = k => (multi ? S.multi.byKey[k] : S.result).normal;
-    const expU = multi ? Object.values(out.group.byKey).reduce((t, g) => t + (g.normal.expected || 0), 0) : out.res.expected || 0;
-    const expK = multi ? Object.values(S.multi.byKey).reduce((t, g) => t + (g.normal.expected || 0), 0) : S.result.normal.expected || 0;
+    const pr = prioAcc(), wOf = k => (k === pr ? PRIO_W : 1);
+    const expU = multi ? Object.entries(out.group.byKey).reduce((t, [k, g]) => t + wOf(k) * (g.normal.expected || 0), 0) : out.res.expected || 0;
+    const expK = multi ? Object.entries(S.multi.byKey).reduce((t, [k, g]) => t + wOf(k) * (g.normal.expected || 0), 0) : S.result.normal.expected || 0;
     const diffs = held.map(k => { const u = resOf(k), c = curOf(k); const ud = u && u.days.find(x => x.date === date), cd = c.days.find(x => x.date === date); if (!ud || !cd) return null;
       const outs = cd.lineup.filter(id => !ud.lineup.includes(id)), ins = ud.lineup.filter(id => !cd.lineup.includes(id));
       return outs.length || ins.length ? { k, outs, ins, now: ud.lineup.slice(), old: cd.lineup.slice(), P0: cd.P, P1: ud.P } : null; }).filter(Boolean);
@@ -1170,7 +1187,7 @@ async function holdCheck(key) {
       saveMine(); schedule();
       // aviso grande só quando veio de dados novos (odds, lesões); depois de mexeres no plantel basta uma nota
       if (why.length) { S.oddsPop = { date, ch: diffs.map(x => ({ acc: x.k, old: x.old, now: x.now, outs: x.outs, ins: x.ins, P0: x.P0, P1: x.P1 })), g, why }; setTimeout(oddsPopShow, 600); }
-      else toast('Today’s lineup updated: ' + diffs.map(x => pct(x.P0) + ' → ' + pct(x.P1)).join(', ') + ' win chance today.');
+      else toast('Today’s lineup updated: ' + diffs.map(x => (diffs.length > 1 || accounts().length > 1 ? accLabel(x.k) + ' ' : '') + pct(x.P0) + ' → ' + pct(x.P1)).join(', ') + ' win chance today.');
     } else {
       // a mesma troca que já não valeu a pena não volta a ficar no histórico
       diffs.forEach(x => { const H = ((planOf(x.k).lhist || {})[date]) || [], prev = H.slice().reverse().find(e => e.k === 'keep');
@@ -3512,6 +3529,12 @@ function renderAjustes() {
     '<div class="seg acc-seg" role="group" aria-label="Language · Língua">' + [['pt', 'Português'], ['en', 'English']].map(([k, l]) => '<button type="button" data-action="lang" data-v="' + k + '" aria-pressed="' + (LANG === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Appearance</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Appearance">' + [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
+  if (sub === 'prefs' && accounts().length > 1) {
+    const p = (S.mine.plan || {}).prio || 'auto', au = prioAuto();
+    html.push('<div class="card panel"><h2>Priority between accounts ' + helpBtn('prio') + '</h2>' +
+      '<div class="chips" role="group" aria-label="Priority between accounts">' + [['auto', 'Automatic']].concat(accounts().map(a => [a.id, accLabel(a.id)])).concat([['eq', 'Equal']]).map(([k, l]) => '<button type="button" data-action="prio" data-v="' + esc(k) + '" aria-pressed="' + (p === k) + '">' + esc(l) + '</button>').join('') + '</div>' +
+      '<div class="small muted">' + (p === 'auto' ? (au ? 'The best Moments go first to <b>' + esc(accLabel(au.id)) + '</b>, the best ranked (' + esc(ord(au.rank)) + ' in the Overall).' : 'No places read yet: no priority.') : p === 'eq' ? 'No priority: the plan can put the best Moments in either account.' : 'The best Moments go first to <b>' + esc(accLabel(p)) + '</b>.') + '</div></div>');
+  }
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Calculation without odds ' + helpBtn('avancado') + '</h2>' +
     '<div class="label">Back-to-backs</div><div class="seg acc-seg" role="group" aria-label="Back-to-backs"><button type="button" data-action="b2b" data-v="1" aria-pressed="' + b2bOn + '">Adjust</button><button type="button" data-action="b2b" data-v="0" aria-pressed="' + !b2bOn + '">Don’t adjust</button></div>' +
     '<div class="label">Weight of recent form</div><div class="seg acc-seg" role="group" aria-label="Form weight">' + FORM_LEVELS.map(([k, l]) => '<button type="button" data-action="form-level" data-level="' + k + '" aria-pressed="' + (formLevel === k) + '">' + l + '</button>').join('') + '</div></div>');
@@ -5553,6 +5576,7 @@ document.addEventListener('click', async e => {
     case 'help': helpSheet(b.dataset.k, b); break;
     case 'opcoes': await opcoesSheet(); break;
     case 'hold-hist': holdHistSheet(b.dataset.date); break;
+    case 'prio': S.mine.plan.prio = b.dataset.v; saveMine(); schedule(); renderAjustes(); toast('Priority saved: the plan was redone.'); break;
     case 'hold-undo': holdUndoSheet(b.dataset.acc, b.dataset.date, b.dataset.i); break;
     case 'hold-undo-ok': holdUndoOk(b.dataset.acc, b.dataset.date, b.dataset.i); break;
     case 'op-pick': opPick(id); break;

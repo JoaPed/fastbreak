@@ -149,6 +149,12 @@ g2.keys.forEach(k => g2.byKey[k].normal.days.forEach(d => d.lineup.forEach(pid =
   if ((moved ? moved.to : split.players[pid].owner) !== k) okT = false;
 })));
 ok('transferências: cada Moment está na conta certa em cada noite', okT, g2.transfers.slice(0, 5));
+// prioridade a uma conta: com o mesmo plantel e as mesmas hipóteses, a conta com prioridade fica com o melhor
+const expOf = (g, k) => g.byKey[k].normal.expected;
+const gPm = FB.planGroup(run, [{ key: 'main', roster: split, plan: {} }, { key: 's1', roster: split, plan: {} }], odds, { now: NOW, accWeights: { main: 1.2 } });
+const gPs = FB.planGroup(run, [{ key: 'main', roster: split, plan: {} }, { key: 's1', roster: split, plan: {} }], odds, { now: NOW, accWeights: { s1: 1.2 } });
+ok('prioridade: a conta com prioridade fica com mais vitórias esperadas', expOf(gPm, 'main') - expOf(gPm, 's1') > expOf(gPs, 'main') - expOf(gPs, 's1'), [expOf(gPm, 'main'), expOf(gPm, 's1'), expOf(gPs, 'main'), expOf(gPs, 's1')]);
+ok('prioridade: o total quase não muda', Math.abs((expOf(gPm, 'main') + expOf(gPm, 's1')) - (expOf(g2, 'main') + expOf(g2, 's1'))) < 0.6, [expOf(gPm, 'main') + expOf(gPm, 's1'), expOf(g2, 'main') + expOf(g2, 's1')]);
 const allMain = JSON.parse(JSON.stringify(roster)); Object.values(allMain.players).forEach(p => { p.owner = 'main'; p.copies = 1; });
 const g1 = FB.planGroup(run, [{ key: 'main', roster: allMain, plan: {} }, { key: 's1', roster: allMain, plan: {} }], odds, { now: NOW });
 ok('smurf sem Moments: a conta principal não perde hipóteses de prémio por emprestar à smurf', g1.byKey.main.normal.prizeProbs.every((x, i) => x >= r.normal.prizeProbs[i] - 0.02), [g1.byKey.main.normal.prizeProbs, r.normal.prizeProbs]);
