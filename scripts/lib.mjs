@@ -5,9 +5,16 @@ export const MARKET_STAT = Object.fromEntries(Object.entries(STAT_MARKET).map(([
 // Estatísticas sem mercado de odds: usa-se a linha de uma parecida (o motor ajusta pela proporção nas médias do jogador)
 export const MARKET_PROXY = { oreb: 'reb', dreb: 'reb', fga: 'fgm', fg3a: 'fg3', pip: 'pts' };
 // Mercados a pedir para uma estatística do objetivo ("ast-tov" → assistências e perdas de bola)
+// Mercados que as casas quase nunca têm (lançamentos e lances livres): pede-se também os pontos, que o motor usa
+// como linha parecida (× a proporção nas médias do jogador) quando não há linha da própria estatística. A The Odds API
+// só cobra os mercados que vêm na resposta, por isso o que não existe não gasta créditos.
+export const MARKET_ALSO = { fgm: 'pts', ftm: 'pts', fta: 'pts' };
 export function marketsForStat(key) {
   const out = new Set();
-  for (const s of String(key || '').split(/[+-]/)) { const m = STAT_MARKET[s] || STAT_MARKET[MARKET_PROXY[s]]; if (m) out.add(m); }
+  for (const s of String(key || '').split(/[+-]/)) {
+    const base = STAT_MARKET[s] ? s : MARKET_PROXY[s], m = STAT_MARKET[base]; if (!m) continue;
+    out.add(m); if (MARKET_ALSO[base]) out.add(STAT_MARKET[MARKET_ALSO[base]]);
+  }
   return [...out];
 }
 // Médias guardadas por jogador (a ordem é a das colunas)
