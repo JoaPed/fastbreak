@@ -4929,11 +4929,13 @@ function tierBlocked(id, acc, date) {
   const luOf = k => lineupFor(k, date) || ((((S.multi.byKey[k] || {}).normal || { days: [] }).days.find(d => d.date === date) || {}).lineup || []);
   const others = accounts().map(a => a.id).filter(k => k !== acc && luOf(k).includes(id));
   const req = others.concat([acc]).map(nth).sort((a, b) => b - a);
-  return req.some((r, j) => r > (cd[j] || 0)) ? { others, need: nth(acc) } : null;
+  return req.some((r, j) => r > (cd[j] || 0)) ? { others, need: nth(acc), top: cd[0] } : null;
 }
 // 2.ª linha de quem pode entrar: os usos que tem e os dias em que o plano o usa; aviso a amarelo se hoje não dá
 function candLine(r, pi, tb, ds, tir, date) {
   const nd = nextDay(), dn = S.days.findIndex(x => x.date === date) + 1;
+  // ninguém mais o usa nessa noite: é esta conta que já gastou o que as cartas dão
+  if (tb && !tb.others.length) return '<span class="lu-l2 lu-warn">⚠ No uses left on this account: the best card gives ' + esc(usesTxt(tb.top)) + ', already spent or planned on other days</span>';
   if (tb) return '<span class="lu-l2 lu-warn">⚠ Needed Moment already plays on ' + esc(tb.others.map(accLabel).join(' and on ')) + (nd && nd.date === date ? '' : ' on day ' + dn) + '</span>';
   const u = r.model.uses[pi] || 0;
   if (!u) return '<span class="lu-l2">no uses left</span>';

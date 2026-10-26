@@ -2271,6 +2271,8 @@
  ": entra ": ": in ",
  ". A app segue estes.": ". The app follows these.",
  "Lineup de hoje guardado.": "Today’s lineup saved.",
+ "<span class=\"lu-l2 lu-warn\">⚠ Sem usos nesta conta: a melhor carta dá ": "<span class=\"lu-l2 lu-warn\">⚠ No uses left on this account: the best card gives ",
+ ", já gastos ou no plano de outros dias</span>": ", already spent or planned on other days</span>",
  "normal": null,
  "sem": null,
  "odds": null,
