@@ -143,6 +143,9 @@ with sync_playwright() as pw:
     # as runs já não se criam à mão (chegam da blockchain): o Admin tem as leituras do Top Shot
     print('A admin sem criar runs:', pg.locator('#newRunForm').count() == 0, '· leituras:', ' / '.join(pg.locator('#tab-ajustes button[data-action="ranks-go"]').all_inner_texts()))
     print('A base:', store(pg, '{runs: __FAKE_DB.tables.runs.map(r=>[r.id,r.active]), dias: __FAKE_DB.tables.run_days.length, convite: __FAKE_DB.tables.settings, membros: __FAKE_DB.tables.members, perfil: __FAKE_DB.tables.profiles}'))
+    pg.wait_for_timeout(300); print('A tarefas:', pg.locator('#tab-ajustes .card').filter(has_text='Tarefas').inner_text().replace('\n', ' | '))
+    pg.click('#tab-ajustes button[data-action="job-odds"]'); pg.wait_for_timeout(800)
+    print('A pedir odds:', pg.locator('#toast').inner_text(), '·', pg.locator('#tab-ajustes .card').filter(has_text='Tarefas').inner_text().replace('\n', ' | '), '·', store(pg, '__FAKE_DB.tables.job_state'))
     print('A largura ajustes:', width(pg))
     pg.close()
 

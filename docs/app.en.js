@@ -3511,6 +3511,7 @@ function renderAjustes() {
   if (sub === 'admin') html.push(adminHtml(run));
   if (sub === 'dados') html.push(dataHtml());
   el.innerHTML = html.join('');
+  if (sub === 'admin' && S.role === 'admin' && S.jobReq === undefined) loadJobReq();
   if (sub === 'admin' && S.role === 'admin' && S.invite == null) { sb.rpc('get_invite_code').then(({ data }) => { S.invite = data || ''; if (S.tab === 'ajustes' && !typingIn('tab-ajustes')) renderAjustes(); }); }
 }
 // avisos no grupo do Telegram: a tarefa "Lesões" manda-os com o bot do grupo (segredo TELEGRAM_BOT_TOKEN no GitHub)
@@ -3714,6 +3715,31 @@ async function runApply(i) {
   compute(); render(); renderAjustes();
   runReviewSheet();
 }
+// ---- Tarefas pedidas no site (ler as odds agora): o pedido fica na base e a tarefa "Pedidos do site" corre-o ----
+async function loadJobReq() {
+  S.jobReq = null; // a carregar
+  const { data, error } = await sb.rpc('job_requests');
+  const was = S.jobReqWas, odds = !error && data ? data.odds : null;
+  S.jobReq = error ? false : (data || {});
+  // acabou de correr: lê as odds novas (o plano refaz-se sozinho)
+  if (was && odds && odds.done && odds.at === was) { S.jobReqWas = null; refreshOdds(); toast(odds.ok === false ? 'Reading the odds failed (check the job on GitHub).' : 'Odds read.'); }
+  if (odds && !odds.done) { S.jobReqWas = odds.at; clearTimeout(S.jobReqT); S.jobReqT = setTimeout(() => { if (S.tab === 'ajustes' && subOf('ajustes') === 'admin') loadJobReq(); else S.jobReq = undefined; }, 60e3); }
+  const el = $('jobsCard'); if (el) el.outerHTML = jobsCard(); // só este cartão (pode haver um campo a meio)
+}
+function jobsCard() {
+  const J = S.jobReq, o = J ? J.odds : null, pending = !!(o && !o.done);
+  const last = Object.values(S.odds || {}).map(x => x.updated_at).filter(Boolean).sort().pop();
+  const status = J === false ? '<div class="note">For this button to work, run the new <span class="kbd">supabase/schema.sql</span> in Supabase (SQL Editor).</div>'
+    : '<div class="small muted">' + (pending ? 'Requested at ' + hm(o.at) + '. The job picks it up in 5–15 min and the app redoes the plan by itself.' : 'Odds read ' + (last ? ago(last) : 'not yet') + (o && o.ran ? ' · last request ' + ago(o.ran) + (o.ok === false ? ' (failed)' : '') : '') + '.') + '</div>';
+  return '<div class="card panel" id="jobsCard"><h2>Jobs</h2><div class="ts-read"><button class="btn" type="button" data-action="job-odds"' + (pending || J === false || J == null ? ' disabled' : '') + '>Read the odds now</button><span class="small muted">Today and tomorrow. Uses The Odds API credits (~1 per game).</span></div>' + status + '</div>';
+}
+async function jobOdds() {
+  const { data, error } = await sb.rpc('request_job', { kind: 'odds' });
+  if (error) { toast(errText(error)); return; }
+  if (data && data.ok === false) toast('There’s already a request from ' + hm(data.at) + ' waiting.');
+  else toast('Requested. The odds arrive in 5–15 min.');
+  loadJobReq();
+}
 function adminHtml(run) {
   const out = [];
   const site = location.origin + location.pathname;
@@ -3727,6 +3753,7 @@ function adminHtml(run) {
     (S.runRead ? '<div class="note sug"><div>Run read on Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">See what changes</button></div></div>' : '') +
     (edOn() ? '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="ed">Cards (ASP)</button><span class="small muted">1–2 minutes. Rarity and ASP of every card in the group.</span></div>' : '') +
     '<div class="small muted">On Top Shot tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div></div>');
+  out.push(jobsCard());
   const imp = chainImportCard(); if (imp) out.push(imp);
   if (S.runs.some(r => r.fictitious)) out.push('<div class="card panel"><button class="btn quiet" type="button" data-action="del-tests">Delete the test runs (' + S.runs.filter(r => r.fictitious).length + ')</button></div>');
   out.push('<div class="card panel"><h2>Invite friends</h2><div class="small muted">Send them the link and the code.</div>' +
@@ -5507,6 +5534,7 @@ document.addEventListener('click', async e => {
     case 'pl-sheet': rosterSheet(id); break;
     case 'friend': friendSheet(id, b.dataset.acc); break;
     case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Address copied: paste it in Safari.'), () => toast(u)); break; }
+    case 'job-odds': await jobOdds(); break;
     case 'ranks-go': { const what = String(b.dataset.do || 'ranks,picks').split(',');
       if (!b.dataset.ready && what.includes('ed')) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'Preparing…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; }
       delete b.dataset.ready; const J = rankJob(what); if (!J.accs.length) { toast('Nobody in the group has a Flow address in their profile.'); break; }

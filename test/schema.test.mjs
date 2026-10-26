@@ -105,6 +105,14 @@ r = await as('c', `insert into public.alerts (email) values (true)`); expect('n�
 // membros
 r = await as('b', `delete from public.members where user_id = '${U.a}'`); r = await as('a', `select count(*)::int n from public.members`); expect('membro não expulsa admin', r.rows?.[0].n === 2, r);
 r = await as('b', `update public.members set role = 'admin' where user_id = '${U.b}'`); r = await as('a', `select role from public.members where user_id = '${U.b}'`); expect('membro não se promove', r.rows?.[0].role === 'member', r);
+r = await as('b', `select public.request_job('odds') r`); expect('membro não pede tarefas', !!r.error, r);
+r = await as('a', `select public.request_job('rm -rf') r`); expect('tarefa desconhecida recusada', !!r.error, r);
+r = await as('a', `select public.request_job('odds') r`); expect('admin pede as odds', r.rows?.[0].r.ok === true, r);
+r = await as('a', `select public.request_job('odds') r`); expect('segundo pedido logo a seguir fica à espera do primeiro', r.rows?.[0].r.ok === false, r);
+r = await as('b', `select public.job_requests() r`); expect('membro não vê os pedidos', r.rows?.[0].r === null, r);
+r = await as('a', `select public.job_requests() r`); expect('admin vê o pedido', !!r.rows?.[0].r?.odds?.at, r);
+r = await as('a', `select value from public.job_state`); expect('job_state continua fechado ao site', !r.rows?.length, r);
+r = await as(null, `select public.request_job('odds') r`); expect('anónimo não pede tarefas', !!r.error, r);
 r = await as('a', `delete from public.members where user_id = '${U.b}'`); r = await as('a', `select count(*)::int n from public.members`); expect('admin remove membro', r.rows?.[0].n === 1, r);
 r = await as('b', `select id from public.runs`); expect('removido deixa de ver runs', r.rows?.length === 0, r);
 

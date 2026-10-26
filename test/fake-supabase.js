@@ -61,6 +61,14 @@ export function createClient() {
       }
       if (name === 'get_invite_code') return { data: (db.tables.settings.find(s => s.key === 'invite') || { value: {} }).value.code || null, error: null };
       if (name === 'set_invite_code') { db.tables.settings = db.tables.settings.filter(s => s.key !== 'invite'); db.tables.settings.push({ key: 'invite', value: { code: args.code } }); return { data: null, error: null }; }
+      if (name === 'job_requests' || name === 'request_job') {
+        const m = M.find(x => x.user_id === me); if (!m || m.role !== 'admin') return name === 'job_requests' ? { data: null, error: null } : { data: null, error: { message: 'Só o admin pede tarefas' } };
+        const J = db.tables.job_state = db.tables.job_state || []; let row = J.find(x => x.key === 'requests'); if (!row) { row = { key: 'requests', value: {} }; J.push(row); }
+        if (name === 'job_requests') return { data: JSON.parse(JSON.stringify(row.value)), error: null };
+        const prev = row.value[args.kind], at = new Date().toISOString();
+        if (prev && !prev.done && Date.now() - Date.parse(prev.at) < 20 * 60e3) return { data: { ok: false, at: prev.at }, error: null };
+        row.value[args.kind] = { at, by: me }; return { data: { ok: true, at }, error: null };
+      }
       return { data: null, error: { message: 'rpc desconhecida ' + name } };
     },
     auth: {

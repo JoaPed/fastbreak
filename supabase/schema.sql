@@ -251,6 +251,42 @@ begin
 end;
 $$;
 
+-- Tarefas pedidas pelo admin no site (p. ex. ler as odds agora): fica o pedido em job_state 'requests'; a tarefa
+-- "Pedidos do site" (de 5 em 5 min) vê-o e corre. Um pedido por tarefa de cada vez (20 min de espera entre pedidos).
+create or replace function public.request_job(kind text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare cur jsonb; prev jsonb; last timestamptz;
+begin
+  if not public.is_admin() then
+    raise exception 'Só o admin pede tarefas';
+  end if;
+  if kind is null or kind not in ('odds') then
+    raise exception 'Tarefa desconhecida';
+  end if;
+  select value into cur from public.job_state where key = 'requests';
+  cur := coalesce(cur, '{}'::jsonb);
+  prev := cur -> kind;
+  last := nullif(prev ->> 'at', '')::timestamptz;
+  if last is not null and coalesce((prev ->> 'done')::boolean, false) = false and now() - last < interval '20 minutes' then
+    return jsonb_build_object('ok', false, 'at', last);
+  end if;
+  cur := cur || jsonb_build_object(kind, jsonb_build_object('at', now(), 'by', auth.uid(), 'prev', prev -> 'ran'));
+  insert into public.job_state (key, value, updated_at) values ('requests', cur, now())
+  on conflict (key) do update set value = excluded.value, updated_at = now();
+  return jsonb_build_object('ok', true, 'at', now());
+end;
+$$;
+
+create or replace function public.job_requests() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_admin() then
+    return null;
+  end if;
+  return coalesce((select value from public.job_state where key = 'requests'), '{}'::jsonb);
+end;
+$$;
+
 create or replace function public.touch_updated_at() returns trigger
 language plpgsql as $$
 begin
@@ -349,5 +385,5 @@ grant select, insert, update, delete on all tables in schema public to authentic
 grant all on all tables in schema public to service_role;
 grant all on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
-revoke all on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status() from anon, public;
-grant execute on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.is_member(), public.is_admin() to authenticated;
+revoke all on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.request_job(text), public.job_requests() from anon, public;
+grant execute on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.is_member(), public.is_admin(), public.request_job(text), public.job_requests() to authenticated;
