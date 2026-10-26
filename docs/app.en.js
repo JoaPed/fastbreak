@@ -1074,8 +1074,172 @@ function publishSummary() {
 
 // ---------- cálculo ----------
 let scheduled = false;
-function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); render(); if (S.lu && $('luBody')) luRender(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); scheduleImprove(); ensureLive(); boxTick(); }, 16); }
-function recalcNow() { if (!S.session) return; compute(); render(); publishSummary(); publishNext(); }
+function schedule() { if (scheduled) return; scheduled = true; setTimeout(() => { scheduled = false; if (!S.session) return; compute(); holdSync(); render(); if (S.lu && $('luBody')) luRender(); publishSummary(); publishNext(); snapshotProj(); scheduleAutoBuy(); scheduleImprove(); scheduleHoldCheck(); ensureLive(); boxTick(); }, 16); }
+function recalcNow() { if (!S.session) return; compute(); holdSync(); render(); publishSummary(); publishNext(); }
+// ---- Lineup de hoje mantido: menos trocas no dia ----
+// O primeiro lineup do dia fica (plan.hold). Só muda sozinho se alguém dele não puder jogar (fora no relatório, sem
+// jogo, sem usos) ou se, refeita a run sem ele, houver um lineup que dá pelo menos HOLD_MIN vitórias a mais.
+// Cada mudança (ou troca que não valeu a pena) fica no histórico do dia (plan.lhist), que se vê na Jornada.
+const HOLD_MIN = 0.02;
+function holdOn(acc) {
+  const h = planOf(acc).hold; if (!h || !h.d || !Array.isArray(h.ids) || !h.ids.length) return null;
+  const pa = planOf(acc), day = S.days.find(d => d.date === h.d); if (!day) return null;
+  if (((pa.played || {})[h.d] || {}).done || ((pa.locks || {})[h.d] || []).length || ((pa.keep || {})[h.d] || []).length) return null;
+  const tip = firstTipOf(day); if (tip != null && Date.now() >= tip) return null;
+  return h;
+}
+function holdLog(acc, date, ev) {
+  const pa = planOf(acc), H = pa.lhist = pa.lhist || {};
+  (H[date] = H[date] || []).push(Object.assign({ t: new Date().toISOString() }, ev));
+  if (H[date].length > 30) H[date] = H[date].slice(-30);
+  Object.keys(H).sort().slice(0, -3).forEach(d => delete H[d]); // só os últimos 3 dias
+}
+// porque é que um jogador do lineup mantido já não pode jogar
+function holdWhy(acc, md, id) {
+  const pi = S.result && S.result.model.pIndex.get(id), inj = (S.injuries || {})[id], e = (S.mine.roster || {})[id];
+  if (inj && /^(out|ofs)$/.test(inj.status) && !(e && e.injIgnore)) return 'fora';
+  if (!FB.gameOf(md.day, pTeam(id))) return 'semjogo';
+  if (pi != null && !((S.result.model.uses || [])[pi] > 0)) return 'semusos';
+  return '';
+}
+// depois de cada cálculo: guarda o lineup do dia e regista o que mudou sem ser por uma troca melhor
+function holdSync() {
+  const run = curRun(); if (!S.result || !run || !S.mineLoaded) return;
+  let ch = false; const pops = [];
+  accounts().forEach(a => {
+    const R = S.multi ? S.multi.byKey[a.id] : (a.id === 'main' ? S.result : null); if (!R || !R.model.days.length) return;
+    const md = R.model.days[0], date = md.day.date, d = R.normal.days[0]; if (!d || d.date !== date) return;
+    const tip = firstTipOf(md.day); if (tip == null || Date.now() >= tip || liveOn(date)) return;
+    const L = d.lineup.slice(), pa = planOf(a.id), h = pa.hold;
+    if (!L.length) return;
+    if (!h || h.d !== date) { pa.hold = { d: date, ids: L }; holdLog(a.id, date, { k: 'start', ids: L, P1: d.P }); ch = true; return; }
+    const same = L.length === h.ids.length && L.every(id => h.ids.includes(id)); if (same) return;
+    const outs = h.ids.filter(id => !L.includes(id)), ins = L.filter(id => !h.ids.includes(id));
+    const banned = (pa.bans || {})[date] || [], base = { outs, ins, prev: h.ids.slice(), ids: L, P0: luP(R, md, h.ids), P1: d.P };
+    if (((pa.locks || {})[date] || []).length || ((pa.keep || {})[date] || []).length || outs.some(id => banned.includes(id))) holdLog(a.id, date, Object.assign({ k: 'mine' }, base));
+    else { const why = outs.map(id => holdWhy(a.id, md, id)); holdLog(a.id, date, Object.assign({ k: 'out', why }, base)); if (why.some(w => w === 'fora' || w === 'semjogo')) pops.push({ acc: a.id, old: h.ids.slice(), now: L, outs, ins, why }); }
+    pa.hold = { d: date, ids: L }; ch = true;
+  });
+  if (ch) saveMine();
+  if (pops.length) { S.oddsPop = { date: pops[0] && planOf(pops[0].acc).hold.d, ch: pops, out: true }; setTimeout(oddsPopShow, 600); }
+}
+// o que mudou desde a última verificação (para dizer porque é que o lineup mudou)
+function holdSigs(date) {
+  const o = S.odds[date], inj = Object.values(S.injuries || {}).map(x => x.id + ':' + x.status).sort().join();
+  return { odds: o ? Object.keys(o.players || {}).length + '|' + (o.updated_at || '') : '', inj };
+}
+let holdKey = null, holdBusy = false, holdTimer = null;
+function scheduleHoldCheck() {
+  const key = calcKey; if (!key || holdBusy || holdKey === key || !S.result || S.calcError) return;
+  if (!accounts().some(a => holdOn(a.id))) return;
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => { if (calcKey === key && !holdBusy) holdCheck(key); }, 1500);
+}
+// refaz a run sem o lineup mantido (no outro fio): se a run fica pelo menos HOLD_MIN vitórias melhor, troca
+async function holdCheck(key) {
+  holdBusy = true; holdKey = key;
+  try {
+    const multi = !!S.multi, accs = accounts().map(a => a.id).filter(k => multi || k === 'main');
+    const held = accs.filter(k => holdOn(k)); if (!held.length) return;
+    const date = holdOn(held[0]).d, base = engineInputs('main', true);
+    let out;
+    if (!multi) out = await engineCall('planRun', [base.run, base.roster, base.odds, base.plan, engOpts()]);
+    else out = await engineCall('planGroup', [base.run, accs.map(a => { const y = a === 'main' ? base : engineInputs(a, true); return { key: a, roster: y.roster, plan: y.plan }; }), base.odds, engOpts()], 'main');
+    if (calcKey !== key || !out) return;
+    const resOf = k => multi ? (out.group.byKey[k] || {}).normal : out.res;
+    const curOf = k => (multi ? S.multi.byKey[k] : S.result).normal;
+    const expU = multi ? Object.values(out.group.byKey).reduce((t, g) => t + (g.normal.expected || 0), 0) : out.res.expected || 0;
+    const expK = multi ? Object.values(S.multi.byKey).reduce((t, g) => t + (g.normal.expected || 0), 0) : S.result.normal.expected || 0;
+    const diffs = held.map(k => { const u = resOf(k), c = curOf(k); const ud = u && u.days.find(x => x.date === date), cd = c.days.find(x => x.date === date); if (!ud || !cd) return null;
+      const outs = cd.lineup.filter(id => !ud.lineup.includes(id)), ins = ud.lineup.filter(id => !cd.lineup.includes(id));
+      return outs.length || ins.length ? { k, outs, ins, now: ud.lineup.slice(), old: cd.lineup.slice(), P0: cd.P, P1: ud.P } : null; }).filter(Boolean);
+    const sg = holdSigs(date), last = S.mine.plan.holdSig || {}, why = [sg.odds !== (last.odds || '') && sg.odds ? 'odds' : '', sg.inj !== (last.inj || '') && last.inj != null ? 'inj' : ''].filter(Boolean);
+    S.mine.plan.holdSig = sg;
+    if (!diffs.length) { saveMine(); return; }
+    const g = expU - expK;
+    if (g >= HOLD_MIN) {
+      diffs.forEach(x => { planOf(x.k).hold = { d: date, ids: x.now }; holdLog(x.k, date, { k: 'upd', outs: x.outs, ins: x.ins, prev: x.old, ids: x.now, g, P0: x.P0, P1: x.P1, why }); });
+      saveMine(); schedule();
+      // aviso grande só quando veio de dados novos (odds, lesões); depois de mexeres no plantel basta uma nota
+      if (why.length) { S.oddsPop = { date, ch: diffs.map(x => ({ acc: x.k, old: x.old, now: x.now, outs: x.outs, ins: x.ins, P0: x.P0, P1: x.P1 })), g, why }; setTimeout(oddsPopShow, 600); }
+      else toast('Today’s lineup updated: ' + diffs.map(x => pct(x.P0) + ' → ' + pct(x.P1)).join(', ') + ' win chance today.');
+    } else {
+      // a mesma troca que já não valeu a pena não volta a ficar no histórico
+      diffs.forEach(x => { const H = ((planOf(x.k).lhist || {})[date]) || [], prev = H.slice().reverse().find(e => e.k === 'keep');
+        const sig = x.outs.slice().sort().join() + '>' + x.ins.slice().sort().join();
+        if (!prev || (prev.outs || []).slice().sort().join() + '>' + (prev.ins || []).slice().sort().join() !== sig) holdLog(x.k, date, { k: 'keep', outs: x.outs, ins: x.ins, prev: x.old, ids: x.now, g: Math.max(0, g), P0: x.P0, P1: x.P1, why }); });
+      saveMine();
+    }
+  } catch (e) { console.warn('lineup mantido', e); holdKey = null; }
+  finally { holdBusy = false; }
+}
+const HOLD_WHY = { fora: 'out in the report', semjogo: 'no game', semusos: 'no uses', '': 'no longer available' };
+const holdWhyTxt = why => (why || []).map(w => w === 'odds' ? 'new odds' : w === 'inj' ? 'injury report' : '').filter(Boolean).join(' and ');
+// vitória de hoje com um lineup (o modelo de uma conta)
+function luP(R, md, ids) {
+  const idx = (ids || []).map(id => R.model.pIndex.get(id)).filter(i => i != null); let P = 1;
+  md.objs.forEach((o, k) => { let sm = md.offset[k], v = 0; idx.forEach(i => { sm += md.mu[i][k]; v += md.v[i][k]; }); P *= FB.probAtLeast(sm, v, md.T[k]); });
+  return md.objs.length ? P : 0;
+}
+const gainTxt = g => String(Math.round(Math.max(0, g) * 1000) / 10).replace('.', ',') + '%';
+const pTo = e => e.P0 != null && e.P1 != null ? pct(e.P0) + ' → ' + pct(e.P1) : '';
+// histórico do lineup de hoje: linha curta na Jornada (o último que aconteceu) e a folha com tudo
+function holdLine(acc, date) {
+  const H = ((planOf(acc).lhist || {})[date]) || []; if (!H.length) return '';
+  const e = H[H.length - 1], pt = pTo(e);
+  const t = e.k === 'upd' ? 'Updated at ' + hm(e.t) + (pt ? ': today ' + pt : '') : e.k === 'keep' ? 'Kept at ' + hm(e.t) + (pt ? ': the swap would give ' + pt : '') : e.k === 'out' ? 'Swapped at ' + hm(e.t) + ': ' + e.outs.map(id => esc(lastName(id))).join(', ') + ' ' + (HOLD_WHY[(e.why || [])[0]] || 'doesn\'t play') : e.k === 'mine' ? 'Changed by you at ' + hm(e.t) : 'Lineup of the day since ' + hm(e.t);
+  return '<button class="row small hold-line" type="button" data-action="hold-hist" data-date="' + date + '"><span>' + icoClock + ' ' + t + '</span><span class="muted">History ›</span></button>';
+}
+// o que um botão do histórico faz ao lineup de agora: reverter a troca (quem saiu volta) ou fazer a troca que não se fez
+function holdUndo(acc, date, e) {
+  const h = planOf(acc).hold, cur = h && h.d === date ? h.ids : null; if (!cur || e.k === 'start') return null;
+  const back = e.k !== 'keep', outs = back ? e.ins || [] : e.outs || [], ins = back ? e.outs || [] : e.ins || [];
+  if (!outs.length && !ins.length) return null;
+  if (!outs.every(id => cur.includes(id)) || ins.some(id => cur.includes(id))) return null; // já mudou outra vez entretanto
+  return { back, outs, ins, target: cur.filter(id => !outs.includes(id)).concat(ins) };
+}
+function holdHistSheet(date) {
+  const multi = accounts().length > 1, nd = S.days.find(d => d.date === date), tip = nd ? firstTipOf(nd) : null, open = !(tip != null && Date.now() >= tip);
+  const mini = (ids, k) => ids.map(id => '<span class="hh-p ' + k + '">' + face(id, 'sm') + '<span>' + esc(lastName(id)) + '</span></span>').join('');
+  const ev = (acc, e, i) => {
+    const pt = pTo(e);
+    const head = e.k === 'upd' ? '<span class="pill ok">Updated</span>' + (pt ? ' <b class="up">' + pt + '</b> today' : '') : e.k === 'keep' ? '<span class="pill mute">Kept</span> <span class="muted">' + (pt ? 'the swap would give ' + pt + ' today' : 'the swap wasn’t worth it') + '</span>'
+      : e.k === 'out' ? '<span class="pill duv">Swapped</span> <span class="muted">' + e.outs.map((id, k) => esc(lastName(id)) + ' ' + (HOLD_WHY[(e.why || [])[k]] || 'doesn\'t play')).join(', ') + '</span>'
+      : e.k === 'mine' ? '<span class="pill mute">Changed by you</span>' + (pt ? ' <span class="muted">' + pt + ' today</span>' : '') : '<span class="pill mute">Lineup of the day</span>' + (e.P1 != null ? ' <span class="muted">' + pct(e.P1) + ' today</span>' : '');
+    const sub = [e.k === 'upd' || e.k === 'keep' ? holdWhyTxt(e.why) ? 'With ' + holdWhyTxt(e.why) : '' : '', e.g != null && (e.k === 'upd' || e.k === 'keep') ? 'run +' + gainTxt(e.g) + ' (swaps from ' + gainTxt(HOLD_MIN) + ')' : ''].filter(Boolean).join(' · ');
+    const o = e.outs || [], n = e.ins || [];
+    const body = e.k === 'start' ? '<div class="hh-ids">' + mini(e.ids || [], '') + '</div>' : '<div class="hh-pairs">' + Array.from({ length: Math.max(o.length, n.length) }, (_, k) => '<div class="hh-pair">' + (o[k] ? mini([o[k]], 'op-out') : '<span></span>') + '<span class="op-arrow" aria-hidden="true">→</span>' + (n[k] ? mini([n[k]], 'op-in') : '<span></span>') + '</div>').join('') + '</div>';
+    const u = open && holdUndo(acc, date, e);
+    const btn = u ? '<button class="btn small hh-btn" type="button" data-action="hold-undo" data-acc="' + esc(acc) + '" data-date="' + date + '" data-i="' + i + '">' + (u.back ? 'Undo' : 'Make this swap') + '</button>' : '';
+    return '<li class="hh-ev"><span class="hh-t num">' + hm(e.t) + '</span><div style="min-width:0"><div>' + head + '</div>' + (sub ? '<div class="small muted">' + sub + '</div>' : '') + body + btn + '</div></li>';
+  };
+  const cards = accounts().map(a => { const H = ((planOf(a.id).lhist || {})[date]) || []; if (!H.length) return '';
+    return '<div class="card">' + (multi ? '<div class="list-head"><h2>' + esc(accLabel(a.id)) + '</h2></div>' : '') + '<ul class="list hh-list">' + H.map((e, i) => [e, i]).reverse().map(([e, i]) => ev(a.id, e, i)).join('') + '</ul></div>'; }).join('');
+  openSheet('<h3>Lineup history</h3><div class="small muted">Day ' + dayNo(date) + ' · ' + dWeek(date) + ', ' + dShort(date) + '. The lineup of the day only changes by itself if someone can’t play or there’s a clearly better one (at least +' + gainTxt(HOLD_MIN) + ' expected wins in the run).</div>' +
+    (cards || '<div class="small muted">Nothing yet for this day.</div>'));
+}
+// "Reverter" / "Fazer esta troca": mostra como fica (quem sai e entra, a vitória de hoje) antes de confirmar
+function holdUndoSheet(acc, date, i) {
+  const e = (((planOf(acc).lhist || {})[date]) || [])[+i], u = e && holdUndo(acc, date, e); if (!u) return;
+  const R = S.multi ? S.multi.byKey[acc] : S.result, md = R && R.model.days.find(x => x.day.date === date); if (!md) return;
+  const cur = planOf(acc).hold.ids, p0 = luP(R, md, cur), p1 = luP(R, md, u.target);
+  const bad = u.ins.filter(id => { const pi = R.model.pIndex.get(id); return pi == null || !md.eligSet.has(pi); });
+  const who = (id, k) => '<span class="op-p ' + k + '">' + face(id, 'sm') + '<span class="op-t"><span class="op-l">' + (k === 'op-out' ? 'Out' : 'In') + '</span><span class="op-n">' + esc(nameOf(id)) + '</span></span></span>';
+  const n = Math.max(u.outs.length, u.ins.length);
+  openSheet('<h3>' + (u.back ? 'Undo the swap' : 'Make this swap') + '</h3><div class="small muted">' + (accounts().length > 1 ? esc(accLabel(acc)) + ' · ' : '') + 'Day ' + dayNo(date) + '. Today’s lineup becomes:</div>' +
+    '<div class="card op-card"><ul class="list">' + Array.from({ length: n }, (_, k) => '<li class="op-pair">' + (u.outs[k] ? who(u.outs[k], 'op-out') : '<span></span>') + '<span class="op-arrow" aria-hidden="true">→</span>' + (u.ins[k] ? who(u.ins[k], 'op-in') : '<span></span>') + '</li>').join('') + '</ul>' +
+      '<div class="kv lu-kv hu-kv"><div><div class="label">Win today</div><div class="v num">' + pct(p0) + ' → <span class="' + (p1 >= p0 ? 'up' : 'down') + '">' + pct(p1) + '</span></div></div></div>' +
+      '<div class="hh-ids hu-ids">' + u.target.map(id => '<span class="hh-p">' + face(id, 'sm') + '<span>' + esc(lastName(id)) + '</span></span>').join('') + '</div></div>' +
+    (bad.length ? '<div class="note warn">' + bad.map(id => '<b>' + esc(nameOf(id)) + '</b>').join(', ') + ' can’t play today (' + bad.map(id => HOLD_WHY[holdWhy(acc, md, id)] || 'doesn\'t play').join(', ') + ').</div>'
+      : '<div class="small muted">The lineup gets locked, so the plan won’t swap it again by itself. Remove the lock in Change lineup.</div>') +
+    '<div class="btns">' + (bad.length ? '' : '<button class="btn primary" type="button" data-action="hold-undo-ok" data-acc="' + esc(acc) + '" data-date="' + date + '" data-i="' + i + '">Confirm</button>') + '<button class="btn" type="button" data-action="hold-hist" data-date="' + date + '">Back to history</button></div>');
+}
+function holdUndoOk(acc, date, i) {
+  const e = (((planOf(acc).lhist || {})[date]) || [])[+i], u = e && holdUndo(acc, date, e); if (!u) return;
+  if (acc !== S.acc) { S.acc = acc; if (S.multi && S.multi.byKey[acc]) S.result = S.multi.byKey[acc]; }
+  const dr = planPatch({ locks: { [date]: u.target.slice() }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => !u.target.includes(x)) } });
+  closeSheet(); toast((u.back ? 'Swap undone' : 'Swap made') + ': today’s lineup locked.' + capMsg(dr));
+}
 // Lineups dos próximos 3 dias de cada conta, guardados no plano: a tarefa dos avisos (grupo do Telegram) usa-os
 // quando ainda não há lineup submetido no Top Shot (só runs a sério)
 function publishNext() {
@@ -1092,7 +1256,7 @@ function publishNext() {
   const hasOdds = date => !!(S.odds[date] && Object.keys(S.odds[date].players || {}).length);
   const nd = nextDay(), today = nd && nd.date, oldOdds = S.mine.plan.nextOdds || {}, oldNext = S.mine.plan.next || {};
   const nextOdds = {}; Object.values(out).forEach(m => Object.keys(m).forEach(d => { nextOdds[d] = hasOdds(d); }));
-  if (today && oldOdds[today] === false && nextOdds[today] && !liveOn(today)) {
+  if (today && oldOdds[today] === false && nextOdds[today] && !liveOn(today) && !accounts().some(a => holdOn(a.id))) { // com o lineup mantido, avisa o holdCheck
     const ch = Object.keys(out).map(acc => { const a = (oldNext[acc] || {})[today] || [], b = (out[acc] || {})[today] || []; return { acc, old: a, now: b, outs: a.filter(id => !b.includes(id)), ins: b.filter(id => !a.includes(id)) }; }).filter(c => c.outs.length || c.ins.length);
     if (ch.length) { S.oddsPop = { date: today, ch }; setTimeout(oddsPopShow, 600); }
   }
@@ -1108,10 +1272,12 @@ function oddsPopShow() {
   const multi = accounts().length > 1;
   const who = (id, k) => '<span class="op-p ' + k + '">' + face(id, 'sm') + '<span class="op-t"><span class="op-l">' + (k === 'op-out' ? 'Out' : 'In') + '</span><span class="op-n">' + esc(nameOf(id)) + '</span></span></span>';
   const pairs = c => { const n = Math.max(c.outs.length, c.ins.length); return Array.from({ length: n }, (_, i) => '<li class="op-pair">' + (c.outs[i] ? who(c.outs[i], 'op-out') : '<span></span>') + '<span class="op-arrow" aria-hidden="true">→</span>' + (c.ins[i] ? who(c.ins[i], 'op-in') : '<span></span>') + '</li>').join(''); };
-  openSheet('<h3>Today’s lineup changed</h3><div class="small muted">Today’s odds are in and the plan swapped players. If you prefer the previous lineup, keep it.</div>' +
-    P.ch.map((c, i) => '<div class="card op-card">' + (multi ? '<div class="list-head"><h2>' + esc(accLabel(c.acc)) + '</h2></div>' : '') + '<ul class="list">' + pairs(c) + '</ul>' +
-      '<div class="op-btns" id="opb-' + i + '"><button class="btn" type="button" data-action="odds-keep" data-k="old" data-i="' + i + '">Keep the lineup</button></div></div>').join('') +
-    '<button class="btn quiet" type="button" data-action="odds-see" data-date="' + P.date + '">See the lineup</button>');
+  const outTxt = P.out ? P.ch.map(c => c.outs.map((id, i) => '<b>' + esc(nameOf(id)) + '</b> ' + (HOLD_WHY[(c.why || [])[i]] || 'doesn\'t play')).join(', ')).join('; ') : '';
+  const sub = P.out ? outTxt + ': someone else came in. The rest of the lineup stayed the same.' : P.g != null ? (holdWhyTxt(P.why) ? 'With ' + holdWhyTxt(P.why) + ', there’s' : 'There’s') + ' a better lineup and the plan switched to it (expected wins in the run <b class="up">+' + gainTxt(P.g) + '</b>). If you prefer the previous one, keep it.' : 'Today’s odds are in and the plan swapped players. If you prefer the previous lineup, keep it.';
+  openSheet('<h3>Today’s lineup changed</h3><div class="small muted">' + sub + '</div>' +
+    P.ch.map((c, i) => '<div class="card op-card">' + (multi ? '<div class="list-head"><h2>' + esc(accLabel(c.acc)) + '</h2></div>' : '') + '<ul class="list">' + pairs(c) + '</ul>' + (c.P0 != null && c.P1 != null ? '<div class="small muted op-pp">Win today ' + pct(c.P0) + ' → <b class="' + (c.P1 >= c.P0 ? 'up' : 'down') + '">' + pct(c.P1) + '</b></div>' : '') +
+      (P.out ? '' : '<div class="op-btns" id="opb-' + i + '"><button class="btn" type="button" data-action="odds-keep" data-k="old" data-i="' + i + '">Keep the lineup</button></div>') + '</div>').join('') +
+    '<div class="op-foot"><button class="btn quiet" type="button" data-action="odds-see" data-date="' + P.date + '">See the lineup</button>' + (P.g != null || P.out ? '<button class="btn quiet" type="button" data-action="hold-hist" data-date="' + P.date + '">History</button>' : '') + '</div>' + (P.out ? '<button class="btn primary" type="button" data-action="close-sheet">OK</button>' : ''));
 }
 // fixa o lineup escolhido (o novo do plano ou o de antes das odds) nessa conta
 function oddsKeep(i, which) {
@@ -1145,8 +1311,10 @@ function keepConflict(acc, date, id) {
   const req = others.concat([acc]).map(k => usedCount(k, id) + 1).sort((a, b) => b - a);
   return req.some((r, j) => r > (cd[j] || 0));
 }
-function planForEngine(acc) {
+function planForEngine(acc, raw) {
   let pa = planOf(acc); const sk = skippedDays(acc);
+  // o lineup de hoje fica como estava (keep) até haver um claramente melhor ou alguém ficar de fora (holdSync, holdCheck)
+  const hd = !raw && holdOn(acc); if (hd) pa = Object.assign({}, pa, { keep: Object.assign({}, pa.keep || {}, { [hd.d]: hd.ids.slice() }) });
   if (accounts().length > 1 && pa.keep) {
     const keep = {}; let cut = false;
     Object.entries(pa.keep).forEach(([d, ids]) => { const ok = (ids || []).filter(id => !keepConflict(acc, d, id)); if (ok.length !== (ids || []).length) cut = true; keep[d] = ok; });
@@ -1160,7 +1328,7 @@ function planForEngine(acc) {
 // já não está em nenhuma equipa da NBA (retirado, sem contrato): o catálogo (plantéis da ESPN e quem jogou esta
 // época) não o tem. Jogadores postos à mão (x-…) não contam.
 const gone = id => S.players.size > 200 && !/^x-/.test(String(id)) && !S.players.get(String(canon(id)));
-function engineInputs(acc) {
+function engineInputs(acc, raw) {
   acc = acc || 'main';
   const run = S.runs.find(r => r.id === S.runId) || {};
   const players = {};
@@ -1172,7 +1340,7 @@ function engineInputs(acc) {
   });
   const odds = { days: {} };
   Object.entries(S.odds).forEach(([d, o]) => { odds.days[d] = { players: o.players || {}, source: o.source, updatedAt: o.updated_at }; });
-  return { run: { name: run.name, prizes: run.prizes || [], days: S.days }, roster: { players }, odds, plan: planForEngine(acc) };
+  return { run: { name: run.name, prizes: run.prizes || [], days: S.days }, roster: { players }, odds, plan: planForEngine(acc, raw) };
 }
 // O plano só é refeito quando alguma coisa que entra no cálculo mudou (plantel, plano, odds, lesões, jogos já
 // começados…): voltar à app ou redesenhar não refaz a run (com smurfs, cada vez são vários segundos no telemóvel).
@@ -1559,7 +1727,7 @@ function renderJornada(el) {
     const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Share the lineup" title="Share the lineup">' + icoShare + '</button>' : ''].filter(Boolean);
     html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Today' : 'Day ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Live</span>' : '') + '</span>' +
       '<div class="jc-sub">' + (d.noObjective ? 'No target' : d.lineup.length ? perStat : '') + '</div>' + (live ? '' : '<div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1st game ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
-      liveBars + (d.lineup.length ? '<ul class="list jc-list">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') + finalLine + bansLine +
+      liveBars + (d.lineup.length ? '<ul class="list jc-list">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
       (btns.length ? '<div class="jc-btns">' + btns.join('') + '</div>' : '') + '</div>';
   } else html.splice(luAt, 0, '<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change</button>' : '<span class="small muted">' + (live ? 'live points' : d.lineup.length ? d.lineup.length + ' of ' + md.size : '') + '</span>') + '</div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') +
@@ -1958,6 +2126,7 @@ function opUse(i) {
   const plan = curPlan(); modCap(x.mod, plan);
   // durante os jogos, a escolha passa a ser o lineup submetido (faz a mesma mudança no Top Shot)
   if (during) { plan.live = plan.live || {}; plan.live[nd.date] = Object.assign({}, plan.live[nd.date], { lineup: x.a0.lineup.slice() }); }
+  else { const h = planOf(S.acc).hold; if (h && h.d === nd.date && (outs.length || ins.length)) { holdLog(S.acc, nd.date, { k: 'mine', outs, ins, prev: h.ids.slice(), ids: x.a0.lineup.slice(), P1: x.a0.P }); planOf(S.acc).hold = { d: nd.date, ids: x.a0.lineup.slice() }; } }
   closeSheet(); schedule(); saveMine();
   toast(during && (outs.length || ins.length) ? 'On Top Shot: ' + [outs.length ? 'take out ' + outs.map(lastName).join(', ') : '', ins.length ? 'put in ' + ins.map(lastName).join(', ') : ''].filter(Boolean).join(' and ') + ' before the game.' : 'Done. The rest of the run was redone.');
 }
@@ -2341,7 +2510,10 @@ function colRows() {
 }
 function renderColList() { const el = $('colList'); if (el) el.innerHTML = colRows(); }
 // campo de texto com o cursor lá dentro (não redesenhar por cima do que se está a escrever)
-function typingField(id) { const ae = document.activeElement, box = $(id); return !!(ae && box && box.contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)); }
+function typingField(id) { const ae = document.activeElement, box = $(id), t = !!(ae && box && box.contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)); if (t) S.typingSkip = true; return t; }
+// um desenho saltado enquanto escrevias: faz-se quando sais do campo (depois do toque acabar, para não o perder)
+document.addEventListener('focusout', () => { if (!S.typingSkip) return; S.typingSkip = false;
+  setTimeout(() => { const ae = document.activeElement; if (!(ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) && S.session) render(); }, 350); });
 function renderPlantel() {
   const el = $('tab-plantel');
   if (S.loading) { el.innerHTML = empty('Loading…', 'Reading the run and your roster.'); return; }
@@ -2856,6 +3028,9 @@ function scheduleImprove() {
 function useBetter() {
   const B = S.better; if (!B) return;
   S.mine.plan.hint = { run: S.runId, at: new Date().toISOString(), acc: B.acc };
+  Object.entries(B.acc || {}).forEach(([k, days]) => { const h = holdOn(k), ids = h && days[h.d]; if (!ids || !ids.length) return;
+    const outs = h.ids.filter(id => !ids.includes(id)), ins = ids.filter(id => !h.ids.includes(id)); if (!outs.length && !ins.length) return;
+    holdLog(k, h.d, { k: 'mine', outs, ins, prev: h.ids.slice(), ids: ids.slice() }); planOf(k).hold = { d: h.d, ids: ids.slice() }; });
   S.better = null; saveMine(); schedule();
   toast('Better plan applied.');
 }
@@ -2933,9 +3108,15 @@ function scheduleAutoBuy() {
     autoBuyBusy = key;
     try {
       const res = await computeBuy({ mode: S.multi ? 'mix' : 'new', U: 2, topN: S.multi ? 4 : 6, alive: () => autoBuyKey() === key, kicks: S.multi ? 10 : null });
-      if (res && autoBuyKey() === key) { S.autoBuy = Object.assign({ key, at: Date.now() }, res); S.autoBuyErr = null; if (S.tab === 'hoje' || S.tab === 'run' || (S.tab === 'plantel' && subOf('plantel') === 'comprar')) render(); }
+      if (res && autoBuyKey() === key) { S.autoBuy = Object.assign({ key, at: Date.now() }, res); S.autoBuyErr = null; autoBuyBusy = null; /* antes de desenhar: senão fica "a atualizar…" */ if (S.tab === 'hoje' || S.tab === 'run' || (S.tab === 'plantel' && subOf('plantel') === 'comprar')) render(); }
     } catch (e) { console.warn('sugestões de compra', e); S.autoBuyErr = key; render(); }
-    finally { if (autoBuyBusy === key) autoBuyBusy = null; }
+    finally {
+      if (autoBuyBusy === key) {
+        autoBuyBusy = null;
+        // parou a meio (mudou o plano): tira o "a atualizar…" dos cartões que estão à vista
+        if ((S.tab === 'hoje' || S.tab === 'run' || (S.tab === 'plantel' && subOf('plantel') === 'comprar'))) render();
+      }
+    }
   }, S.multi ? 6000 : 2500);
 }
 // resumo de uma compra: o prémio que mais sobe, as vitórias esperadas e os dias em que passa a jogar
@@ -4685,6 +4866,7 @@ function banToggle(id, date, on) {
 // muda face à sugestão do plano (o plano sem as tuas escolhas nesse dia): vitória do dia, vitórias esperadas, prémios e
 // os outros dias em que entra ou sai alguém. S.lu = {date, base, busy, all, toTop}; fecha-se com a folha.
 const icoPlus = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const icoClock = '<svg class="ico-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 const icoLockBtn = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 const luSnap = (wins, v, date) => { const d = v.days.find(x => x.date === date) || { P: 0, lineup: [] }; return { P: d.P, lineup: d.lineup.slice(), ew: wins + v.expected, probs: (v.prizeProbs || []).slice(), days: v.days.map(x => ({ date: x.date, idx: x.idx, P: x.P, lineup: x.lineup.slice() })) }; };
 async function lineupSheet(date) {
@@ -5316,6 +5498,9 @@ document.addEventListener('click', async e => {
     case 'day': S.hd = date; S.hdCenter = true; closeSheet(); setSub('hoje', 'lineup'); setTab('hoje'); break;
     case 'help': helpSheet(b.dataset.k, b); break;
     case 'opcoes': await opcoesSheet(); break;
+    case 'hold-hist': holdHistSheet(b.dataset.date); break;
+    case 'hold-undo': holdUndoSheet(b.dataset.acc, b.dataset.date, b.dataset.i); break;
+    case 'hold-undo-ok': holdUndoOk(b.dataset.acc, b.dataset.date, b.dataset.i); break;
     case 'op-pick': opPick(id); break;
     case 'op-use': opUse(b.dataset.i); break;
     case 'hd': S.hd = date; S.hdCenter = true; renderHoje(); break;

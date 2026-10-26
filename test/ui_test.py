@@ -375,7 +375,7 @@ with sync_playwright() as pw:
     # preço máximo: só quem tem um Moment Rare à venda até esse preço (o Jokić Rare está a $89)
     pg.fill('#buyMax', '50'); pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
     print('C compras até $50:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:240])
-    pg.fill('#buyMax', ''); pg.evaluate("document.getElementById('buyMax').dispatchEvent(new Event('input', {bubbles: true}))")
+    pg.fill('#buyMax', ''); pg.evaluate("document.getElementById('buyMax').dispatchEvent(new Event('input', {bubbles: true}))"); pg.evaluate("document.getElementById('buyMax').blur()")
     pg.wait_for_function("() => { const c = [...document.querySelectorAll('#plSub .card')].find(x => /Os Rare que mais compensam/.test(x.textContent)); return c && !/A testar|a atualizar/.test(c.textContent); }", timeout=180000)
     tips = pg.locator('#plSub .card').filter(has_text='Os Rare que mais compensam').inner_text().replace('\n', ' | ')
     print('C sugestões Rare com smurf:', tips[:400], '· 2.º Moment:', tips.count('2.º Moment'))
@@ -912,6 +912,41 @@ with sync_playwright() as pw:
     except Exception as e_: print('K5 sem mudança:', e_)
     pg.wait_for_timeout(2500)
     print('K5 dia 1 acertado:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1))
+    pg.close()
+    # M: lineup de hoje mantido. 1) o primeiro lineup do dia fica; 2) um dele fica Fora: só ele sai (aviso); 3) outro
+    # passa a render muito mais: troca (aviso com +pp) e fica no histórico
+    def m_login(dbm):
+        p_ = new_page(b, dbm); p_.clock.set_fixed_time('2026-10-20T15:00:00Z')
+        p_.goto('https://site.test/'); p_.wait_for_timeout(500)
+        p_.fill('#auEmail', 'eu@x.pt'); p_.fill('#auPass', 'segredo1'); p_.click('#auSubmit'); p_.wait_for_timeout(3000)
+        return p_
+    HM = '__FAKE_DB.tables.user_runs[0].plan'
+    dbm = seeded(); Tm = dbm['tables']; Tm['runs'][0]['fictitious'] = False
+    Tm['members'].append({'user_id': 'u-eu', 'role': 'member'}); Tm['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    Tm['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    Tm['chain_results'] = []; Tm['injuries'] = []
+    pg = m_login(dbm)
+    hm1 = json.loads(store(pg, HM + '.hold'))
+    print('M1 lineup do dia:', hm1['ids'], '·', [e['k'] for e in json.loads(store(pg, HM + '.lhist["' + d1 + '"]'))])
+    dbm = json.loads(pg.evaluate('JSON.stringify(__FAKE_DB)')); dbm['session'] = None; pg.close()
+    dbm['tables']['injuries'] = [{'id': hm1['ids'][1], 'name': hm1['ids'][1], 'team': '', 'status': 'out', 'label': 'Out', 'detail': 'Ankle', 'comment': '', 'return_date': None, 'updated_at': '2026-10-20T14:30:00Z'}]
+    pg = m_login(dbm); pg.wait_for_timeout(5000)
+    hm2 = json.loads(store(pg, HM + '.hold'))['ids']
+    print('M2 fora:', hm1['ids'][1], '· mantêm-se', len([x for x in hm1['ids'] if x in hm2]), 'de 5 ·', json.loads(store(pg, HM + '.lhist["' + d1 + '"]'))[-1], '· aviso:', pg.locator('#sheetPanel h3').inner_text() if pg.locator('#sheet').is_visible() else 'nenhum')
+    dbm = json.loads(pg.evaluate('JSON.stringify(__FAKE_DB)')); dbm['session'] = None; pg.close()
+    dbm['tables']['injuries'] = []
+    star_ = [x for x in list(roster['players'])[:16] if x not in hm2][0]
+    for r_ in dbm['tables']['odds_days']:
+        if r_['date'] == d1: r_['players'].pop(star_, None)
+    for p_ in dbm['tables']['nba_players']:
+        if p_['id'] == star_: p_['avg'] = dict(p_['avg'], pts=45, reb=14, ast=12, fg3=6)
+    pg = m_login(dbm); pg.wait_for_timeout(8000)
+    ev_ = json.loads(store(pg, HM + '.lhist["' + d1 + '"]'))[-1]
+    print('M3 troca melhor:', star_, 'entra:', star_ in json.loads(store(pg, HM + '.hold'))['ids'], '·', ev_['k'], 'run +%.1f%%' % (100 * ev_.get('g', 0)), '· aviso:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:160] if pg.locator('#sheet').is_visible() else 'nenhum')
+    if pg.locator('#sheet').is_visible(): pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(300)
+    print('M3 linha:', pg.locator('#tab-hoje .hold-line').inner_text().replace('\n', ' '))
+    pg.click('#tab-hoje .hold-line'); pg.wait_for_timeout(400)
+    print('M3 histórico:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:300])
     pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
