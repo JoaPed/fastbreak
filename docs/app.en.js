@@ -1112,7 +1112,14 @@ function holdSync() {
     const tip = firstTipOf(md.day); if (tip == null || Date.now() >= tip || liveOn(date)) return;
     const L = d.lineup.slice(), pa = planOf(a.id), h = pa.hold;
     if (!L.length) return;
-    if (!h || h.d !== date) { pa.hold = { d: date, ids: L }; holdLog(a.id, date, { k: 'start', ids: L, P1: d.P }); ch = true; return; }
+    if (!h || h.d !== date) {
+      // já havia histórico neste dia (voltaste à sugestão do plano): fica como mudança tua
+      const H = (pa.lhist || {})[date] || [], last = H.length ? (H[H.length - 1].ids || null) : null;
+      pa.hold = { d: date, ids: L };
+      if (last) { const outs = last.filter(id => !L.includes(id)), ins = L.filter(id => !last.includes(id)); if (outs.length || ins.length) holdLog(a.id, date, { k: 'mine', outs, ins, prev: last, ids: L, P0: luP(R, md, last), P1: d.P }); }
+      else holdLog(a.id, date, { k: 'start', ids: L, P1: d.P });
+      ch = true; return;
+    }
     const same = L.length === h.ids.length && L.every(id => h.ids.includes(id)); if (same) return;
     const outs = h.ids.filter(id => !L.includes(id)), ins = L.filter(id => !h.ids.includes(id));
     const banned = (pa.bans || {})[date] || [], base = { outs, ins, prev: h.ids.slice(), ids: L, P0: luP(R, md, h.ids), P1: d.P };
@@ -1153,7 +1160,8 @@ async function holdCheck(key) {
     const diffs = held.map(k => { const u = resOf(k), c = curOf(k); const ud = u && u.days.find(x => x.date === date), cd = c.days.find(x => x.date === date); if (!ud || !cd) return null;
       const outs = cd.lineup.filter(id => !ud.lineup.includes(id)), ins = ud.lineup.filter(id => !cd.lineup.includes(id));
       return outs.length || ins.length ? { k, outs, ins, now: ud.lineup.slice(), old: cd.lineup.slice(), P0: cd.P, P1: ud.P } : null; }).filter(Boolean);
-    const sg = holdSigs(date), last = S.mine.plan.holdSig || {}, why = [sg.odds !== (last.odds || '') && sg.odds ? 'odds' : '', sg.inj !== (last.inj || '') && last.inj != null ? 'inj' : ''].filter(Boolean);
+    // o que mudou desde a última verificação; na primeira não se sabe (sem aviso grande)
+    const sg = holdSigs(date), last = S.mine.plan.holdSig, why = last ? [sg.odds !== (last.odds || '') && sg.odds ? 'odds' : '', sg.inj !== (last.inj || '') ? 'inj' : ''].filter(Boolean) : [];
     S.mine.plan.holdSig = sg;
     if (!diffs.length) { saveMine(); return; }
     const g = expU - expK;
@@ -1724,7 +1732,7 @@ function renderJornada(el) {
     // ao vivo: uma barra fina por estatística (feito + o que falta prever) e, no fim, o total
     const liveBars = live && t ? '<div class="jc-bars">' + d.totals.map(x => { const max = Math.max(x.target * 1.2, x.mu + x.sd, 1), kw = Math.min(100, x.known / max * 100), fw = Math.max(0, Math.min(100 - kw, (x.mu - x.known) / max * 100)); return '<div class="bar" aria-hidden="true"><i class="k" style="width:' + kw.toFixed(1) + '%"></i><i class="f" style="left:' + kw.toFixed(1) + '%;width:' + fw.toFixed(1) + '%"></i><i class="t" style="left:' + Math.min(99, x.target / max * 100).toFixed(1) + '%"></i></div>'; }).join('') + '</div>' : '';
     const finalLine = allFinal && t ? '<div class="row small jc-final" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '';
-    const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Share the lineup" title="Share the lineup">' + icoShare + '</button>' : ''].filter(Boolean);
+    const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Change lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Share the lineup" title="Share the lineup">' + icoShare + '</button>' : ''].filter(Boolean);
     html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Today' : 'Day ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Live</span>' : '') + '</span>' +
       '<div class="jc-sub">' + (d.noObjective ? 'No target' : d.lineup.length ? perStat : '') + '</div>' + (live ? '' : '<div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1st game ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
       liveBars + (d.lineup.length ? '<ul class="list jc-list">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
@@ -5099,28 +5107,45 @@ function luEditSheet() {
   const run = curRun(), B = S.box[date], rosterTeams = new Set(Object.keys(S.mine.roster || {}).map(pTeam).filter(t => teams.has(t)));
   if (run && !run.fictitious && (!B || (!B.busy && Date.now() - B.at > 120e3))) boxLoad(date, rosterTeams).then(() => { if (S.luEdit && S.luEdit.date === date && $('pastLu')) luEditSheet(); });
   const keep = $('pastLu') ? $('sheetPanel').scrollTop : 0;
-  const valsOf = id => { const a = objs.length ? valsFor(S.acc, date, id, objs) : undefined; return a === null ? 'dnp' : a ? objs.map((o, k) => ({ v: +a[k] || 0, o, fin: true })) : []; };
+  // ao vivo (o dia de hoje, jogos a decorrer): o que cada um leva até agora, das fichas da ESPN
+  const live = !!E.live;
+  const liveVals = id => { const b = boxFor(date, id); if (b === null) return 'dnp'; return b ? objs.map(o => ({ v: rnd(FB.statValue(b.v, o.stat, pAvg(id))) || 0, o, fin: b.fin })) : []; };
+  const valsOf = live ? liveVals : id => { const a = objs.length ? valsFor(S.acc, date, id, objs) : undefined; return a === null ? 'dnp' : a ? objs.map((o, k) => ({ v: +a[k] || 0, o, fin: true })) : []; };
   const weight = id => { const a = valsOf(id); return a === 'dnp' ? -1 : a.reduce((t, x, k) => t + x.v / (+objs[k].target || 1), 0); };
-  const sub = id => esc(pTeam(id)) + ' ' + esc(opp(pTeam(id), day));
+  const sub = id => { const b = live ? boxFor(date, id) : undefined; return esc(pTeam(id)) + ' ' + (b ? (b.fin ? '· <span class="pill fim">Final</span>' : '· <span class="pill jogo">Playing</span>') : esc(opp(pTeam(id), day))); };
   const pv = id => { const a = valsOf(id); return a === 'dnp' ? '<div class="pv"><div class="u">did not play</div></div>' : pvHtml(a); };
   const row = (id, inLu, k) => '<li class="lu-row' + (!inLu && k >= 10 && !E.all ? ' lu-more' : '') + '"' + (inLu ? '' : ' data-n="' + esc(norm(nameOf(id)) + ' ' + String(pTeam(id) || '').toLowerCase()) + '"') + '><div class="lu-main">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></span><span class="ps">' + sub(id) + '</span></span></div>' + pv(id) +
     (inLu ? '<button class="lu-ic" type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-label="Remove ' + esc(nameOf(id)) + '" title="Remove">' + icoX + '</button>'
       : '<button class="lu-ic add" type="button" data-action="past-lu-pick" data-id="' + esc(id) + '" aria-label="Add ' + esc(nameOf(id)) + '" title="' + (E.ids.length >= lim ? 'You already have ' + lim + ': remove one first' : 'Add to lineup') + '"' + (E.ids.length >= lim ? ' disabled' : '') + '>' + icoPlus + '</button>') + '</li>';
   // em cima: o que este lineup fez nesse dia e o resultado
-  const c = E.ids.length ? dayCalc(S.acc, day, E.ids) : null;
-  const head = c ? '<div class="kv lu-kv"><div><div class="label">Made</div><div class="v num">' + c.objs.map((o, k) => f0(c.tot[k]) + '<small>/' + o.target + ' ' + esc(statShort(o.stat)) + '</small>').join('<br>') + '</div></div><div><div class="label">Result</div><div class="v num ' + (c.res === 'win' ? 'c-good' : 'c-bad') + '">' + (c.res === 'win' ? '✓ win' : '✕ loss') + '</div></div></div>'
+  const c = !live && E.ids.length ? dayCalc(S.acc, day, E.ids) : null;
+  const lt = live ? objs.map((o, k) => E.ids.reduce((t, id) => { const a = liveVals(id); return t + (a === 'dnp' || !a[k] ? 0 : a[k].v); }, 0)) : null;
+  const head = live ? '<div class="kv lu-kv"><div><div class="label">So far</div><div class="v num">' + objs.map((o, k) => f0(lt[k]) + '<small>/' + o.target + ' ' + esc(statShort(o.stat)) + '</small>').join('<br>') + '</div></div></div>' +
+      '<div class="small muted">Put here the lineup you submitted on Top Shot, even players who already started. When you save, the app follows these players’ stats and redoes today’s win chance.</div>'
+    : c ? '<div class="kv lu-kv"><div><div class="label">Made</div><div class="v num">' + c.objs.map((o, k) => f0(c.tot[k]) + '<small>/' + o.target + ' ' + esc(statShort(o.stat)) + '</small>').join('<br>') + '</div></div><div><div class="label">Result</div><div class="v num ' + (c.res === 'win' ? 'c-good' : 'c-bad') + '">' + (c.res === 'win' ? '✓ win' : '✕ loss') + '</div></div></div>'
     : '<div class="small muted">' + (E.ids.length ? 'Waiting for the box scores…' : 'Pick who played.') + '</div>';
   const inRows = E.ids.map(id => row(id, true)).join('') + Array.from({ length: Math.max(0, lim - E.ids.length) }, () => '<li class="lu-row lu-gap"><div class="gapb"><span class="gapb-go" style="cursor:default"><span class="gapb-ic">' + icoPlus + '</span><span class="gapb-t"><b>Empty spot</b><span>add someone from the list below</span></span></span></div></li>').join('');
   const cand = Object.keys(S.mine.roster || {}).filter(id => !E.ids.includes(id) && teams.has(pTeam(id))).sort((a, b) => weight(b) - weight(a) || nameOf(a).localeCompare(nameOf(b)));
-  openSheet('<h3>Lineup for day ' + dn + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="pastLu" class="stack">' + head +
+  openSheet('<h3>' + (live ? 'Today’s lineup' : 'Lineup of day ' + dn) + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="pastLu" class="stack">' + head +
     '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + E.ids.length + ' of ' + lim + '</span></div><ul class="list">' + inRows + '</ul></div>' +
-    '<button class="btn primary" type="button" data-action="past-lu-save"' + (E.ids.length ? '' : ' disabled') + '>Save</button>' +
-    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to lineup</h2><span class="small muted">what they did that day</span></div>' +
+    '<button class="btn primary" type="button" data-action="' + (live ? 'live-lu-save' : 'past-lu-save') + '"' + (E.ids.length ? '' : ' disabled') + '>Save</button>' +
+    (cand.length ? '<div class="card"><div class="list-head"><h2>Add to lineup</h2><span class="small muted">' + (live ? 'what they have so far' : 'what they did that day') + '</span></div>' +
       '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player" value="' + esc(E.q || '') + '"></div>' +
       '<ul class="list" id="luCand">' + cand.map((id, k) => row(id, false, k)).join('') + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>' + (cand.length > 10 && !E.all ? '<button class="btn quiet" type="button" id="luAllBtn" data-action="past-lu-all" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
-    '<button class="btn link small" type="button" data-action="undo-result" data-date="' + date + '">I didn’t play this day</button></div>');
+    (live ? '' : '<button class="btn link small" type="button" data-action="undo-result" data-date="' + date + '">I didn’t play this day</button>') + '</div>');
   luFilter();
   if (keep) $('sheetPanel').scrollTop = keep;
+}
+// hoje, com os jogos a decorrer: o lineup que levaste passa a ser o do ao vivo (a app não é o Top Shot: dá para pôr
+// quem já começou a jogar, p. ex. se te esqueceste de atualizar a app); lê logo as estatísticas deles
+async function liveLuSave() {
+  const E = S.luEdit; if (!E || !E.ids.length) return;
+  const date = E.date, plan = curPlan(), lv = (plan.live || {})[date] || {};
+  const old = lv.lineup || [], outs = old.filter(id => !E.ids.includes(id)), ins = E.ids.filter(id => !old.includes(id));
+  plan.live = Object.assign({}, plan.live, { [date]: Object.assign({}, lv, { active: true, lineup: E.ids.slice() }) });
+  S.luEdit = null; closeSheet(); saveMine(); schedule();
+  toast(outs.length || ins.length ? 'Today’s lineup fixed' + (outs.length ? ': out ' + outs.map(lastName).join(', ') : '') + (ins.length ? (outs.length ? ', in ' : ': in ') + ins.map(lastName).join(', ') : '') + '. The app follows these.' : 'Today’s lineup saved.');
+  try { await liveFetch(true); schedule(); } catch (e) { /* sem rede: lê no próximo minuto */ }
 }
 function luEditSave() {
   const E = S.luEdit; if (!E || !E.ids.length) return;
@@ -5559,7 +5584,7 @@ document.addEventListener('click', async e => {
     case 'lu-fill': luFill(date, b.dataset.out, id); break;
     case 'lu-auto': if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== id); lineupSheet(date); luBusy(); banToggle(id, date, true); break;
     case 'lu-unban': luBusy(); banToggle(id, date, false); break;
-    case 'lu-reset': luBusy(true); planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
+    case 'lu-reset': luBusy(true); { const h = planOf(S.acc).hold; if (h && h.d === date) planOf(S.acc).hold = null; } /* volta a sugestão inteira, sem o lineup mantido */ planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
     case 'buy-more': buyMore(); break;
     case 'keep-clear': planPatch({ keep: { [b.dataset.date]: null } }, true); toast('The plan picks this day again.'); break;
@@ -5589,6 +5614,8 @@ document.addEventListener('click', async e => {
     case 'past-lu': S.luEdit = { date, ids: sheetLineup(date) }; luEditSheet(); break;
     case 'past-lu-pick': { const E = S.luEdit; if (!E) break; const lim = (S.days.find(d => d.date === E.date) || {}).numPlayers || 5; if (E.ids.includes(id)) E.ids = E.ids.filter(x => x !== id); else if (E.ids.length < lim) E.ids.push(id); else { toast('You already have ' + lim + ' players: remove one first.'); break; } luEditSheet(); break; }
     case 'past-lu-save': luEditSave(); break;
+    case 'live-lu': S.luEdit = { date, ids: (((curPlan().live || {})[date] || {}).lineup || sheetLineup(date)).slice(), live: true }; luEditSheet(); break;
+    case 'live-lu-save': await liveLuSave(); break;
     case 'past-lu-all': if (S.luEdit) { S.luEdit.all = true; luEditSheet(); } break;
     case 'undo-result': undoResult(date); closeSheet(); break;
     case 'swap-done': swapDone(); break;

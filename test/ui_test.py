@@ -951,6 +951,50 @@ with sync_playwright() as pw:
     pg.click('#tab-hoje .hold-line'); pg.wait_for_timeout(400)
     print('M3 histórico:', pg.locator('#sheetPanel').inner_text().replace('\n', ' | ')[:300])
     pg.close()
+    # N: durante os jogos dá para mudar o lineup levado (mesmo quem já começou): a app segue esses
+    N_AB = {'NYK': 'NY', 'SAS': 'SA', 'GSW': 'GS'}
+    N_KEYS = ['minutes', 'points', 'fieldGoalsMade-fieldGoalsAttempted', 'threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'freeThrowsMade-freeThrowsAttempted', 'rebounds', 'assists', 'turnovers', 'steals', 'blocks', 'offensiveRebounds', 'defensiveRebounds', 'fouls', 'plusMinus']
+    def n_ath(name, pts): return {'athlete': {'displayName': name}, 'stats': ['24', str(pts), '8-17', '1-4', '3-4', '5', '4', '2', '1', '0', '1', '4', '2', '+3']}
+    N_D1 = run['days'][0]['date']
+    n_games = {('4019%05d' % (j + 1)): gm for j, gm in enumerate(run['days'][0]['games'])}
+    N_ST = {0: ('post', 4, 'Final'), 1: ('in', 3, '3rd 5:12'), 2: ('pre', 0, '1:30 AM')}
+    N_LINES = {'BOS': [n_ath('Jaylen Brown', 0)], 'DET': [n_ath('Cade Cunningham', 24)], 'PHI': [n_ath('Tyrese Maxey', 19), n_ath('Jaylen Brown', 17)], 'NYK': [n_ath('Jalen Brunson', 14), n_ath('Karl-Anthony Towns', 12)]}
+    def n_h(r):
+        url = r.request.url; hdr = {'access-control-allow-origin': '*'}
+        if 'scoreboard' in url:
+            evs = [{'id': gid, 'date': gm[2], 'status': {'type': {'state': N_ST[i][0], 'shortDetail': N_ST[i][2], 'completed': N_ST[i][0] == 'post'}, 'period': N_ST[i][1]},
+                    'competitions': [{'competitors': [{'homeAway': 'away', 'team': {'abbreviation': N_AB.get(gm[0], gm[0])}, 'score': '70'}, {'homeAway': 'home', 'team': {'abbreviation': N_AB.get(gm[1], gm[1])}, 'score': '74'}]}]} for i, (gid, gm) in enumerate(n_games.items())]
+            return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'events': evs}))
+        if 'event=' not in url: return r.fulfill(status=200, content_type='application/json', headers=hdr, body='{}')
+        gid = url.split('event=')[1][:9]; i = list(n_games).index(gid); gm = n_games[gid]
+        if N_ST[i][0] == 'pre': return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'header': {'competitions': [{'status': {'type': {'state': 'pre'}}}]}, 'boxscore': {'players': []}}))
+        teams = [{'team': {'abbreviation': N_AB.get(t, t)}, 'statistics': [{'keys': N_KEYS, 'athletes': N_LINES.get(t, []) + [n_ath('Suplente %s %d' % (t, k), 2) for k in range(5)]}]} for t in gm[:2]]
+        return r.fulfill(status=200, content_type='application/json', headers=hdr, body=json.dumps({'header': {'competitions': [{'status': {'type': {'state': N_ST[i][0], 'completed': N_ST[i][0] == 'post'}, 'period': N_ST[i][1]}}]}, 'boxscore': {'players': teams}}))
+    dbn = seeded(); T = dbn['tables']
+    T['runs'][0]['fictitious'] = False
+    for d_ in T['run_days']: d_['games'] = [gm[:3] + ['espn:4019%05d' % (j + 1)] for j, gm in enumerate(d_['games'])] if d_['date'] == N_D1 else d_['games']
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    lu = ['sga', 'brunson', 'wemby', 'cade', 'maxey']
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {'live': {N_D1: {'active': True, 'lineup': lu}}}, 'updated_at': '2026-10-20T10:00:00Z'}]
+    T['chain_results'] = []; T['injuries'] = []
+    pg = new_page(b, dbn)
+    pg.route('https://site.api.espn.com/**', n_h)
+    pg.clock.set_fixed_time('2026-10-21T00:30:00Z')
+    pg.set_viewport_size({'width': 390, 'height': 1300})
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(5000)
+    print('N botões ao vivo:', pg.locator('#tab-hoje .day-hero .jc-btns').inner_text().replace(chr(10), ' | '))
+    pg.click('#tab-hoje button[data-action="live-lu"]'); pg.wait_for_timeout(2500)
+    print('N folha:', pg.locator('#sheetPanel').inner_text().replace(chr(10), ' | ')[:700])
+    pg.click('#sheetPanel button[data-action="past-lu-pick"][data-id="brunson"]'); pg.wait_for_timeout(300)
+    pg.click('#sheetPanel button[data-action="past-lu-pick"][data-id="jbrown"]'); pg.wait_for_timeout(300)
+    pg.locator('#sheetPanel').screenshot(path=str(shots / 'mudar-ao-vivo.png'))
+    pg.click('#sheetPanel button[data-action="live-lu-save"]'); pg.wait_for_timeout(3000)
+    print('N aviso:', pg.locator('#toast').inner_text())
+    print('N ao vivo:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.live'))
+    print('N placar:', pg.locator('#tab-hoje .day-hero').inner_text().replace(chr(10), ' | ')[:500])
+    pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
     dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']
