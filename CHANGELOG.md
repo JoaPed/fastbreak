@@ -1,0 +1,34 @@
+# Alterações
+
+O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
+(regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
+
+## 2026-10-27
+- **João** — Mudar o lineup: o × em "Pôr no lineup" tira o jogador desse dia e o plano põe logo o melhor a seguir; "Fora deste dia" com Repor. Diferenças nesta folha em % (não pp).
+- **João** — `CLAUDE.md` (regras para trabalhar no repositório com o Claude) e este ficheiro.
+
+## 2026-10-26
+- **João** — Prioridade entre contas (Ajustes → Preferências): Automática (a mais bem classificada na Geral), uma conta, ou Iguais.
+- **João** — Mudar o lineup: "já joga na …" sem conta passa a dizer que a conta já não tem usos da carta.
+- **João** — Durante os jogos: Mudar o lineup levado, mesmo com quem já começou; a app segue esses jogadores.
+- **João** — Odds: nos dias de lançamentos e lances livres pede também as linhas de pontos (as casas não têm FGM).
+- **João** — Admin → Tarefas: botão "Ler as odds agora" (precisa do `supabase/schema.sql` novo).
+- **João** — Lineup de hoje mantido: só troca sozinho se alguém não puder jogar ou se a run ganhar ≥ 2%; Histórico do lineup na Jornada, com Reverter / Fazer esta troca.
+- **João** — Dias acertados pelo lineup lido no Top Shot: o total é refeito com as estatísticas desse lineup.
+
+## 2026-10-25
+- **João** — Lesões: procura por jogador ou equipa, resto da NBA por equipa, sem o número no separador.
+- **João** — Jogadores → Vender: Não usadas (na run toda e quantas runs sem uso), Repetidas, Rara a mais e Poupar; low ask e ASP de cada carta.
+- **João** — Forma da run (quentes, frios, minutos, jogos desequilibrados); forma no Plantel e no lineup da Jornada.
+- **João** — Plantel sem o botão Adicionar; jogador retirado da NBA fica fora do plano.
+- **João** — Telegram: avisos de lesões mais claros; lembrete "Lineups done?"; aviso quando chegam as odds.
+- **João** — Jogo seguido só conta se ele jogou na véspera.
+- **João** — A fazer: Moment marcado como mandado já conta na outra conta.
+- **João** — Leitor do Top Shot: lineups que cada conta levou (dias e usos acertados por eles), run e prémios; Admin com "Classificação e picks" e "Lineups" em separado.
+- **João** — Mudar o lineup: Fixar todos / Soltar todos; dia passado com Guardar logo a seguir ao lineup.
+
+## 2026-10-24
+- **João** — Dia passado: procura no Mudar; usar um jogador num dia passado tira os cadeados sem usos.
+- **João** — Mudar o lineup: procura acima do teclado, voltar ao mesmo sítio, repor quem saiu.
+- **João** — Mudar o lineup e Sugestões: hoje e o resto da run em separado; usos e dias de quem pode entrar.
+- **João** — Faixa dos dias com ✓/✕; cabeçalho com o registo da conta com mais vitórias.

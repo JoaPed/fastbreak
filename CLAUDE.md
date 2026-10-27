@@ -7,6 +7,10 @@ Dono: João (JoaPed). O site é usado todos os dias pelo grupo: o que entra no `
 - **Nunca enviar para o `main`.** Trabalha num ramo (`git switch -c nome-curto`) e abre um Pull Request
   (`gh pr create`) com: o que muda, porquê, como testaste e capturas de ecrã se mexe no aspeto.
   O João (ou o Claude dele) revê e junta.
+- **`CHANGELOG.md`**: cada Pull Request (e cada envio do João para o `main`) acrescenta uma linha no topo, debaixo
+  da data de hoje (`## AAAA-MM-DD`, cria-a se não houver): `- **Quem** — o que muda, em palavras de quem usa o
+  site (#n.º do PR)`. Quem = o nome de quem pediu a mudança (ex.: João, ou o nome do teu amigo), não "Claude".
+  Antes de mexer, lê as entradas novas para saber o que os outros mudaram.
 - Antes de começar: `git pull` no `main` e cria o ramo a partir daí. O `docs/app.js` é grande e é onde há
   mais conflitos: mudanças pequenas e localizadas, sem reformatar nem mover código que não é preciso.
 - Mudanças de aspeto: mostra primeiro como fica (capturas a 390 px de largura, claro e escuro) antes de
