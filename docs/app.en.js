@@ -4981,11 +4981,11 @@ function luRender() {
     const rest = days => days.filter(x => x.date !== date).reduce((t, x) => t + (x.P || 0), 0);
     const dP = pp(d.P) - pp(B.P), rNow = rest(v.days), rB = rest(B.days), dR = rNow - rB;
     const f2 = x => (Math.round(x * 100) / 100).toLocaleString('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
-    head = '<div class="kv lu-kv"><div><div class="label">Win today</div><div class="v num c-' + tone(d.P) + '">' + pct(d.P) + '</div><div class="small muted">' + (!mine ? 'the plan’s suggestion' : 'suggestion ' + pct(B.P) + (dP ? ' · <b class="' + (dP > 0 ? 'up' : 'down') + '">' + sgn(dP, Math.abs(dP) + ' pp') + '</b>' : '')) + '</div></div>' +
+    head = '<div class="kv lu-kv"><div><div class="label">Win today</div><div class="v num c-' + tone(d.P) + '">' + pct(d.P) + '</div><div class="small muted">' + (!mine ? 'the plan’s suggestion' : 'suggestion ' + pct(B.P) + (dP ? ' · <b class="' + (dP > 0 ? 'up' : 'down') + '">' + sgn(dP, Math.abs(dP) + '%') + '</b>' : '')) + '</div></div>' +
       '<div><div class="label">Rest of the run</div><div class="v num">' + f1(rNow) + '</div><div class="small muted">' + (!mine ? 'expected wins on the other days' : Math.abs(dR) < 0.05 ? 'same as the suggestion' : 'suggestion ' + f1(rB) + ' · <b class="' + (dR > 0 ? 'up' : 'down') + '">' + sgn(dR, f2(Math.abs(dR))) + '</b>') + '</div></div></div>';
     if (mine) {
       const pz = r.prizes.map((p, i) => ({ p, a: B.probs[i] || 0, b: v.prizeProbs[i] || 0 })).filter(x => pp(x.a) !== pp(x.b));
-      const todayTxt = dP ? ' (today ' + sgn(dP, Math.abs(dP) + ' pp') + ')' : '';
+      const todayTxt = dP ? ' (today ' + sgn(dP, Math.abs(dP) + '%') + ')' : '';
       head += (dR <= -0.3 ? '<div class="note"><b>Affects the rest of the run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' expected wins on the other days' + todayTxt + '. Keep it if you know something the plan doesn’t (minutes, injury).</div>'
         : dR <= -0.05 ? '<div class="note info"><b>Barely touches the rest of the run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' wins on the other days' + todayTxt + '.</div>'
         : dR >= 0.05 ? '<div class="note info"><b>Improves the rest of the run:</b> ' + sgn(dR, f2(dR)) + ' wins on the other days' + todayTxt + '.</div>'
@@ -5019,26 +5019,31 @@ function luRender() {
   const playing = FB.teamsOn(day), banPis = bans.map(id => r.model.pIndex.get(id)).filter(pi => pi != null && playing.has(r.model.players[pi].team) && !md.elig.includes(pi));
   // quem acabou de sair (lugar livre) fica no topo da lista: o + volta a pô-lo, sem ter de pôr outro primeiro
   const outPis = gaps.map(id => r.model.pIndex.get(id)).filter(pi => pi != null);
-  const cand = outPis.concat(md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a)), banPis);
+  const cand = outPis.concat(md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a)));
+  void banPis;
   const full = locks.size >= size, banSet = new Set(bans);
   // todos na lista (para a procura encontrar qualquer um); sem procura, só os 8 primeiros até "Ver todos"
   const candRows = cand.map((pi, k) => {
     const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
-    if (gaps.includes(id)) return '<li class="lu-row" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">just taken out · + puts him back</span>') + pvHtml(objVals(md, pi, false)) +
-      '<button class="lu-ic add" type="button" data-action="lu-undo" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Put back ' + esc(p.name) + ' in the lineup" title="Put back">' + icoPlus + '</button></li>';
+    if (gaps.includes(id)) return '<li class="lu-row" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">just left · + puts him back · × takes him out of this day</span>') + pvHtml(objVals(md, pi, false)) +
+      '<button class="lu-ic add" type="button" data-action="lu-undo" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Put back ' + esc(p.name) + ' in the lineup" title="Put back">' + icoPlus + '</button>' +
+      '<button class="lu-ic" type="button" data-action="lu-auto" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Remove ' + esc(p.name) + ' out of this day (the plan puts in the next best)" title="Take out of this day">' + icoX + '</button></li>';
     return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + candLine(r, pi, tb, ds, tir, date)) + pvHtml(objVals(md, pi, false)) +
       (gaps.length ? '<button class="lu-ic add" type="button" data-action="lu-fill" data-out="' + esc(gaps[0]) + '" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' in place of ' + esc(nameOf(gaps[0])) + '" title="Put in the empty spot"' + (uses ? '' : ' disabled') + '>' + icoPlus + '</button>' :
-      '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' to the lineup" title="' + (full ? 'You already have ' + size + ' locked: unlock one first' : 'Add to the lineup and lock') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '</li>';
+      '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Add ' + esc(p.name) + ' to the lineup" title="' + (full ? 'You already have ' + size + ' locked: unlock one first' : 'Add to the lineup and lock') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '' +
+      '<button class="lu-ic" type="button" data-action="lu-excl" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Remove ' + esc(p.name) + ' from this day" title="Remove from this day">' + icoX + '</button></li>';
   }).join('');
   const bad = (d.badLocks || []).map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '">unlock</button>').join(' · ');
   const html = '<h3>Lineup for day ' + dn + ' ' + helpBtn('mudar') + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="luBody" class="stack">' + head +
-    (gaps.length ? '<div class="note info">Tap + to choose who comes in' + (gaps.length > 1 ? ' for each empty spot' : '') + '. Until then, the numbers are for the lineup before the swap.</div>' : '') +
+    (gaps.length ? '<div class="note info">Tap + to choose who comes in' + (gaps.length > 1 ? ' for each empty spot' : '') + ', or the × of who left (in Add to lineup) to take him out of this day: the plan puts in the next best right away. Until then, the numbers are the lineup’s before the swap.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + d.lineup.length + ' of ' + size + (locks.size ? ' · ' + plural(locks.size, 'locked', 'locked') : '') + '</span></div>' +
       (d.lineup.length ? (d.lineup.every(id => locks.has(id)) ? '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="0" data-date="' + date + '">' + icoLockBtn + ' Unlock all</button></div>' : '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="1" data-date="' + date + '">' + icoLockBtn + ' Lock all</button></div>') : '') + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Nobody in the lineup: the plan saves the uses for other days.</div>') + '</div>' +
     (bad ? '<div class="note">Locked but can’t play this day: ' + bad + '</div>' : '') + chHtml +
     (cand.length ? '<div class="card"><div class="list-head"><h2>Add to the lineup</h2><span class="small muted" id="luCount">' + plural(cand.length, 'player', 'players') + '</span></div>' +
       '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player" value="' + esc(L.q || '') + '"></div>' + luSortChips(md, 'data-date="' + date + '"') +
       '<ul class="list" id="luCand">' + candRows + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>' + (cand.length > 8 && !L.all ? '<button class="btn quiet" type="button" id="luAllBtn" data-action="lu-all" data-date="' + date + '" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
+    (bans.length ? '<div class="card"><div class="list-head"><h2>Out of this day</h2><span class="small muted">the plan doesn’t use them on day ' + dn + '</span></div><ul class="list">' + bans.map(id => '<li class="lu-row"><div class="lu-main">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></span><span class="ps">' + esc(pTeam(id)) + ' ' + esc(opp(pTeam(id), day)) + '</span></span></div>' +
+      '<button class="btn small" type="button" data-action="lu-unban" data-id="' + esc(id) + '" data-date="' + date + '">Restore</button></li>').join('') + '</ul></div>' : '') +
     (mine ? '<button class="btn" type="button" data-action="lu-reset" data-date="' + date + '">Back to the plan’s suggestion</button>' : '') + '</div>';
   openSheet(html);
   luFilter();
@@ -5609,7 +5614,8 @@ document.addEventListener('click', async e => {
     case 'lu-pick': luPickSheet(date, id); break;
     case 'lu-fill': luFill(date, b.dataset.out, id); break;
     case 'lu-auto': if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== id); lineupSheet(date); luBusy(); banToggle(id, date, true); break;
-    case 'lu-unban': luBusy(); banToggle(id, date, false); break;
+    case 'lu-unban': luBusy(); banToggle(id, date, false); toast(lastName(id) + ' is back: the plan can use him this day.'); break;
+    case 'lu-excl': luBusy(); banToggle(id, date, true); break;
     case 'lu-reset': luBusy(true); { const h = planOf(S.acc).hold; if (h && h.d === date) planOf(S.acc).hold = null; } /* volta a sugestão inteira, sem o lineup mantido */ planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
     case 'buy-more': buyMore(); break;

@@ -4980,11 +4980,11 @@ function luRender() {
     const rest = days => days.filter(x => x.date !== date).reduce((t, x) => t + (x.P || 0), 0);
     const dP = pp(d.P) - pp(B.P), rNow = rest(v.days), rB = rest(B.days), dR = rNow - rB;
     const f2 = x => (Math.round(x * 100) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
-    head = '<div class="kv lu-kv"><div><div class="label">Vitória hoje</div><div class="v num c-' + tone(d.P) + '">' + pct(d.P) + '</div><div class="small muted">' + (!mine ? 'a sugestão do plano' : 'sugestão ' + pct(B.P) + (dP ? ' · <b class="' + (dP > 0 ? 'up' : 'down') + '">' + sgn(dP, Math.abs(dP) + ' pp') + '</b>' : '')) + '</div></div>' +
+    head = '<div class="kv lu-kv"><div><div class="label">Vitória hoje</div><div class="v num c-' + tone(d.P) + '">' + pct(d.P) + '</div><div class="small muted">' + (!mine ? 'a sugestão do plano' : 'sugestão ' + pct(B.P) + (dP ? ' · <b class="' + (dP > 0 ? 'up' : 'down') + '">' + sgn(dP, Math.abs(dP) + '%') + '</b>' : '')) + '</div></div>' +
       '<div><div class="label">Resto da run</div><div class="v num">' + f1(rNow) + '</div><div class="small muted">' + (!mine ? 'vitórias esperadas nos outros dias' : Math.abs(dR) < 0.05 ? 'igual à sugestão' : 'sugestão ' + f1(rB) + ' · <b class="' + (dR > 0 ? 'up' : 'down') + '">' + sgn(dR, f2(Math.abs(dR))) + '</b>') + '</div></div></div>';
     if (mine) {
       const pz = r.prizes.map((p, i) => ({ p, a: B.probs[i] || 0, b: v.prizeProbs[i] || 0 })).filter(x => pp(x.a) !== pp(x.b));
-      const todayTxt = dP ? ' (hoje ' + sgn(dP, Math.abs(dP) + ' pp') + ')' : '';
+      const todayTxt = dP ? ' (hoje ' + sgn(dP, Math.abs(dP) + '%') + ')' : '';
       head += (dR <= -0.3 ? '<div class="note"><b>Afeta o resto da run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' vitórias esperadas nos outros dias' + todayTxt + '. Mantém se sabes algo que o plano não sabe (minutos, lesão).</div>'
         : dR <= -0.05 ? '<div class="note info"><b>Mexe pouco no resto da run:</b> ' + sgn(dR, f2(Math.abs(dR))) + ' vitórias nos outros dias' + todayTxt + '.</div>'
         : dR >= 0.05 ? '<div class="note info"><b>Melhora o resto da run:</b> ' + sgn(dR, f2(dR)) + ' vitórias nos outros dias' + todayTxt + '.</div>'
@@ -5018,26 +5018,31 @@ function luRender() {
   const playing = FB.teamsOn(day), banPis = bans.map(id => r.model.pIndex.get(id)).filter(pi => pi != null && playing.has(r.model.players[pi].team) && !md.elig.includes(pi));
   // quem acabou de sair (lugar livre) fica no topo da lista: o + volta a pô-lo, sem ter de pôr outro primeiro
   const outPis = gaps.map(id => r.model.pIndex.get(id)).filter(pi => pi != null);
-  const cand = outPis.concat(md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a)), banPis);
+  const cand = outPis.concat(md.elig.filter(pi => !d.lineup.includes(r.model.players[pi].id)).sort((a, b) => weight(b) - weight(a)));
+  void banPis;
   const full = locks.size >= size, banSet = new Set(bans);
   // todos na lista (para a procura encontrar qualquer um); sem procura, só os 8 primeiros até "Ver todos"
   const candRows = cand.map((pi, k) => {
     const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
-    if (gaps.includes(id)) return '<li class="lu-row" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">acabou de sair · o + volta a pô-lo</span>') + pvHtml(objVals(md, pi, false)) +
-      '<button class="lu-ic add" type="button" data-action="lu-undo" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Voltar a pôr ' + esc(p.name) + ' no lineup" title="Voltar a pôr">' + icoPlus + '</button></li>';
+    if (gaps.includes(id)) return '<li class="lu-row" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">acabou de sair · + volta a pô-lo · × tira-o deste dia</span>') + pvHtml(objVals(md, pi, false)) +
+      '<button class="lu-ic add" type="button" data-action="lu-undo" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Voltar a pôr ' + esc(p.name) + ' no lineup" title="Voltar a pôr">' + icoPlus + '</button>' +
+      '<button class="lu-ic" type="button" data-action="lu-auto" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Tirar ' + esc(p.name) + ' deste dia (o plano põe o melhor a seguir)" title="Tirar deste dia">' + icoX + '</button></li>';
     return '<li class="lu-row' + (k >= 8 && !L.all ? ' lu-more' : '') + '" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + candLine(r, pi, tb, ds, tir, date)) + pvHtml(objVals(md, pi, false)) +
       (gaps.length ? '<button class="lu-ic add" type="button" data-action="lu-fill" data-out="' + esc(gaps[0]) + '" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Pôr ' + esc(p.name) + ' no lugar de ' + esc(nameOf(gaps[0])) + '" title="Pôr no lugar livre"' + (uses ? '' : ' disabled') + '>' + icoPlus + '</button>' :
-      '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Pôr ' + esc(p.name) + ' no lineup" title="' + (full ? 'Já tens ' + size + ' fixados: solta um primeiro' : 'Pôr no lineup e fixar') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '</li>';
+      '<button class="lu-ic add" type="button" data-action="lu-add" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Pôr ' + esc(p.name) + ' no lineup" title="' + (full ? 'Já tens ' + size + ' fixados: solta um primeiro' : 'Pôr no lineup e fixar') + '"' + (uses && !full ? '' : ' disabled') + '>' + icoPlus + '</button>') + '' +
+      '<button class="lu-ic" type="button" data-action="lu-excl" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Tirar ' + esc(p.name) + ' deste dia" title="Tirar deste dia">' + icoX + '</button></li>';
   }).join('');
   const bad = (d.badLocks || []).map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '">soltar</button>').join(' · ');
   const html = '<h3>Lineup do dia ' + dn + ' ' + helpBtn('mudar') + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="luBody" class="stack">' + head +
-    (gaps.length ? '<div class="note info">Toca no + para escolher quem entra' + (gaps.length > 1 ? ' em cada lugar livre' : '') + '. Até lá, os números são os do lineup antes da troca.</div>' : '') +
+    (gaps.length ? '<div class="note info">Toca no + para escolher quem entra' + (gaps.length > 1 ? ' em cada lugar livre' : '') + ', ou no × de quem saiu (em Pôr no lineup) para o tirar deste dia: o plano põe logo o melhor a seguir. Até lá, os números são os do lineup antes da troca.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>No lineup</h2><span class="small muted">' + d.lineup.length + ' de ' + size + (locks.size ? ' · ' + plural(locks.size, 'fixado', 'fixados') : '') + '</span></div>' +
       (d.lineup.length ? (d.lineup.every(id => locks.has(id)) ? '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="0" data-date="' + date + '">' + icoLockBtn + ' Soltar todos</button></div>' : '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="1" data-date="' + date + '">' + icoLockBtn + ' Fixar todos</button></div>') : '') + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Ninguém no lineup: o plano guarda os usos para outros dias.</div>') + '</div>' +
     (bad ? '<div class="note">Fixados que não podem jogar neste dia: ' + bad + '</div>' : '') + chHtml +
     (cand.length ? '<div class="card"><div class="list-head"><h2>Pôr no lineup</h2><span class="small muted" id="luCount">' + plural(cand.length, 'jogador', 'jogadores') + '</span></div>' +
       '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Procurar jogador ou equipa…" autocomplete="off" aria-label="Procurar jogador" value="' + esc(L.q || '') + '"></div>' + luSortChips(md, 'data-date="' + date + '"') +
       '<ul class="list" id="luCand">' + candRows + '<li class="row small muted lu-none" hidden>Ninguém com esse nome a jogar neste dia.</li></ul>' + (cand.length > 8 && !L.all ? '<button class="btn quiet" type="button" id="luAllBtn" data-action="lu-all" data-date="' + date + '" style="margin:4px 16px 14px">Ver todos (' + cand.length + ')</button>' : '') + '</div>' : '') +
+    (bans.length ? '<div class="card"><div class="list-head"><h2>Fora deste dia</h2><span class="small muted">o plano não os usa no dia ' + dn + '</span></div><ul class="list">' + bans.map(id => '<li class="lu-row"><div class="lu-main">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></span><span class="ps">' + esc(pTeam(id)) + ' ' + esc(opp(pTeam(id), day)) + '</span></span></div>' +
+      '<button class="btn small" type="button" data-action="lu-unban" data-id="' + esc(id) + '" data-date="' + date + '">Repor</button></li>').join('') + '</ul></div>' : '') +
     (mine ? '<button class="btn" type="button" data-action="lu-reset" data-date="' + date + '">Voltar à sugestão do plano</button>' : '') + '</div>';
   openSheet(html);
   luFilter();
@@ -5608,7 +5613,8 @@ document.addEventListener('click', async e => {
     case 'lu-pick': luPickSheet(date, id); break;
     case 'lu-fill': luFill(date, b.dataset.out, id); break;
     case 'lu-auto': if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== id); lineupSheet(date); luBusy(); banToggle(id, date, true); break;
-    case 'lu-unban': luBusy(); banToggle(id, date, false); break;
+    case 'lu-unban': luBusy(); banToggle(id, date, false); toast(lastName(id) + ' de volta: o plano pode usá-lo neste dia.'); break;
+    case 'lu-excl': luBusy(); banToggle(id, date, true); break;
     case 'lu-reset': luBusy(true); { const h = planOf(S.acc).hold; if (h && h.d === date) planOf(S.acc).hold = null; } /* volta a sugestão inteira, sem o lineup mantido */ planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('De volta à sugestão do plano.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
     case 'buy-more': buyMore(); break;
