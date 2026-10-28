@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-10-28
+- **João** — Sonda do Historic (`docs/sonda-historic.html`): grava o que o Top Shot mostra no modo Historic, para preparar o planeador.
+
 ## 2026-10-27
 - **João** — Mudar o lineup: o × em "Pôr no lineup" tira o jogador desse dia e o plano põe logo o melhor a seguir; "Fora deste dia" com Repor. Diferenças nesta folha em % (não pp).
 - **João** — `CLAUDE.md` (regras para trabalhar no repositório com o Claude) e este ficheiro.
