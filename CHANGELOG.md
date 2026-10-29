@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-29
+- **João** — Jornada → **Modo: Classic / Historic**. No Historic: a equipa sugerida para cada dia aberto (pontos esperados, hipótese de top 40/top 10/1.º), outras equipas, todas as lendas com fixar/tirar/procurar, a tua carta de cada lenda (desconto), fotos e um 🕊️ RIP para as lendas que já partiram. Admin → Ler no Top Shot → **Historic** traz os dados para o grupo.
 - **João** — Dados do Historic (`docs/historic-dados.html`): lê no Top Shot as lendas de hoje e os resultados dos dias que passaram, para sugerir o lineup do Historic.
 
 ## 2026-10-28

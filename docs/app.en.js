@@ -368,6 +368,7 @@ const HELP = {
   comprar: ['Buy', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. Num jogador que já tens, só ganha se o novo for de um escalão acima. Os preços não entram: esses vês tu no marketplace.'],
   especialistas: ['Specialists', 'The NBA’s best in each stat (this season mixed with last). Stats are ordered by how often they come up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.'],
   forma: ['Run form', 'Pick one of the next days. Hot: your players who play that day with their last-5 average above the season (≥ 8%) in the goal’s stats. Cold: those in that day’s plan below the season. Minutes: who plays 3+ minutes more or less than his season average. Might play less: games the favourite wins 85%+ of the time (ESPN odds, only near the game) — if it’s decided early, stars rest or are spared. The bars are the last games (most recent on the right); the line is the season average.'],
+  historic: ['Historic', 'Simulated games between legends (career averages, 36 minutes). You pick 5 within 350 Roster Points; whoever adds up the most Fast Break Points wins (PTS 1, REB 1, AST 2, STL 3, BLK 3, turnover −1, three +0.5, double-double +5, triple-double +10). Each legend’s expected points come from the simulated games so far, pulled towards what the cost predicts when there are few games, and from the opponent. The suggestion is the team that most often reaches the top 40 when the day is simulated 3000 times, compared with the scores that won prizes on similar days. + locks a legend, × takes him out of the day, tapping the name saves your card (the discount lowers the cost).'],
   prio: ['Priority between accounts', 'The plan joins your accounts and looks for the most prize money adding them up. Since prizes go to whoever gets furthest, it pays to put the best Moments together in one account, and without priority that can be either one. With priority, each expected win of the chosen account is worth 20% more and the best Moments go to it first; the other plays with the rest. <b>Automatic</b> = the best ranked in the Overall standings (from the places read on Top Shot). <b>Equal</b> = no priority.'],
   lesoes: ['Injuries', 'ESPN report. In the plan: out → doesn’t play; doubtful → 25%; questionable or day-to-day → 50%; probable → 90% (in his next game, and less in the following ones). In the player’s card you can ignore the report. In the rest of the NBA, by team, only the important ones show (20+ minutes or 12+ points); search a name or team to see everyone. Tap a player to see the full ESPN note.'],
   classif: ['Standings', 'Wins and losses of every account, smurfs included: as soon as the games end, days close with the box scores and the lineup each person shared. The rings are each person’s chance of reaching the prizes. The admin invites friends in Settings → Admin.'],
@@ -705,6 +706,7 @@ function adoptMine() {
   if (sh.px && sh.px.at && sh.px.p && (!S.pxMine || !S.pxMine.at || sh.px.at > S.pxMine.at)) { S.pxMine = sh.px; S.pxIdx = null; try { localStorage.setItem('fb-px', JSON.stringify(sh.px)); } catch (e) {} }
   if (sh.picks && sh.picks.at && Array.isArray(sh.picks.ev) && (!S.picksMine || !S.picksMine.at || sh.picks.at > S.picksMine.at)) { S.picksMine = sh.picks; try { localStorage.setItem('fb-picks', JSON.stringify(sh.picks)); } catch (e) {} }
   if (sh.ed && sh.ed.at && sh.ed.p && (!S.edMine || !S.edMine.at || sh.ed.at > S.edMine.at)) { S.edMine = sh.ed; S.edIdx = null; try { localStorage.setItem('fb-ed', JSON.stringify(sh.ed)); } catch (e) {} }
+  if (sh.hist && sh.hist.at && Array.isArray(sh.hist.days) && (!S.histMine || !S.histMine.at || sh.hist.at > S.histMine.at)) { S.histMine = sh.hist; try { localStorage.setItem('fb-hist', JSON.stringify(sh.hist)); } catch (e) {} }
   if (sh.ranks && sh.ranks.at && (!S.ranksMine || !S.ranksMine.at || sh.ranks.at > S.ranksMine.at)) { S.ranksMine = sh.ranks; try { localStorage.setItem('fb-ranks', JSON.stringify(sh.ranks)); } catch (e) {} }
 }
 
@@ -724,6 +726,8 @@ function takeRanksHash() {
     // que script correu: sem "sv" (ou antigo) é o automático antigo, que não lê os picks
     S.pickNote = !d || !Array.isArray(d.accs) || (Array.isArray(d.do) && !d.do.includes('picks')) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' games.' : d.picksErr ? ' Picks: failed (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: the Top Shot script is old — if you use the automatic one (Tampermonkey/Userscripts), reinstall it or turn it off and use the bookmark.' : ' Picks: none open.';
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
+    if (d && d.hist && Array.isArray(d.hist.days)) { histTake(d.hist); delete d.hist; }
+    else if (d && d.histErr) S.pickNote = (S.pickNote || '') + ' Historic: failed (' + d.histErr + ').';
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
     if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runReview = true; S.pickNote = (S.pickNote || '') + (d.runs ? ' Run: ' + (d.runs.length ? d.runs.map(r => r.days.length + ' days').join(', ') : 'no Classic run') + '.' : ' Run: didn’t work (' + (d.runErr || '?') + ').'); delete d.runs; }
     const gotRanks = d && Array.isArray(d.accs) && (!Array.isArray(d.do) || d.do.includes('ranks') || d.do.includes('lu'));
@@ -1073,7 +1077,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {}, S.histMine && S.histMine.at && Date.now() - Date.parse(S.histMine.at) < 3 * 864e5 ? { hist: S.histMine } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -1600,6 +1604,127 @@ function jornadaNav(date, sub) {
   const links = SUBS.hoje().map(([k, l]) => '<button type="button" class="btn link small" data-action="sub" data-stab="hoje" data-sub="' + k + '" aria-pressed="' + (k === sub) + '">' + l + '</button>').join('<span aria-hidden="true">·</span>');
   return '<div class="j-nav"><div class="j-accs" role="group" aria-label="Account">' + accs + '</div><div class="j-links">' + links + '</div></div>';
 }
+// ---------- Jornada → modo: Classic (o plano da run) ou Historic (lendas simuladas, orçamento de Roster Points) ----------
+S.jmode = (() => { try { return localStorage.getItem('fb-jmode') || 'classic'; } catch (e) { return 'classic'; } })();
+const JMODES = [['classic', 'Classic'], ['historic', 'Historic']];
+function modeBox() {
+  return '<div class="mode-box"><label class="small muted" for="jmode">Mode</label><select id="jmode" class="field">' + JMODES.map(([k, l]) => '<option value="' + k + '"' + (S.jmode === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>';
+}
+// o que o leitor do Top Shot trouxe do Historic (fica no meu resumo; o grupo usa o mais recente)
+try { S.histMine = JSON.parse(localStorage.getItem('fb-hist') || 'null'); } catch (e) { S.histMine = null; }
+function histTake(h) {
+  S.histMine = h; S.histMemo = null;
+  try { localStorage.setItem('fb-hist', JSON.stringify(h)); } catch (e) {}
+  const nd = (h.days || []).find(d => d.players && d.players.length && Date.parse(d.locks) > Date.now());
+  S.pickNote = (S.pickNote || '') + ' Historic: ' + plural((h.days || []).filter(d => d.lines && d.lines.length).length, 'day played', 'days played') + (nd ? ', ' + nd.players.length + ' legends on day ' + histDayNo(nd.id) : '') + '.';
+  S.lastSummary = '';
+}
+function groupHist() {
+  const docs = [S.histMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.hist)).filter(h => h && h.at && Array.isArray(h.days));
+  return docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
+}
+const histDayNo = id => (String(id).match(/-d(\d+)$/) || [])[1] || '?';
+// data do dia (os lineups fecham de madrugada em Lisboa: o dia é o do fuso dos EUA)
+const histDate = d => new Date(Date.parse(d.locks) - 6 * 3600e3).toISOString().slice(0, 10);
+const NBA_TEAM = { 1610612737: 'ATL', 1610612738: 'BOS', 1610612739: 'CLE', 1610612740: 'NOP', 1610612741: 'CHI', 1610612742: 'DAL', 1610612743: 'DEN', 1610612744: 'GSW', 1610612745: 'HOU', 1610612746: 'LAC', 1610612747: 'LAL', 1610612748: 'MIA', 1610612749: 'MIL', 1610612750: 'MIN', 1610612751: 'BKN', 1610612752: 'NYK', 1610612753: 'ORL', 1610612754: 'IND', 1610612755: 'PHI', 1610612756: 'PHX', 1610612757: 'POR', 1610612758: 'SAC', 1610612759: 'SAS', 1610612760: 'OKC', 1610612761: 'TOR', 1610612762: 'UTA', 1610612763: 'MEM', 1610612764: 'WAS', 1610612765: 'DET', 1610612766: 'CHA' };
+const hTeam = id => NBA_TEAM[id] || '?';
+// lendas que já cá não estão (na simulação continuam a jogar os 36 minutos)
+const H_RIP = { 'moses malone': '1955–2015', 'bob lanier': '1948–2022', 'nate thurmond': '1941–2016', 'dikembe mutombo': '1966–2024', 'clifford robinson': '1966–2020', 'drazen petrovic': '1964–1993', 'connie hawkins': '1942–2017', 'wes unseld': '1946–2020', 'mark eaton': '1957–2021' };
+const hRip = x => H_RIP[norm(x.name)] || null;
+const hRipTag = x => hRip(x) ? ' <span class="h-rip" title="Rest in peace (' + hRip(x) + ')">🕊️ RIP</span>' : '';
+// cara de uma lenda: iniciais na cor da equipa e a foto da NBA por cima (se houver)
+const hFace = (x, cls) => '<span class="face' + (cls ? ' ' + cls : '') + '" style="--av:' + (TEAM_COLOR[hTeam(x.team)] || 'var(--muted)') + '" aria-hidden="true"><b>' + esc(initials(x.name)) + '</b><img src="https://cdn.nba.com/headshots/nba/latest/260x190/' + encodeURIComponent(x.id) + '.png" width="96" height="70" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>';
+// escolhas guardadas neste aparelho: fixados e tirados de cada dia, e a melhor carta de cada lenda (desconto)
+const hLoad = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch (e) { return d; } };
+S.hsel = hLoad('fb-hsel', {}); S.hdisc = hLoad('fb-hdisc', {});
+const hSave = () => { try { localStorage.setItem('fb-hsel', JSON.stringify(S.hsel)); localStorage.setItem('fb-hdisc', JSON.stringify(S.hdisc)); } catch (e) {} };
+const H_DISC = [[0, 'None'], [5, 'Common or Fandom'], [10, 'Rare'], [15, 'Legendary'], [20, 'Ultimate']];
+function histCalc(H, dayId) {
+  const sel = S.hsel[dayId] || { fix: [], ban: [] }, key = [H.at, dayId, JSON.stringify(sel), JSON.stringify(S.hdisc)].join('|');
+  if (S.histMemo && S.histMemo.key === key) return S.histMemo;
+  const M = FB.histModel(H, dayId, { disc: S.hdisc }); if (!M) return null;
+  const best = FB.histBest(M, 200, sel.fix, sel.ban);
+  // a sugestão: a que mais vezes chega aos prémios (40 primeiros); desempata pelos pontos
+  const ev = FB.histEval(M, best, 3000).sort((p, q) => (q.p40 - p.p40) || (q.mean - p.mean));
+  S.histMemo = { key, M, ev, sel };
+  return S.histMemo;
+}
+function renderHistoric(el) {
+  if (typingField('tab-hoje')) return; // a escrever na procura das lendas: não redesenha
+  const H = groupHist(), now = Date.now();
+  const open = H ? H.days.filter(d => d.players && d.players.length && Date.parse(d.locks) > now) : [];
+  const head = modeBox();
+  if (!open.length) {
+    el.innerHTML = head + empty('Historic', H ? 'The Top Shot data has no days left to play. The admin reads it again in Settings → Admin → Read on Top Shot → Historic.' : 'No Historic data yet. The admin reads it in Settings → Admin → Read on Top Shot → Historic.',
+      S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go" data-do="hist">Read Historic</button>' : '');
+    return;
+  }
+  if (!open.some(d => d.id === S.hday)) S.hday = open[0].id;
+  const day = open.find(d => d.id === S.hday), C = histCalc(H, day.id);
+  const strip = '<div class="chips scroll h-days" role="group" aria-label="Historic days">' + open.map(d => '<button type="button" data-action="h-day" data-id="' + esc(d.id) + '" aria-pressed="' + (d.id === day.id) + '">Day ' + histDayNo(d.id) + ' · ' + dWeek(histDate(d)) + '</button>').join('') + '</div>';
+  if (!C || !C.ev.length) { el.innerHTML = head + strip + '<div class="note">No team of 5 fits the budget with these choices. Unlock someone or restore someone.</div>' + histLegendsCard(C, day); return; }
+  const M = C.M, best = C.ev[0], byId = new Map(M.rows.map(x => [x.id, x])), sel = C.sel;
+  const cutTxt = M.cuts.length ? 'On days with ' + plural((day.games || []).length, 'game', 'games') + ', 40th place (the last with a prize) scored ' + f0(M.cuts[39] != null ? M.cuts[39] : M.cuts[M.cuts.length - 1]) + ' and 10th ' + f0(M.cuts[9] != null ? M.cuts[9] : M.cuts[0]) + '.' : '';
+  const row = id => {
+    const x = byId.get(id), fx = sel.fix.includes(id), opp = x.opp ? (day.games.some(g => g[1] === x.team) ? 'vs ' : '@ ') + hTeam(x.opp) : '';
+    return '<li><button class="row" type="button" data-action="h-card" data-id="' + esc(id) + '" data-day="' + esc(day.id) + '"><span class="who">' + hFace(x) + '<div style="min-width:0"><div class="pn">' + (fx ? icoLock : '') + '<span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + '</div>' +
+      '<div class="ps">' + esc(hTeam(x.team)) + ' ' + esc(opp) + ' · ' + f0(x.cost) + ' RP · ' + (x.own != null ? pct(x.own / 100) + ' pick him' : '') + '</div>' +
+      '<div class="ps">' + (x.n ? 'avg ' + f0(x.avg) + ' in ' + plural(x.n, 'game', 'games') : 'no games yet') + '</div></div></span>' +
+      '<div class="pv"><div class="v num">' + f0(x.mu) + '</div><div class="u">pts</div></div></button></li>';
+  };
+
+  const hero = '<div class="card hero day-hero h-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Historic · Day ' + histDayNo(day.id) + ' · ' + dWeek(histDate(day)) + ', ' + dShort(histDate(day)) + '</span><span class="small muted">locks at ' + hm(day.locks) + '</span></div>' +
+    '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">Expected points</span><span class="gb-n">' + f0(best.mean) + '</span><span class="gb-t">± ' + f0(best.sd) + ' · ' + f0(best.cost) + ' of ' + M.budget + ' RP</span></div></div>' +
+    winRing(best.p40, tone(Math.min(1, best.p40 * 2)), pct(best.p40), 'top 40') + '</div>' +
+    '<div class="small muted h-odds">Top 10 ' + pct(best.p10) + ' · 1st place ' + pct(best.p1) + '. ' + esc(cutTxt) + '</div>' +
+    '<ul class="list jc-list">' + best.ids.map(row).join('') + '</ul>' +
+    (sel.fix.length || sel.ban.length ? '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="h-reset" data-day="' + esc(day.id) + '">Back to the suggestion</button></div>' : '') + '</div>';
+  const alts = C.ev.slice(1, 4).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
+  const H0 = groupHist(), src = '<div class="small muted h-src">Top Shot data from ' + esc(ago(H0.at)) + ' · ' + plural(M.dayIds.length, 'day played', 'days played') + ' in the simulation' + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">read again</button>' : '') + '</div>';
+  el.innerHTML = head + strip + hero + (alts ? '<div class="card"><div class="list-head"><h2>Other teams</h2><span class="small muted">by the same math</span></div><ul class="list">' + alts + '</ul></div>' : '') + histLegendsCard(C, day) + src;
+  hFilter();
+}
+// todas as lendas do dia: pontos esperados, custo, quem escolhe; + fixa, × tira, tocar no nome = a tua carta (desconto)
+function histLegendsCard(C, day) {
+  if (!C) return '';
+  const sel = C.sel, inBest = new Set(C.ev.length ? C.ev[0].ids : []);
+  const rows = C.M.rows.map(x => { const ban = sel.ban.includes(x.id), fx = sel.fix.includes(x.id);
+    return '<li class="lu-row' + (ban ? ' h-ban' : '') + '" data-n="' + esc(norm(x.name) + ' ' + hTeam(x.team).toLowerCase()) + '"><button class="lu-main" type="button" data-action="h-card" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '">' + hFace(x, 'sm') + '<span class="lu-t"><span class="pn">' + (fx ? icoLock : '') + '<span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + '</span>' +
+      '<span class="ps">' + (inBest.has(x.id) ? '<b class="c-good">in the team</b> · ' : '') + esc(hTeam(x.team)) + ' · ' + f0(x.cost) + ' RP' + (x.cost < x.rp ? ' (card)' : '') + (x.n ? ' · avg ' + f0(x.avg) : '') + (x.own != null ? ' · ' + pct(x.own / 100) : '') + '</span></span></button>' +
+      '<div class="pv"><div class="v num">' + f0(x.mu) + '</div><div class="u">pts</div></div>' +
+      (ban ? '<button class="btn small" type="button" data-action="h-ban" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '">Restore</button>'
+        : '<button class="lu-ic add" type="button" data-action="h-fix" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '" aria-pressed="' + fx + '" aria-label="Lock ' + esc(x.name) + '" title="Lock in the team">' + (fx ? icoLockBtn : icoPlus) + '</button>' +
+          '<button class="lu-ic" type="button" data-action="h-ban" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '" aria-label="Remove ' + esc(x.name) + ' from this day" title="Remove from this day">' + icoX + '</button>') + '</li>'; }).join('');
+  return '<div class="card"><div class="list-head"><h2>Legends of day ' + histDayNo(day.id) + ' ' + helpBtn('historic') + '</h2><span class="small muted">' + plural(C.M.rows.length, 'legend', 'legends') + '</span></div>' +
+    '<div class="lu-search"><input class="field" id="hSearch" type="search" placeholder="Search legend or team…" autocomplete="off" aria-label="Search legend or team" value="' + esc(S.hq || '') + '"></div>' +
+    '<ul class="list" id="hList">' + rows + '<li class="row small muted lu-none" hidden>No legend with that name or team.</li></ul></div>';
+}
+function hFilter() {
+  const ul = $('hList'); if (!ul) return;
+  const q = norm(($('hSearch') || {}).value || ''); let n = 0;
+  ul.querySelectorAll('li[data-n]').forEach(li => { const ok = !q || li.dataset.n.includes(q); li.hidden = !ok; if (ok) n++; });
+  const none = ul.querySelector('.lu-none'); if (none) none.hidden = !(q && !n);
+}
+function hSel(day) { return (S.hsel[day] = S.hsel[day] || { fix: [], ban: [] }); }
+function hFix(day, id) {
+  const s = hSel(day);
+  if (s.fix.includes(id)) s.fix = s.fix.filter(x => x !== id);
+  else { if (s.fix.length >= 5) { toast('You already have 5 locked: unlock one first.'); return; } s.fix.push(id); s.ban = s.ban.filter(x => x !== id); }
+  hSave(); renderHoje();
+}
+function hBan(day, id) {
+  const s = hSel(day);
+  if (s.ban.includes(id)) s.ban = s.ban.filter(x => x !== id); else { s.ban.push(id); s.fix = s.fix.filter(x => x !== id); }
+  hSave(); renderHoje();
+}
+function hCardSheet(day, id) {
+  const C = S.histMemo, x = C && C.M.rows.find(r => r.id === id); if (!x) return;
+  const cur = +S.hdisc[id] || 0, sl = S.hsel[day] || { fix: [], ban: [] }, fixed = sl.fix.includes(id), banned = sl.ban.includes(id);
+  openSheet('<div class="h-sheet-top">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class="note info">🕊️ Rest in peace (' + hRip(x) + '). In the simulation he still plays 36 minutes a game, without complaining about his legs.</div>' : '') + '<div class="small muted">' + esc(hTeam(x.team)) + ' · ' + x.rp + ' RP · ' + (x.n ? 'avg ' + f1(x.avg) + ' pts in ' + plural(x.n, 'game', 'games') + ' (' + x.hist.map(f0).join(', ') + ')' : 'no games yet') + ' · expected today ' + f1(x.mu) + '</div>' +
+    '<div class="label" style="margin-top:6px">Your best card of him</div><div class="chips" role="group" aria-label="Your best card">' + H_DISC.map(([v, l]) => '<button type="button" data-action="h-disc" data-id="' + esc(id) + '" data-v="' + v + '" aria-pressed="' + (cur === v) + '">' + l + (v ? ' · −' + v + '%' : '') + '</button>').join('') + '</div>' +
+    '<div class="small muted">With a card of him, he costs fewer Roster Points and the card counts for the tiebreak. Saved on this device.</div>' +
+    '<div class="btns"><button class="btn" type="button" data-action="h-fix" data-id="' + esc(id) + '" data-day="' + esc(day) + '" data-close="1">' + (fixed ? 'Unlock' : 'Lock in the team') + '</button><button class="btn" type="button" data-action="h-ban" data-id="' + esc(id) + '" data-day="' + esc(day) + '" data-close="1">' + (banned ? 'Restore on this day' : 'Take out of this day') + '</button></div>');
+}
 function renderHoje() {
   const el = $('tab-hoje'), os = el.querySelector('.day-strip'), left = os ? os.scrollLeft : null;
   renderJornada(el);
@@ -1654,10 +1779,11 @@ function pastDayHtml(J) {
   return out.join('');
 }
 function renderJornada(el) {
-  if (!guard(el, true)) return;
+  if (S.jmode === 'historic') { renderHistoric(el); return; }
+  if (!guard(el, true)) { el.insertAdjacentHTML('afterbegin', modeBox()); return; }
   const r = S.result, v = view(), J = jornadaDay();
   if (!J) { el.innerHTML = empty('Run finished', 'You finished with ' + r.wins + ' wins in ' + r.playedCount + ' days.'); return; }
-  const sub = subOf('hoje'), html = [dayStrip(J.date), jornadaNav(J.date, sub)];
+  const sub = subOf('hoje'), html = [modeBox(), dayStrip(J.date), jornadaNav(J.date, sub)];
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
   if (run.fictitious) html.push('<div class="note">Test run: made-up games and goals.' + (real ? ' <button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Open ' + esc(real.name) + '</button>' : '') + '</div>');
   if (J.past) {
@@ -3780,6 +3906,7 @@ function adminHtml(run) {
     '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Standings and picks</button><span class="small muted">Quick. Once a day, before the games.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="lu">Lineups</button><span class="small muted">The lineup each account played on the days that closed. In the morning.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="px">Player prices</button><span class="small muted">1–2 minutes. Now and then.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="hist">Historic</button><span class="small muted">Quick. The legends of the next day and the results of past days.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run and prizes</button><span class="small muted">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>' +
     (S.runRead ? '<div class="note sug"><div>Run read on Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">See what changes</button></div></div>' : '') +
     (edOn() ? '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="ed">Cards (ASP)</button><span class="small muted">1–2 minutes. Rarity and ASP of every card in the group.</span></div>' : '') +
@@ -5581,6 +5708,12 @@ document.addEventListener('click', async e => {
     case 'help': helpSheet(b.dataset.k, b); break;
     case 'opcoes': await opcoesSheet(); break;
     case 'hold-hist': holdHistSheet(b.dataset.date); break;
+    case 'h-day': S.hday = id; renderHoje(); break;
+    case 'h-fix': if (b.dataset.close) closeSheet(); hFix(b.dataset.day, id); break;
+    case 'h-ban': if (b.dataset.close) closeSheet(); hBan(b.dataset.day, id); break;
+    case 'h-reset': S.hsel[b.dataset.day] = { fix: [], ban: [] }; hSave(); renderHoje(); break;
+    case 'h-card': hCardSheet(b.dataset.day, id); break;
+    case 'h-disc': { const v = +b.dataset.v || 0; if (v) S.hdisc[id] = v; else delete S.hdisc[id]; hSave(); closeSheet(); renderHoje(); toast(v ? 'Card saved: costs ' + v + '%.' : 'No card.'); break; }
     case 'prio': S.mine.plan.prio = b.dataset.v; saveMine(); schedule(); renderAjustes(); toast('Priority saved: the plan was redone.'); break;
     case 'hold-undo': holdUndoSheet(b.dataset.acc, b.dataset.date, b.dataset.i); break;
     case 'hold-undo-ok': holdUndoOk(b.dataset.acc, b.dataset.date, b.dataset.i); break;
@@ -5791,6 +5924,7 @@ document.addEventListener('click', async e => {
 document.addEventListener('change', async e => {
   const t = e.target, a = t.dataset.action;
   if (t.dataset && t.dataset.moTier) { await momentTierChange(t.dataset.moTier, t.value); return; }
+  if (t.id === 'jmode') { S.jmode = t.value; try { localStorage.setItem('fb-jmode', t.value); } catch (e2) {} t.blur(); renderHoje(); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run linked to the blockchain.' : 'Link removed.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
   if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null, +t.dataset.k || 0);
@@ -5809,6 +5943,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'buySearch') renderBuySearch(e.target.value);
   if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
   if (e.target.id === 'sellSearch') { S.sellQ = e.target.value; sellFilter(); }
+  if (e.target.id === 'hSearch') { S.hq = e.target.value; hFilter(); }
   if (e.target.id === 'injSearch') { S.injQ = e.target.value; injFilter(); }
   if (e.target.id === 'luSearch') { if (S.lu && $('luCount')) S.lu.q = e.target.value; if (S.luEdit && $('pastLu')) S.luEdit.q = e.target.value; luFilter(); }
 });

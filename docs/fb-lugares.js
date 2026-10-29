@@ -172,6 +172,31 @@ async function picks(addr) {
   try { const u = await call('PredictionService/GetUserPredictionSummary', { product: 'nba', userFlowAddress: String(addr || '').replace(/^0x/, '') }); out.cap = +u.dailyActivePointsCap || null; out.free = !!u.freePicks; } catch (e) {}
   return out;
 }
+// ---- Historic: lendas e Roster Points dos dias abertos, resultados simulados (e os 40 primeiros) dos dias fechados ----
+const H_KEYS = ['points', 'rebounds', 'assists', 'steals', 'blocks', 'turnovers', 'three_points_made', 'double_double', 'triple_double', 'field_goals_made', 'field_goals_att', 'offensive_rebounds'];
+async function readHist() {
+  say('A ler o Historic…');
+  const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
+  const run = runs.find(r => /historic/i.test(r.id + ' ' + (r.name || ''))) || runs.find(r => r.league === 'simulation');
+  if (!run) throw new Error('não encontrei a run do Historic');
+  let cs = [], page = null;
+  for (let i = 0; i < 5; i++) { const x = await call('GameEngineService/SearchContests', Object.assign({ product: 'nba', runId: run.id }, page ? { pageToken: page } : {})); cs = cs.concat(x.contests || []); page = x.nextPageToken; if (!page) break; }
+  cs.sort((a, b) => String(a.locksAt).localeCompare(String(b.locksAt)));
+  const now = Date.now(), out = { v: 1, at: new Date().toISOString(), run: { id: run.id, name: run.name || null }, keys: H_KEYS, days: [] };
+  for (const c of cs) {
+    const d = { id: c.id, locks: c.locksAt, open: Date.parse(c.locksAt) > now };
+    say('A ler o Historic… dia ' + String(c.id).split('-').pop());
+    try { const g = (await call('GameEngineService/GetContest', { contestId: c.id })).contest || {}; d.games = (g.slateGames || []).map(x => [x.gameId, x.homeTeamId, x.awayTeamId, x.scheduledAt]); if (!out.rubric) { out.rubric = (g.scoringRubric || {}).entries || null; out.budget = g.rosterBudget || null; } d.bands = ((g.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount]); d.entries = +g.totalEntries || null; } catch (e) { d.err = String(e.message).slice(0, 60); }
+    if (d.open) { try { const sl = await call('GameEngineService/GetPlayerSlots', { contestId: c.id }); d.players = (sl.players || []).map(p => [p.playerId, p.playerName, p.teamId, +p.rosterPoints, (p.ownedMomentFlowIds || []).length, Math.round((+p.ownershipPct || 0) * 10) / 10]); } catch (e) { d.err = String(e.message).slice(0, 60); } }
+    else {
+      try { const bx = await call('GameEngineService/GetGameBoxScores', { contestId: c.id }); d.lines = []; (bx.games || []).forEach(G => (G.lines || []).forEach(l => { const st = l.stats || {}; if (Object.keys(st).length) d.lines.push([l.playerId, l.playerName, l.teamId].concat(H_KEYS.map(k => +st[k] || 0))); })); } catch (e) { d.err = String(e.message).slice(0, 60); }
+      try { const sl = await call('GameEngineService/GetPlayerSlots', { contestId: c.id }); d.rp = (sl.players || []).map(p => [p.playerId, +p.rosterPoints, Math.round((+p.ownershipPct || 0) * 10) / 10]); } catch (e) {}
+      try { const st = await call('GameEngineService/GetContestStandings', { contestId: c.id, limit: 40 }); d.top = (st.rows || []).map(r => +r.score); } catch (e) {}
+    }
+    out.days.push(d);
+  }
+  return out;
+}
 let started = false;
 async function go() {
   if (started) return; started = true;
@@ -179,7 +204,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 14, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 15, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
     if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
@@ -188,11 +213,13 @@ async function go() {
     if (want.has('px') && Array.isArray(job.pl) && job.pl.length) { try { out.px = await prices(job.pl); } catch (err) { out.px = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     // picks do dia (jogos abertos e % do pessoal): servem para o pick do dia na Jornada
     if (want.has('picks')) { try { say('A ler os picks…'); out.picks = await picks(job.accs[0] && job.accs[0].a); } catch (err) { out.picksErr = String(err.message || err).slice(0, 80); } }
+    // Historic: lendas de hoje e resultados dos dias que passaram (para sugerir a equipa)
+    if (want.has('hist')) { try { out.hist = await readHist(); } catch (err) { out.histErr = String(err.message || err).slice(0, 80); } }
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
     const luN = (out.days || []).reduce((t, d) => t + Object.values(d.accs || {}).filter(a => a.lu && a.lu.length).length, 0);
-    say('Feito: ' + [want.has('ranks') || want.has('lu') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('lu') ? luN + ' lineups em ' + (out.days || []).length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
+    say('Feito: ' + [want.has('ranks') || want.has('lu') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('lu') ? luN + ' lineups em ' + (out.days || []).length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : '', out.hist ? 'Historic: ' + out.hist.days.filter(d => d.lines && d.lines.length).length + ' dias jogados, ' + ((out.hist.days.find(d => d.players && d.players.length) || {}).players || []).length + ' lendas no próximo dia' : out.histErr ? 'Historic: ' + out.histErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }

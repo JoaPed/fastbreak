@@ -37,7 +37,8 @@ execFileSync(process.execPath, ['--import', path.join(root, 'test/helpers/job-pr
 const db = JSON.parse(fs.readFileSync(file, 'utf8')), A = db.tables.market_asks, Sx = db.tables.market_sales;
 const a2 = A.find(r => r.listing_id === 'L2') || {}, a1 = A.find(r => r.listing_id === 'L1') || {};
 ok('à venda: o Rare do Jokić, com jogador, escalão (pela tiragem) e número', a2.active === true && a2.player_id === 'nikola-jokic' && a2.tier === 'Legendary' && a2.serial === 7 && +a2.price === 90, a2);
-ok('o anúncio vendido deixa de estar ativo; outras coleções não entram', a1.active === false && !A.some(r => r.listing_id === 'LX'), A);
+// vendido: fica inativo (ou já foi apagado, se o anúncio tem mais de 7 dias: a data do teste é fixa)
+ok('o anúncio vendido deixa de estar ativo; outras coleções não entram', (a1.active === false || !A.some(r => r.listing_id === 'L1')) && !A.some(r => r.listing_id === 'LX'), A);
 const s1 = Sx.find(r => r.listing_id === 'L1') || {}, s0 = Sx.find(r => r.listing_id === 'L0') || {};
 ok('venda de um anúncio visto: Common do Jokić a $2,50', s1.player_id === 'nikola-jokic' && s1.tier === 'Common' && +s1.price === 2.5, s1);
 ok('venda de um anúncio não visto: lida da carteira de quem comprou (Rare pelo set)', s0.player_id === 'stephen-curry' && s0.tier === 'Rare' && +s0.price === 4, s0);

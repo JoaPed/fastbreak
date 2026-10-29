@@ -1107,3 +1107,16 @@ p, .note { text-wrap: pretty; }
 .op-pp { padding: 0 16px 4px; text-align: center; }
 .hu-kv { padding: 4px 16px 0; }
 .hu-ids { padding: 0 16px 14px; }
+/* Jornada → modo (Classic / Historic) */
+.mode-box { display: flex; align-items: center; gap: 10px; }
+.mode-box .field { width: auto; min-width: 150px; padding-top: 8px; padding-bottom: 8px; font-weight: 600; }
+.h-days { padding: 0; }
+.h-hero .h-odds { padding: 0 16px; position: relative; }
+.h-hero .gb-n { font-size: 34px; }
+.h-alt .ps { white-space: normal; }
+.lu-row.h-ban { opacity: .55; }
+.h-src { padding: 0 4px 8px; }
+.h-rip { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--muted); white-space: nowrap; margin-left: 4px; }
+.hero .h-rip { background: rgba(255, 255, 255, .1); color: inherit; }
+.h-sheet-top { display: flex; align-items: center; gap: 12px; }
+.h-sheet-top h3 { margin: 0; }

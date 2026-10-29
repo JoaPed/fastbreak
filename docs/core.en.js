@@ -1277,7 +1277,107 @@
     return sort(pos).join('+') + sort(neg).map(x => '-' + x).join('');
   }
 
-  const api = { mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  // ---------- Historic: lendas simuladas, 5 dentro de um orçamento de Roster Points, ganha quem soma mais ----------
+  // data = o que o leitor do Top Shot traz (hist): {keys, rubric, budget, days:[{id, locks, games:[[id, casa, fora, hora]],
+  // players:[[id, nome, equipa, RP, cartas, %escolha]] (dias abertos), lines:[[id, nome, equipa, ...stats]] (dias
+  // fechados), rp:[[id, RP, %]], top:[pontos do 1.º ao 40.º], bands, entries}]}
+  // Pontos esperados de cada lenda: média dos jogos simulados até agora, encolhida para o que o custo prevê (o custo vem
+  // das médias de carreira, que são a base da simulação), mais o que o adversário tem deixado marcar.
+  function histModel(data, dayId, opts) {
+    opts = opts || {};
+    const K = data.keys || [], W = {};
+    (data.rubric || []).forEach(e => { W[e.statKey] = +e.weight || 0; });
+    if (!Object.keys(W).length) Object.assign(W, { points: 1, rebounds: 1, assists: 2, steals: 3, blocks: 3, turnovers: -1, three_points_made: 0.5, double_double: 5, triple_double: 10 });
+    const fbp = v => K.reduce((t, k, i) => t + (W[k] || 0) * (+v[i] || 0), 0);
+    const days = data.days || [], closed = days.filter(d => d.lines && d.lines.length);
+    const today = days.find(d => d.id === dayId) || days.find(d => d.players && d.players.length && Date.parse(d.locks) > (opts.now || Date.now()));
+    if (!today || !today.players) return null;
+    const games = new Map(), rp = new Map();
+    closed.forEach(d => {
+      const opp = {}; (d.games || []).forEach(g => { opp[g[1]] = g[2]; opp[g[2]] = g[1]; });
+      d.lines.forEach(l => { const g = games.get(l[0]) || games.set(l[0], []).get(l[0]); g.push({ day: d.id, v: fbp(l.slice(3)), opp: opp[l[2]] || null }); });
+      (d.rp || []).forEach(r => rp.set(r[0], +r[1]));
+    });
+    today.players.forEach(p => rp.set(p[0], +p[3]));
+    const mean = a => a.reduce((t, x) => t + x, 0) / (a.length || 1);
+    // a priori: reta pontos ~ custo, pesada pelos jogos de cada um
+    let n = 0, sx = 0, sy = 0; const pts = [];
+    games.forEach((g, id) => { if (!rp.has(id)) return; const y = mean(g.map(x => x.v)); pts.push([rp.get(id), y, g.length]); n += g.length; sx += rp.get(id) * g.length; sy += y * g.length; });
+    const mx = n ? sx / n : 0, my = n ? sy / n : 0;
+    let num = 0, den = 0; pts.forEach(([x, y, w]) => { num += w * (x - mx) * (y - my); den += w * (x - mx) * (x - mx); });
+    const b = den ? num / den : 0.5, a = my - b * mx, prior = r => a + b * r;
+    let wv = 0, wn = 0; games.forEach(g => { if (g.length < 2) return; const m = mean(g.map(x => x.v)); g.forEach(x => { wv += (x.v - m) * (x.v - m); wn++; }); });
+    const sw2 = wn ? wv / wn : 225;
+    const res = pts.map(([x, y]) => y - prior(x)), avgN = pts.length ? n / pts.length : 1;
+    const sb2 = Math.max(1, (res.length ? mean(res.map(r => r * r)) : 25) - sw2 / avgN), k = sw2 / sb2;
+    // adversário: o que cada equipa deixa marcar acima/abaixo do esperado (encolhido)
+    const allow = new Map();
+    games.forEach((g, id) => { if (!rp.has(id)) return; g.forEach(x => { if (x.opp) (allow.get(x.opp) || allow.set(x.opp, []).get(x.opp)).push(x.v - prior(rp.get(id))); }); });
+    const oppF = t => { const xs = allow.get(t) || []; return xs.length ? xs.reduce((s, x) => s + x, 0) / (xs.length + 25) : 0; };
+    const oppToday = {}; (today.games || []).forEach(g => { oppToday[g[1]] = g[2]; oppToday[g[2]] = g[1]; });
+    const disc = opts.disc || {}, dayIds = closed.map(d => d.id);
+    const rows = today.players.map(p => {
+      const [id, name, team, r] = p, g = games.get(id) || [], avg = g.length ? mean(g.map(x => x.v)) : prior(+r);
+      const post = (g.length * avg + k * prior(+r)) / (g.length + k), opp = oppToday[team] || null;
+      const res = {}; g.forEach(x => { res[x.day] = x.v - avg; });
+      return { id, name, team, opp, rp: +r, cost: +r * (1 - (+disc[id] || 0) / 100), n: g.length, avg, prior: prior(+r), mu: post + oppF(opp), own: p[5] != null ? +p[5] : null, mine: +p[4] || 0, hist: g.map(x => x.v), res };
+    }).sort((x, y) => y.mu - x.mu);
+    // pontos do 1.º ao 40.º nos dias com um número parecido de jogos (o campo verdadeiro)
+    const ng = (today.games || []).length, like = closed.filter(d => d.top && d.top.length && Math.abs((d.games || []).length - ng) <= 1);
+    const use = like.length ? like : closed.filter(d => d.top && d.top.length);
+    const cuts = []; for (let i = 0; i < 40; i++) { const xs = use.map(d => d.top[Math.min(i, d.top.length - 1)]).filter(x => x != null).sort((p, q) => p - q); if (xs.length) cuts.push(xs[Math.floor(xs.length / 2)]); }
+    return { day: today, rows, a, b, sw: Math.sqrt(sw2), k, cuts, cutDays: use.map(d => d.id), dayIds, budget: +((data.budget || {}).limit) || 350, bands: today.bands || null };
+  }
+  // as K melhores equipas de 5 dentro do orçamento (pela soma dos pontos esperados), com fixados e tirados
+  function histBest(M, K, fixed, banned) {
+    K = K || 200; const B = M.budget + 1e-9, ban = new Set(banned || []), fix = (fixed || []).filter(id => !ban.has(id));
+    const rows = M.rows.filter(x => !ban.has(x.id)), fixR = fix.map(id => rows.find(x => x.id === id)).filter(Boolean);
+    const pool = rows.filter(x => !fix.includes(x.id)), out = [];
+    let worst = -Infinity;
+    const push = (sum, cost, list) => {
+      if (out.length >= K && sum <= worst) return;
+      out.push({ ev: sum, cost, ids: list.map(x => x.id) }); out.sort((p, q) => q.ev - p.ev);
+      if (out.length > K) out.pop(); worst = out.length >= K ? out[out.length - 1].ev : -Infinity;
+    };
+    const need = 5 - fixR.length, base = fixR.reduce((t, x) => t + x.mu, 0), baseC = fixR.reduce((t, x) => t + x.cost, 0);
+    if (need < 0 || baseC > B) return [];
+    const minCost = pool.map(x => x.cost).sort((p, q) => p - q);
+    const rec = (start, left, sum, cost, list) => {
+      if (!left) { push(sum, cost, fixR.concat(list)); return; }
+      for (let i = start; i <= pool.length - left; i++) {
+        let bound = sum; for (let j = 0; j < left; j++) bound += pool[i + j].mu; // a lista está por ordem de pontos
+        if (out.length >= K && bound <= worst) return;
+        const x = pool[i]; if (cost + x.cost + (left > 1 ? minCost.slice(0, left - 1).reduce((t, c) => t + c, 0) : 0) > B) continue;
+        list.push(x); rec(i + 1, left - 1, sum + x.mu, cost + x.cost, list); list.pop();
+      }
+    };
+    rec(0, need, base, baseC, []);
+    return out;
+  }
+  // simula o dia (cada lenda tira os desvios de um dos dias que passaram: os colegas do mesmo jogo vêm juntos) e compara
+  // cada equipa com os pontos do 1.º ao 40.º dos dias parecidos: probabilidades de lugar e crédito esperado
+  function histEval(M, lineups, N, seed) {
+    N = N || 3000; let s = (seed || 7) >>> 0;
+    const rnd = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const gauss = () => { const u = 1 - rnd(), v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    const idx = new Map(M.rows.map((x, i) => [x.id, i])), P = M.rows.length, D = M.dayIds.length;
+    const S = new Float64Array(N * P);
+    for (let n = 0; n < N; n++) { const d = D ? M.dayIds[Math.floor(rnd() * D)] : null; for (let i = 0; i < P; i++) { const x = M.rows[i], r = d != null ? x.res[d] : undefined; S[n * P + i] = x.mu + (r != null ? r : gauss() * M.sw); } }
+    const cuts = M.cuts, pay = new Float64Array(42);
+    (M.bands || [[1, 1, 4000], [2, 2, 3000], [3, 3, 2000], [4, 4, 1500], [5, 5, 1000], [6, 10, 500], [11, 20, 300], [21, 40, 100]]).forEach(([lo, hi, amt]) => { for (let r = lo; r <= Math.min(hi, 40); r++) pay[r] = +amt; });
+    return lineups.map(L => {
+      const ii = L.ids.map(id => idx.get(id)); let t = 0, t2 = 0, p1 = 0, p10 = 0, p40 = 0, prize = 0;
+      for (let n = 0; n < N; n++) {
+        let sc = 0; for (const i of ii) sc += S[n * P + i];
+        t += sc; t2 += sc * sc;
+        if (cuts.length) { let rank = 1; while (rank <= cuts.length && cuts[rank - 1] > sc) rank++; if (rank === 1) p1++; if (rank <= 10) p10++; if (rank <= 40 && rank <= cuts.length) { p40++; prize += pay[rank]; } }
+      }
+      const m = t / N;
+      return Object.assign({}, L, { mean: m, sd: Math.sqrt(Math.max(0, t2 / N - m * m)), p1: p1 / N, p10: p10 / N, p40: p40 / N, prize: prize / N });
+    });
+  }
+
+  const api = { histModel, histBest, histEval, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

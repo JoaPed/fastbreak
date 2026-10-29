@@ -383,5 +383,29 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   const g2 = FB.planGroup(run, [{ key: 'main', roster: ro2, plan: pl() }, { key: 's1', roster: ro2, plan: pl() }], odds, { now: NOW });
   ok('escalões: com 2 cartas de 2 usos já não há aviso', !g2.clashes.some(x => x.date === dts[1] && x.id === star && x.tier), g2.clashes);
 }
+// ---- Historic: pontos esperados, as melhores equipas dentro do orçamento, simulação do dia ----
+{
+  const H = JSON.parse(fs.readFileSync(new URL('./fixtures/historic.json', import.meta.url), 'utf8'));
+  const M = FB.histModel(H, 'run-fb-historic-2026-10-20-d10', { now: Date.parse('2026-10-29T14:00:00Z') });
+  ok('historic: 30 lendas no dia 10, com média e esperado', M && M.rows.length === 30 && M.rows.every(x => isFinite(x.mu)), M && M.rows.length);
+  ok('historic: o custo prevê os pontos (reta a subir)', M.b > 0.1 && M.b < 1, M.b);
+  ok('historic: cortes dos dias com ~3 jogos (1.º ≥ 10.º ≥ 40.º)', M.cuts.length === 40 && M.cuts[0] >= M.cuts[9] && M.cuts[9] >= M.cuts[39], M.cuts.slice(0, 3));
+  const best = FB.histBest(M, 50);
+  ok('historic: equipas de 5 dentro dos 350, da melhor para a pior', best.length === 50 && best.every(b => b.ids.length === 5 && b.cost <= 350 && new Set(b.ids).size === 5) && best.every((b, i) => !i || best[i - 1].ev >= b.ev - 1e-9), best[0]);
+  // a melhor tem de ser mesmo a melhor: força bruta nas 30 lendas
+  let top = -1; const R = M.rows;
+  for (let a = 0; a < R.length; a++) for (let b = a + 1; b < R.length; b++) for (let c = b + 1; c < R.length; c++) for (let d = c + 1; d < R.length; d++) for (let e = d + 1; e < R.length; e++) {
+    const L = [R[a], R[b], R[c], R[d], R[e]]; if (L.reduce((t, x) => t + x.cost, 0) <= 350) top = Math.max(top, L.reduce((t, x) => t + x.mu, 0)); }
+  ok('historic: a melhor equipa é a de força bruta', Math.abs(best[0].ev - top) < 1e-6, [best[0].ev, top]);
+  const fixId = R.find(x => !best[0].ids.includes(x.id)).id, banId = best[0].ids[0];
+  const b2 = FB.histBest(M, 10, [fixId], [banId]);
+  ok('historic: fixado entra sempre e tirado nunca', b2.length && b2.every(b => b.ids.includes(fixId) && !b.ids.includes(banId)), b2[0]);
+  const M2 = FB.histModel(H, 'run-fb-historic-2026-10-20-d10', { now: Date.parse('2026-10-29T14:00:00Z'), disc: { [R[0].id]: 20 } });
+  ok('historic: carta dá desconto no custo', Math.abs(M2.rows.find(x => x.id === R[0].id).cost - R[0].rp * 0.8) < 1e-9);
+  const ev = FB.histEval(M, best.slice(0, 5), 2000);
+  ok('historic: simulação dá probabilidades e média perto do esperado', ev.every(r => r.p40 >= r.p10 && r.p10 >= r.p1 && Math.abs(r.mean - r.ev) < 4), ev.map(r => [r.mean, r.ev, r.p40]));
+  const M11 = FB.histModel(H, 'run-fb-historic-2026-10-20-d11', { now: Date.parse('2026-10-29T14:00:00Z') }), t0 = Date.now(), b11 = FB.histBest(M11, 200);
+  ok('historic: 100 lendas (dia 11) em menos de 1 s', b11.length === 200 && Date.now() - t0 < 1000, Date.now() - t0);
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);
