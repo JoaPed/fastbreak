@@ -998,7 +998,7 @@ with sync_playwright() as pw:
     # O: Jornada → modo Historic (dados lidos no Top Shot): equipa sugerida, tirar, procurar, carta, outro dia
     HISTJ = (root / 'test' / 'fixtures' / 'historic.json').read_text()
     dbo = seeded(); To = dbo['tables']; To['runs'][0]['fictitious'] = False
-    To['members'].append({'user_id': 'u-eu', 'role': 'admin'}); To['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    To['members'].append({'user_id': 'u-eu', 'role': 'admin'}); To['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'smurfs': [{'id': 's1', 'topshot_username': 'terose'}]})
     To['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     To['chain_results'] = []; To['injuries'] = []
     pg = new_page(b, dbo)
@@ -1008,8 +1008,12 @@ with sync_playwright() as pw:
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.select_option('#jmode', 'historic'); pg.wait_for_timeout(800)
-    print('O historic:', ' · '.join(pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()), '|', pg.locator('#tab-hoje .h-hero .gb').inner_text().replace('\n', ' '), '| dias:', pg.locator('#tab-hoje .h-days button').count())
+    print('O historic:', ' · '.join(pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()), '|', pg.locator('#tab-hoje .h-hero .gb').inner_text().replace('\n', ' '), '| dias:', pg.locator('#tab-hoje .day-strip .ds:not([disabled])').count(), 'de', pg.locator('#tab-hoje .day-strip .ds').count())
     pg.screenshot(path=str(shots / 'historic.png'), full_page=True)
+    print('O smurf:', pg.locator('#tab-hoje .h-accs').inner_text().replace('\n', ' '), '|', pg.locator('#tab-hoje .h-port').inner_text())
+    t1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(400)
+    t2 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=0'); pg.wait_for_timeout(400)
+    print('O equipas diferentes:', len(set(t2) - set(t1)), 'lendas mudam')
     first = pg.locator('#tab-hoje .h-hero .nm').first.inner_text()
     pg.locator('#tab-hoje .h-hero button[data-action="h-card"]').first.click(); pg.wait_for_timeout(300)
     pg.click('#sheetPanel button[data-action="h-ban"]'); pg.wait_for_timeout(600)
@@ -1019,10 +1023,10 @@ with sync_playwright() as pw:
     pg.fill('#hSearch', ''); pg.click('#t-run'); pg.wait_for_timeout(400); pg.click('#t-hoje'); pg.wait_for_timeout(800)
     print('O modo fica guardado:', pg.locator('#jmode').input_value(), store(pg, 'localStorage.getItem("fb-jmode")'), '· tirado continua:', first not in pg.locator('#tab-hoje .h-hero .nm').all_inner_texts())
     pg.click('#tab-hoje button[data-action="h-reset"]'); pg.wait_for_timeout(500)
-    pg.locator('#tab-hoje button[data-action="h-day"]').nth(1).click(); pg.wait_for_timeout(800)
+    pg.locator('#tab-hoje button[data-action="h-day"]:not([disabled])').nth(1).click(); pg.wait_for_timeout(800)
     print('O dia 11:', pg.locator('#tab-hoje .h-hero .eyebrow').inner_text(), '·', len(pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()), 'lendas na equipa')
     pg.select_option('#jmode', 'classic'); pg.wait_for_timeout(800)
-    print('O volta ao Classic:', pg.locator('#tab-hoje .day-strip').count() == 1)
+    print('O volta ao Classic:', pg.locator('#tab-hoje .day-strip [data-action="hd"]').count() > 0)
     pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha

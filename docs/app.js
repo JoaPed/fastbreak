@@ -1444,8 +1444,10 @@ function renderHeader() {
   const run = curRun(), r = S.result;
   const me = S.profile || {};
   $('meBtn').innerHTML = avatar(S.session.user.id, me.display_name);
-  if (!run) { $('runName').textContent = 'Fastbreak'; $('runMeta').textContent = S.loading ? 'A carregar…' : 'Sem run'; return; }
-  $('runName').textContent = run.name;
+  const pick = S.tab === 'hoje' && !S.loading;
+  if (pick && S.jmode === 'historic') { $('runName').innerHTML = modeTitle(run); $('runMeta').textContent = histMeta(); return; }
+  if (!run) { if (pick) $('runName').innerHTML = modeTitle(run); else $('runName').textContent = 'Fastbreak'; $('runMeta').textContent = S.loading ? 'A carregar…' : 'Sem run'; return; }
+  if (pick) $('runName').innerHTML = modeTitle(run); else $('runName').textContent = run.name;
   const bits = [];
   if (run.fictitious) bits.push('<span class="chip">Teste</span>');
   // uma linha só: em que dia vai e o registo (as datas estão na faixa da Jornada)
@@ -1606,13 +1608,23 @@ function jornadaNav(date, sub) {
 // ---------- Jornada → modo: Classic (o plano da run) ou Historic (lendas simuladas, orçamento de Roster Points) ----------
 S.jmode = (() => { try { return localStorage.getItem('fb-jmode') || 'classic'; } catch (e) { return 'classic'; } })();
 const JMODES = [['classic', 'Classic'], ['historic', 'Historic']];
-function modeBox() {
-  return '<div class="mode-box"><label class="small muted" for="jmode">Modo</label><select id="jmode" class="field">' + JMODES.map(([k, l]) => '<option value="' + k + '"' + (S.jmode === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>';
+// o modo escolhe-se no título (na Jornada): "Run 1 · Classic ▾" — não ocupa uma linha por cima do lineup
+function modeTitle(run) {
+  const H = groupHist(), hn = H && H.run && String(H.run.name || '').match(/run\s*(\d+)/i);
+  const lab = { classic: run ? run.name : 'Classic', historic: 'Historic' + (hn ? ' · Run ' + hn[1] : '') };
+  return '<span class="mode-pick">' + esc(lab[S.jmode] || lab.classic) + '<svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '<select id="jmode" aria-label="Modo da Jornada">' + JMODES.map(([k]) => '<option value="' + k + '"' + (S.jmode === k ? ' selected' : '') + '>' + esc(lab[k]) + '</option>').join('') + '</select></span>';
+}
+// Historic: o dia que vem (para a linha debaixo do título)
+function histMeta() {
+  const H = groupHist(); if (!H) return 'Sem dados';
+  const now = Date.now(), nd = H.days.find(d => d.players && d.players.length && Date.parse(d.locks) > now);
+  return nd ? 'Dia ' + histDayNo(nd.id) + ' de ' + H.days.length : 'Terminada';
 }
 // o que o leitor do Top Shot trouxe do Historic (fica no meu resumo; o grupo usa o mais recente)
 try { S.histMine = JSON.parse(localStorage.getItem('fb-hist') || 'null'); } catch (e) { S.histMine = null; }
 function histTake(h) {
-  S.histMine = h; S.histMemo = null;
+  S.histMine = h; S.histMemo = null; S.histCache = {};
   try { localStorage.setItem('fb-hist', JSON.stringify(h)); } catch (e) {}
   const nd = (h.days || []).find(d => d.players && d.players.length && Date.parse(d.locks) > Date.now());
   S.pickNote = (S.pickNote || '') + ' Historic: ' + plural((h.days || []).filter(d => d.lines && d.lines.length).length, 'dia jogado', 'dias jogados') + (nd ? ', ' + nd.players.length + ' lendas no dia ' + histDayNo(nd.id) : '') + '.';
@@ -1639,30 +1651,45 @@ S.hsel = hLoad('fb-hsel', {}); S.hdisc = hLoad('fb-hdisc', {});
 const hSave = () => { try { localStorage.setItem('fb-hsel', JSON.stringify(S.hsel)); localStorage.setItem('fb-hdisc', JSON.stringify(S.hdisc)); } catch (e) {} };
 const H_DISC = [[0, 'Nenhuma'], [5, 'Common ou Fandom'], [10, 'Rare'], [15, 'Legendary'], [20, 'Ultimate']];
 function histCalc(H, dayId) {
-  const sel = S.hsel[dayId] || { fix: [], ban: [] }, key = [H.at, dayId, JSON.stringify(sel), JSON.stringify(S.hdisc)].join('|');
-  if (S.histMemo && S.histMemo.key === key) return S.histMemo;
+  const sel = S.hsel[dayId] || { fix: [], ban: [] }, key = [H.at, dayId, JSON.stringify(sel), JSON.stringify(S.hdisc), accounts().length].join('|');
+  // guardadas por dia (a faixa dos dias mostra a hipótese de cada dia aberto)
+  const hc = S.histCache || (S.histCache = {}); if (hc[key]) return hc[key];
+  if (Object.keys(hc).length > 40) S.histCache = {};
   const M = FB.histModel(H, dayId, { disc: S.hdisc }); if (!M) return null;
   const best = FB.histBest(M, 200, sel.fix, sel.ban);
   // a sugestão: a que mais vezes chega aos prémios (40 primeiros); desempata pelos pontos
   const ev = FB.histEval(M, best, 3000).sort((p, q) => (q.p40 - p.p40) || (q.mean - p.mean));
-  S.histMemo = { key, M, ev, sel };
-  return S.histMemo;
+  // com smurfs: uma equipa diferente por conta (juntas, mais vezes pelo menos uma chega aos prémios)
+  const nAcc = accounts().length, port = nAcc > 1 ? FB.histPortfolio(ev, nAcc, 2) : null;
+  return (S.histCache[key] = { key, M, ev, sel, port });
 }
 function renderHistoric(el) {
   if (typingField('tab-hoje')) return; // a escrever na procura das lendas: não redesenha
   const H = groupHist(), now = Date.now();
   const open = H ? H.days.filter(d => d.players && d.players.length && Date.parse(d.locks) > now) : [];
-  const head = modeBox();
+  const head = '';
   if (!open.length) {
     el.innerHTML = head + empty('Historic', H ? 'Os dados do Top Shot já não têm dias por jogar. O admin lê-os outra vez em Ajustes → Admin → Ler no Top Shot → Historic.' : 'Ainda não há dados do Historic. O admin lê-os em Ajustes → Admin → Ler no Top Shot → Historic.',
       S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go" data-do="hist">Ler o Historic</button>' : '');
     return;
   }
   if (!open.some(d => d.id === S.hday)) S.hday = open[0].id;
-  const day = open.find(d => d.id === S.hday), C = histCalc(H, day.id);
-  const strip = '<div class="chips scroll h-days" role="group" aria-label="Dias do Historic">' + open.map(d => '<button type="button" data-action="h-day" data-id="' + esc(d.id) + '" aria-pressed="' + (d.id === day.id) + '">Dia ' + histDayNo(d.id) + ' · ' + dWeek(histDate(d)) + '</button>').join('') + '</div>';
+  const day = open.find(d => d.id === S.hday);
+  const C = S.histMemo = histCalc(H, day.id);
+  // faixa dos dias como a da run: os que passaram fechados, nos abertos a hipótese de top 40 da equipa sugerida
+  const ai0 = S.hacc || 0, today = todayET();
+  const strip = '<div class="day-strip" role="group" aria-label="Dias do Historic">' + H.days.map(d => {
+    const isOpen = open.includes(d), c = isOpen ? (d === day ? C : histCalc(H, d.id)) : null;
+    const t = c && c.ev.length ? (c.port && c.port.length ? c.port[Math.min(ai0, c.port.length - 1)] : c.ev[0]) : null, now = d === open[0];
+    const val = t ? pct(t.p40) : '–', cls = t ? ' c-' + tone(Math.min(1, t.p40 * 2)) : !isOpen ? ' past' : '';
+    return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="h-day" data-id="' + esc(d.id) + '" aria-pressed="' + (d === day) + '"' + (isOpen ? '' : ' disabled title="Já jogado"') + '><b class="num">' + histDayNo(d.id) + '</b><small>' + (now && histDate(d) === today ? 'Hoje' : dWeek(histDate(d))) + '</small><span class="ds-v num">' + val + '</span></button>';
+  }).join('') + '</div>';
   if (!C || !C.ev.length) { el.innerHTML = head + strip + '<div class="note">Não há nenhuma equipa de 5 que caiba no orçamento com estas escolhas. Solta um fixado ou repõe alguém.</div>' + histLegendsCard(C, day); return; }
-  const M = C.M, best = C.ev[0], byId = new Map(M.rows.map(x => [x.id, x])), sel = C.sel;
+  const M = C.M, byId = new Map(M.rows.map(x => [x.id, x])), sel = C.sel, accs = accounts(), port = C.port && C.port.length ? C.port : null;
+  const ai = port ? Math.min(S.hacc || 0, port.length - 1) : 0, best = port ? port[ai] : C.ev[0];
+  // com smurfs: uma equipa por conta (botões com a hipótese de cada uma) e a hipótese de pelo menos uma chegar lá
+  const accBar = port ? '<div class="j-accs h-accs" role="group" aria-label="Contas">' + port.map((p, i) => '<button type="button" class="acc-chip" data-action="h-acc" data-i="' + i + '" aria-pressed="' + (i === ai) + '">' + esc(accLabel((accs[i] || {}).id || 'main')) + ' <b class="num c-' + tone(Math.min(1, p.p40 * 2)) + '">' + pct(p.p40) + '</b></button>').join('') + '</div>' +
+    '<div class="small muted h-port">Uma equipa diferente para cada conta: juntas, pelo menos uma fica nos 40 primeiros em <b>' + pct(port[port.length - 1].union) + '</b> (só com a melhor: ' + pct(port[0].p40) + ').</div>' : '';
   const cutTxt = M.cuts.length ? 'Em dias com ' + plural((day.games || []).length, 'jogo', 'jogos') + ', o 40.º lugar (o último com prémio) fez ' + f0(M.cuts[39] != null ? M.cuts[39] : M.cuts[M.cuts.length - 1]) + ' e o 10.º ' + f0(M.cuts[9] != null ? M.cuts[9] : M.cuts[0]) + '.' : '';
   const row = id => {
     const x = byId.get(id), fx = sel.fix.includes(id), opp = x.opp ? (day.games.some(g => g[1] === x.team) ? 'vs ' : '@ ') + hTeam(x.opp) : '';
@@ -1678,9 +1705,9 @@ function renderHistoric(el) {
     '<div class="small muted h-odds">Top 10 ' + pct(best.p10) + ' · 1.º lugar ' + pct(best.p1) + '. ' + esc(cutTxt) + '</div>' +
     '<ul class="list jc-list">' + best.ids.map(row).join('') + '</ul>' +
     (sel.fix.length || sel.ban.length ? '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="h-reset" data-day="' + esc(day.id) + '">Voltar à sugestão</button></div>' : '') + '</div>';
-  const alts = C.ev.slice(1, 4).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
+  const alts = C.ev.filter(r => !(port || [best]).some(p => p.ids.join() === r.ids.join())).slice(0, 3).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
   const H0 = groupHist(), src = '<div class="small muted h-src">Dados do Top Shot de ' + esc(ago(H0.at)) + ' · ' + plural(M.dayIds.length, 'dia jogado', 'dias jogados') + ' na simulação' + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">ler outra vez</button>' : '') + '</div>';
-  el.innerHTML = head + strip + hero + (alts ? '<div class="card"><div class="list-head"><h2>Outras equipas</h2><span class="small muted">pela mesma conta</span></div><ul class="list">' + alts + '</ul></div>' : '') + histLegendsCard(C, day) + src;
+  el.innerHTML = head + strip + accBar + hero + (alts ? '<div class="card"><div class="list-head"><h2>Outras equipas</h2><span class="small muted">pela mesma conta</span></div><ul class="list">' + alts + '</ul></div>' : '') + histLegendsCard(C, day) + src;
   hFilter();
 }
 // todas as lendas do dia: pontos esperados, custo, quem escolhe; + fixa, × tira, tocar no nome = a tua carta (desconto)
@@ -1779,10 +1806,10 @@ function pastDayHtml(J) {
 }
 function renderJornada(el) {
   if (S.jmode === 'historic') { renderHistoric(el); return; }
-  if (!guard(el, true)) { el.insertAdjacentHTML('afterbegin', modeBox()); return; }
+  if (!guard(el, true)) return;
   const r = S.result, v = view(), J = jornadaDay();
   if (!J) { el.innerHTML = empty('Run terminada', 'Acabaste com ' + r.wins + ' vitórias em ' + r.playedCount + ' dias.'); return; }
-  const sub = subOf('hoje'), html = [modeBox(), dayStrip(J.date), jornadaNav(J.date, sub)];
+  const sub = subOf('hoje'), html = [dayStrip(J.date), jornadaNav(J.date, sub)];
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
   if (run.fictitious) html.push('<div class="note">Run de teste: jogos e objetivos inventados.' + (real ? ' <button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Ver a ' + esc(real.name) + '</button>' : '') + '</div>');
   if (J.past) {
@@ -5707,7 +5734,8 @@ document.addEventListener('click', async e => {
     case 'help': helpSheet(b.dataset.k, b); break;
     case 'opcoes': await opcoesSheet(); break;
     case 'hold-hist': holdHistSheet(b.dataset.date); break;
-    case 'h-day': S.hday = id; renderHoje(); break;
+    case 'h-day': S.hday = id; S.hdCenter = true; renderHoje(); break;
+    case 'h-acc': S.hacc = +b.dataset.i || 0; renderHoje(); break;
     case 'h-fix': if (b.dataset.close) closeSheet(); hFix(b.dataset.day, id); break;
     case 'h-ban': if (b.dataset.close) closeSheet(); hBan(b.dataset.day, id); break;
     case 'h-reset': S.hsel[b.dataset.day] = { fix: [], ban: [] }; hSave(); renderHoje(); break;
@@ -5727,7 +5755,10 @@ document.addEventListener('click', async e => {
       if (!b.dataset.ready && what.includes('ed')) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'A preparar…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; }
       delete b.dataset.ready; const J = rankJob(what); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; }
       // na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem favoritos: tem de ser no Safari
-      if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Abre no Safari</h3><div class="small">Na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem os favoritos. Abre <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> no <b>Safari</b> (entra com a tua conta da primeira vez) e carrega lá em <b>Atualizar lugares</b>.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copiar o endereço</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {} location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; break; }
+      if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Abre no Safari</h3><div class="small">Na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem os favoritos. Abre <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> no <b>Safari</b> (entra com a tua conta da primeira vez) e carrega lá em <b>Atualizar lugares</b>.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copiar o endereço</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {}
+      // no telemóvel, um toque num endereço do Top Shot abre a app deles (sem o leitor). Mudar de página já fora do
+      // toque (passado mais de 1 s) faz o Safari/Chrome abrir o site no próprio browser.
+      b.disabled = true; toast('A abrir o Top Shot no browser…'); setTimeout(() => { location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; }, 1300); setTimeout(() => { b.disabled = false; }, 4000); break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
     case 'lock-yes': lockToggle(id, date, true); luBack(date); break;
     case 'unlock': lockToggle(id, date, false); luBack(date); break;
@@ -5923,7 +5954,7 @@ document.addEventListener('click', async e => {
 document.addEventListener('change', async e => {
   const t = e.target, a = t.dataset.action;
   if (t.dataset && t.dataset.moTier) { await momentTierChange(t.dataset.moTier, t.value); return; }
-  if (t.id === 'jmode') { S.jmode = t.value; try { localStorage.setItem('fb-jmode', t.value); } catch (e2) {} t.blur(); renderHoje(); return; }
+  if (t.id === 'jmode') { S.jmode = t.value; try { localStorage.setItem('fb-jmode', t.value); } catch (e2) {} t.blur(); S.hdCenter = true; renderHeader(); renderHoje(); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run ligada à blockchain.' : 'Ligação removida.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
   if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null, +t.dataset.k || 0);

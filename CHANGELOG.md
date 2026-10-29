@@ -4,6 +4,9 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-29
+- **João** — Historic com smurfs: uma equipa diferente por conta (juntas, mais hipóteses de pelo menos uma chegar aos prémios). Dias do Historic nos mesmos quadrados da run, com a hipótese de top 40 de cada dia.
+- **João** — Jornada: o modo (Classic / Historic) escolhe-se no título, em vez de uma caixa por cima do lineup.
+- **João** — Botões "Ler no Top Shot": abrem o site do Top Shot no browser em vez da app deles.
 - **João** — Jornada → **Modo: Classic / Historic**. No Historic: a equipa sugerida para cada dia aberto (pontos esperados, hipótese de top 40/top 10/1.º), outras equipas, todas as lendas com fixar/tirar/procurar, a tua carta de cada lenda (desconto), fotos e um 🕊️ RIP para as lendas que já partiram. Admin → Ler no Top Shot → **Historic** traz os dados para o grupo.
 - **João** — Dados do Historic (`docs/historic-dados.html`): lê no Top Shot as lendas de hoje e os resultados dos dias que passaram, para sugerir o lineup do Historic.
 

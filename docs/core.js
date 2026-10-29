@@ -1365,18 +1365,37 @@
     const cuts = M.cuts, pay = new Float64Array(42);
     (M.bands || [[1, 1, 4000], [2, 2, 3000], [3, 3, 2000], [4, 4, 1500], [5, 5, 1000], [6, 10, 500], [11, 20, 300], [21, 40, 100]]).forEach(([lo, hi, amt]) => { for (let r = lo; r <= Math.min(hi, 40); r++) pay[r] = +amt; });
     return lineups.map(L => {
-      const ii = L.ids.map(id => idx.get(id)); let t = 0, t2 = 0, p1 = 0, p10 = 0, p40 = 0, prize = 0;
+      const ii = L.ids.map(id => idx.get(id)); let t = 0, t2 = 0, p1 = 0, p10 = 0, p40 = 0, prize = 0; const hit = new Uint8Array(N);
       for (let n = 0; n < N; n++) {
         let sc = 0; for (const i of ii) sc += S[n * P + i];
         t += sc; t2 += sc * sc;
-        if (cuts.length) { let rank = 1; while (rank <= cuts.length && cuts[rank - 1] > sc) rank++; if (rank === 1) p1++; if (rank <= 10) p10++; if (rank <= 40 && rank <= cuts.length) { p40++; prize += pay[rank]; } }
+        if (cuts.length) { let rank = 1; while (rank <= cuts.length && cuts[rank - 1] > sc) rank++; if (rank === 1) p1++; if (rank <= 10) p10++; if (rank <= 40 && rank <= cuts.length) { p40++; prize += pay[rank]; hit[n] = 1; } }
       }
       const m = t / N;
-      return Object.assign({}, L, { mean: m, sd: Math.sqrt(Math.max(0, t2 / N - m * m)), p1: p1 / N, p10: p10 / N, p40: p40 / N, prize: prize / N });
+      return Object.assign({}, L, { mean: m, sd: Math.sqrt(Math.max(0, t2 / N - m * m)), p1: p1 / N, p10: p10 / N, p40: p40 / N, prize: prize / N, hit });
     });
   }
+  // várias contas (smurfs): equipas diferentes que, juntas, mais vezes põem pelo menos uma nos 40 primeiros (cada nova
+  // equipa muda pelo menos minDiff lendas face às já escolhidas); devolve [{…equipa, union: P(pelo menos uma até aqui)}]
+  function histPortfolio(evs, n, minDiff) {
+    minDiff = minDiff == null ? 2 : minDiff; if (!evs.length) return [];
+    const N = evs[0].hit.length, cover = new Uint8Array(N), out = [];
+    const diff = (a, b) => a.ids.filter(id => !b.ids.includes(id)).length;
+    for (let k = 0; k < n; k++) {
+      let best = null, bestU = -1;
+      for (const e of evs) {
+        if (out.some(o => diff(o, e) < minDiff)) continue;
+        let u = 0; for (let i = 0; i < N; i++) if (cover[i] || e.hit[i]) u++;
+        if (u > bestU || (u === bestU && best && e.mean > best.mean)) { bestU = u; best = e; }
+      }
+      if (!best) break;
+      for (let i = 0; i < N; i++) if (best.hit[i]) cover[i] = 1;
+      out.push(Object.assign({}, best, { union: bestU / N }));
+    }
+    return out;
+  }
 
-  const api = { histModel, histBest, histEval, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  const api = { histModel, histBest, histEval, histPortfolio, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
