@@ -5,10 +5,13 @@
 // grupo com Ver canais + Ler histórico); opcional DISCORD_CHANNEL_IDS (ids separados por vírgulas; sem ele lê todos
 // os canais de texto que o bot vê). TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID (ou o grupo guardado em job_state).
 
+import { readFileSync } from 'node:fs';
 const DC = (process.env.DISCORD_BOT_TOKEN || '').trim();
 const URL_ = (process.env.SUPABASE_URL || '').replace(/\/$/, ''), KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const TG = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const KEEP = 60; // mensagens guardadas em job_state
+let FILTER = {};
+try { FILTER = JSON.parse(readFileSync(new URL('./discord-filter.json', import.meta.url), 'utf8')); } catch (e) { console.log('::warning::sem scripts/discord-filter.json: não vai nada para o Telegram'); FILTER = { canais: ['(nenhum)'] }; }
 
 // texto de uma mensagem: o conteúdo e, se vier de um canal seguido, os embeds (título, descrição, campos)
 export function msgText(m) {
@@ -30,6 +33,14 @@ export function tgText(m, chName) {
   const body = msgText(m); const max = 3500;
   return head + '\n\n' + esc(body.length > max ? body.slice(0, max) + '…' : body);
 }
+// filtro (scripts/discord-filter.json): canais e palavras que passam para o Telegram
+export function passes(m, ch, f) {
+  const cs = (f && f.canais) || [], ws = ((f && f.palavras) || []).map(w => String(w).toLowerCase()).filter(Boolean);
+  if (cs.length && !cs.some(c => String(c) === String(ch.id) || String(c).replace(/^#/, '').toLowerCase() === String(ch.name || '').toLowerCase())) return false;
+  const t = msgText(m).toLowerCase();
+  return !ws.length || ws.some(w => t.includes(w));
+}
+export const isFollowed = m => ((+m.flags || 0) & 2) === 2;
 // ids do Discord crescem com o tempo: compara-os como números grandes
 export const newer = (a, b) => (BigInt(a) > BigInt(b));
 
@@ -65,24 +76,25 @@ export async function main() {
     list = list.sort((a, b) => (newer(a.id, b.id) ? 1 : -1));
     if (list.length) st.last[c.id] = list[list.length - 1].id; // avança também por cima das sem texto
     else if (!st.last[c.id]) st.last[c.id] = '0';
-    list = list.filter(m => msgText(m));
-    list.forEach(m => fresh.push({ m, ch: c.name }));
+    // só o que chega dos canais seguidos (anúncios do Top Shot, marca IS_CROSSPOST): a conversa do servidor não é lida
+    list = list.filter(m => isFollowed(m) && msgText(m));
+    list.forEach(m => fresh.push({ m, ch: c.name, ok: passes(m, c, FILTER) }));
   }
   fresh.sort((a, b) => (newer(a.m.id, b.m.id) ? 1 : -1));
-  st.msgs = st.msgs.concat(fresh.map(({ m, ch }) => ({ id: m.id, ch, at: m.timestamp, who: (m.author && (m.author.global_name || m.author.username)) || '', text: msgText(m).slice(0, 4000) }))).slice(-KEEP);
+  st.msgs = st.msgs.concat(fresh.map(({ m, ch, ok }) => ({ id: m.id, ch, tg: ok, at: m.timestamp, who: (m.author && (m.author.global_name || m.author.username)) || '', text: msgText(m).slice(0, 4000) }))).slice(-KEEP);
   // a primeira vez só marca onde vai (não despeja o histórico todo no Telegram)
   let sent = 0;
   if (!first && fresh.length && TG) {
     const chat = (process.env.TELEGRAM_CHAT_ID || '').trim() || ((await getState('telegram', {})) || {}).chat;
     if (!chat) console.log('::notice title=Discord::ainda não sei o grupo do Telegram (corre a tarefa das lesões)');
-    else for (const { m, ch } of fresh.slice(-10)) {
+    else for (const { m, ch } of fresh.filter(x => x.ok).slice(-10)) {
       const r = await fetch('https://api.telegram.org/bot' + TG + '/sendMessage', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: chat, text: tgText(m, ch), parse_mode: 'HTML', disable_web_page_preview: true }) }).then(x => x.json()).catch(e => ({ ok: false, description: e.message }));
       if (r.ok) sent++; else console.log('::warning::Telegram: ' + String(r.description || '').slice(0, 120));
     }
   }
   st.at = new Date().toISOString(); st.chans = chans.map(c => ({ id: c.id, name: c.name }));
   await setState('discord', st);
-  console.log('::notice title=Discord::' + chans.length + ' canais · ' + fresh.length + ' mensagens novas' + (first ? ' (1.ª vez: só marca o ponto de partida)' : ' · ' + sent + ' no Telegram'));
+  console.log('::notice title=Discord::' + chans.length + ' canais · ' + fresh.length + ' mensagens novas (' + fresh.filter(x => x.ok).length + ' passam o filtro)' + (first ? ' (1.ª vez: só marca o ponto de partida)' : ' · ' + sent + ' no Telegram'));
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) await main();

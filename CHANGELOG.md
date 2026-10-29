@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-29
+- **João** — Discord: só lê o que chega dos canais seguidos do Top Shot (a conversa do servidor fica de fora) e só manda para o Telegram o que passa o filtro (`scripts/discord-filter.json`: canais e palavras).
 - **João** — Discord → Telegram: as mensagens novas do servidor do grupo no Discord (canais de anúncios do Top Shot seguidos lá) vão para o grupo do Telegram (precisa do segredo `DISCORD_BOT_TOKEN`).
 - **João** — Dias sem lineup no Top Shot ficam a 0 (as estatísticas deixavam de lhes pôr o total do lineup sugerido).
 - **João** — Historic aprende com todas as runs: a tarefa "Arquivo do Historic" guarda no site os dias jogados (docs/data/historic) e o modelo usa-os; o Historic diz de quantos dias aprende.
