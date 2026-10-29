@@ -34,7 +34,11 @@ export function tgText(m, chName) {
   return head + '\n\n' + esc(body.length > max ? body.slice(0, max) + '…' : body);
 }
 // filtro (scripts/discord-filter.json): canais e palavras que passam para o Telegram
+// canal de origem de uma mensagem seguida: o Discord publica-a com o nome "Servidor #canal" (webhook)
+export const source = m => String((m.author && m.author.username) || '');
 export function passes(m, ch, f) {
+  // canais de origem que passam sempre (ex.: o estado do site do Top Shot), seja qual for o filtro
+  if (((f && f.sempre) || []).some(x => source(m).toLowerCase().includes(String(x).toLowerCase()))) return true;
   const cs = (f && f.canais) || [], ws = ((f && f.palavras) || []).map(w => String(w).toLowerCase()).filter(Boolean);
   if (cs.length && !cs.some(c => String(c) === String(ch.id) || String(c).replace(/^#/, '').toLowerCase() === String(ch.name || '').toLowerCase())) return false;
   const t = msgText(m).toLowerCase();

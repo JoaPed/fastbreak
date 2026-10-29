@@ -1,5 +1,8 @@
 {
-  "nota": "Só vão para o Telegram as mensagens destes canais (nome ou id; vazio = todos) que tenham pelo menos uma destas palavras (sem distinguir maiúsculas; vazio = todas). Só se leem as mensagens dos canais seguidos do Top Shot.",
+  "nota": "Só vão para o Telegram as mensagens destes canais (nome ou id; vazio = todos) que tenham pelo menos uma destas palavras (sem distinguir maiúsculas; vazio = todas). Só se leem as mensagens dos canais seguidos do Top Shot. \"sempre\": canais de origem do Top Shot que passam sempre (parte do nome do canal seguido).",
+  "sempre": [
+    "site-status-and-updates"
+  ],
   "canais": [],
   "palavras": []
 }
