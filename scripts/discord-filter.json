@@ -1,29 +1,5 @@
 {
-  "nota": "Só vão para o Telegram as mensagens destes canais (nome ou id; vazio = todos) que tenham pelo menos uma destas palavras (sem distinguir maiúsculas). As outras ficam guardadas mas não são enviadas.",
+  "nota": "Só vão para o Telegram as mensagens destes canais (nome ou id; vazio = todos) que tenham pelo menos uma destas palavras (sem distinguir maiúsculas; vazio = todas). Só se leem as mensagens dos canais seguidos do Top Shot.",
   "canais": [],
-  "palavras": [
-    "fast break",
-    "fastbreak",
-    "fast-break",
-    "historic",
-    "pro run",
-    "run 2",
-    "run 3",
-    "lineup",
-    "uses per run",
-    "roster points",
-    "captain",
-    "milestone",
-    "maintenance",
-    "downtime",
-    "outage",
-    "back online",
-    "reward",
-    "rewards",
-    "prize",
-    "earn",
-    "pack",
-    "challenge",
-    "leaderboard"
-  ]
+  "palavras": []
 }
