@@ -1,0 +1,27 @@
+name: Arquivo do Historic
+on:
+  schedule:
+    - cron: '37 11,23 * * *'   # duas vezes por dia: guarda os dias do Historic que o grupo leu no Top Shot
+  workflow_dispatch:
+concurrency: { group: historic, cancel-in-progress: false }
+permissions: { contents: write, pages: write }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node scripts/hist-archive.mjs
+      - name: Guardar no site
+        run: |
+          if [ -n "$(git status --porcelain docs/data/historic)" ]; then
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/data/historic && git commit -q -m "Arquivo do Historic (dias jogados)" && git pull -q --rebase && git push -q
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null || true
+          fi

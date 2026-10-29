@@ -229,5 +229,21 @@ ok('jogos da época passada: só a época regular, com lançamentos separados', 
 const hs = histFromGames(gl);
 ok('regularidade: dispersão dos pontos e jogos seguidos detetados', hs.n === 10 && hs.d.pts > 0 && hs.b2b && hs.b2b.n === 3 && hs.b2b.r.pts < 0.75 && hs.b2b.r.fg3 < 0.5, hs);
 ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d === undefined);
+// arquivo do Historic: só dias acabados, junta sem repetir, refaz colunas se o leitor mudar a ordem
+{
+  const { mergeRun, archive } = await import('../scripts/hist-archive.mjs');
+  const fs = await import('node:fs'), os = await import('node:os');
+  const h1 = { at: '2026-10-28T10:00:00Z', run: { id: 'run-fb-historic-x', name: 'HISTORIC - RUN 1' }, keys: ['points', 'assists'], rubric: [{ statKey: 'points', weight: 1 }],
+    days: [{ id: 'run-fb-historic-x-d1', locks: '2026-10-21T01:00:00Z', lines: [['1', 'A', 't', 30, 5]], top: [200] }, { id: 'run-fb-historic-x-d2', locks: '2026-10-22T01:00:00Z', players: [['1', 'A', 't', 90, 0, 50]] }] };
+  const r1 = mergeRun(null, h1);
+  ok('Historic: arquivo só com dias acabados', r1.added === 1 && r1.doc.days.length === 1 && !r1.doc.days[0].players, r1);
+  const h2 = { at: '2026-10-29T10:00:00Z', run: h1.run, keys: ['assists', 'points'], days: [h1.days[0], { id: 'run-fb-historic-x-d2', locks: '2026-10-22T01:00:00Z', lines: [['1', 'A', 't', 7, 25]] }] };
+  h2.days[0] = Object.assign({}, h1.days[0], { lines: [['1', 'A', 't', 5, 30]] });
+  const r2 = mergeRun(r1.doc, h2);
+  ok('Historic: junta o dia novo com as colunas do arquivo', r2.added === 1 && r2.changed === 0 && JSON.stringify(r2.doc.days[1].lines[0]) === JSON.stringify(['1', 'A', 't', 25, 7]), r2.doc.days);
+  const dir = fs.mkdtempSync(os.tmpdir() + '/hist-');
+  const n1 = archive([h1, h2], dir), n2 = archive([h1, h2], dir), idx = JSON.parse(fs.readFileSync(dir + '/index.json', 'utf8'));
+  ok('Historic: arquivo e índice, sem mudar à segunda', n1 === 2 && n2 === 0 && idx.runs.length === 1 && idx.runs[0].days === 2, { n1, n2, idx });
+}
 console.log(fails ? fails + ' falha(s)' : 'tarefas: tudo certo');
 process.exit(fails ? 1 : 0);

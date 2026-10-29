@@ -1466,6 +1466,7 @@ function renderHeader() {
   $('meBtn').innerHTML = avatar(S.session.user.id, me.display_name);
   const pick = S.tab === 'hoje' && !S.loading;
   if (pick && S.jmode === 'historic') { $('runName').innerHTML = modeTitle(run); $('runMeta').textContent = histMeta(); return; }
+  if (pick && S.jmode === 'pro') { $('runName').innerHTML = modeTitle(run); $('runMeta').textContent = 'Back in Run 2'; return; }
   if (!run) { if (pick) $('runName').innerHTML = modeTitle(run); else $('runName').textContent = 'Fastbreak'; $('runMeta').textContent = S.loading ? 'Loading…' : 'No run'; return; }
   if (pick) $('runName').innerHTML = modeTitle(run); else $('runName').textContent = run.name;
   const bits = [];
@@ -1627,13 +1628,47 @@ function jornadaNav(date, sub) {
 }
 // ---------- Jornada → modo: Classic (o plano da run) ou Historic (lendas simuladas, orçamento de Roster Points) ----------
 S.jmode = (() => { try { return localStorage.getItem('fb-jmode') || 'classic'; } catch (e) { return 'classic'; } })();
-const JMODES = [['classic', 'Classic'], ['historic', 'Historic']];
+const JMODES = [['classic', 'Classic'], ['historic', 'Historic'], ['pro', 'Pro']];
 // o modo escolhe-se no título (na Jornada): "Run 1 · Classic ▾" — não ocupa uma linha por cima do lineup
 function modeTitle(run) {
   const H = groupHist(), hn = H && H.run && String(H.run.name || '').match(/run\s*(\d+)/i);
-  const lab = { classic: run ? run.name : 'Classic', historic: 'Historic' + (hn ? ' · Run ' + hn[1] : '') };
+  const lab = { classic: run ? run.name : 'Classic', historic: 'Historic' + (hn ? ' · Run ' + hn[1] : ''), pro: 'Pro' };
   return '<span class="mode-pick">' + esc(lab[S.jmode] || lab.classic) + '<svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
     '<select id="jmode" aria-label="Matchday mode">' + JMODES.map(([k]) => '<option value="' + k + '"' + (S.jmode === k ? ' selected' : '') + '>' + esc(lab[k]) + '</option>').join('') + '</select></span>';
+}
+// ---- Pro ----
+// Cada noite do Pro só conta cartas de certos sets (os grandes Rare e Legendary, as estreias, cartas com emblemas).
+// Enquanto a Run 2 não abre: o que o grupo já tem de cada família. Quando abrir, o leitor traz as regras de cada
+// noite e os preços das cartas que contam (sonda-pro.html para ver primeiro o formato).
+const PRO_FAM = [
+  { k: 'mgle', name: 'Metallic Gold LE', re: /metallic gold/i },
+  { k: 'holo', name: 'Holo Icon', re: /holo|top shot 50|cosmic/i },
+  { k: 'debut', name: 'Debuts', re: /debut/i },
+];
+function proOwned() {
+  const col = (S.profile || {}).collection, items = (col && col.items) || {}, out = PRO_FAM.map(f => ({ f, by: new Map() }));
+  Object.values(items).forEach(it => {
+    const fam = out.find(x => x.f.re.test(String(it.s || ''))); if (!fam || !it.p) return;
+    const e = fam.by.get(it.p) || fam.by.set(it.p, { id: it.p, n: 0, accs: new Set(), sets: new Set(), tier: null }).get(it.p);
+    e.n++; e.accs.add(it.a || 'main'); e.sets.add(String(it.s).replace(/ · .*$/, ''));
+    const t = setTier(col, it.s); if (t) e.tier = e.tier && TIER_RANK[e.tier] >= TIER_RANK[t] ? e.tier : t;
+  });
+  return out;
+}
+const TIER_RANK = { Common: 1, Fandom: 1, Rare: 2, Legendary: 3, Ultimate: 4 };
+function renderPro(el) {
+  const fams = proOwned(), multi = accounts().length > 1, hasCol = !!(((S.profile || {}).collection || {}).items);
+  const intro = '<div class="card"><div class="list-head"><h2>Pro</h2><span class="small muted">back in Run 2</span></div><div class="pad small">' +
+    '<p style="margin:0 0 8px">Each Pro night only accepts cards from certain sets: Metallic Gold LE, Holo Icon (Top Shot 50, Cosmic, Holo MMXX), debuts and cards with challenge badges. $10,000 in prizes and a spot in the Pro Final.</p>' +
+    '<p style="margin:0">When the run opens, you will see here for each night:</p><ul class="pro-will"><li>which of the group\'s cards count and the suggested lineup;</li><li>how much it costs to be competitive that day (what to buy and how many cards);</li><li>for players you own in another set: the price difference to the card that counts.</li></ul></div></div>';
+  const famCard = x => {
+    const list = [...x.by.values()].sort((a, b) => (TIER_RANK[b.tier] || 0) - (TIER_RANK[a.tier] || 0) || String(nameOf(a.id)).localeCompare(nameOf(b.id)));
+    return '<div class="card"><div class="list-head"><h2>' + esc(x.f.name) + '</h2><span class="small muted">' + plural(list.length, 'player', 'players') + '</span></div>' +
+      (list.length ? '<ul class="list">' + list.map(e => '<li class="row pro-row">' + face(e.id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(e.id)) + '</b><small class="muted">' + esc([...e.sets].join(', ')) + (multi ? ' · ' + [...e.accs].map(a => esc(accLabel(a))).join(', ') : '') + '</small></span>' + (e.tier ? '<span class="pill">' + esc(e.tier) + (e.n > 1 ? ' ×' + e.n : '') + '</span>' : '') + '</li>').join('') + '</ul>' : '<div class="pad small muted">No cards from these sets in your collection.</div>') + '</div>';
+  };
+  const owned = hasCol ? '<h2 class="sec-h">What you already have for Pro</h2>' + fams.map(famCard).join('') : empty('Your collection', 'You haven\'t read your collection yet: go to Players → Collection to see which cards you have for Pro.');
+  const admin = S.role === 'admin' ? '<div class="card"><div class="pad small">To get the planner ready before Run 2: open the <a href="sonda-pro.html" target="_blank" rel="noopener">Pro probe</a> on a computer, run it on Top Shot and send me the result.</div></div>' : '';
+  el.innerHTML = intro + owned + admin;
 }
 // Historic: o dia que vem (para a linha debaixo do título)
 function histMeta() {
@@ -1670,12 +1705,36 @@ const hLoad = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'nu
 S.hsel = hLoad('fb-hsel', {}); S.hdisc = hLoad('fb-hdisc', {});
 const hSave = () => { try { localStorage.setItem('fb-hsel', JSON.stringify(S.hsel)); localStorage.setItem('fb-hdisc', JSON.stringify(S.hdisc)); } catch (e) {} };
 const H_DISC = [[0, 'None'], [5, 'Common or Fandom'], [10, 'Rare'], [15, 'Legendary'], [20, 'Ultimate']];
+// arquivo do Historic no site (docs/data/historic, guardado pela tarefa "Arquivo do Historic"): os dias jogados de
+// todas as runs, para o modelo aprender com mais jogos de cada lenda do que os da run atual
+S.histArch = null;
+async function loadHistArch() {
+  if (S.histArch) return; S.histArch = { runs: [], days: [], busy: true };
+  try {
+    const get = async f => { const r = await fetch('data/historic/' + f, { cache: 'no-cache' }); if (!r.ok) throw new Error(r.status); return r.json(); };
+    const idx = await get('index.json'), runs = await Promise.all((idx.runs || []).map(e => get(e.file).catch(() => null)));
+    S.histArch = { runs: runs.filter(Boolean), at: idx.at || null };
+  } catch (e) { S.histArch = { runs: [], err: String(e.message || e) }; }
+  S.histCache = {}; if (S.tab === 'hoje' && S.jmode === 'historic') renderHoje();
+}
+// os dados para o modelo: os do Top Shot (run atual) mais os dias do arquivo que eles não têm (colunas acertadas)
+function histData(H) {
+  const A = S.histArch; if (!A || !A.runs || !A.runs.length) return H;
+  const have = new Set(H.days.map(d => d.id)), keys = H.keys || [], extra = [];
+  A.runs.forEach(r => (r.days || []).forEach(d => {
+    if (have.has(d.id)) return; have.add(d.id);
+    const ix = keys.map(k => (r.keys || []).indexOf(k));
+    extra.push(Object.assign({}, d, { lines: d.lines.map(l => l.slice(0, 3).concat(ix.map(j => j >= 0 ? l[3 + j] : 0))) }));
+  }));
+  return extra.length ? Object.assign({}, H, { days: extra.concat(H.days) }) : H;
+}
 function histCalc(H, dayId) {
-  const sel = S.hsel[dayId] || { fix: [], ban: [] }, key = [H.at, dayId, JSON.stringify(sel), JSON.stringify(S.hdisc), accounts().length].join('|');
+  const nArch = S.histArch && S.histArch.runs ? S.histArch.runs.reduce((t, r) => t + (r.days || []).length, 0) : 0;
+  const sel = S.hsel[dayId] || { fix: [], ban: [] }, key = [H.at, dayId, JSON.stringify(sel), JSON.stringify(S.hdisc), accounts().length, nArch].join('|');
   // guardadas por dia (a faixa dos dias mostra a hipótese de cada dia aberto)
   const hc = S.histCache || (S.histCache = {}); if (hc[key]) return hc[key];
   if (Object.keys(hc).length > 40) S.histCache = {};
-  const M = FB.histModel(H, dayId, { disc: S.hdisc }); if (!M) return null;
+  const M = FB.histModel(histData(H), dayId, { disc: S.hdisc }); if (!M) return null;
   const best = FB.histBest(M, 200, sel.fix, sel.ban);
   // a sugestão: a que mais vezes chega aos prémios (40 primeiros); desempata pelos pontos
   const ev = FB.histEval(M, best, 3000).sort((p, q) => (q.p40 - p.p40) || (q.mean - p.mean));
@@ -1685,6 +1744,7 @@ function histCalc(H, dayId) {
 }
 function renderHistoric(el) {
   if (typingField('tab-hoje')) return; // a escrever na procura das lendas: não redesenha
+  if (!S.histArch) loadHistArch();
   const H = groupHist(), now = Date.now();
   const open = H ? H.days.filter(d => d.players && d.players.length && Date.parse(d.locks) > now) : [];
   const head = '';
@@ -1711,6 +1771,9 @@ function renderHistoric(el) {
   const accBar = port ? '<div class="j-accs h-accs" role="group" aria-label="Accounts">' + port.map((p, i) => '<button type="button" class="acc-chip" data-action="h-acc" data-i="' + i + '" aria-pressed="' + (i === ai) + '">' + esc(accLabel((accs[i] || {}).id || 'main')) + ' <b class="num c-' + tone(Math.min(1, p.p40 * 2)) + '">' + pct(p.p40) + '</b></button>').join('') + '</div>' +
     '<div class="small muted h-port">A different team for each account: together, at least one makes the top 40 in <b>' + pct(port[port.length - 1].union) + '</b> (with the best one only: ' + pct(port[0].p40) + ').</div>' : '';
   const cutTxt = M.cuts.length ? 'On days with ' + plural((day.games || []).length, 'game', 'games') + ', 40th place (the last with a prize) scored ' + f0(M.cuts[39] != null ? M.cuts[39] : M.cuts[M.cuts.length - 1]) + ' and 10th ' + f0(M.cuts[9] != null ? M.cuts[9] : M.cuts[0]) + '.' : '';
+  // de quantos dias jogados aprende o modelo (os do Top Shot e os do arquivo de outras runs)
+  const nRuns = new Set(M.dayIds.map(id => String(id).replace(/-d\d+$/, ''))).size;
+  const learnTxt = ' Learns from ' + plural(M.dayIds.length, 'day played', 'days played') + (nRuns > 1 ? ' of ' + nRuns + ' runs' : '') + '.';
   const row = id => {
     const x = byId.get(id), fx = sel.fix.includes(id), opp = x.opp ? (day.games.some(g => g[1] === x.team) ? 'vs ' : '@ ') + hTeam(x.opp) : '';
     return '<li><button class="row" type="button" data-action="h-card" data-id="' + esc(id) + '" data-day="' + esc(day.id) + '"><span class="who">' + hFace(x) + '<div style="min-width:0"><div class="pn">' + (fx ? icoLock : '') + '<span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + '</div>' +
@@ -1722,7 +1785,7 @@ function renderHistoric(el) {
   const hero = '<div class="card hero day-hero h-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Historic · Day ' + histDayNo(day.id) + ' · ' + dWeek(histDate(day)) + ', ' + dShort(histDate(day)) + '</span><span class="small muted">locks at ' + hm(day.locks) + '</span></div>' +
     '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">Expected points</span><span class="gb-n">' + f0(best.mean) + '</span><span class="gb-t">± ' + f0(best.sd) + ' · ' + f0(best.cost) + ' of ' + M.budget + ' RP</span></div></div>' +
     winRing(best.p40, tone(Math.min(1, best.p40 * 2)), pct(best.p40), 'top 40') + '</div>' +
-    '<div class="small muted h-odds">Top 10 ' + pct(best.p10) + ' · 1st place ' + pct(best.p1) + '. ' + esc(cutTxt) + '</div>' +
+    '<div class="small muted h-odds">Top 10 ' + pct(best.p10) + ' · 1st place ' + pct(best.p1) + '. ' + esc(cutTxt + learnTxt) + '</div>' +
     '<ul class="list jc-list">' + best.ids.map(row).join('') + '</ul>' +
     (sel.fix.length || sel.ban.length ? '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="h-reset" data-day="' + esc(day.id) + '">Back to the suggestion</button></div>' : '') + '</div>';
   const alts = C.ev.filter(r => !(port || [best]).some(p => p.ids.join() === r.ids.join())).slice(0, 3).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
@@ -1827,6 +1890,7 @@ function pastDayHtml(J) {
 }
 function renderJornada(el) {
   if (S.jmode === 'historic') { renderHistoric(el); return; }
+  if (S.jmode === 'pro') { renderPro(el); return; }
   if (!guard(el, true)) return;
   const r = S.result, v = view(), J = jornadaDay();
   if (!J) { el.innerHTML = empty('Run finished', 'You finished with ' + r.wins + ' wins in ' + r.playedCount + ' days.'); return; }

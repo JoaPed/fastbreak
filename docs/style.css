@@ -1125,3 +1125,9 @@ p, .note { text-wrap: pretty; }
 .h-sheet-top { display: flex; align-items: center; gap: 12px; }
 .h-sheet-top h3 { margin: 0; }
 .h-port { padding: 0 2px; }
+/* Pro (Jornada → modo Pro): o que o grupo já tem de cada família de sets */
+.pad { padding: 0 16px 14px; } .card > .pad:first-child { padding-top: 14px; }
+.pro-will { margin: 6px 0 0; padding-left: 20px; } .pro-will li { margin: 3px 0; }
+.row.pro-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+.pro-n { display: grid; min-width: 0; } .pro-n b, .pro-n small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pro-row .pill { background: var(--surface-2); color: var(--ink); }

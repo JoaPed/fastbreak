@@ -4,6 +4,8 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-29
+- **João** — Historic aprende com todas as runs: a tarefa "Arquivo do Historic" guarda no site os dias jogados (docs/data/historic) e o modelo usa-os; o Historic diz de quantos dias aprende.
+- **João** — Jornada → Modo **Pro** (primeira versão): o que é, o que vai mostrar na Run 2 e as cartas que o grupo já tem de Metallic Gold LE, Holo Icon e estreias. Sonda do Pro (`docs/sonda-pro.html`) para ler as regras de cada noite no Top Shot.
 - **João** — Dias em que uma conta não levou lineup no Top Shot (não está na classificação do dia): o dia fica sem jogadores, os usos voltam, e na Classificação aparece "—". Leitor do Top Shot v18.
 - **João** — Historic com smurfs: uma equipa diferente por conta (juntas, mais hipóteses de pelo menos uma chegar aos prémios). Dias do Historic nos mesmos quadrados da run, com a hipótese de top 40 de cada dia.
 - **João** — Jornada: o modo (Classic / Historic) escolhe-se no título, em vez de uma caixa por cima do lineup.

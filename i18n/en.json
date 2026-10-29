@@ -1477,7 +1477,8 @@
    "toast(k + ': ' + tier + (changed ? ' · usos de ' + plural(changed, 'jogador', 'jogadores') + ' atualizados' : ''));": "player",
    "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">' + plural(cand.length, 'jogador', 'jogadores') + '</sp": true,
    "return '<div class=\"seg pl-seg lu-seg\" role=\"group\" aria-label=\"Como ver os lineups\">' + [['jogador', 'Por jogador'], ['pessoa', 'Por pessoa']].map(([k, l]) => ": null,
-   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">' + plural(cand.length, 'jogador', 'jogado": "player"
+   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">' + plural(cand.length, 'jogador', 'jogado": "player",
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(x.f.name) + '</h2><span class=\"small muted\">' + plural(list.length, 'jogador', 'jogadores') + '</sp": true
   }
  },
  "jogadores": {
@@ -1485,7 +1486,8 @@
   "at": {
    "toast(k + ': ' + tier + (changed ? ' · usos de ' + plural(changed, 'jogador', 'jogadores') + ' atualizados' : ''));": "players",
    "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\">' + plural(cand.length, 'jogador', 'jogadores') + '</sp": true,
-   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">' + plural(cand.length, 'jogador', 'jogado": "players"
+   "(cand.length ? '<div class=\"card\"><div class=\"list-head\"><h2>Pôr no lineup</h2><span class=\"small muted\" id=\"luCount\">' + plural(cand.length, 'jogador', 'jogado": "players",
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(x.f.name) + '</h2><span class=\"small muted\">' + plural(list.length, 'jogador', 'jogadores') + '</sp": true
   }
  },
  "\" style=\"margin:4px 16px 14px\">Ver todos (": "\" style=\"margin:4px 16px 14px\">See all (",
@@ -2375,6 +2377,28 @@
  "Não levaste lineup neste dia: o Top Shot não te tem na classificação do dia. Os usos dos jogadores não se gastaram.": "You didn't submit a lineup this day: Top Shot doesn't have you in the day's standings. No player uses were spent.",
  "Sem jogadores registados.": "No players recorded.",
  ": sem lineup": ": no lineup",
+ "Volta na Run 2": "Back in Run 2",
+ "pro": null,
+ "Pro": null,
+ "mgle": null,
+ "Metallic Gold LE": null,
+ "holo": null,
+ "Holo Icon": null,
+ "debut": null,
+ "Estreias (Debut)": "Debuts",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Pro</h2><span class=\"small muted\">volta na Run 2</span></div><div class=\"pad small\">": "<div class=\"card\"><div class=\"list-head\"><h2>Pro</h2><span class=\"small muted\">back in Run 2</span></div><div class=\"pad small\">",
+ "<p style=\"margin:0 0 8px\">Cada noite do Pro só aceita cartas de certos sets: Metallic Gold LE, Holo Icon (Top Shot 50, Cosmic, Holo MMXX), estreias e cartas com emblemas de desafios. Prémios de 10 000 $ e lugar na final do Pro.</p>": "<p style=\"margin:0 0 8px\">Each Pro night only accepts cards from certain sets: Metallic Gold LE, Holo Icon (Top Shot 50, Cosmic, Holo MMXX), debuts and cards with challenge badges. $10,000 in prizes and a spot in the Pro Final.</p>",
+ "<p style=\"margin:0\">Quando a run abrir, aqui vês para cada noite:</p><ul class=\"pro-will\"><li>que cartas do grupo contam e o lineup sugerido;</li><li>quanto custa ficar competitivo nesse dia (o que comprar e quantas cartas);</li><li>para quem já tens noutro set: a diferença de preço até à carta que conta.</li></ul></div></div>": "<p style=\"margin:0\">When the run opens, you will see here for each night:</p><ul class=\"pro-will\"><li>which of the group's cards count and the suggested lineup;</li><li>how much it costs to be competitive that day (what to buy and how many cards);</li><li>for players you own in another set: the price difference to the card that counts.</li></ul></div></div>",
+ "<div class=\"pad small muted\">Nenhuma carta destes sets na tua coleção.</div>": "<div class=\"pad small muted\">No cards from these sets in your collection.</div>",
+ "<h2 class=\"sec-h\">O que já tens para o Pro</h2>": "<h2 class=\"sec-h\">What you already have for Pro</h2>",
+ "A tua coleção": "Your collection",
+ "Ainda não leste a tua coleção: em Jogadores → Coleção, para veres que cartas tens para o Pro.": "You haven't read your collection yet: go to Players → Collection to see which cards you have for Pro.",
+ "<div class=\"card\"><div class=\"pad small\">Para preparar o planeador antes da Run 2: abre a <a href=\"sonda-pro.html\" target=\"_blank\" rel=\"noopener\">sonda do Pro</a> no computador, corre-a no Top Shot e manda-me o resultado.</div></div>": "<div class=\"card\"><div class=\"pad small\">To get the planner ready before Run 2: open the <a href=\"sonda-pro.html\" target=\"_blank\" rel=\"noopener\">Pro probe</a> on a computer, run it on Top Shot and send me the result.</div></div>",
+ "data/historic/": null,
+ "no-cache": null,
+ "index.json": null,
+ " Aprende com ": " Learns from ",
+ " runs": null,
  "normal": null,
  "sem": null,
  "odds": null,
