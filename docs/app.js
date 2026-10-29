@@ -854,7 +854,9 @@ function applyChainResults() {
     const plan = planOf(acc.id), played = clone(plan.played || {});
     let ch = 0;
     none.forEach(date => {
-      const cur = played[date]; if (cur && (cur.edited || (cur.done && cur.none))) return; // corrigido à mão, ou já está
+      const cur = played[date]; if (cur && cur.edited) return; // corrigido à mão
+      // já está; se as estatísticas lhe puseram um total (lineup sugerido), sai
+      if (cur && cur.done && cur.none) { if (cur.tot || cur.box || cur.points != null) { delete cur.tot; delete cur.box; delete cur.points; ch++; nTs++; nNone++; } return; }
       // o lineup que o site julgava levado não jogou: os usos voltam
       ((cur && cur.done && cur.lineup) || []).forEach(id => { const e = roster[id]; if (e) setUsesOf(e, acc.id, usesEff(e, id, acc.id) + 1); });
       played[date] = { done: true, result: 'loss', lineup: [], ts: true, none: true };
@@ -1857,7 +1859,7 @@ function pastDayHtml(J) {
   if (run && !run.fictitious && (!B || (!B.board && !B.busy && Date.now() - B.at > 120e3))) setTimeout(() => { boxLoad(J.date, new Set()).then(() => { if (S.tab === 'hoje') renderHoje(); }); }, 0);
   // o mesmo cartão da previsão: feito / alvo em cima (verde se chegou, vermelho se não), anel com ✓ ou ✕ e as barras do feito
   const madeOf = (pl0, c0, r0) => { const t0 = pl0 && pl0.done ? doneTot(pl0, day) : null; return t0 && objs.length && t0.length >= objs.length ? t0 : c0 && c0.tot && (!r0 || c0.res === r0) ? c0.tot : null; };
-  const made = madeOf(pl, calc, res);
+  const made = none ? objs.map(() => 0) : madeOf(pl, calc, res); // sem lineup: 0 em tudo
   const ok = (o, k) => +made[k] >= +o.target;
   // um bloco por estatística: nome, o que se fez (grande) e o alvo com a diferença
   const goal = made ? '<div class="gblocks">' + objs.map((o, k) => { const d = Math.round(made[k] - o.target); return '<div class="gb"><span class="gb-st">' + esc(statShort(o.stat)) + '</span><span class="gb-n ' + (ok(o, k) ? 'g-ok' : 'g-no') + '">' + f0(made[k]) + '</span><span class="gb-t">alvo ' + o.target + ' · ' + (ok(o, k) ? '<b class="c-ok">✓ +' + d + '</b>' : '<b class="c-no">✕ −' + (-d) + '</b>') + '</span></div>'; }).join('') + '</div>' : goalBig(objs);
@@ -1869,7 +1871,7 @@ function pastDayHtml(J) {
   }).join('') : '';
   // com smurfs: uma linha por conta com o que fez em cada estatística e o resultado
   const accs = groupMode() ? '<div class="acc-res" style="--n:' + objs.length + '">' + accounts().map(a => {
-    const p2 = ((planOf(a.id).played || {})[J.date]) || null, r2 = p2 && p2.done ? p2.result : null, n2 = r2 && p2.none && !(p2.lineup || []).length, m2 = n2 ? null : madeOf(p2, a.id === S.acc ? calc : dayCalc(a.id, day), r2);
+    const p2 = ((planOf(a.id).played || {})[J.date]) || null, r2 = p2 && p2.done ? p2.result : null, n2 = r2 && p2.none && !(p2.lineup || []).length, m2 = n2 ? objs.map(() => 0) : madeOf(p2, a.id === S.acc ? calc : dayCalc(a.id, day), r2);
     return '<div class="ar' + (a.id === S.acc ? ' me' : '') + '"><span class="ar-n">' + esc(a.label) + '</span>' + objs.map((o, k) => '<span class="ar-v">' + (m2 ? '<b class="' + (+m2[k] >= +o.target ? 'c-ok' : 'c-no') + '">' + f0(m2[k]) + '</b>' : '<b>–</b>') + ' <small>' + esc(statShort(o.stat)) + '</small></span>').join('') +
       '<span class="ar-r">' + (n2 ? '<b class="muted">sem lineup</b>' : r2 === 'win' ? '<b class="c-ok">✓ vitória</b>' : r2 === 'loss' ? '<b class="c-no">✕ derrota</b>' : '<b>–</b>') + '</span></div>';
   }).join('') + '</div>' : '';
@@ -5695,6 +5697,7 @@ function autoResults() {
     S.days.forEach((day, i) => {
       if (day.date > today) return;
       const cur = (pa.played || {})[day.date];
+      if (cur && cur.done && cur.none) return; // não levou lineup no Top Shot: fica 0, sem total do lineup sugerido
       // fechado pelas estatísticas: se o lineup mudou depois (lido do Top Shot), o total é refeito com o lineup certo
       if (cur && cur.done && !cur.chain && (cur.lineup || []).length && (cur.box || cur.ts) && !(doneTot(cur, day) || []).length) {
         const c = dayCalc(a.id, day, cur.lineup); if (!c || c.res !== cur.result) return;

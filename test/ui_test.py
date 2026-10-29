@@ -938,6 +938,22 @@ with sync_playwright() as pw:
     pg.click('#t-grupo'); pg.wait_for_timeout(800)
     print('K6 classificação:', pg.locator('#tab-grupo table.gc tbody tr.me td.c').first.inner_text())
     pg.close()
+    # K6b: um dia sem lineup a que as estatísticas puseram o total do lineup sugerido: o total sai e fica 0
+    db6 = k_db({'played': {d1: {'done': True, 'result': 'loss', 'lineup': [], 'ts': True, 'none': True, 'box': True, 'tot': [118], 'points': 118}}}, {pid: 2 for pid in lu1})
+    [x.update({'flow_address': '0x' + A5}) for x in db6['tables']['profiles'] if x['user_id'] == 'u-eu']
+    pg = new_page(b, db6)
+    pg.add_init_script("try { localStorage.setItem('fb-ranks', " + json.dumps(json.dumps(rk6)) + "); } catch (e) {}")
+    pg.route('https://site.api.espn.com/**', k_route({}, []))
+    pg.clock.set_fixed_time('2026-10-21T08:30:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    try: pg.wait_for_function('() => !((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).tot' % d1, timeout=15000)
+    except Exception as e_: print('K6b sem mudança:', e_)
+    pg.wait_for_timeout(1000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.locator('#tab-hoje .day-strip .ds').nth(0).click(); pg.wait_for_timeout(500)
+    print('K6b total tirado:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1), '· feito:', pg.locator('#tab-hoje .hero .gb-n').all_inner_texts())
+    pg.close()
     # M: lineup de hoje mantido. 1) o primeiro lineup do dia fica; 2) um dele fica Fora: só ele sai (aviso); 3) outro
     # passa a render muito mais: troca (aviso com +pp) e fica no histórico
     def m_login(dbm):
