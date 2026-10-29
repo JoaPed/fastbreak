@@ -250,7 +250,7 @@ ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d ===
   const { msgText, tgText, newer } = await import('../scripts/discord.mjs');
   const m = { id: '1300000000000000002', content: 'Run 2 <Pro> & more', author: { global_name: 'NBA Top Shot' }, embeds: [{ title: 'Fast Break', description: 'Pro is back', fields: [{ name: 'Prize', value: '$10,000' }] }] };
   ok('Discord: texto com embeds', msgText(m) === 'Run 2 <Pro> & more\nFast Break\nPro is back\nPrize: $10,000', msgText(m));
-  ok('Discord: mensagem do Telegram escapada', tgText(m, 'announcements').includes('#announcements · NBA Top Shot') && tgText(m, 'x').includes('Run 2 &lt;Pro&gt; &amp; more'), tgText(m, 'x'));
+  ok('Discord: mensagem do Telegram escapada', tgText(m, 'announcements').startsWith('<b>Discord</b>\n\n') && tgText(m, 'x').includes('Run 2 &lt;Pro&gt; &amp; more'), tgText(m, 'x'));
   const { isFollowed } = await import('../scripts/discord.mjs');
   ok('Discord: só mensagens dos canais seguidos', isFollowed({ flags: 2 }) && isFollowed({ flags: 6 }) && !isFollowed({ flags: 0 }) && !isFollowed({}));
   const { passes } = await import('../scripts/discord.mjs'), ch = { id: '55', name: 'fast-break' };

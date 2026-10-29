@@ -29,8 +29,7 @@ export function msgText(m) {
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // mensagem para o Telegram (HTML): de onde vem e o texto, cortado para caber
 export function tgText(m, chName) {
-  const who = (m.author && (m.author.global_name || m.author.username)) || '';
-  const head = '📣 <b>Discord</b> · #' + esc(chName || '?') + (who ? ' · ' + esc(who) : '');
+  const head = '<b>Discord</b>'; // só isto (pedido do João): sem canal nem autor
   const body = msgText(m); const max = 3500;
   return head + '\n\n' + esc(body.length > max ? body.slice(0, max) + '…' : body);
 }
