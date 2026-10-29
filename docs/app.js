@@ -739,7 +739,7 @@ function takeRanksHash() {
 function mergeRankDays(a, b) {
   const by = new Map(); (a || []).forEach(d => by.set(d.id, JSON.parse(JSON.stringify(d))));
   // conta a conta junta os campos (uma leitura só dos lugares não apaga o lineup lido antes)
-  (b || []).forEach(d => { const o = by.get(d.id); if (!o) { by.set(d.id, d); return; } const accs = Object.assign({}, o.accs); Object.entries(d.accs || {}).forEach(([k, v]) => { accs[k] = Object.assign({}, accs[k], v); }); by.set(d.id, Object.assign(o, d, { accs, luv: d.luv || o.luv, final: d.final || o.final, asked: [...new Set((o.asked || []).concat(d.asked || []))] })); });
+  (b || []).forEach(d => { const o = by.get(d.id); if (!o) { by.set(d.id, d); return; } const accs = Object.assign({}, o.accs); Object.entries(d.accs || {}).forEach(([k, v]) => { accs[k] = Object.assign({}, accs[k], v); }); by.set(d.id, Object.assign(o, d, { accs, luv: d.luv || o.luv, final: d.final || o.final, asked: [...new Set((o.asked || []).concat(d.asked || []))] }, o.no || d.no ? { no: [...new Set((o.no || []).concat(d.no || []))].filter(k => !(accs[k] && accs[k].rank != null)) } : {})); });
   return [...by.values()].sort((x, y) => String(x.date || x.id).localeCompare(String(y.date || y.id)));
 }
 // os lugares mais recentes do grupo (os meus ou os que outro membro publicou); os dias juntam-se de todos os da mesma run
@@ -753,6 +753,14 @@ function groupRanks() {
 // lugar de uma conta num dia (pela data do site)
 const DAY_BANDS = [[1, 1, 15000], [2, 2, 10000], [3, 3, 5000], [4, 4, 2000], [5, 10, 1000], [11, 25, 500], [26, 50, 300], [51, 100, 200]];
 function dayRankOf(addr, date) { const R = groupRanks(), d = R && (R.days || []).find(x => x.date === date); return d && addr ? Object.assign({ total: d.total, final: d.final }, (d.accs || {})[addrKey(addr)] || { rank: null }) : null; }
+// a conta não levou lineup num dia já fechado: perguntou-se por ela e o Top Shot não a tem na classificação do dia
+// (leituras antigas sem a lista "no": conta quando o dia respondeu, com o total de jogadores)
+function tsNoEntry(addr, date) {
+  const R = groupRanks(), d = R && (R.days || []).find(x => x.date === date), ak = addrKey(addr);
+  if (!d || !d.final || !ak || !(d.asked || []).includes(ak)) return false;
+  const a = (d.accs || {})[ak]; if (a && a.rank != null) return false;
+  return Array.isArray(d.no) ? d.no.includes(ak) : d.total != null;
+}
 function rankOf(addr) { const R = groupRanks(); if (!R || !addr) return null; return (R.accs || []).find(x => addrKey(x.a) === addrKey(addr)) || null; }
 // as contas do grupo com endereço Flow (as que o script procura)
 function rankJob(what) {
@@ -833,15 +841,25 @@ function applyChainResults() {
   const roster = S.mine.roster;
   const byName = new Map();
   Object.keys(roster).forEach(id => { const nm = norm(nameOf(id)); if (nm) byName.set(nm, id); });
-  let changed = 0, nTs = 0; const fixes = [];
+  let changed = 0, nTs = 0, nNone = 0; const fixes = [];
   accounts().forEach(acc => {
     const mine = S.group.chain.filter(c => c.user_id === uid && c.date && (c.account || 'main') === acc.id);
     // dias fechados lidos no Top Shot (lugar, se ganhou e o lineup), para os dias que a blockchain não tem
     const R = groupRanks(), ad = addrKey(accAddr(uid, acc.id));
     if (R && ad) (R.days || []).forEach(d => { const a = (d.accs || {})[ad]; if (!d.final || !d.date || !a || a.rank == null || mine.some(c => c.date === d.date)) return; const ids = tsLineup(ad, d.date); if (!ids) return; mine.push({ date: d.date, win: !!a.won, points: null, ids, ts: true }); });
-    if (!mine.length) return;
+    // dias em que a conta não levou lineup no Top Shot (só se a conta está na run: o endereço está certo)
+    const rk = R && ad ? rankOf(accAddr(uid, acc.id)) : null;
+    const none = rk && rk.found ? (R.days || []).filter(d => d.date && dates.has(d.date) && tsNoEntry(ad, d.date) && !mine.some(c => c.date === d.date)).map(d => d.date) : [];
+    if (!mine.length && !none.length) return;
     const plan = planOf(acc.id), played = clone(plan.played || {});
     let ch = 0;
+    none.forEach(date => {
+      const cur = played[date]; if (cur && (cur.edited || (cur.done && cur.none))) return; // corrigido à mão, ou já está
+      // o lineup que o site julgava levado não jogou: os usos voltam
+      ((cur && cur.done && cur.lineup) || []).forEach(id => { const e = roster[id]; if (e) setUsesOf(e, acc.id, usesEff(e, id, acc.id) + 1); });
+      played[date] = { done: true, result: 'loss', lineup: [], ts: true, none: true };
+      ch++; nTs++; nNone++;
+    });
     mine.forEach(c => {
       if (!dates.has(c.date) || c.win == null) return;
       const res = c.win ? 'win' : 'loss';
@@ -883,7 +901,8 @@ function applyChainResults() {
   if (fixes.length) { S.luFix = fixes; setTimeout(luFixShow, 800); }
   if (changed) {
     saveMine();
-    if (!fixes.length) toast(nTs === changed ? (changed === 1 ? 'Um dia acertado pelo lineup que levaste (Top Shot).' : changed + ' dias acertados pelos lineups que levaste (Top Shot).') : changed === 1 ? 'Um resultado lido da blockchain.' : changed + ' resultados lidos da blockchain.');
+    if (!fixes.length && nNone === changed) toast(nNone === 1 ? 'Um dia sem lineup no Top Shot: fica sem jogadores e os usos voltam.' : nNone + ' dias sem lineup no Top Shot: ficam sem jogadores e os usos voltam.');
+    else if (!fixes.length) toast(nTs === changed ? (changed === 1 ? 'Um dia acertado pelo lineup que levaste (Top Shot).' : changed + ' dias acertados pelos lineups que levaste (Top Shot).') : changed === 1 ? 'Um resultado lido da blockchain.' : changed + ' resultados lidos da blockchain.');
   }
 }
 
@@ -1764,11 +1783,12 @@ function renderHoje() {
 // um dia que já passou: resultado, o que o plano previa e o que saiu, jogos
 function pastDayHtml(J) {
   const r = S.result, day = J.day, pl = ((curPlan().played || {})[J.date]) || null, done = !!(pl && pl.done), res = done ? pl.result : null;
-  const lineup = done && (pl.lineup || []).length ? pl.lineup : (lineupFor(S.acc, J.date) || []);
-  const objs = (day.objectives || []).filter(o => o && o.stat), calc = dayCalc(S.acc, day);
+  const none = done && !!pl.none && !(pl.lineup || []).length; // não levou lineup no Top Shot
+  const lineup = none ? [] : done && (pl.lineup || []).length ? pl.lineup : (lineupFor(S.acc, J.date) || []);
+  const objs = (day.objectives || []).filter(o => o && o.stat), calc = none ? null : dayCalc(S.acc, day);
   const tot = done ? doneTot(pl, day) : null;
   const wait = !done && !(pl && pl.noAuto) && lineup.length > 0 && objs.length > 0 && !calc; // os jogos do lineup ainda não acabaram (ou a ESPN não respondeu)
-  const src = pl && pl.chain ? 'lido da blockchain' : done && pl.box ? 'pelas estatísticas' : done ? 'registado à mão' : wait ? 'à espera dos jogos' : 'sem resultado';
+  const src = none ? 'sem lineup no Top Shot' : pl && pl.chain ? 'lido da blockchain' : done && pl.box ? 'pelas estatísticas' : done ? 'registado à mão' : wait ? 'à espera dos jogos' : 'sem resultado';
   // placar desse dia (uma leitura): os resultados ao lado das equipas
   const B = S.box[J.date], run = curRun();
   if (run && !run.fictitious && (!B || (!B.board && !B.busy && Date.now() - B.at > 120e3))) setTimeout(() => { boxLoad(J.date, new Set()).then(() => { if (S.tab === 'hoje') renderHoje(); }); }, 0);
@@ -1786,14 +1806,14 @@ function pastDayHtml(J) {
   }).join('') : '';
   // com smurfs: uma linha por conta com o que fez em cada estatística e o resultado
   const accs = groupMode() ? '<div class="acc-res" style="--n:' + objs.length + '">' + accounts().map(a => {
-    const p2 = ((planOf(a.id).played || {})[J.date]) || null, r2 = p2 && p2.done ? p2.result : null, m2 = madeOf(p2, a.id === S.acc ? calc : dayCalc(a.id, day), r2);
+    const p2 = ((planOf(a.id).played || {})[J.date]) || null, r2 = p2 && p2.done ? p2.result : null, n2 = r2 && p2.none && !(p2.lineup || []).length, m2 = n2 ? null : madeOf(p2, a.id === S.acc ? calc : dayCalc(a.id, day), r2);
     return '<div class="ar' + (a.id === S.acc ? ' me' : '') + '"><span class="ar-n">' + esc(a.label) + '</span>' + objs.map((o, k) => '<span class="ar-v">' + (m2 ? '<b class="' + (+m2[k] >= +o.target ? 'c-ok' : 'c-no') + '">' + f0(m2[k]) + '</b>' : '<b>–</b>') + ' <small>' + esc(statShort(o.stat)) + '</small></span>').join('') +
-      '<span class="ar-r">' + (r2 === 'win' ? '<b class="c-ok">✓ vitória</b>' : r2 === 'loss' ? '<b class="c-no">✕ derrota</b>' : '<b>–</b>') + '</span></div>';
+      '<span class="ar-r">' + (n2 ? '<b class="muted">sem lineup</b>' : r2 === 'win' ? '<b class="c-ok">✓ vitória</b>' : r2 === 'loss' ? '<b class="c-no">✕ derrota</b>' : '<b>–</b>') + '</span></div>';
   }).join('') + '</div>' : '';
   const out = ['<div class="card hero day-hero past">' + COURT + '<div class="hero-top"><span class="eyebrow">Dia ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + src + '</span></div>' +
     '<div class="score">' + goal + ring + '</div>' + bars + accs + '</div>'];
   if (done && !pl.chain && !pl.box && calc && calc.res !== res) out.push('<div class="note">Pelas estatísticas deste lineup: ' + (calc.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(calc.objs, calc.tot) + '). Se foi este o lineup, muda o resultado.</div>');
-  out.push(predVsActualHtml(J.date) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineup.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">Sem jogadores registados.</li>') + '</ul></div>');
+  out.push((none ? '' : predVsActualHtml(J.date)) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineup.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">' + (none ? 'Não levaste lineup neste dia: o Top Shot não te tem na classificação do dia. Os usos dos jogadores não se gastaram.' : 'Sem jogadores registados.') + '</li>') + '</ul></div>');
   out.push('<div class="ctr-btn"><button class="btn' + (lineup.length ? '' : ' primary') + '" type="button" data-action="past-lu" data-date="' + J.date + '">' + (lineup.length ? 'Mudar os jogadores' : 'Escolher os jogadores') + '</button></div>');
   if ((day.games || []).length) {
     // valor de cada jogador do plantel nesse dia (do guardado ou das fichas), por baixo do jogo dele
@@ -3574,8 +3594,9 @@ function renderGrupo() {
   const lastPaid = R && (R.bands || []).length ? Math.max(...R.bands.map(b => b[1])) : null, qual = R && R.qual;
   const zone = r => (qual && r <= qual ? ' z-q' : lastPaid && r <= lastPaid ? ' z-p' : '');
   const cell = (x, d) => {
-    const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : x.daysRes[d.date], pz = dayPrize(rdays.find(z => z.date === d.date), dr);
-    const cls = res === 'win' ? 'w' : res === 'loss' ? 'l' : 'n', tip = dShort(d.date) + (res ? (res === 'win' ? ': ganhou' : ': perdeu') : '') + (dr && dr.rank && dr.total ? ' · ' + dr.rank + ' de ' + dr.total : '');
+    const dr = dayRankOf(x.addr, d.date), no = !(dr && dr.rank) && tsNoEntry(x.addr, d.date); // no: não levou lineup
+    const res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : no ? null : x.daysRes[d.date], pz = dayPrize(rdays.find(z => z.date === d.date), dr);
+    const cls = res === 'win' ? 'w' : res === 'loss' ? 'l' : 'n', tip = dShort(d.date) + (no ? ': sem lineup' : res ? (res === 'win' ? ': ganhou' : ': perdeu') : '') + (dr && dr.rank && dr.total ? ' · ' + dr.rank + ' de ' + dr.total : '');
     return '<td class="c ' + cls + (nd && nd.date === d.date && !res ? ' now' : '') + '" title="' + esc(tip) + '">' + (dr && dr.rank ? dr.rank.toLocaleString('pt-PT') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : res ? (res === 'win' ? '✓' : '✕') : '—') + '</td>';
   };
   const rows = people.map(x => {
@@ -3587,7 +3608,7 @@ function renderGrupo() {
       days.map(d => cell(x, d)).join('') + '<td class="money">' + (won ? money(won) : '—') + '</td></tr>';
   }).join('');
   // linha do grupo: o que se ganhou em cada dia e quantas contas ganharam o dia
-  const dayTot = d => { const rd = rdays.find(z => z.date === d.date); let t = 0, w = 0, any = false; people.forEach(x => { const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : x.daysRes[d.date]; if (res) any = true; if (res === 'win') w++; t += dayPrize(rd, dr); }); return { t, w, any }; };
+  const dayTot = d => { const rd = rdays.find(z => z.date === d.date); let t = 0, w = 0, any = false; people.forEach(x => { const dr = dayRankOf(x.addr, d.date), res = dr && dr.rank ? (dr.won ? 'win' : 'loss') : tsNoEntry(x.addr, d.date) ? null : x.daysRes[d.date]; if (res) any = true; if (res === 'win') w++; t += dayPrize(rd, dr); }); return { t, w, any }; };
   const allWon = people.reduce((t, x) => t + rdays.reduce((u, d) => u + dayPrize(d, x.addr ? (d.accs || {})[addrKey(x.addr)] : null), 0), 0);
   const totRow = people.length > 1 ? '<tr class="tot"><td class="who2"><span><b>Grupo</b></span></td><td></td>' + days.map(d => { const z = dayTot(d); return '<td><b>' + (z.t ? money(z.t) : '—') + '</b>' + (z.any ? '<small>' + z.w + ' ✓</small>' : '') + '</td>'; }).join('') + '<td class="money"><b>' + (allWon ? money(allWon) : '—') + '</b></td></tr>' : '';
   const hasLu = d => { const rd = rdays.find(z => z.date === d.date); return !!(rd && Object.values(rd.accs || {}).some(a => Array.isArray(a.lu) && a.lu.length)); };

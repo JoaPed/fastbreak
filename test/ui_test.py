@@ -916,6 +916,28 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(2500)
     print('K5 dia 1 acertado:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1))
     pg.close()
+    # K6: o dia 1 fechou pelas estatísticas com o lineup da app, mas o Top Shot não tem a conta na classificação do
+    # dia (não levou lineup): o dia fica sem jogadores (derrota) e os usos voltam
+    rk6 = {'v': 1, 'sv': 16, 'do': ['ranks'], 'at': '2026-10-21T08:00:00Z', 'run': {'id': 'r1'}, 'accs': [{'a': A5, 'found': True, 'rank': 300, 'wins': 1}], 'bands': [], 'cut': {}, 'total': 2000,
+           'days': [{'id': 'c1', 'date': d1, 'final': True, 'total': 2314, 'asked': [A5], 'no': [A5], 'accs': {}}]}
+    db6 = k_db({'played': {d1: {'done': True, 'result': 'win', 'lineup': lu1, 'box': True, 'points': 118, 'tot': [118]}}}, {pid: 1 for pid in lu1})
+    [x.update({'flow_address': '0x' + A5}) for x in db6['tables']['profiles'] if x['user_id'] == 'u-eu']
+    pg = new_page(b, db6)
+    pg.add_init_script("try { localStorage.setItem('fb-ranks', " + json.dumps(json.dumps(rk6)) + "); } catch (e) {}")
+    pg.route('https://site.api.espn.com/**', k_route({}, []))
+    pg.clock.set_fixed_time('2026-10-21T08:30:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    try: pg.wait_for_function('() => ((__FAKE_DB.tables.user_runs[0].plan.played || {})["%s"] || {}).none' % d1, timeout=15000)
+    except Exception as e_: print('K6 sem mudança:', e_)
+    pg.wait_for_timeout(1500)
+    print('K6 dia sem lineup:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.played["%s"]' % d1), '· usos:', store(pg, '%s.map(id => __FAKE_DB.tables.user_runs[0].roster[id].uses)' % json.dumps(lu1)))
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.locator('#tab-hoje .day-strip .ds').nth(0).click(); pg.wait_for_timeout(500)
+    print('K6 dia 1:', pg.locator('#tab-hoje .hero .hero-top').inner_text().replace('\n', ' '), '·', 'Não levaste lineup' in pg.locator('#tab-hoje').inner_text())
+    pg.click('#t-grupo'); pg.wait_for_timeout(800)
+    print('K6 classificação:', pg.locator('#tab-grupo table.gc tbody tr.me td.c').first.inner_text())
+    pg.close()
     # M: lineup de hoje mantido. 1) o primeiro lineup do dia fica; 2) um dele fica Fora: só ele sai (aviso); 3) outro
     # passa a render muito mais: troca (aviso com +pp) e fica no histórico
     def m_login(dbm):

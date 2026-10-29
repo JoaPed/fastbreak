@@ -204,7 +204,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 15, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 16, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
     if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
@@ -293,6 +293,8 @@ async function readRanks(out, withLu) {
           try {
             const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: lbc, subjectId: String(a.a).replace(/^0x/, '').toLowerCase() });
             if (r.totalCount) d.total = +r.totalCount;
+            // respondeu e a conta não está no dia: não levou lineup (o site deixa o dia sem jogadores)
+            if (!r.found) (d.no = d.no || []).push(String(a.a).replace(/^0x/, '').toLowerCase());
             if (r.found) {
               const e = r.entry || {}, ak = String(a.a).replace(/^0x/, '').toLowerCase(), x = d.accs[ak] = { rank: +e.rank, score: +e.score, won: +e.score >= 1e6, ds: e.displayScore != null ? +e.displayScore : null };
               // o lineup que levou: a classificação do dia anda por marcador (pontos + desempate da linha anterior);

@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-29
+- **João** — Dias em que uma conta não levou lineup no Top Shot (não está na classificação do dia): o dia fica sem jogadores, os usos voltam, e na Classificação aparece "—". Leitor do Top Shot v18.
 - **João** — Historic com smurfs: uma equipa diferente por conta (juntas, mais hipóteses de pelo menos uma chegar aos prémios). Dias do Historic nos mesmos quadrados da run, com a hipótese de top 40 de cada dia.
 - **João** — Jornada: o modo (Classic / Historic) escolhe-se no título, em vez de uma caixa por cima do lineup.
 - **João** — Botões "Ler no Top Shot": abrem o site do Top Shot no browser em vez da app deles.
