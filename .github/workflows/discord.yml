@@ -3,6 +3,8 @@ on:
   schedule:
     - cron: '*/15 * * * *'   # de 15 em 15 min: mensagens novas dos canais do servidor do grupo no Discord
   workflow_dispatch:
+    inputs:
+      teste: { description: 'Ensaio: manda também as mensagens do servidor que começam por !teste', type: boolean, default: false }
 concurrency: { group: discord, cancel-in-progress: false }
 jobs:
   run:
@@ -15,6 +17,7 @@ jobs:
       DISCORD_CHANNEL_IDS: ${{ secrets.DISCORD_CHANNEL_IDS }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      DISCORD_TEST: ${{ inputs.teste }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'node:fs';
 const DC = (process.env.DISCORD_BOT_TOKEN || '').trim();
+const TEST = process.env.DISCORD_TEST === 'true';
 const URL_ = (process.env.SUPABASE_URL || '').replace(/\/$/, ''), KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const TG = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const KEEP = 60; // mensagens guardadas em job_state
@@ -68,7 +69,7 @@ export async function main() {
   if (!chans.length) { console.log('::notice title=Discord::o bot não vê nenhum canal (convida-o para o servidor do grupo)'); return; }
   const st = await getState('discord', { last: {}, msgs: [] }), first = !Object.keys(st.last || {}).length;
   st.last = st.last || {}; st.msgs = st.msgs || [];
-  const fresh = [];
+  const fresh = [], tests = [];
   for (const c of chans) {
     let list;
     try { list = await dc('/channels/' + c.id + '/messages?limit=50' + (st.last[c.id] ? '&after=' + st.last[c.id] : '')); }
@@ -79,15 +80,24 @@ export async function main() {
     // só o que chega dos canais seguidos (anúncios do Top Shot, marca IS_CROSSPOST): a conversa do servidor não é lida
     list = list.filter(m => isFollowed(m) && msgText(m));
     list.forEach(m => fresh.push({ m, ch: c.name, ok: passes(m, c, FILTER) }));
+    // ensaio (correr a tarefa à mão com "teste"): manda também a última mensagem escrita no servidor que comece por
+    // !teste, da última hora (não fica guardada)
+    if (TEST) {
+      const recent = await dc('/channels/' + c.id + '/messages?limit=30').catch(() => []);
+      const t = recent.filter(m => /^!teste\b/i.test(m.content || '') && Date.now() - Date.parse(m.timestamp) < 3600e3).sort((a, b) => (newer(a.id, b.id) ? 1 : -1)).pop();
+      if (t) tests.push({ m: t, ch: c.name });
+    }
   }
   fresh.sort((a, b) => (newer(a.m.id, b.m.id) ? 1 : -1));
   st.msgs = st.msgs.concat(fresh.map(({ m, ch, ok }) => ({ id: m.id, ch, tg: ok, at: m.timestamp, who: (m.author && (m.author.global_name || m.author.username)) || '', text: msgText(m).slice(0, 4000) }))).slice(-KEEP);
   // a primeira vez só marca onde vai (não despeja o histórico todo no Telegram)
   let sent = 0;
-  if (!first && fresh.length && TG) {
+  const out = (first ? [] : fresh.filter(x => x.ok).slice(-10)).concat(tests);
+  if (tests.length) console.log('::notice title=Discord::ensaio: ' + tests.length + ' mensagem !teste');
+  if (out.length && TG) {
     const chat = (process.env.TELEGRAM_CHAT_ID || '').trim() || ((await getState('telegram', {})) || {}).chat;
     if (!chat) console.log('::notice title=Discord::ainda não sei o grupo do Telegram (corre a tarefa das lesões)');
-    else for (const { m, ch } of fresh.filter(x => x.ok).slice(-10)) {
+    else for (const { m, ch } of out) {
       const r = await fetch('https://api.telegram.org/bot' + TG + '/sendMessage', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: chat, text: tgText(m, ch), parse_mode: 'HTML', disable_web_page_preview: true }) }).then(x => x.json()).catch(e => ({ ok: false, description: e.message }));
       if (r.ok) sent++; else console.log('::warning::Telegram: ' + String(r.description || '').slice(0, 120));
     }
