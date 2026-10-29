@@ -245,5 +245,13 @@ ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d ===
   const n1 = archive([h1, h2], dir), n2 = archive([h1, h2], dir), idx = JSON.parse(fs.readFileSync(dir + '/index.json', 'utf8'));
   ok('Historic: arquivo e índice, sem mudar à segunda', n1 === 2 && n2 === 0 && idx.runs.length === 1 && idx.runs[0].days === 2, { n1, n2, idx });
 }
+// Discord → Telegram: texto com os embeds dos canais seguidos, HTML escapado, ids grandes
+{
+  const { msgText, tgText, newer } = await import('../scripts/discord.mjs');
+  const m = { id: '1300000000000000002', content: 'Run 2 <Pro> & more', author: { global_name: 'NBA Top Shot' }, embeds: [{ title: 'Fast Break', description: 'Pro is back', fields: [{ name: 'Prize', value: '$10,000' }] }] };
+  ok('Discord: texto com embeds', msgText(m) === 'Run 2 <Pro> & more\nFast Break\nPro is back\nPrize: $10,000', msgText(m));
+  ok('Discord: mensagem do Telegram escapada', tgText(m, 'announcements').includes('#announcements · NBA Top Shot') && tgText(m, 'x').includes('Run 2 &lt;Pro&gt; &amp; more'), tgText(m, 'x'));
+  ok('Discord: ids grandes comparados como números', newer('1300000000000000010', '1300000000000000009') && !newer('999999999999999999', '1300000000000000000'));
+}
 console.log(fails ? fails + ' falha(s)' : 'tarefas: tudo certo');
 process.exit(fails ? 1 : 0);
