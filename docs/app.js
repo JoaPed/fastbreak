@@ -1475,8 +1475,8 @@ function renderHeader() {
   const bits = [];
   if (run.fictitious) bits.push('<span class="chip">Teste</span>');
   // uma linha só: em que dia vai e o registo (as datas estão na faixa da Jornada)
-  // com smurfs: o registo e as bolinhas da conta com mais vitórias (em empate, a principal)
-  if (r) { const nd = nextDay(), bk = bestAcc(), m = S.multi ? S.multi.byKey[bk] : r; bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span>', runDots(nd, bk) + recChip(m.wins, m.losses) + (S.multi && accounts().length > 1 ? '<span class="rec-acc">' + esc(accLabel(bk)) + '</span>' : '')); }
+  // com smurfs: o registo e as bolinhas da conta com mais vitórias (em empate, a principal); depois de escolheres uma conta, os dessa
+  if (r) { const nd = nextDay(), bk = S.accPicked && S.multi && S.multi.byKey[S.acc] ? S.acc : bestAcc(), m = S.multi ? S.multi.byKey[bk] : r; bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span>', runDots(nd, bk) + recChip(m.wins, m.losses) + (S.multi && accounts().length > 1 ? '<span class="rec-acc">' + esc(accLabel(bk)) + '</span>' : '')); }
   else if (S.days.length) bits.push('<span>' + dShort(S.days[0].date) + ' – ' + dShort(S.days[S.days.length - 1].date) + '</span>');
   $('runMeta').innerHTML = bits.join('<span aria-hidden="true">·</span>');
 }
@@ -6069,7 +6069,7 @@ document.addEventListener('click', async e => {
     case 'lu-player': playerSheet(id, date, () => lineupSheet(date)); break;
     case 'set-status': setStatus(id, b.dataset.status); rosterSheet(id); break;
     case 'uses': changeUses(id, +b.dataset.d, b.dataset.acc); break;
-    case 'acc': S.acc = b.dataset.acc; if (S.multi && S.multi.byKey[S.acc]) S.result = S.multi.byKey[S.acc]; render(); break;
+    case 'acc': S.acc = b.dataset.acc; S.accPicked = true; if (S.multi && S.multi.byKey[S.acc]) S.result = S.multi.byKey[S.acc]; render(); break;
     case 'remove-player': delete S.mine.roster[id]; closeSheet(); schedule(); saveMine(); toast('Tirado do plantel.'); break;
     case 'result-sheet': {
       const day = S.days.find(x => x.date === date), pl = ((curPlan().played || {})[date]) || {}, done = !!pl.done;

@@ -1045,6 +1045,11 @@ with sync_playwright() as pw:
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    # cabeçalho: sem escolha, o registo da conta com mais vitórias; ao escolher outra conta, o dessa
+    h0 = pg.locator('#runMeta').inner_text().replace('\n', ' ')
+    pg.locator('#tab-hoje button.acc-chip[data-acc="s1"]').first.click(); pg.wait_for_timeout(500)
+    print('O cabeçalho segue a conta:', h0, '→', pg.locator('#runMeta').inner_text().replace('\n', ' '))
+    pg.locator('#tab-hoje button.acc-chip[data-acc="main"]').first.click(); pg.wait_for_timeout(300)
     pg.select_option('#jmode', 'historic'); pg.wait_for_timeout(800)
     print('O historic:', ' · '.join(pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()), '|', pg.locator('#tab-hoje .h-hero .gb').inner_text().replace('\n', ' '), '| dias:', pg.locator('#tab-hoje .day-strip .ds:not([disabled])').count(), 'de', pg.locator('#tab-hoje .day-strip .ds').count())
     pg.screenshot(path=str(shots / 'historic.png'), full_page=True)
