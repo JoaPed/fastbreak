@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-30
+- **João** — A fazer: Moments a mandar agrupados pela conta de onde saem (entra-se numa conta de cada vez), por ordem da hora limite.
 - **João** — Cabeçalho com smurfs: por defeito o registo da conta com mais vitórias; ao escolher outra conta na Jornada, passa a mostrar o dessa.
 - **João** — Procurar jogadores sem acentos também com letras especiais (ı, ł, ø, đ, ß, æ, œ): "Sengun", "Jokic", "Porzingis".
 - **João** — Pro: tocar numa carta a comprar abre o que custa a que conta, quanto vale a tua (ASP) e a diferença; "tens" passa a ser só das tuas cartas (antes apanhava as do grupo); ASP das cartas que já tens.

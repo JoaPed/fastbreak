@@ -2286,8 +2286,15 @@ function todoCard(r, v, d, md, nd, live, tips) {
     if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Lê as carteiras das tuas contas', 'Para saber o que mandar para cada conta.', 'wallet|' + today));
     else {
       const due = S.multi.transfers.filter(t => t.before <= nd.date), later = S.multi.transfers.filter(t => t.before > nd.date);
-      due.forEach(t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team;
-        items.push(btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', (t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? 'Manda o ' + (t.uses >= 4 ? 'Legendary' : t.uses >= 2 ? 'Rare' : 'Common') + ' do <b>' : 'Manda <b>') + esc(nameOf(t.id)) + '</b> para a <b>' + esc(accLabel(t.to)) + '</b>', 'Da ' + esc(accLabel(t.from)) + ', ' + at(day, team) + '. No Top Shot: oferecer o Moment à outra conta.', 'tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before)); });
+      // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot); dentro, pela hora limite
+      const accOrder = accounts().map(a => a.id), dueAt = t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team, tt = team ? FB.tipTime(day, team) : null; return tt || Infinity; };
+      const froms = [...new Set(due.map(t => t.from))].sort((a, b) => accOrder.indexOf(a) - accOrder.indexOf(b));
+      froms.forEach(f => {
+        const list = due.filter(t => t.from === f).sort((a, b) => dueAt(a) - dueAt(b));
+        const grp = list.map(t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team;
+          return (btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', (t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? 'Manda o ' + (t.uses >= 4 ? 'Legendary' : t.uses >= 2 ? 'Rare' : 'Common') + ' do <b>' : 'Manda <b>') + esc(nameOf(t.id)) + '</b> para a <b>' + esc(accLabel(t.to)) + '</b>', at(day, team).replace(/^./, c => c.toUpperCase()) + '. No Top Shot: oferecer o Moment à outra conta.', 'tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before)); }).filter(Boolean);
+        if (grp.length) items.push('<li class="row small todo-grp" style="display:block">Na conta <b>' + esc(accLabel(f)) + '</b> · ' + plural(grp.length, 'Moment', 'Moments') + ' para mandar</li>', ...grp); // feitos: não contam
+      });
       if (later.length) items.push('<li class="row small muted" style="display:block">Depois: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' → ' + esc(accLabel(t.to)) + ' até ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' e mais ' + (later.length - 3) : '') + '.</li>');
     }
   }

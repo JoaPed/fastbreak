@@ -324,6 +324,7 @@ with sync_playwright() as pw:
     pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="contas"]'); pg.wait_for_timeout(500)
     trc = pg.locator('#tab-run .card').filter(has_text='Transferências')
     print('C transferências:', trc.inner_text().replace('\n', ' | ')[:400] if trc.count() else 'sem cartão')
+    print('C a fazer por conta:', [x.replace('\n', ' ') for x in pg.locator('#tab-hoje .todo .todo-grp').all_inner_texts()])
     pg.click('#tab-run button[data-action="sub"][data-sub="premios"]'); pg.wait_for_timeout(300)
     pg.click('#t-hoje'); pg.wait_for_timeout(400)
     print('C a fazer (com trocas):', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
