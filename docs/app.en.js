@@ -2289,11 +2289,12 @@ function todoCard(r, v, d, md, nd, live, tips) {
       // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot) e, dentro, uma linha por hora
       // limite com os Moments dessa hora; o visto marca a linha toda (cada Moment fica dado como mandado)
       const accOrder = accounts().map(a => a.id), tipOf = t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team; return team ? FB.tipTime(day, team) : null; };
-      const froms = [...new Set(due.map(t => t.from))].sort((a, b) => accOrder.indexOf(a) - accOrder.indexOf(b));
+      // um grupo por par de contas (de onde sai → para onde vai): com 3 contas, "Main → Terose" e "Main → smurf" à parte
+      const pairs = [...new Set(due.map(t => t.from + '>' + t.to))].map(k => k.split('>')).sort((a, b) => (accOrder.indexOf(a[0]) - accOrder.indexOf(b[0])) || (accOrder.indexOf(a[1]) - accOrder.indexOf(b[1])));
       let anyTr = false;
-      froms.forEach(f => {
+      pairs.forEach(([f, to]) => {
         const byTime = new Map();
-        due.filter(t => t.from === f).forEach(t => { const tt = tipOf(t), k = tt ? hm(new Date(tt).toISOString()) : '—'; (byTime.get(k) || byTime.set(k, { tt: tt || Infinity, list: [] }).get(k)).list.push(t); });
+        due.filter(t => t.from === f && t.to === to).forEach(t => { const tt = tipOf(t), k = tt ? hm(new Date(tt).toISOString()) : '—'; (byTime.get(k) || byTime.set(k, { tt: tt || Infinity, list: [] }).get(k)).list.push(t); });
         const lines = [...byTime.entries()].sort((a, b) => a[1].tt - b[1].tt).map(([k, g]) => {
           const tag = t => t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? '<span class="todo-tier">' + (t.uses >= 4 ? 'L' : t.uses >= 2 ? 'R' : 'C') + '</span>' : '';
           const keys = g.list.map(t => (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before), on = keys.every(x => TODO_DONE[x]);
@@ -2301,7 +2302,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
           const li = '<li class="todo-li' + (on ? ' done' : '') + '"><button class="todo-ck" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Done. Unmark' : 'Mark as sent') + '">' + icoTick + '</button><button class="row" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '"><div style="min-width:0"><div class="todo-t">' + html + '</div></div></button></li>';
           if (on) { done.push(li); return ''; } return li;
         }).filter(Boolean);
-        if (lines.length) { anyTr = true; items.push('<li class="row small todo-grp" style="display:block">On <b>' + esc(accLabel(f)) + '</b> → ' + [...new Set(due.filter(t => t.from === f).map(t => esc(accLabel(t.to))))].join(', ') + '</li>', ...lines); }
+        if (lines.length) { anyTr = true; items.push('<li class="row small todo-grp" style="display:block">From <b>' + esc(accLabel(f)) + '</b> to <b>' + esc(accLabel(to)) + '</b></li>', ...lines); }
       });
       if (anyTr) items.push('<li class="row small muted" style="display:block">On Top Shot: gift each Moment to the other account.</li>');
       if (later.length) items.push('<li class="row small muted" style="display:block">Later: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' → ' + esc(accLabel(t.to)) + ' by ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' and another ' + (later.length - 3) : '') + '.</li>');

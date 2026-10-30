@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-10-31
+- **João** — A fazer: um grupo por par de contas ("Da Main para a Terose"), sem listas com vírgulas quando há 3 contas.
+
 ## 2026-10-30
 - **João** — Jornada: o título diz só o modo (Classic / Historic / Pro), sem "Run 1".
 - **João** — A fazer, Moments a mandar mais curtos: por conta e uma linha por hora limite ("até 02:00 Reaves · Doncic R · Curry R"); o visto marca a linha toda.
