@@ -318,6 +318,7 @@
    "toast(added + ' jogador' + (added === 1 ? '' : 'es') + ' da coleção no plantel.');": true
   }
  },
+ " multi": null,
  "FG": null,
  "3PT": null,
  "FT": null,
@@ -1762,7 +1763,6 @@
  " fixado.": " locked.",
  " O resto do lineup fica.": " The rest of the lineup stays.",
  " Plano refeito.": " Plan redone.",
- "<div class=\"j-nav\"><div class=\"j-accs\" role=\"group\" aria-label=\"Conta\">": "<div class=\"j-nav\"><div class=\"j-accs\" role=\"group\" aria-label=\"Account\">",
  "\">Mudar o lineup</button>": "\">Change lineup</button>",
  "Sem objetivo": "No target",
  "1.º jogo ": "1st game ",
@@ -2466,6 +2466,7 @@
  "Marcar como mandados": "Mark as sent",
  "<li class=\"row small muted\" style=\"display:block\">No Top Shot: oferece cada Moment à outra conta.</li>": "<li class=\"row small muted\" style=\"display:block\">On Top Shot: gift each Moment to the other account.</li>",
  "<li class=\"row small todo-grp\" style=\"display:block\">Da <b>": "<li class=\"row small todo-grp\" style=\"display:block\">From <b>",
+ "\"><div class=\"j-accs\" role=\"group\" aria-label=\"Conta\">": "\"><div class=\"j-accs\" role=\"group\" aria-label=\"Account\">",
  "normal": null,
  "sem": null,
  "odds": null,

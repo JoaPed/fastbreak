@@ -1628,7 +1628,8 @@ function jornadaNav(date, sub) {
     return '<button type="button" class="acc-chip" data-action="acc" data-acc="' + esc(a.id) + '" aria-pressed="' + (S.acc === a.id) + '">' + esc(a.label) + ' ' + v + '</button>';
   }).join('') : '';
   const links = SUBS.hoje().map(([k, l]) => '<button type="button" class="btn link small" data-action="sub" data-stab="hoje" data-sub="' + k + '" aria-pressed="' + (k === sub) + '">' + l + '</button>').join('<span aria-hidden="true">·</span>');
-  return '<div class="j-nav"><div class="j-accs" role="group" aria-label="Account">' + accs + '</div><div class="j-links">' + links + '</div></div>';
+  // com várias contas: as contas numa linha (desliza de lado se não couberem) e os separadores por baixo
+  return '<div class="j-nav' + (accs ? ' multi' : '') + '"><div class="j-accs" role="group" aria-label="Account">' + accs + '</div><div class="j-links">' + links + '</div></div>';
 }
 // ---------- Jornada → modo: Classic (o plano da run) ou Historic (lendas simuladas, orçamento de Roster Points) ----------
 S.jmode = (() => { try { return localStorage.getItem('fb-jmode') || 'classic'; } catch (e) { return 'classic'; } })();
