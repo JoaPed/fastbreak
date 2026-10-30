@@ -1135,3 +1135,7 @@ p, .note { text-wrap: pretty; }
 .todo-grp { padding-top: 12px; padding-bottom: 2px; color: var(--muted); font-weight: 600; } .todo-grp b { color: var(--ink); }
 .todo-at { color: var(--muted); font-size: 13px; margin-right: 4px; white-space: nowrap; }
 .todo-tier { font-size: 11px; font-weight: 700; padding: 0 4px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); margin-left: 3px; vertical-align: 1px; }
+/* iPhone (Safari com a barra em baixo, app no ecrã principal): o topo fica por baixo da barra de estado, que o iOS
+   esbate; o cabeçalho e o que fica preso no topo começam abaixo dela */
+body { padding-top: env(safe-area-inset-top, 0px); }
+.subtabs { top: env(safe-area-inset-top, 0px); }
