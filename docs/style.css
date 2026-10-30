@@ -1139,3 +1139,9 @@ p, .note { text-wrap: pretty; }
    esbate; o cabeçalho e o que fica preso no topo começam abaixo dela */
 body { padding-top: env(safe-area-inset-top, 0px); }
 .subtabs { top: env(safe-area-inset-top, 0px); }
+/* Jornada com smurfs: contas lado a lado numa linha (desliza de lado), separadores por baixo */
+.j-nav.multi { flex-direction: column; align-items: stretch; gap: 6px; }
+.j-nav.multi .j-accs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; overscroll-behavior-x: contain; }
+.j-nav.multi .j-accs::-webkit-scrollbar { display: none; }
+.j-nav.multi .acc-chip { flex: none; white-space: nowrap; }
+.j-nav.multi .j-links { align-self: flex-end; }

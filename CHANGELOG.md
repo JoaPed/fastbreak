@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-31
+- **João** — Jornada com smurfs: contas lado a lado numa linha (desliza de lado se não couberem) e Lineup · Porquê · Comparar por baixo.
 - **João** — iPhone: o cabeçalho começa abaixo da barra de estado (o título deixava de ficar esbatido por baixo dela).
 - **João** — A fazer: um grupo por par de contas ("Da Main para a Terose"), sem listas com vírgulas quando há 3 contas.
 
