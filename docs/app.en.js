@@ -1726,10 +1726,33 @@ function proDay(date) {
   return { rule, md, base: { ids: base.set.map(i => mw.players[i].id), P: base.P }, steps, final: { ids: L.map(i => mw.players[i].id), P: Pc }, size, P };
 }
 // a carta do jogador que já tens (noutro set) e quanto vale (ASP), para a diferença até à carta do Pro
-function proOwnValue(id) {
+// as minhas cartas de um jogador (todas as contas), por set, com o ASP da edição (leitura das cartas, se houver)
+function proMyCards(id) {
+  const col = (S.profile || {}).collection, by = new Map();
+  Object.values((col && col.items) || {}).forEach(it => {
+    if (String(it.p) !== String(id)) return;
+    const base = String(it.s || '?').split(' · ')[0], e = by.get(base) || by.set(base, { set: base, tier: setTier(col, it.s), n: 0, accs: new Set(), asp: null }).get(base);
+    e.n++; e.accs.add(it.a || 'main');
+  });
   const rows = (S.edMine && S.edMine.p && S.edMine.p[id]) || [];
-  const best = rows.filter(r => r[3] > 0).sort((a, b) => b[3] - a[3])[0];
-  return best ? { set: best[0], tier: best[2], asp: best[3] } : null;
+  by.forEach(e => { const r = rows.filter(x => norm(String(x[0]).replace(/\s*\d+$/, '')) === norm(e.set.replace(/\s*\d+$/, '')) && x[3] > 0).sort((a, b) => b[3] - a[3])[0]; if (r) e.asp = r[3]; });
+  return [...by.values()].sort((a, b) => (b.asp || 0) - (a.asp || 0) || (TIER_RANK[b.tier] || 0) - (TIER_RANK[a.tier] || 0));
+}
+// a carta mais valiosa que já tens desse jogador (para a diferença até à carta do Pro)
+const proOwnValue = id => proMyCards(id)[0] || null;
+// folha de uma compra: a carta que conta (a mais barata à venda), a tua, a diferença e o que muda no dia
+function proCardSheet(date, i) {
+  const X = proDay(date); const st = X && X.steps[+i]; if (!st) return;
+  const mine = proMyCards(st.id), own = mine[0] || null, tierTxt = t => t ? t.charAt(0) + t.slice(1).toLowerCase() : '';
+  const row = (l, v) => '<div class="pro-kv"><span class="muted">' + l + '</span><b>' + v + '</b></div>';
+  openSheet('<h3>' + esc(nameOf(st.id)) + '</h3>' +
+    row('Card that counts (cheapest for sale)', esc(tierTxt(st.row[1])) + ' · ' + esc(st.row[2] || X.rule.name) + ' · ' + usdC(st.pr)) +
+    (own ? row('Your most valuable card of him', esc(own.set) + (own.tier ? ' · ' + esc(own.tier) : '') + ' · ' + (own.asp ? 'ASP ' + usdC(own.asp) : 'no ASP read')) +
+      (own.asp ? row('Difference (if you sell yours)', (st.pr - own.asp > 0 ? '+' : '−') + usdC(Math.abs(st.pr - own.asp))) : '') : row('Your card of him', 'you don\'t have one')) +
+    (mine.length > 1 ? '<div class="small muted">You also have: ' + mine.slice(1).map(c => esc(c.set) + (c.asp ? ' (ASP ' + usdC(c.asp) + ')' : '')).join(', ') + '</div>' : '') +
+    row('This day', pct(st.P0) + ' → <span class="c-good">' + pct(st.P) + '</span>' + (st.out ? ' · out ' + esc(nameOf(st.out)) : '')) +
+    (st.row && st.row[3] ? '<div class="small muted">ASP of the card that counts: ' + usdC(st.row[3]) + '</div>' : '') +
+    '<div class="btns"><button class="btn primary" type="button" data-action="close-sheet">OK</button></div>');
 }
 const usdC = c => usd(c / 100); // preços do Top Shot vêm em cêntimos
 function renderPro(el) {
@@ -1747,16 +1770,16 @@ function renderPro(el) {
       (X ? '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">With what you have</span><span class="gb-n">' + pct(X.base.P) + '</span><span class="gb-t">' + plural(X.base.ids.length, 'eligible card', 'eligible cards') + ' playing</span></div></div>' + winRing(X.final.P, tone(X.final.P), pct(X.final.P), X.steps.length ? 'buying' : 'win') + '</div>' : '') + '</div>';
     if (!X) dayHtml = head + '<div class="note">Still working out the plan…</div>';
     else {
-      const baseCard = '<div class="card"><div class="list-head"><h2>Your lineup with what you have</h2><span class="small muted">' + pct(X.base.P) + '</span></div>' + (X.base.ids.length ? '<ul class="list">' + X.base.ids.map(id => li(id, '', esc((S.players.get(id) || {}).team || ''))).join('') + '</ul>' : '<div class="pad small muted">You have no ' + esc(rule.name) + ' cards of anyone playing this day.</div>') + (X.base.ids.length && X.base.ids.length < X.size ? '<div class="pad small muted">' + (X.size - X.base.ids.length) + ' short of a full lineup.</div>' : '') + '</div>';
+      const baseCard = '<div class="card"><div class="list-head"><h2>Your lineup with what you have</h2><span class="small muted">' + pct(X.base.P) + '</span></div>' + (X.base.ids.length ? '<ul class="list">' + X.base.ids.map(id => { const c = proMyCards(id).find(x => rule.re.test(x.set)); return li(id, '', esc((S.players.get(id) || {}).team || '') + (c ? ' · ' + esc(c.set) + (c.asp ? ' · ASP ' + usdC(c.asp) : '') : '')); }).join('') + '</ul>' : '<div class="pad small muted">You have no ' + esc(rule.name) + ' cards of anyone playing this day.</div>') + (X.base.ids.length && X.base.ids.length < X.size ? '<div class="pad small muted">' + (X.size - X.base.ids.length) + ' short of a full lineup.</div>' : '') + '</div>';
       let buyCard;
       if (!P) buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2></div><div class="pad small muted">Prices missing: ' + (S.role === 'admin' ? '<button class="btn small" type="button" data-action="ranks-go" data-do="pro">Read Pro prices</button>' : 'the admin reads them in Settings → Admin → Read on Top Shot → Pro prices.') + '</div></div>';
       else if (!X.steps.length) buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2></div><div class="pad small muted">' + (X.base.P >= 0.5 ? 'You\'re already fine with what you have.' : 'No card for sale raises the chance of this day.') + '</div></div>';
       else {
         let tot = 0, reach = null;
         const rows = X.steps.map((st, k) => { tot += st.pr; if (reach == null && st.P >= 0.5) reach = { k: k + 1, tot };
-          const own = proOwnValue(st.id), diff = own ? st.pr - own.asp : null;
-          const sub = esc(st.row[1] ? st.row[1].charAt(0) + st.row[1].slice(1).toLowerCase() + ' · ' : '') + esc(st.row[2] || rule.name) + ' · <b>' + usdC(st.pr) + '</b>' + (own ? ' · you have ' + esc(own.set) + ' (ASP ' + usdC(own.asp) + '): difference ' + (diff > 0 ? '+' : '') + usdC(Math.abs(diff)) : '') + (st.out ? ' · out ' + esc(nameOf(st.out)) : '');
-          return li(st.id, '<span class="pro-p num">' + pct(st.P) + '</span>', sub); }).join('');
+          const own = proOwnValue(st.id);
+          const sub = esc(st.row[1] ? st.row[1].charAt(0) + st.row[1].slice(1).toLowerCase() + ' · ' : '') + '<b>' + usdC(st.pr) + '</b>' + (own ? ' · you have ' + esc(own.set) + (own.asp ? ' (' + usdC(own.asp) + ')' : '') : '');
+          return '<li><button class="row pro-row" type="button" data-action="pro-card" data-date="' + S.proDay + '" data-i="' + k + '">' + face(st.id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(st.id)) + '</b><small class="muted">' + sub + '</small></span><span class="pro-p num">' + pct(st.P) + '</span></button></li>'; }).join('');
         const sumTxt = reach ? 'With <b>' + plural(reach.k, 'card', 'cartas') + ' (' + usdC(reach.tot) + ')</b> you go from ' + pct(X.base.P) + ' to over 50%.' : 'With these ' + plural(X.steps.length, 'card', 'cartas') + ' (' + usdC(tot) + ') you reach ' + pct(X.final.P) + '.';
         buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2><span class="small muted">prices from ' + esc(ago(P.at)) + '</span></div><div class="pad small">' + sumTxt + '</div><ul class="list">' + rows + '</ul></div>';
       }
@@ -1766,7 +1789,7 @@ function renderPro(el) {
   const famCard = x => {
     const list = [...x.by.values()].sort((a, b) => (TIER_RANK[b.tier] || 0) - (TIER_RANK[a.tier] || 0) || String(nameOf(a.id)).localeCompare(nameOf(b.id)));
     return '<div class="card"><div class="list-head"><h2>' + esc(x.f.name) + '</h2><span class="small muted">' + plural(list.length, 'player', 'players') + '</span></div>' +
-      (list.length ? '<ul class="list">' + list.map(e => '<li class="row pro-row">' + face(e.id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(e.id)) + '</b><small class="muted">' + esc([...e.sets].join(', ')) + (multi ? ' · ' + [...e.accs].map(a => esc(accLabel(a))).join(', ') : '') + '</small></span>' + (e.tier ? '<span class="pill">' + esc(e.tier) + (e.n > 1 ? ' ×' + e.n : '') + '</span>' : '') + '</li>').join('') + '</ul>' : '<div class="pad small muted">No cards from these sets in your collection.</div>') + '</div>';
+      (list.length ? '<ul class="list">' + list.map(e => '<li class="row pro-row">' + face(e.id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(e.id)) + '</b><small class="muted">' + esc([...e.sets].join(', ')) + ((c => c && c.asp ? ' · ASP ' + usdC(c.asp) : '')(proMyCards(e.id).find(y => x.f.re.test(y.set)))) + (multi ? ' · ' + [...e.accs].map(a => esc(accLabel(a))).join(', ') : '') + '</small></span>' + (e.tier ? '<span class="pill">' + esc(e.tier) + (e.n > 1 ? ' ×' + e.n : '') + '</span>' : '') + '</li>').join('') + '</ul>' : '<div class="pad small muted">No cards from these sets in your collection.</div>') + '</div>';
   };
   const owned = hasCol ? '<h2 class="sec-h">What you already have for Pro</h2>' + fams.map(famCard).join('') : empty('Your collection', 'You haven\'t read your collection yet: go to Players → Collection to see which cards you have for Pro.');
   const admin = S.role === 'admin' ? '<div class="card"><div class="pad small">To get ready for Run 2: open the <a href="sonda-pro.html" target="_blank" rel="noopener">Pro probe</a> on a computer, run it on Top Shot and send me the result.</div></div>' : '';
@@ -5988,6 +6011,7 @@ document.addEventListener('click', async e => {
     case 'h-day': S.hday = id; S.hdCenter = true; renderHoje(); break;
     case 'h-acc': S.hacc = +b.dataset.i || 0; renderHoje(); break;
     case 'pro-day': S.proDay = date; S.hdCenter = true; renderHoje(); break;
+    case 'pro-card': proCardSheet(date, b.dataset.i); break;
     case 'h-fix': if (b.dataset.close) closeSheet(); hFix(b.dataset.day, id); break;
     case 'h-ban': if (b.dataset.close) closeSheet(); hBan(b.dataset.day, id); break;
     case 'h-reset': S.hsel[b.dataset.day] = { fix: [], ban: [] }; hSave(); renderHoje(); break;

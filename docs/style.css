@@ -1131,3 +1131,4 @@ p, .note { text-wrap: pretty; }
 .row.pro-row { grid-template-columns: auto minmax(0, 1fr) auto; }
 .pro-n { display: grid; min-width: 0; } .pro-n b, .pro-n small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pro-row .pill { background: var(--surface-2); color: var(--ink); }
+.pro-kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; } .pro-kv b { text-align: right; }

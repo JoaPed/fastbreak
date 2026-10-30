@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-30
+- **João** — Pro: tocar numa carta a comprar abre o que custa a que conta, quanto vale a tua (ASP) e a diferença; "tens" passa a ser só das tuas cartas (antes apanhava as do grupo); ASP das cartas que já tens.
 - **João** — Historic: o leitor (v20) guarda também o lineup de quem lê (vem com o dia) e o erro, se o lugar das contas não vier; o arquivo mostra o que cada leitura trouxe.
 - **João** — Admin → Ler no Top Shot: "Classificação, picks, lineups e Historic" num só botão, e "Preços dos jogadores e das cartas (ASP)" noutro.
 - **João** — Historic: os dias que acabaram abrem-se na faixa: lugar e lineup de cada conta, a sugestão da app (e onde teria ficado), a melhor equipa possível e as lendas que mais fizeram. Leitor do Top Shot v19 (lê os lineups do Historic).
