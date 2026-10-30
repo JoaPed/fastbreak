@@ -1850,8 +1850,8 @@ function histStrip(H, open, day, C) {
     const isOpen = open.includes(d), done = !!(d.lines && d.lines.length), c = isOpen ? (d === day && C ? C : histCalc(H, d.id)) : null;
     if (c) hSugSave(d.id, c);
     const t = c && c.ev.length ? (c.port && c.port.length ? c.port[Math.min(ai0, c.port.length - 1)] : c.ev[0]) : null, now = d === open[0];
-    const me = done && ak ? ((d.mine || {})[ak]) : null, paid = me && me.rank <= hLastPaid(d);
-    const val = t ? pct(t.p40) : me ? me.rank + '.º' : '–', cls = t ? ' c-' + tone(Math.min(1, t.p40 * 2)) : paid ? ' win' : me ? ' loss' : '';
+    const me = done ? ((d.mine || {})[ak] || (S.role === 'admin' && ai0 === 0 ? (d.mine || {})._me : null)) : null, paid = me && me.rank && me.rank <= hLastPaid(d);
+    const val = t ? pct(t.p40) : me && me.rank ? me.rank + '.º' : '–', cls = t ? ' c-' + tone(Math.min(1, t.p40 * 2)) : paid ? ' win' : me && me.rank ? ' loss' : '';
     return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="h-day" data-id="' + esc(d.id) + '" aria-pressed="' + (d === day) + '"' + (isOpen || done ? '' : ' disabled title="Ainda sem resultados"') + '><b class="num">' + histDayNo(d.id) + '</b><small>' + (now && histDate(d) === today ? 'Hoje' : dWeek(histDate(d))) + '</small><span class="ds-v num">' + val + '</span></button>';
   }).join('') + '</div>';
 }
@@ -1881,18 +1881,19 @@ function histPastHtml(H, day) {
   const top = day.top || [], entries = day.entries || null, paidTo = hLastPaid(day);
   const rankOfScore = v => { if (!top.length) return null; let k = 0; while (k < top.length && top[k] > v + 1e-9) k++; return k < top.length ? k + 1 : null; };
   const accs = accounts(), ai = Math.min(S.hacc || 0, accs.length - 1), acc = accs[ai] || { id: 'main' };
-  const akOf = a => addrKey(accAddr(S.session.user.id, a.id)), me = (day.mine || {})[akOf(acc)] || null;
+  // "_me": o lineup de quem leu (o admin, na conta com que entrou no Top Shot), quando não se sabe o endereço
+  const akOf = a => addrKey(accAddr(S.session.user.id, a.id)), mineOf = a => (day.mine || {})[akOf(a)] || (S.role === 'admin' && a.id === 'main' ? (day.mine || {})._me : null) || null, me = mineOf(acc);
   const noLu = (day.no || []).includes(akOf(acc));
   const sum = ids => ids.reduce((t, id) => t + ((pts.get(String(id)) || {}).v || 0), 0);
   const line = (id, tag) => { const x = pts.get(String(id)) || { id, name: nameOfLegend(H, id), team: null, v: 0 }, r = rp.get(String(id));
     return '<li class="row"><span class="who">' + hFace({ id: x.id, name: x.name, team: x.team }) + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + (tag || '') + '</div><div class="ps">' + esc(hTeam(x.team)) + (r ? ' · ' + f0(r) + ' RP' : '') + '</div></div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">pts</div></div></li>'; };
-  const accBar = accs.length > 1 ? '<div class="j-accs h-accs" role="group" aria-label="Contas">' + accs.map((a, i) => { const m = (day.mine || {})[akOf(a)]; return '<button type="button" class="acc-chip" data-action="h-acc" data-i="' + i + '" aria-pressed="' + (i === ai) + '">' + esc(a.label) + (m ? ' <b class="num ' + (m.rank <= paidTo ? 'c-good' : '') + '">' + m.rank + '.º</b>' : '') + '</button>'; }).join('') + '</div>' : '';
+  const accBar = accs.length > 1 ? '<div class="j-accs h-accs" role="group" aria-label="Contas">' + accs.map((a, i) => { const m = mineOf(a); return '<button type="button" class="acc-chip" data-action="h-acc" data-i="' + i + '" aria-pressed="' + (i === ai) + '">' + esc(a.label) + (m && m.rank ? ' <b class="num ' + (m.rank <= paidTo ? 'c-good' : '') + '">' + m.rank + '.º</b>' : '') + '</button>'; }).join('') + '</div>' : '';
   const cut = k => top[k - 1] != null ? f0(top[k - 1]) : '–';
   const cuts = top.length ? '1.º ' + cut(1) + ' · 10.º ' + cut(10) + ' · 40.º ' + cut(40) + ' pts' + (entries ? ' · ' + entries.toLocaleString('pt-PT') + ' equipas' : '') : '';
   const lu = me && me.lu && me.lu.length ? me.lu : null, myPts = me ? (me.score != null ? me.score : lu ? sum(lu) : null) : null;
-  const ring = me ? winRing(1, me.rank <= paidTo ? 'good' : 'bad', me.rank <= paidTo ? '✓' : '✕', me.rank <= paidTo ? 'prémio' : 'sem prémio') : winRing(0, 'mute', '–', noLu ? 'sem lineup' : 'por ler');
+  const ring = me && me.rank ? winRing(1, me.rank <= paidTo ? 'good' : 'bad', me.rank <= paidTo ? '✓' : '✕', me.rank <= paidTo ? 'prémio' : 'sem prémio') : winRing(0, 'mute', '–', noLu ? 'sem lineup' : 'por ler');
   const hero = '<div class="card hero day-hero past h-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Historic · Dia ' + histDayNo(day.id) + ' · ' + dWeek(histDate(day)) + ', ' + dShort(histDate(day)) + '</span><span class="small muted">acabou</span></div>' +
-    '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">' + (me ? 'Lugar' : 'Pontos') + '</span><span class="gb-n">' + (me ? me.rank.toLocaleString('pt-PT') + '.º' : '–') + '</span><span class="gb-t">' + (myPts != null ? f1(myPts) + ' pts' : noLu ? 'não levaste lineup' : 'o admin lê em Ler no Top Shot → Historic') + '</span></div></div>' + ring + '</div>' +
+    '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">' + (me ? 'Lugar' : 'Pontos') + '</span><span class="gb-n">' + (me && me.rank ? me.rank.toLocaleString('pt-PT') + '.º' : '–') + '</span><span class="gb-t">' + (myPts != null ? f1(myPts) + ' pts' : noLu ? 'não levaste lineup' : 'o admin lê em Ler no Top Shot → Historic') + '</span></div></div>' + ring + '</div>' +
     (cuts ? '<div class="small muted h-odds">' + esc(cuts) + '</div>' : '') +
     (lu ? '<ul class="list jc-list">' + lu.slice().sort((a, b) => ((pts.get(b) || {}).v || 0) - ((pts.get(a) || {}).v || 0)).map(id => line(id)).join('') + '</ul>' : '') + '</div>';
   // a sugestão da app nesse dia (guardada neste aparelho) e onde teria ficado

@@ -214,7 +214,8 @@ async function readHist() {
   for (const c of cs) {
     const d = { id: c.id, locks: c.locksAt, open: Date.parse(c.locksAt) > now };
     say('A ler o Historic… dia ' + String(c.id).split('-').pop());
-    try { const g = (await call('GameEngineService/GetContest', { contestId: c.id })).contest || {}; d.games = (g.slateGames || []).map(x => [x.gameId, x.homeTeamId, x.awayTeamId, x.scheduledAt]); if (!out.rubric) { out.rubric = (g.scoringRubric || {}).entries || null; out.budget = g.rosterBudget || null; } d.bands = ((g.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount]); d.entries = +g.totalEntries || null; } catch (e) { d.err = String(e.message).slice(0, 60); }
+    let ce = null;
+    try { const g = (await call('GameEngineService/GetContest', { contestId: c.id })).contest || {}; ce = g.callerEntry || null; d.games = (g.slateGames || []).map(x => [x.gameId, x.homeTeamId, x.awayTeamId, x.scheduledAt]); if (!out.rubric) { out.rubric = (g.scoringRubric || {}).entries || null; out.budget = g.rosterBudget || null; } d.bands = ((g.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount]); d.entries = +g.totalEntries || null; } catch (e) { d.err = String(e.message).slice(0, 60); }
     if (d.open) { try { const sl = await call('GameEngineService/GetPlayerSlots', { contestId: c.id }); d.players = (sl.players || []).map(p => [p.playerId, p.playerName, p.teamId, +p.rosterPoints, (p.ownedMomentFlowIds || []).length, Math.round((+p.ownershipPct || 0) * 10) / 10]); } catch (e) { d.err = String(e.message).slice(0, 60); } }
     else {
       try { const bx = await call('GameEngineService/GetGameBoxScores', { contestId: c.id }); d.lines = []; (bx.games || []).forEach(G => (G.lines || []).forEach(l => { const st = l.stats || {}; if (Object.keys(st).length) d.lines.push([l.playerId, l.playerName, l.teamId].concat(H_KEYS.map(k => +st[k] || 0))); })); } catch (e) { d.err = String(e.message).slice(0, 60); }
@@ -232,6 +233,17 @@ async function readHist() {
           const st = await call('GameEngineService/GetContestStandings', { contestId: c.id, limit: 2, cursor: cur });
           const row = (st.rows || []).find(z => String(z.flowAddress || '').toLowerCase() === ak);
           if (row) { x.lu = (row.lineup || []).slice().sort((p, q) => +p.slotIndex - +q.slotIndex).filter(z => z.playerId).map(z => String(z.playerId)); if (row.score != null) x.score = +row.score; }
+        } catch (e) { d.mineErr = d.mineErr || String(e.message || e).slice(0, 60); }
+      }
+      // reserva: o lineup de quem está a ler (vem com o dia); fica pela conta dele se o endereço vier, senão como "_me"
+      if (ce && typeof ce === 'object') {
+        try {
+          d.ceKeys = Object.keys(ce).slice(0, 25);
+          const ad = String(pick(ce, /flow.?address|^address$/i) || '').replace(/^0x/, '').toLowerCase() || '_me';
+          const slots = ce.slots || ce.lineup || [];
+          const lu = slots.slice().sort((p, q) => +p.slotIndex - +q.slotIndex).filter(z => z.playerId).map(z => String(z.playerId));
+          const rk = +(pick(ce, /^rank$/i) || 0), sc = pick(ce, /^(display.?)?score$/i);
+          if ((rk || lu.length) && !((d.mine || {})[ad] && d.mine[ad].rank)) (d.mine = d.mine || {})[ad] = Object.assign({ rank: rk || null, lu }, sc != null ? { score: +sc } : {});
         } catch (e) {}
       }
     }
@@ -246,7 +258,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 17, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 18, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
     if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar

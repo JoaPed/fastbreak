@@ -68,7 +68,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     if (!r.ok) { console.log('::warning::summaries ' + r.status); process.exit(1); }
     docs = (await r.json()).map(x => x.share && x.share.hist).filter(Boolean);
     // diagnóstico (só contagens): o que cada leitura trouxe de cada dia
-    docs.forEach(h => console.log('::notice title=Historic lido::' + h.at + ' · ' + (h.days || []).map(d => String(d.id).split('-').pop() + ':' + (d.lines && d.lines.length ? 'L' : d.players ? 'P' : '-') + (d.mine ? 'm' + Object.keys(d.mine).length : '') + (d.no ? 'n' + d.no.length : '') + (d.top ? 't' : '')).join(' ')));
+    docs.forEach(h => console.log('::notice title=Historic lido::' + h.at + ' · ' + (h.days || []).map(d => String(d.id).split('-').pop() + ':' + (d.lines && d.lines.length ? 'L' : d.players ? 'P' : '-') + (d.mine ? 'm' + Object.keys(d.mine).length : '') + (d.no ? 'n' + d.no.length : '') + (d.top ? 't' : '') + (d.mineErr ? '!' : '')).join(' ') + ((h.days || []).find(d => d.mineErr) ? ' · erro: ' + (h.days.find(d => d.mineErr).mineErr) : '') + ((h.days || []).find(d => d.ceKeys) ? ' · callerEntry: ' + h.days.find(d => d.ceKeys).ceKeys.join(',') : '')));
   }
   const n = archive(docs, DIR);
   console.log(n ? `::notice::Historic: ${n} dias novos ou completados no arquivo` : 'Historic: nada de novo');
