@@ -395,7 +395,8 @@ function helpSheet(k, btn) {
 }
 const todayET = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
 function norm(name) {
-  return String(name || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  // letras que não se desfazem em letra + acento (ı turco, ł, ø, đ, ß, æ, œ): à mão, para "Sengun" achar "Şengün" e afins
+  return String(name || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/ı/g, 'i').replace(/ł/g, 'l').replace(/ø/g, 'o').replace(/[đð]/g, 'd').replace(/ß/g, 'ss').replace(/æ/g, 'ae').replace(/œ/g, 'oe')
     .replace(/[.'’`]/g, '').replace(/-/g, ' ').replace(/\b(jr|sr|ii|iii|iv)\b/g, '').replace(/\s+/g, ' ').trim();
 }
 function colorFor(id) { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360; return 'hsl(' + h + ' 55% 45%)'; }

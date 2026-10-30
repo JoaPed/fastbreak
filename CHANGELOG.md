@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-30
+- **João** — Procurar jogadores sem acentos também com letras especiais (ı, ł, ø, đ, ß, æ, œ): "Sengun", "Jokic", "Porzingis".
 - **João** — Pro: tocar numa carta a comprar abre o que custa a que conta, quanto vale a tua (ASP) e a diferença; "tens" passa a ser só das tuas cartas (antes apanhava as do grupo); ASP das cartas que já tens.
 - **João** — Historic: o leitor (v20) guarda também o lineup de quem lê (vem com o dia) e o erro, se o lugar das contas não vier; o arquivo mostra o que cada leitura trouxe.
 - **João** — Admin → Ler no Top Shot: "Classificação, picks, lineups e Historic" num só botão, e "Preços dos jogadores e das cartas (ASP)" noutro.
