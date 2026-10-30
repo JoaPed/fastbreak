@@ -2286,15 +2286,24 @@ function todoCard(r, v, d, md, nd, live, tips) {
     if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Lê as carteiras das tuas contas', 'Para saber o que mandar para cada conta.', 'wallet|' + today));
     else {
       const due = S.multi.transfers.filter(t => t.before <= nd.date), later = S.multi.transfers.filter(t => t.before > nd.date);
-      // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot); dentro, pela hora limite
-      const accOrder = accounts().map(a => a.id), dueAt = t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team, tt = team ? FB.tipTime(day, team) : null; return tt || Infinity; };
+      // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot) e, dentro, uma linha por hora
+      // limite com os Moments dessa hora; o visto marca a linha toda (cada Moment fica dado como mandado)
+      const accOrder = accounts().map(a => a.id), tipOf = t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team; return team ? FB.tipTime(day, team) : null; };
       const froms = [...new Set(due.map(t => t.from))].sort((a, b) => accOrder.indexOf(a) - accOrder.indexOf(b));
+      let anyTr = false;
       froms.forEach(f => {
-        const list = due.filter(t => t.from === f).sort((a, b) => dueAt(a) - dueAt(b));
-        const grp = list.map(t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team;
-          return (btn('data-action="player" data-id="' + esc(t.id) + '" data-date="' + nd.date + '"', (t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? 'Manda o ' + (t.uses >= 4 ? 'Legendary' : t.uses >= 2 ? 'Rare' : 'Common') + ' do <b>' : 'Manda <b>') + esc(nameOf(t.id)) + '</b> para a <b>' + esc(accLabel(t.to)) + '</b>', at(day, team).replace(/^./, c => c.toUpperCase()) + '. No Top Shot: oferecer o Moment à outra conta.', 'tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before)); }).filter(Boolean);
-        if (grp.length) items.push('<li class="row small todo-grp" style="display:block">Na conta <b>' + esc(accLabel(f)) + '</b> · ' + plural(grp.length, 'Moment', 'Moments') + ' para mandar</li>', ...grp); // feitos: não contam
+        const byTime = new Map();
+        due.filter(t => t.from === f).forEach(t => { const tt = tipOf(t), k = tt ? hm(new Date(tt).toISOString()) : '—'; (byTime.get(k) || byTime.set(k, { tt: tt || Infinity, list: [] }).get(k)).list.push(t); });
+        const lines = [...byTime.entries()].sort((a, b) => a[1].tt - b[1].tt).map(([k, g]) => {
+          const tag = t => t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? '<span class="todo-tier">' + (t.uses >= 4 ? 'L' : t.uses >= 2 ? 'R' : 'C') + '</span>' : '';
+          const keys = g.list.map(t => (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before), on = keys.every(x => TODO_DONE[x]);
+          const html = '<span class="todo-at">' + (k === '—' ? 'antes do jogo' : 'até ' + k) + '</span> ' + g.list.map(t => '<b>' + esc(lastName(t.id)) + '</b>' + tag(t)).join(' · ');
+          const li = '<li class="todo-li' + (on ? ' done' : '') + '"><button class="todo-ck" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Feito. Desmarcar' : 'Marcar como mandados') + '">' + icoTick + '</button><button class="row" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '"><div style="min-width:0"><div class="todo-t">' + html + '</div></div></button></li>';
+          if (on) { done.push(li); return ''; } return li;
+        }).filter(Boolean);
+        if (lines.length) { anyTr = true; items.push('<li class="row small todo-grp" style="display:block">Na <b>' + esc(accLabel(f)) + '</b> → ' + [...new Set(due.filter(t => t.from === f).map(t => esc(accLabel(t.to))))].join(', ') + '</li>', ...lines); }
       });
+      if (anyTr) items.push('<li class="row small muted" style="display:block">No Top Shot: oferece cada Moment à outra conta.</li>');
       if (later.length) items.push('<li class="row small muted" style="display:block">Depois: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' → ' + esc(accLabel(t.to)) + ' até ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' e mais ' + (later.length - 3) : '') + '.</li>');
     }
   }
@@ -6067,7 +6076,8 @@ document.addEventListener('click', async e => {
     case 'buy-more': buyMore(); break;
     case 'keep-clear': planPatch({ keep: { [b.dataset.date]: null } }, true); toast('O plano volta a escolher este dia.'); break;
     case 'locks-fix': { const r = S.result, L = {}; ((r && r.model.droppedLocks) || []).forEach(x => { L[x.date] = (L[x.date] || (curPlan().locks || {})[x.date] || []).filter(id => id !== x.player); }); if (Object.keys(L).length) { planPatch({ locks: L }); toast('Cadeados a mais tirados. Plano refeito.'); } break; }
-    case 'todo-tick': { const k = b.dataset.k; if (TODO_DONE[k]) delete TODO_DONE[k]; else { TODO_DONE[k] = Date.now(); toast('Feito ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
+    case 'todo-tick': { const ks = String(b.dataset.k || '').split(' ').filter(Boolean), k = ks[0] || ''; // uma linha pode ter vários (Moments da mesma hora)
+      if (ks.every(x => TODO_DONE[x])) ks.forEach(x => { delete TODO_DONE[x]; }); else { ks.forEach(x => { TODO_DONE[x] = TODO_DONE[x] || Date.now(); }); toast('Feito ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
     case 'fold': { const k = b.dataset.k; S.fold[k] = !S.fold[k]; try { localStorage.setItem('fb-fold', JSON.stringify(S.fold)); } catch (e) {} render(); break; }
     case 'lu-all': if (S.lu) { S.lu.all = true; luRender(); } break;

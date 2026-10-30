@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-30
+- **João** — A fazer, Moments a mandar mais curtos: por conta e uma linha por hora limite ("até 02:00 Reaves · Doncic R · Curry R"); o visto marca a linha toda.
 - **João** — A fazer: Moments a mandar agrupados pela conta de onde saem (entra-se numa conta de cada vez), por ordem da hora limite.
 - **João** — Cabeçalho com smurfs: por defeito o registo da conta com mais vitórias; ao escolher outra conta na Jornada, passa a mostrar o dessa.
 - **João** — Procurar jogadores sem acentos também com letras especiais (ı, ł, ø, đ, ß, æ, œ): "Sengun", "Jokic", "Porzingis".
