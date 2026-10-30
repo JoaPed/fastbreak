@@ -723,6 +723,7 @@ function takeRanksHash() {
   try {
     const d = b64u.dec(m[1]);
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
+    if (d && d.pro && d.pro.p) { S.proMine = d.pro; S.proMemo = null; try { localStorage.setItem('fb-pro', JSON.stringify(d.pro)); } catch (e) {} S.pickNote = (S.pickNote || '') + ' Pro: prices for ' + Object.keys(d.pro.p).length + ' players' + (d.pro.err ? ' (' + d.pro.err + ')' : '') + '.'; delete d.pro; }
     // que script correu: sem "sv" (ou antigo) é o automático antigo, que não lê os picks
     S.pickNote = !d || !Array.isArray(d.accs) || (Array.isArray(d.do) && !d.do.includes('picks')) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' games.' : d.picksErr ? ' Picks: failed (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: the Top Shot script is old — if you use the automatic one (Tampermonkey/Userscripts), reinstall it or turn it off and use the bookmark.' : ' Picks: none open.';
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
@@ -773,7 +774,7 @@ function rankJob(what) {
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && (!want.includes('lu') || d.luv) && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
-  return Object.assign({ accs, back: siteBase(), known, do: want }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {});
+  return Object.assign({ accs, back: siteBase(), known, do: want }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {}, want.includes('pro') ? { pro: proWanted().map(id => [id, nameOf(id)]) } : {});
 }
 // as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
 async function loadGroupCards() {
@@ -1098,7 +1099,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {}, S.histMine && S.histMine.at && Date.now() - Date.parse(S.histMine.at) < 3 * 864e5 ? { hist: S.histMine } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {}, S.histMine && S.histMine.at && Date.now() - Date.parse(S.histMine.at) < 3 * 864e5 ? { hist: S.histMine } : {}, S.proMine && S.proMine.at && Date.now() - Date.parse(S.proMine.at) < 3 * 864e5 ? { pro: S.proMine } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -1468,7 +1469,7 @@ function renderHeader() {
   $('meBtn').innerHTML = avatar(S.session.user.id, me.display_name);
   const pick = S.tab === 'hoje' && !S.loading;
   if (pick && S.jmode === 'historic') { $('runName').innerHTML = modeTitle(run); $('runMeta').textContent = histMeta(); return; }
-  if (pick && S.jmode === 'pro') { $('runName').innerHTML = modeTitle(run); $('runMeta').textContent = 'Back in Run 2'; return; }
+  if (pick && S.jmode === 'pro') { $('runName').innerHTML = modeTitle(run); $('runMeta').textContent = 'Trial in ' + (run ? run.name.replace(/ · .*$/, '') : 'run'); return; }
   if (!run) { if (pick) $('runName').innerHTML = modeTitle(run); else $('runName').textContent = 'Fastbreak'; $('runMeta').textContent = S.loading ? 'Loading…' : 'No run'; return; }
   if (pick) $('runName').innerHTML = modeTitle(run); else $('runName').textContent = run.name;
   const bits = [];
@@ -1643,9 +1644,9 @@ function modeTitle(run) {
 // Enquanto a Run 2 não abre: o que o grupo já tem de cada família. Quando abrir, o leitor traz as regras de cada
 // noite e os preços das cartas que contam (sonda-pro.html para ver primeiro o formato).
 const PRO_FAM = [
-  { k: 'mgle', name: 'Metallic Gold LE', re: /metallic gold/i },
-  { k: 'holo', name: 'Holo Icon', re: /holo|top shot 50|cosmic/i },
-  { k: 'debut', name: 'Debuts', re: /debut/i },
+  { k: 'mgle', name: 'Metallic Gold LE', short: 'MGLE', re: /metallic gold/i },
+  { k: 'holo', name: 'Holo Icon', short: 'Holo', re: /holo|top shot 50|cosmic/i },
+  { k: 'debut', name: 'Debuts', short: 'Debut', re: /debut/i },
 ];
 function proOwned() {
   const col = (S.profile || {}).collection, items = (col && col.items) || {}, out = PRO_FAM.map(f => ({ f, by: new Map() }));
@@ -1658,19 +1659,118 @@ function proOwned() {
   return out;
 }
 const TIER_RANK = { Common: 1, Fandom: 1, Rare: 2, Legendary: 3, Ultimate: 4 };
+// ---- Pro em ensaio na run Classic que está a decorrer ----
+// Enquanto o Pro não abre: cada dia da run leva uma regra inventada (as famílias do Pro à vez) para testar as contas.
+// Preços: a carta mais barata de cada família, lida no Top Shot (Ajustes → Admin → Ler no Top Shot → Preços do Pro).
+try { S.proMine = JSON.parse(localStorage.getItem('fb-pro') || 'null'); } catch (e) { S.proMine = null; }
+function groupPro() {
+  const docs = [S.proMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.pro)).filter(d => d && d.at && d.p);
+  return docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
+}
+const proRule = idx => PRO_FAM[idx % PRO_FAM.length];
+// jogadores cujo preço o leitor vai ver: os que têm jogo nos dias que faltam (mais minutos primeiro) e os do Pro que já tens
+function proWanted() {
+  const today = todayET(), teams = new Set(); S.days.forEach(d => { if (d.date >= today) (d.games || []).forEach(g => { teams.add(g[0]); teams.add(g[1]); }); });
+  const pts = p => { const a = FB.avgOf({ avg: p.avg }, 'pts'); return a ? a.v : 0; };
+  const list = [...S.players.values()].filter(p => p.team && teams.has(p.team) && p.avg && (+p.avg.min || 0) >= 18).sort((a, b) => pts(b) - pts(a)).slice(0, 150).map(p => p.id);
+  proOwned().forEach(x => x.by.forEach((e, id) => { if (!list.includes(id)) list.push(id); }));
+  return list;
+}
+// modelo com todos os candidatos (os que tens das famílias do Pro e os que têm preço): só para as contas de um dia
+function proModel(P) {
+  const owned = proOwned(), key = [S.runId, P && P.at, owned.map(x => x.by.size).join(), Object.keys(S.odds || {}).length, S.days.length].join('|');
+  if (S.proMemo && S.proMemo.key === key) return S.proMemo;
+  const x = engineInputs('main'), wide = { players: {} }, ids = new Set(Object.keys((P && P.p) || {}));
+  owned.forEach(o => o.by.forEach((e, id) => ids.add(id)));
+  ids.forEach(id => { const c = S.players.get(String(id)) || {}; if (!c.team) return; wide.players[id] = { name: c.name || id, team: c.team, uses: 9, status: gone(id) ? 'fora' : 'ok', avg: c.avg || null, copies: 1, owner: 'main' }; });
+  let mw = null; try { mw = FB.buildModel(x.run, wide, x.odds, { played: {}, locks: {}, bans: {} }, engOpts()); } catch (e) { console.warn('pro', e); }
+  S.proMemo = { key, mw, owned };
+  return S.proMemo;
+}
+// P(vitória) de um lineup (índices do modelo) num dia
+function proP(md, set) {
+  if (!md.objs.length) return 0; let P = 1;
+  md.objs.forEach((o, k) => { let s0 = md.offset[k], v = 0; set.forEach(i => { s0 += md.mu[i][k]; v += md.v[i][k]; }); P *= FB.probAtLeast(s0, v, md.T[k]); });
+  return P;
+}
+// o melhor lineup com um conjunto de jogadores (os 16 que mais contam, todas as combinações)
+function proBest(md, pool) {
+  const size = md.size || 5, con = i => md.objs.reduce((t, o, k) => t + md.mu[i][k] / (md.T[k] || 1), 0);
+  const top = pool.slice().sort((a, b) => con(b) - con(a)).slice(0, 16), n = Math.min(size, top.length);
+  let best = { set: top.slice(0, n), P: proP(md, top.slice(0, n)) };
+  const rec = (start, cur) => { if (cur.length === n) { const P = proP(md, cur); if (P > best.P) best = { set: cur.slice(), P }; return; } for (let i = start; i <= top.length - (n - cur.length); i++) { cur.push(top[i]); rec(i + 1, cur); cur.pop(); } };
+  if (n) rec(0, []);
+  return best;
+}
+function proDay(date) {
+  const P = groupPro(), M = proModel(P), mw = M.mw; if (!mw) return null;
+  const idx = S.days.findIndex(d => d.date === date), md = mw.days.find(z => z.day.date === date); if (idx < 0 || !md) return null;
+  const rule = proRule(idx), fam = M.owned.find(o => o.f.k === rule.k), mine = new Set([...fam.by.keys()]);
+  const elig = i => md.eligSet.has(i);
+  const ownIdx = [...mine].map(id => mw.pIndex.get(id)).filter(i => i != null && elig(i));
+  const base = proBest(md, ownIdx);
+  // compras: a cada passo, a carta (da família do dia) que mais sobe a hipótese, até 5 ou até deixar de valer a pena
+  const price = id => { const r = P && P.p[id] && P.p[id][rule.k]; return r ? r : null; };
+  const con = i => md.objs.reduce((t, o, k) => t + md.mu[i][k] / (md.T[k] || 1), 0);
+  const cands = mw.players.map((p, i) => i).filter(i => elig(i) && !mine.has(mw.players[i].id) && price(mw.players[i].id)).sort((a, b) => con(b) - con(a)).slice(0, 40);
+  let L = base.set.slice(), Pc = base.P; const steps = [], size = md.size || 5;
+  for (let s = 0; s < 8; s++) {
+    let best = null;
+    cands.forEach(c => { if (L.includes(c)) return;
+      const opts = L.length < size ? [L.concat([c])] : L.map(m => L.filter(x => x !== m).concat([c]));
+      opts.forEach(set => { const Pn = proP(md, set), pr = price(mw.players[c].id)[0]; if (!best || Pn > best.P + 1e-9 || (Math.abs(Pn - best.P) < 1e-9 && pr < best.pr)) best = { c, set, P: Pn, pr, out: L.find(x => !set.includes(x)) }; }); });
+    if (!best || (L.length >= size && best.P - Pc < 0.005)) break; // lugares vazios enchem-se sempre
+    steps.push({ id: mw.players[best.c].id, P0: Pc, P: best.P, pr: best.pr, row: price(mw.players[best.c].id), out: best.out != null ? mw.players[best.out].id : null });
+    L = best.set; Pc = best.P; if (Pc >= 0.95) break;
+  }
+  return { rule, md, base: { ids: base.set.map(i => mw.players[i].id), P: base.P }, steps, final: { ids: L.map(i => mw.players[i].id), P: Pc }, size, P };
+}
+// a carta do jogador que já tens (noutro set) e quanto vale (ASP), para a diferença até à carta do Pro
+function proOwnValue(id) {
+  const rows = (S.edMine && S.edMine.p && S.edMine.p[id]) || [];
+  const best = rows.filter(r => r[3] > 0).sort((a, b) => b[3] - a[3])[0];
+  return best ? { set: best[0], tier: best[2], asp: best[3] } : null;
+}
+const usdC = c => usd(c / 100); // preços do Top Shot vêm em cêntimos
 function renderPro(el) {
   const fams = proOwned(), multi = accounts().length > 1, hasCol = !!(((S.profile || {}).collection || {}).items);
-  const intro = '<div class="card"><div class="list-head"><h2>Pro</h2><span class="small muted">back in Run 2</span></div><div class="pad small">' +
-    '<p style="margin:0 0 8px">Each Pro night only accepts cards from certain sets: Metallic Gold LE, Holo Icon (Top Shot 50, Cosmic, Holo MMXX), debuts and cards with challenge badges. $10,000 in prizes and a spot in the Pro Final.</p>' +
-    '<p style="margin:0">When the run opens, you will see here for each night:</p><ul class="pro-will"><li>which of the group\'s cards count and the suggested lineup;</li><li>how much it costs to be competitive that day (what to buy and how many cards);</li><li>for players you own in another set: the price difference to the card that counts.</li></ul></div></div>';
+  const today = todayET(), days = S.days.map((d, i) => ({ d, i })).filter(x => x.d.date >= today);
+  if (!days.some(x => x.d.date === S.proDay)) S.proDay = days.length ? days[0].d.date : null;
+  const intro = '<div class="note info">Pro trial on the Classic run: each day gets a made-up rule (Metallic Gold LE, Holo Icon, debuts, in turn). In Run 2 the rules come from Top Shot.</div>';
+  const strip = days.length ? '<div class="day-strip" role="group" aria-label="Trial days">' + days.map(({ d, i }) => '<button type="button" class="ds" data-action="pro-day" data-date="' + d.date + '" aria-pressed="' + (d.date === S.proDay) + '"><b class="num">' + (i + 1) + '</b><small>' + dWeek(d.date) + '</small><span class="ds-v">' + esc(proRule(i).short) + '</span></button>').join('') + '</div>' : '';
+  let dayHtml = '';
+  if (S.proDay) {
+    const X = S.result ? proDay(S.proDay) : null, P = groupPro(), dn = S.days.findIndex(d => d.date === S.proDay) + 1, rule = proRule(dn - 1);
+    const objs = ((S.days[dn - 1] || {}).objectives || []).filter(o => o && o.stat).map(o => o.target + ' ' + statShort(o.stat)).join(' + ');
+    const li = (id, right, sub) => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + sub + '</small></span>' + right + '</li>';
+    const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Pro (trial) · Day ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Only cards from <b>' + esc(rule.name) + '</b></div>' +
+      (X ? '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">With what you have</span><span class="gb-n">' + pct(X.base.P) + '</span><span class="gb-t">' + plural(X.base.ids.length, 'eligible card', 'eligible cards') + ' playing</span></div></div>' + winRing(X.final.P, tone(X.final.P), pct(X.final.P), X.steps.length ? 'buying' : 'win') + '</div>' : '') + '</div>';
+    if (!X) dayHtml = head + '<div class="note">Still working out the plan…</div>';
+    else {
+      const baseCard = '<div class="card"><div class="list-head"><h2>Your lineup with what you have</h2><span class="small muted">' + pct(X.base.P) + '</span></div>' + (X.base.ids.length ? '<ul class="list">' + X.base.ids.map(id => li(id, '', esc((S.players.get(id) || {}).team || ''))).join('') + '</ul>' : '<div class="pad small muted">You have no ' + esc(rule.name) + ' cards of anyone playing this day.</div>') + (X.base.ids.length && X.base.ids.length < X.size ? '<div class="pad small muted">' + (X.size - X.base.ids.length) + ' short of a full lineup.</div>' : '') + '</div>';
+      let buyCard;
+      if (!P) buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2></div><div class="pad small muted">Prices missing: ' + (S.role === 'admin' ? '<button class="btn small" type="button" data-action="ranks-go" data-do="pro">Read Pro prices</button>' : 'the admin reads them in Settings → Admin → Read on Top Shot → Pro prices.') + '</div></div>';
+      else if (!X.steps.length) buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2></div><div class="pad small muted">' + (X.base.P >= 0.5 ? 'You\'re already fine with what you have.' : 'No card for sale raises the chance of this day.') + '</div></div>';
+      else {
+        let tot = 0, reach = null;
+        const rows = X.steps.map((st, k) => { tot += st.pr; if (reach == null && st.P >= 0.5) reach = { k: k + 1, tot };
+          const own = proOwnValue(st.id), diff = own ? st.pr - own.asp : null;
+          const sub = esc(st.row[1] ? st.row[1].charAt(0) + st.row[1].slice(1).toLowerCase() + ' · ' : '') + esc(st.row[2] || rule.name) + ' · <b>' + usdC(st.pr) + '</b>' + (own ? ' · you have ' + esc(own.set) + ' (ASP ' + usdC(own.asp) + '): difference ' + (diff > 0 ? '+' : '') + usdC(Math.abs(diff)) : '') + (st.out ? ' · out ' + esc(nameOf(st.out)) : '');
+          return li(st.id, '<span class="pro-p num">' + pct(st.P) + '</span>', sub); }).join('');
+        const sumTxt = reach ? 'With <b>' + plural(reach.k, 'card', 'cartas') + ' (' + usdC(reach.tot) + ')</b> you go from ' + pct(X.base.P) + ' to over 50%.' : 'With these ' + plural(X.steps.length, 'card', 'cartas') + ' (' + usdC(tot) + ') you reach ' + pct(X.final.P) + '.';
+        buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2><span class="small muted">prices from ' + esc(ago(P.at)) + '</span></div><div class="pad small">' + sumTxt + '</div><ul class="list">' + rows + '</ul></div>';
+      }
+      dayHtml = head + baseCard + buyCard;
+    }
+  }
   const famCard = x => {
     const list = [...x.by.values()].sort((a, b) => (TIER_RANK[b.tier] || 0) - (TIER_RANK[a.tier] || 0) || String(nameOf(a.id)).localeCompare(nameOf(b.id)));
     return '<div class="card"><div class="list-head"><h2>' + esc(x.f.name) + '</h2><span class="small muted">' + plural(list.length, 'player', 'players') + '</span></div>' +
       (list.length ? '<ul class="list">' + list.map(e => '<li class="row pro-row">' + face(e.id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(e.id)) + '</b><small class="muted">' + esc([...e.sets].join(', ')) + (multi ? ' · ' + [...e.accs].map(a => esc(accLabel(a))).join(', ') : '') + '</small></span>' + (e.tier ? '<span class="pill">' + esc(e.tier) + (e.n > 1 ? ' ×' + e.n : '') + '</span>' : '') + '</li>').join('') + '</ul>' : '<div class="pad small muted">No cards from these sets in your collection.</div>') + '</div>';
   };
   const owned = hasCol ? '<h2 class="sec-h">What you already have for Pro</h2>' + fams.map(famCard).join('') : empty('Your collection', 'You haven\'t read your collection yet: go to Players → Collection to see which cards you have for Pro.');
-  const admin = S.role === 'admin' ? '<div class="card"><div class="pad small">To get the planner ready before Run 2: open the <a href="sonda-pro.html" target="_blank" rel="noopener">Pro probe</a> on a computer, run it on Top Shot and send me the result.</div></div>' : '';
-  el.innerHTML = intro + owned + admin;
+  const admin = S.role === 'admin' ? '<div class="card"><div class="pad small">To get ready for Run 2: open the <a href="sonda-pro.html" target="_blank" rel="noopener">Pro probe</a> on a computer, run it on Top Shot and send me the result.</div></div>' : '';
+  el.innerHTML = intro + strip + dayHtml + owned + admin;
 }
 // Historic: o dia que vem (para a linha debaixo do título)
 function histMeta() {
@@ -1744,12 +1844,81 @@ function histCalc(H, dayId) {
   const nAcc = accounts().length, port = nAcc > 1 ? FB.histPortfolio(ev, nAcc, 2) : null;
   return (S.histCache[key] = { key, M, ev, sel, port });
 }
+// faixa dos dias como a da run: nos abertos a hipótese de top 40 da equipa sugerida, nos que acabaram o lugar da conta
+function histStrip(H, open, day, C) {
+  const ai0 = S.hacc || 0, today = todayET(), acc = accounts()[ai0] || accounts()[0], ak = addrKey(accAddr(S.session.user.id, (acc || {}).id || 'main'));
+  return '<div class="day-strip" role="group" aria-label="Historic days">' + H.days.map(d => {
+    const isOpen = open.includes(d), done = !!(d.lines && d.lines.length), c = isOpen ? (d === day && C ? C : histCalc(H, d.id)) : null;
+    if (c) hSugSave(d.id, c);
+    const t = c && c.ev.length ? (c.port && c.port.length ? c.port[Math.min(ai0, c.port.length - 1)] : c.ev[0]) : null, now = d === open[0];
+    const me = done && ak ? ((d.mine || {})[ak]) : null, paid = me && me.rank <= hLastPaid(d);
+    const val = t ? pct(t.p40) : me ? me.rank + '.º' : '–', cls = t ? ' c-' + tone(Math.min(1, t.p40 * 2)) : paid ? ' win' : me ? ' loss' : '';
+    return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="h-day" data-id="' + esc(d.id) + '" aria-pressed="' + (d === day) + '"' + (isOpen || done ? '' : ' disabled title="No results yet"') + '><b class="num">' + histDayNo(d.id) + '</b><small>' + (now && histDate(d) === today ? 'Today' : dWeek(histDate(d))) + '</small><span class="ds-v num">' + val + '</span></button>';
+  }).join('') + '</div>';
+}
+// último lugar com prémio num dia (pelas faixas do dia; sem elas, 40)
+const hLastPaid = d => (d.bands && d.bands.length ? Math.max(...d.bands.map(b => +b[1])) : 40);
+// pontos FastBreak de uma linha do placar (pelas regras do Historic)
+function hFbp(H, l) {
+  const W = {}; (H.rubric || []).forEach(e => { W[e.statKey] = +e.weight || 0; });
+  if (!Object.keys(W).length) Object.assign(W, { points: 1, rebounds: 1, assists: 2, steals: 3, blocks: 3, turnovers: -1, three_points_made: 0.5, double_double: 5, triple_double: 10 });
+  return (H.keys || []).reduce((t, k, i) => t + (W[k] || 0) * (+l[3 + i] || 0), 0);
+}
+// a sugestão da app para cada dia (a última vista antes de fechar), guardada neste aparelho para comparar depois
+S.hsug = hLoad('fb-hsug', {});
+function hSugSave(dayId, c) {
+  if (!c || !c.ev.length) return;
+  const t = (c.port && c.port.length ? c.port : [c.ev[0]]).map(x => x.ids), cur = S.hsug[dayId];
+  if (cur && JSON.stringify(cur.t) === JSON.stringify(t)) return;
+  S.hsug[dayId] = { at: new Date().toISOString(), t, mean: Math.round(c.ev[0].mean) };
+  const keys = Object.keys(S.hsug).sort(); while (keys.length > 60) delete S.hsug[keys.shift()];
+  try { localStorage.setItem('fb-hsug', JSON.stringify(S.hsug)); } catch (e) {}
+}
+// dia do Historic que já acabou: o lineup e o lugar de cada conta, a sugestão da app, a melhor equipa possível e as
+// lendas que mais fizeram
+function histPastHtml(H, day) {
+  const pts = new Map(day.lines.map(l => [String(l[0]), { id: String(l[0]), name: l[1], team: l[2], v: hFbp(H, l) }]));
+  const rp = new Map((day.rp || []).map(r => [String(r[0]), +r[1]]));
+  const top = day.top || [], entries = day.entries || null, paidTo = hLastPaid(day);
+  const rankOfScore = v => { if (!top.length) return null; let k = 0; while (k < top.length && top[k] > v + 1e-9) k++; return k < top.length ? k + 1 : null; };
+  const accs = accounts(), ai = Math.min(S.hacc || 0, accs.length - 1), acc = accs[ai] || { id: 'main' };
+  const akOf = a => addrKey(accAddr(S.session.user.id, a.id)), me = (day.mine || {})[akOf(acc)] || null;
+  const noLu = (day.no || []).includes(akOf(acc));
+  const sum = ids => ids.reduce((t, id) => t + ((pts.get(String(id)) || {}).v || 0), 0);
+  const line = (id, tag) => { const x = pts.get(String(id)) || { id, name: nameOfLegend(H, id), team: null, v: 0 }, r = rp.get(String(id));
+    return '<li class="row"><span class="who">' + hFace({ id: x.id, name: x.name, team: x.team }) + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + (tag || '') + '</div><div class="ps">' + esc(hTeam(x.team)) + (r ? ' · ' + f0(r) + ' RP' : '') + '</div></div></span><div class="pv"><div class="v num">' + f1(x.v) + '</div><div class="u">pts</div></div></li>'; };
+  const accBar = accs.length > 1 ? '<div class="j-accs h-accs" role="group" aria-label="Accounts">' + accs.map((a, i) => { const m = (day.mine || {})[akOf(a)]; return '<button type="button" class="acc-chip" data-action="h-acc" data-i="' + i + '" aria-pressed="' + (i === ai) + '">' + esc(a.label) + (m ? ' <b class="num ' + (m.rank <= paidTo ? 'c-good' : '') + '">' + m.rank + '.º</b>' : '') + '</button>'; }).join('') + '</div>' : '';
+  const cut = k => top[k - 1] != null ? f0(top[k - 1]) : '–';
+  const cuts = top.length ? '1.º ' + cut(1) + ' · 10.º ' + cut(10) + ' · 40.º ' + cut(40) + ' pts' + (entries ? ' · ' + entries.toLocaleString('en-GB') + ' teams' : '') : '';
+  const lu = me && me.lu && me.lu.length ? me.lu : null, myPts = me ? (me.score != null ? me.score : lu ? sum(lu) : null) : null;
+  const ring = me ? winRing(1, me.rank <= paidTo ? 'good' : 'bad', me.rank <= paidTo ? '✓' : '✕', me.rank <= paidTo ? 'prize' : 'no prize') : winRing(0, 'mute', '–', noLu ? 'no lineup' : 'not read yet');
+  const hero = '<div class="card hero day-hero past h-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Historic · Day ' + histDayNo(day.id) + ' · ' + dWeek(histDate(day)) + ', ' + dShort(histDate(day)) + '</span><span class="small muted">finished</span></div>' +
+    '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">' + (me ? 'Rank' : 'Points') + '</span><span class="gb-n">' + (me ? me.rank.toLocaleString('en-GB') + '.º' : '–') + '</span><span class="gb-t">' + (myPts != null ? f1(myPts) + ' pts' : noLu ? 'you didn\'t enter' : 'the admin reads it in Read on Top Shot → Historic') + '</span></div></div>' + ring + '</div>' +
+    (cuts ? '<div class="small muted h-odds">' + esc(cuts) + '</div>' : '') +
+    (lu ? '<ul class="list jc-list">' + lu.slice().sort((a, b) => ((pts.get(b) || {}).v || 0) - ((pts.get(a) || {}).v || 0)).map(id => line(id)).join('') + '</ul>' : '') + '</div>';
+  // a sugestão da app nesse dia (guardada neste aparelho) e onde teria ficado
+  const sg = S.hsug[day.id], sIds = sg && sg.t ? sg.t[Math.min(ai, sg.t.length - 1)] : null;
+  const sTot = sIds ? sum(sIds) : null, sRank = sTot != null ? rankOfScore(sTot) : null;
+  const sugCard = sIds ? '<div class="card"><div class="list-head"><h2>The app\'s suggestion</h2><span class="small muted"><b class="num">' + f1(sTot) + ' pts</b> · ' + (sRank ? 'would have finished ' + sRank + '.º' : 'outside the top 40') + '</span></div><ul class="list">' + sIds.slice().sort((a, b) => ((pts.get(b) || {}).v || 0) - ((pts.get(a) || {}).v || 0)).map(id => line(id, lu && lu.includes(id) ? ' <span class="pill ok">entered</span>' : '')).join('') + '</ul></div>' : '';
+  // a melhor equipa possível (com os pontos que saíram e os Roster Points do dia, com as tuas cartas)
+  const rows = [...pts.values()].filter(x => rp.has(x.id)).map(x => ({ id: x.id, mu: x.v, cost: rp.get(x.id) * (1 - (+S.hdisc[x.id] || 0) / 100) })).sort((a, b) => b.mu - a.mu);
+  const ideal = rows.length >= 5 ? (FB.histBest({ rows, budget: +((H.budget || {}).limit) || 350 }, 1) || [])[0] : null;
+  const idealCard = ideal ? '<div class="card"><div class="list-head"><h2>The best possible team</h2><span class="small muted"><b class="num">' + f1(ideal.ev) + ' pts</b> · ' + f0(ideal.cost) + ' RP</span></div><ul class="list">' + ideal.ids.map(id => line(id)).join('') + '</ul></div>' : '';
+  const best = [...pts.values()].sort((a, b) => b.v - a.v).slice(0, 10);
+  const bestCard = '<div class="card"><div class="list-head"><h2>Top-scoring legends</h2></div><ul class="list">' + best.map(x => line(x.id)).join('') + '</ul></div>';
+  return accBar + hero + sugCard + idealCard + bestCard;
+}
+const nameOfLegend = (H, id) => { for (const d of H.days) { const l = (d.lines || []).find(z => String(z[0]) === String(id)) || (d.players || []).find(z => String(z[0]) === String(id)); if (l) return l[1]; } return String(id); };
 function renderHistoric(el) {
   if (typingField('tab-hoje')) return; // a escrever na procura das lendas: não redesenha
   if (!S.histArch) loadHistArch();
   const H = groupHist(), now = Date.now();
   const open = H ? H.days.filter(d => d.players && d.players.length && Date.parse(d.locks) > now) : [];
+  const past = H ? H.days.filter(d => d.lines && d.lines.length) : [];
   const head = '';
+  // um dia que já acabou: o que fizemos, o que a app sugeria, a melhor equipa possível
+  const pd = past.find(d => d.id === S.hday);
+  if (pd || (!open.length && past.length)) { el.innerHTML = head + histStrip(H, open, pd || past[past.length - 1], null) + histPastHtml(H, pd || past[past.length - 1]); return; }
   if (!open.length) {
     el.innerHTML = head + empty('Historic', H ? 'The Top Shot data has no days left to play. The admin reads it again in Settings → Admin → Read on Top Shot → Historic.' : 'No Historic data yet. The admin reads it in Settings → Admin → Read on Top Shot → Historic.',
       S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go" data-do="hist">Read Historic</button>' : '');
@@ -1758,14 +1927,7 @@ function renderHistoric(el) {
   if (!open.some(d => d.id === S.hday)) S.hday = open[0].id;
   const day = open.find(d => d.id === S.hday);
   const C = S.histMemo = histCalc(H, day.id);
-  // faixa dos dias como a da run: os que passaram fechados, nos abertos a hipótese de top 40 da equipa sugerida
-  const ai0 = S.hacc || 0, today = todayET();
-  const strip = '<div class="day-strip" role="group" aria-label="Historic days">' + H.days.map(d => {
-    const isOpen = open.includes(d), c = isOpen ? (d === day ? C : histCalc(H, d.id)) : null;
-    const t = c && c.ev.length ? (c.port && c.port.length ? c.port[Math.min(ai0, c.port.length - 1)] : c.ev[0]) : null, now = d === open[0];
-    const val = t ? pct(t.p40) : '–', cls = t ? ' c-' + tone(Math.min(1, t.p40 * 2)) : !isOpen ? ' past' : '';
-    return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="h-day" data-id="' + esc(d.id) + '" aria-pressed="' + (d === day) + '"' + (isOpen ? '' : ' disabled title="Already played"') + '><b class="num">' + histDayNo(d.id) + '</b><small>' + (now && histDate(d) === today ? 'Today' : dWeek(histDate(d))) + '</small><span class="ds-v num">' + val + '</span></button>';
-  }).join('') + '</div>';
+  const strip = histStrip(H, open, day, C);
   if (!C || !C.ev.length) { el.innerHTML = head + strip + '<div class="note">No team of 5 fits the budget with these choices. Unlock someone or restore someone.</div>' + histLegendsCard(C, day); return; }
   const M = C.M, byId = new Map(M.rows.map(x => [x.id, x])), sel = C.sel, accs = accounts(), port = C.port && C.port.length ? C.port : null;
   const ai = port ? Math.min(S.hacc || 0, port.length - 1) : 0, best = port ? port[ai] : C.ev[0];
@@ -4020,6 +4182,7 @@ function adminHtml(run) {
     '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Standings and picks</button><span class="small muted">Quick. Once a day, before the games.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="lu">Lineups</button><span class="small muted">The lineup each account played on the days that closed. In the morning.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="px">Player prices</button><span class="small muted">1–2 minutes. Now and then.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="pro">Pro prices</button><span class="small muted">2–3 minutes. The cheapest card of each Pro set family.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="hist">Historic</button><span class="small muted">Quick. The legends of the next day and the results of past days.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run and prizes</button><span class="small muted">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>' +
     (S.runRead ? '<div class="note sug"><div>Run read on Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">See what changes</button></div></div>' : '') +
@@ -5825,6 +5988,7 @@ document.addEventListener('click', async e => {
     case 'hold-hist': holdHistSheet(b.dataset.date); break;
     case 'h-day': S.hday = id; S.hdCenter = true; renderHoje(); break;
     case 'h-acc': S.hacc = +b.dataset.i || 0; renderHoje(); break;
+    case 'pro-day': S.proDay = date; S.hdCenter = true; renderHoje(); break;
     case 'h-fix': if (b.dataset.close) closeSheet(); hFix(b.dataset.day, id); break;
     case 'h-ban': if (b.dataset.close) closeSheet(); hBan(b.dataset.day, id); break;
     case 'h-reset': S.hsel[b.dataset.day] = { fix: [], ban: [] }; hSave(); renderHoje(); break;

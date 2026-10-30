@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      18
+// @version      19
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -202,6 +202,20 @@ async function readHist() {
       try { const bx = await call('GameEngineService/GetGameBoxScores', { contestId: c.id }); d.lines = []; (bx.games || []).forEach(G => (G.lines || []).forEach(l => { const st = l.stats || {}; if (Object.keys(st).length) d.lines.push([l.playerId, l.playerName, l.teamId].concat(H_KEYS.map(k => +st[k] || 0))); })); } catch (e) { d.err = String(e.message).slice(0, 60); }
       try { const sl = await call('GameEngineService/GetPlayerSlots', { contestId: c.id }); d.rp = (sl.players || []).map(p => [p.playerId, +p.rosterPoints, Math.round((+p.ownershipPct || 0) * 10) / 10]); } catch (e) {}
       try { const st = await call('GameEngineService/GetContestStandings', { contestId: c.id, limit: 40 }); d.top = (st.rows || []).map(r => +r.score); } catch (e) {}
+      // o lugar, os pontos e o lineup de cada conta do grupo nesse dia (como no Classic: 1 pedido para o lugar e outro
+      // para a linha dela na classificação)
+      for (const a of (job && job.accs) || []) {
+        const ak = String(a.a).replace(/^0x/, '').toLowerCase();
+        try {
+          const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: c.leaderboardId || ('contest:' + c.id), subjectId: ak });
+          if (!r.found) { (d.no = d.no || []).push(ak); continue; }
+          const e = r.entry || {}, x = (d.mine = d.mine || {})[ak] = { rank: +e.rank, score: e.displayScore != null ? +e.displayScore : +e.score };
+          const cur = btoa(JSON.stringify({ s: +e.score, t: +e.tiebreakerScore + 1, a: 0, u: '' })).replace(/=+$/, '');
+          const st = await call('GameEngineService/GetContestStandings', { contestId: c.id, limit: 2, cursor: cur });
+          const row = (st.rows || []).find(z => String(z.flowAddress || '').toLowerCase() === ak);
+          if (row) { x.lu = (row.lineup || []).slice().sort((p, q) => +p.slotIndex - +q.slotIndex).filter(z => z.playerId).map(z => String(z.playerId)); if (row.score != null) x.score = +row.score; }
+        } catch (e) {}
+      }
     }
     out.days.push(d);
   }
@@ -214,7 +228,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 16, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 17, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
     if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar

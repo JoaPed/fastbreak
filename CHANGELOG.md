@@ -3,6 +3,10 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-10-30
+- **João** — Historic: os dias que acabaram abrem-se na faixa: lugar e lineup de cada conta, a sugestão da app (e onde teria ficado), a melhor equipa possível e as lendas que mais fizeram. Leitor do Top Shot v19 (lê os lineups do Historic).
+- **João** — Pro em ensaio na Run 1: cada dia com uma regra inventada (MGLE, Holo Icon, estreias); lineup só com o que tens e as cartas a comprar para ficar competitivo, com preço e a diferença para a carta que já tens. Admin → Ler no Top Shot → **Preços do Pro**.
+
 ## 2026-10-29
 - **João** — Discord: só lê o que chega dos canais seguidos do Top Shot (a conversa do servidor fica de fora) e só manda para o Telegram o que passa o filtro (`scripts/discord-filter.json`: canais e palavras).
 - **João** — Discord → Telegram: as mensagens novas do servidor do grupo no Discord (canais de anúncios do Top Shot seguidos lá) vão para o grupo do Telegram (precisa do segredo `DISCORD_BOT_TOKEN`).
