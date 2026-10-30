@@ -1634,8 +1634,7 @@ S.jmode = (() => { try { return localStorage.getItem('fb-jmode') || 'classic'; }
 const JMODES = [['classic', 'Classic'], ['historic', 'Historic'], ['pro', 'Pro']];
 // o modo escolhe-se no título (na Jornada): "Run 1 · Classic ▾" — não ocupa uma linha por cima do lineup
 function modeTitle(run) {
-  const H = groupHist(), hn = H && H.run && String(H.run.name || '').match(/run\s*(\d+)/i);
-  const lab = { classic: run ? run.name : 'Classic', historic: 'Historic' + (hn ? ' · Run ' + hn[1] : ''), pro: 'Pro' };
+  const lab = { classic: 'Classic', historic: 'Historic', pro: 'Pro' }; // só o modo (o n.º da run não é preciso aqui)
   return '<span class="mode-pick">' + esc(lab[S.jmode] || lab.classic) + '<svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
     '<select id="jmode" aria-label="Modo da Jornada">' + JMODES.map(([k]) => '<option value="' + k + '"' + (S.jmode === k ? ' selected' : '') + '>' + esc(lab[k]) + '</option>').join('') + '</select></span>';
 }
