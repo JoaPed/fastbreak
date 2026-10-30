@@ -1115,7 +1115,7 @@ with sync_playwright() as pw:
     pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-row, #buyOut .note', timeout=30000); pg.wait_for_timeout(300)
     print('K3 compras com preços:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:420])
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
-    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(400); pg.click('#tab-ajustes button[data-action="ranks-go"][data-do="px"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
+    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(400); pg.click('#tab-ajustes button[data-action="ranks-go"][data-do^="px"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
     job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
     print('K3 pedido ao Top Shot:', len(job['accs']), 'contas ·', len(job.get('pl') or []), 'jogadores para preços · 1.º:', (job.get('pl') or [None])[0])
     # a app do ecrã principal (ou outro aparelho) não tem o que o Safari guardou: os preços e lugares vêm do meu resumo

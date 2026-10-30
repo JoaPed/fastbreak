@@ -4179,14 +4179,12 @@ function adminHtml(run) {
   // leituras no Top Shot (só o admin): cada uma abre o Fast Break no Top Shot e volta com o que leu
   out.push('<div class="card panel"><h2>Read on Top Shot</h2>' +
     (S.edPending && edOn() ? '<div class="note sug"><div>Card reading waiting for your OK (rarity and ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">See what changes</button></div></div>' : '') +
-    '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks">Standings and picks</button><span class="small muted">Quick. Once a day, before the games.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="lu">Lineups</button><span class="small muted">The lineup each account played on the days that closed. In the morning.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="px">Player prices</button><span class="small muted">1–2 minutes. Now and then.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="pro">Pro prices</button><span class="small muted">2–3 minutes. The cheapest card of each Pro set family.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="hist">Historic</button><span class="small muted">Quick. The legends of the next day and the results of past days.</span></div>' +
+    // leituras juntas (pedido do João): o dia a dia num botão, os preços noutro
+    '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks,lu,hist">Standings, picks, lineups and Historic</button><span class="small muted">1–2 minutes. Once a day, in the morning or before the games.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="' + (edOn() ? 'px,ed' : 'px') + '">Player prices' + (edOn() ? ' and card ASP' : '') + '</button><span class="small muted">2–4 minutes. Every now and then.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="pro">Pro prices</button><span class="small muted">2–3 minutes. The cheapest card of each Pro set family. Once a day is enough.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run and prizes</button><span class="small muted">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>' +
     (S.runRead ? '<div class="note sug"><div>Run read on Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">See what changes</button></div></div>' : '') +
-    (edOn() ? '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="ed">Cards (ASP)</button><span class="small muted">1–2 minutes. Rarity and ASP of every card in the group.</span></div>' : '') +
     '<div class="small muted">On Top Shot tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div></div>');
   out.push(jobsCard());
   const imp = chainImportCard(); if (imp) out.push(imp);
