@@ -1023,6 +1023,7 @@ with sync_playwright() as pw:
     pg.set_viewport_size({'width': 390, 'height': 1300})
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(5000)
+    print('N lineup levado mantido:', sorted(pg.locator('#tab-hoje .day-hero .jc-list button[data-id]').evaluate_all('els => els.map(e => e.dataset.id)')), '· diag:', pg.locator('#tab-hoje .live-diag').inner_text().replace('\n', ' ') if pg.locator('#tab-hoje .live-diag').count() else 'sem linha')
     print('N botões ao vivo:', pg.locator('#tab-hoje .day-hero .jc-btns').inner_text().replace(chr(10), ' | '))
     pg.click('#tab-hoje button[data-action="live-lu"]'); pg.wait_for_timeout(2500)
     print('N folha:', pg.locator('#sheetPanel').inner_text().replace(chr(10), ' | ')[:700])
