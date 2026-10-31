@@ -1833,13 +1833,12 @@ function proDay(date) {
 // as minhas cartas de um jogador (todas as contas), por set, com o ASP da edição (leitura das cartas, se houver)
 function proMyCards(id) {
   const col = (S.profile || {}).collection, by = new Map();
-  Object.values((col && col.items) || {}).forEach(it => {
-    if (String(it.p) !== String(id)) return;
-    const base = String(it.s || '?').split(' · ')[0], e = by.get(base) || by.set(base, { set: base, tier: setTier(col, it.s), n: 0, accs: new Set(), asp: null }).get(base);
-    e.n++; e.accs.add(it.a || 'main');
+  Object.keys((col && col.items) || {}).forEach(f => {
+    const it = col.items[f]; if (String(it.p) !== String(id)) return;
+    const e = cardEd(col, f), k = String(it.s || '?') + '|' + (it.m || '') + '|' + (it.se != null ? it.se : '');
+    const g = by.get(k) || by.set(k, { set: String(it.s || '?').split(' · ')[0], m: it.m || null, tier: (e && e.tier) || momentTier(col, f), n: 0, accs: new Set(), asp: e && e.asp > 0 ? e.asp : null, ask: e && e.ask ? e.ask : null }).get(k);
+    g.n++; g.accs.add(it.a || 'main');
   });
-  const rows = (S.edMine && S.edMine.p && S.edMine.p[id]) || [];
-  by.forEach(e => { const r = rows.filter(x => norm(String(x[0]).replace(/\s*\d+$/, '')) === norm(e.set.replace(/\s*\d+$/, '')) && x[3] > 0).sort((a, b) => b[3] - a[3])[0]; if (r) e.asp = r[3]; });
   return [...by.values()].sort((a, b) => (b.asp || 0) - (a.asp || 0) || (TIER_RANK[b.tier] || 0) - (TIER_RANK[a.tier] || 0));
 }
 // a carta mais valiosa que já tens desse jogador (para a diferença até à carta do Pro)
@@ -1851,9 +1850,9 @@ function proCardSheet(date, i) {
   const row = (l, v) => '<div class="pro-kv"><span class="muted">' + l + '</span><b>' + v + '</b></div>';
   openSheet('<h3>' + esc(nameOf(st.id)) + '</h3>' +
     row('Card that counts (cheapest for sale)', esc(tierTxt(st.row[1])) + ' · ' + esc(st.row[2] || X.rule.name) + ' · ' + usdC(st.pr)) +
-    (own ? row('Your most valuable card of him', esc(own.set) + (own.tier ? ' · ' + esc(own.tier) : '') + ' · ' + (own.asp ? 'ASP ' + usdC(own.asp) : 'no ASP read')) +
+    (own ? row('Your most valuable card of him', esc(own.set) + (own.m ? ' /' + f0(own.m) : '') + (own.tier ? ' · ' + esc(own.tier) : '') + ' · ' + (own.asp ? 'ASP ' + usdC(own.asp) : 'no ASP read')) +
       (own.asp ? row('Difference (if you sell yours)', (st.pr - own.asp > 0 ? '+' : '−') + usdC(Math.abs(st.pr - own.asp))) : '') : row('Your card of him', 'you don\'t have one')) +
-    (mine.length > 1 ? '<div class="small muted">You also have: ' + mine.slice(1).map(c => esc(c.set) + (c.asp ? ' (ASP ' + usdC(c.asp) + ')' : '')).join(', ') + '</div>' : '') +
+    (mine.length > 1 ? '<div class="small muted">You also have: ' + mine.slice(1).map(c => esc(c.set) + (c.m ? ' /' + f0(c.m) : '') + (c.asp ? ' (ASP ' + usdC(c.asp) + ')' : '')).join(', ') + '</div>' : '') +
     row('This day', pct(st.P0) + ' → <span class="c-good">' + pct(st.P) + '</span>' + (st.out ? ' · out ' + esc(nameOf(st.out)) : '')) +
     (st.row && st.row[3] ? '<div class="small muted">ASP of the card that counts: ' + usdC(st.row[3]) + '</div>' : '') +
     '<div class="btns"><button class="btn primary" type="button" data-action="close-sheet">OK</button></div>');
@@ -2088,10 +2087,10 @@ function renderHistoric(el) {
   // com smurfs: uma equipa por conta (botões com a hipótese de cada uma) e a hipótese de pelo menos uma chegar lá
   const accBar = port ? '<div class="j-accs h-accs" role="group" aria-label="Accounts">' + port.map((p, i) => '<button type="button" class="acc-chip" data-action="h-acc" data-i="' + i + '" aria-pressed="' + (i === ai) + '">' + esc(accLabel((accs[i] || {}).id || 'main')) + ' <b class="num c-' + tone(Math.min(1, p.p40 * 2)) + '">' + pct(p.p40) + '</b></button>').join('') + '</div>' +
     '<div class="small muted h-port">A different team for each account: together, at least one makes the top 40 in <b>' + pct(port[port.length - 1].union) + '</b> (with the best one only: ' + pct(port[0].p40) + ').</div>' : '';
+  const cut40 = M.cuts.length ? (M.cuts[39] != null ? M.cuts[39] : M.cuts[M.cuts.length - 1]) : null;
   const cutTxt = M.cuts.length ? 'On days with ' + plural((day.games || []).length, 'game', 'games') + ', 40th place (the last with a prize) scored ' + f0(M.cuts[39] != null ? M.cuts[39] : M.cuts[M.cuts.length - 1]) + ' and 10th ' + f0(M.cuts[9] != null ? M.cuts[9] : M.cuts[0]) + '.' : '';
   // de quantos dias jogados aprende o modelo (os do Top Shot e os do arquivo de outras runs)
   const nRuns = new Set(M.dayIds.map(id => String(id).replace(/-d\d+$/, ''))).size;
-  const learnTxt = ' Learns from ' + plural(M.dayIds.length, 'day played', 'days played') + (nRuns > 1 ? ' of ' + nRuns + ' runs' : '') + '.';
   const row = id => {
     const x = byId.get(id), fx = sel.fix.includes(id), opp = x.opp ? (day.games.some(g => g[1] === x.team) ? 'vs ' : '@ ') + hTeam(x.opp) : '';
     return '<li><button class="row" type="button" data-action="h-card" data-id="' + esc(id) + '" data-day="' + esc(day.id) + '"><span class="who">' + hFace(x) + '<div style="min-width:0"><div class="pn">' + (fx ? icoLock : '') + '<span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + '</div>' +
@@ -2103,11 +2102,11 @@ function renderHistoric(el) {
   const hero = '<div class="card hero day-hero h-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Historic · Day ' + histDayNo(day.id) + ' · ' + dWeek(histDate(day)) + ', ' + dShort(histDate(day)) + '</span><span class="small muted">locks at ' + hm(day.locks) + '</span></div>' +
     '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">Expected points</span><span class="gb-n">' + f0(best.mean) + '</span><span class="gb-t">± ' + f0(best.sd) + ' · ' + f0(best.cost) + ' of ' + M.budget + ' RP</span></div></div>' +
     winRing(best.p40, tone(Math.min(1, best.p40 * 2)), pct(best.p40), 'top 40') + '</div>' +
-    '<div class="small muted h-odds">Top 10 ' + pct(best.p10) + ' · 1st place ' + pct(best.p1) + '. ' + esc(cutTxt + learnTxt) + '</div>' +
+    '<div class="small muted h-odds">Top 10 <b>' + pct(best.p10) + '</b> · 1.º <b>' + pct(best.p1) + '</b>' + (cut40 != null ? ' · 40.º ≈ <b>' + f0(cut40) + '</b> pts' : '') + '</div>' +
     '<ul class="list jc-list">' + best.ids.map(row).join('') + '</ul>' +
     (sel.fix.length || sel.ban.length ? '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="h-reset" data-day="' + esc(day.id) + '">Back to the suggestion</button></div>' : '') + '</div>';
   const alts = C.ev.filter(r => !(port || [best]).some(p => p.ids.join() === r.ids.join()) && (!C.fits || C.fits(r, ai))).slice(0, 3).map(r => Object.assign({}, r, { cost: C.costIn ? C.costIn(r.ids, ai) : r.cost })).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
-  const H0 = groupHist(), src = '<div class="small muted h-src">Top Shot data from ' + esc(ago(H0.at)) + ' · ' + plural(M.dayIds.length, 'day played', 'days played') + ' in the simulation' + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">read again</button>' : '') + '</div>';
+  const H0 = groupHist(), src = '<div class="small muted h-src">Top Shot data from ' + esc(ago(H0.at)) + ' · learns from ' + plural(M.dayIds.length, 'day played', 'days played') + (nRuns > 1 ? ' of ' + nRuns + ' runs' : '') + '. ' + esc(cutTxt) + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">read again</button>' : '') + '</div>';
   el.innerHTML = head + strip + accBar + hero + (alts ? '<div class="card"><div class="list-head"><h2>Other teams</h2><span class="small muted">by the same math</span></div><ul class="list">' + alts + '</ul></div>' : '') + histLegendsCard(C, day) + src;
   hFilter();
 }
@@ -4903,7 +4902,8 @@ function cardsBlock(id) {
     const [base, ...sub] = String(it.s || '').split(' · ');
     return '<li class="row mo-row"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + TIER_CLS[t] + '">' + esc(t) + '</span>' + (up ? '<span class="tpill t-asp">' + esc(b[2]) + '</span>' : '') + (w !== 5 && WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">for sale</span>' : '') + '</div>' +
       '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
-      '<div class="ps">' + [it.n ? '#' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') : it.m ? 'mint count ' + f0(it.m) : '', groupMode() ? accLabel(it.a) : '', e && e.ask ? 'listed from ' + usd(e.ask / 100) : '', e && e.asp > 0 ? 'ASP ' + usd(e.asp / 100) : e ? 'no sales' : 'no Top Shot data'].filter(Boolean).map(esc).join(' · ') + '</div>' +
+      '<div class="ps">' + [it.n ? '#' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') : it.m ? 'mint count ' + f0(it.m) : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
+      '<div class="mo-px">' + (e && e.asp > 0 ? '<span>ASP <b class="num">' + usd(e.asp / 100) + '</b></span>' : '<span class="muted">' + (e ? 'no sales' : 'no Top Shot data') + '</span>') + (e && e.ask ? '<span class="muted">listed from <b class="num">' + usd(e.ask / 100) + '</b></span>' : '') + '</div>' +
       (e && e.tier ? '' : '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Tier of this card">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + usesTxt(TIER_USES[z]) + '</option>').join('') + '</select>') + '</div>' +
       '<div class="pv mo-u' + (cu === u ? ' top' : '') + '"><div class="v num">' + usesN(cu) + '</div><div class="u">' + (cu === 1 ? 'use' : 'uses') + '</div></div></li>'; }).join('');
   const tc = {}; its.forEach(x => { tc[x.t] = (tc[x.t] || 0) + 1; });

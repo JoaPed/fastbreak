@@ -1100,7 +1100,7 @@ with sync_playwright() as pw:
     pg.click('#tab-hoje button[data-action="h-reset"]'); pg.wait_for_timeout(500)
     pg.locator('#tab-hoje button[data-action="h-day"][data-id$="-d11"]').click(); pg.wait_for_timeout(800)
     print('O dia 11:', pg.locator('#tab-hoje .h-hero .eyebrow').inner_text(), '·', len(pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()), 'lendas na equipa')
-    print('O arquivo:', pg.locator('#tab-hoje .h-odds').first.inner_text().split('. ')[-1])
+    print('O arquivo:', pg.locator('#tab-hoje .h-src').first.inner_text()[:160], '· linha curta:', pg.locator('#tab-hoje .h-hero .h-odds').inner_text())
     pg.click('#tab-hoje button[data-action="h-day"][data-id$="-d9"]'); pg.wait_for_timeout(600)
     print('O dia que acabou:', pg.locator('#tab-hoje .h-hero .hero-top').inner_text().replace('\n', ' '), '·', pg.locator('#tab-hoje .card h2').all_inner_texts())
     pg.select_option('#jmode', 'pro'); pg.wait_for_timeout(1200)

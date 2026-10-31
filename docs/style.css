@@ -1115,7 +1115,7 @@ p, .note { text-wrap: pretty; }
 .mode-pick:has(select:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
 /* Historic: dias já jogados ficam esbatidos (sem lineup nosso para mostrar) */
 .ds:disabled { opacity: .45; cursor: default; }
-.h-hero .h-odds { padding: 0 16px; position: relative; }
+.h-hero .h-odds { padding: 0; margin-top: 8px; position: relative; } .h-hero .h-odds b { color: var(--board-ink); }
 .h-hero .gb-n { font-size: 34px; }
 .h-alt .ps { white-space: normal; }
 .lu-row.h-ban { opacity: .55; }
@@ -1208,3 +1208,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .gc tr.me td.who2 { box-shadow: inset 3px 0 0 var(--accent), -8px 0 0 var(--surface), 4px 0 0 var(--surface); }
 .h-disc { font-weight: 700; color: var(--good); }
 .hero .h-disc { color: var(--board-good); }
+/* preço de cada carta (Plantel → As tuas cartas): linha própria, sem cortar */
+.mo-px { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; margin-top: 3px; }
+.mo-px b { font-family: var(--font-display); font-weight: 800; font-size: 16px; color: var(--ink); }
+.mo-px .muted b { font-size: 14px; color: var(--muted); }
