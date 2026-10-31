@@ -352,7 +352,7 @@ const HELP = {
   porque: ['Em que se baseia', 'Odds das casas de apostas quando há; senão médias da época com a forma e o adversário. O número de cada jogador (pp) é quanto ele soma à vitória do dia: sem ele, entrava o melhor que sobra. “Poupa outros”: está aqui para guardar alguém melhor para outro dia. Os de fora estão guardados para outros dias ou rendem menos.'],
   comparar: ['Comparar', 'Todos os teus jogadores com jogo neste dia. Números grandes: últimos 5 jogos; pequenos: época. Adv.: quanto o adversário concede desta estatística. Toca num título para ordenar e num jogador para abrir a ficha.'],
   transf: ['Transferências', 'Um Moment só joga por uma conta em cada noite. Antes da noite indicada, oferece o Moment à outra conta no Top Shot e depois lê as carteiras outra vez (Jogadores → Coleção).'],
-  vender: ['Vender', 'Cartas de todas as tuas contas. Não usadas: jogadores que nenhuma conta usou nem usa no resto da run (e em quantas runs isso já aconteceu). Repetidas: jogadores com cartas a mais para o que o plano usa (cada conta que o usa n vezes precisa de uma carta com pelo menos n usos, e cada carta só joga numa conta por noite). Rara a mais: o plano usa-o poucas vezes e uma carta mais barata, com menos usos, chega. Poupar: trocar a tua por uma do mesmo jogador e da mesma raridade à venda mais barata. Low ask = a carta mais barata à venda dessa edição; ao vender o Top Shot fica com 5%.'],
+  vender: ['Vender', 'Cartas de todas as tuas contas. Não usadas: jogadores que nenhuma conta usou nem usa no resto da run (e em quantas runs isso já aconteceu). Repetidas: jogadores com cartas a mais para o que o plano usa (cada conta que o usa n vezes precisa de uma carta com pelo menos n usos, e cada carta só joga numa conta por noite). Rara a mais: o plano usa-o poucas vezes e uma carta mais barata, com menos usos, chega. Poupar: trocar a tua por outra do mesmo jogador, de qualquer raridade, que dê os mesmos usos e esteja à venda mais barata. Low ask = a carta mais barata à venda dessa edição; ao vender o Top Shot fica com 5%.'],
   premios: ['Prémios', 'Cada aro é a probabilidade de acabares a run com pelo menos esse número de vitórias: cheio é certo. Verde provável, amarelo meio-meio, vermelho difícil. O plano escolhe os lineups para subir estas probabilidades.'],
   dist: ['Vitórias no fim', 'A probabilidade de cada total de vitórias no fim da run. As cores marcam os patamares de prémio; o contorno é o total mais provável.'],
   contas: ['Contas', 'O plano junta as coleções das tuas contas como se fossem uma só e escolhe o lineup de cada uma. Toca numa conta para ver os prémios dela.'],
@@ -4720,7 +4720,8 @@ function mktBlock(id) {
 // Três listas, das cartas de todas as tuas contas (procura por jogador, equipa ou raridade):
 // · Não usadas: jogadores que nenhuma conta usa no resto da run (todas as cartas deles)
 // · Repetidas: jogadores com mais de uma carta, com quantas de cada raridade; ao tocar, cada carta com o preço
-// · Poupar: trocar a tua por uma igual (os mesmos usos ou mais) à venda mais barata; poupas a diferença (−5% na venda)
+// · Poupar: trocar a tua por outra do mesmo jogador com os mesmos usos (ou mais) à venda mais barata, de qualquer
+//   raridade; poupas a diferença (−5% na venda)
 // O preço de cada carta é a mais barata à venda da mesma edição (low ask), lida com as Cartas (ASP) no Admin.
 const SELL_FEE = 0.05;
 const nContas = n => n + (n === 1 ? ' conta' : ' contas');
@@ -4792,9 +4793,9 @@ function sellSwaps(ps) {
   ps.forEach(P => { const mk = mkOf(P.id); if (!mk) return;
     P.cards.forEach(c => { if (!c.ask) return;
       const [cb, ...cs] = String(c.it.s || '').split(' · '), same = m => (c.it.si != null && m[6] != null ? +m[6] === +c.it.si && +m[7] === +c.it.pi : setBaseN(m[4]) === setBaseN(cb) && (isStd(m[5]) ? !cs.length : norm(m[5]) === norm(cs.join(' · '))));
-      // a mesma raridade (de qualquer set) e pelo menos os mesmos usos: uma Fandom que dá 3 usos pelo ASP (All-Star) só
-      // se troca por outra que também dê 3, nunca por uma que dê menos
-      const pool = mk.list.filter(m => TS_TIER(m[2]) === c.t && !same(m) && m[0] >= c.u).sort((a, b) => a[1] - b[1]);
+      // qualquer raridade e qualquer set, desde que dê pelo menos os mesmos usos: uma Fandom que dá 3 usos pelo ASP
+      // (All-Star) só se troca por outra carta que também dê 3, nunca por uma que dê menos
+      const pool = mk.list.filter(m => !same(m) && m[0] >= c.u).sort((a, b) => a[1] - b[1]);
       const alt = pool[0];
       if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
       if (save >= 100) out.push({ P, c, alt, save, less: alt[0] < c.u });
@@ -4842,7 +4843,7 @@ function sellHtml() {
   if (tab === 'naousadas') { list = unused.map(P => prow(P, idleTxt(P))).join(''); empty = S.result ? 'Todos os teus jogadores são usados nesta run.' : 'Sem plano calculado.'; }
   if (tab === 'repetidas') { list = reps.map(P => prow(P, esc(useTxt(P.use)) + ' · ' + plural(P.nExtra, 'carta a mais', 'cartas a mais'), true)).join(''); empty = 'Nenhum jogador com cartas a mais para o que o plano usa.'; }
   if (tab === 'raras') { list = downs.map((x, i) => srow(x, i, 'sell-down', esc(useTxt(x.P.use)) + ' · chega ' + (x.need === 1 ? 'uma Common' : 'uma de ' + usesTxt(x.need)) + ' por <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'Nenhuma carta com mais usos do que o plano precisa que compense trocar.' : 'Faltam os preços do mercado.'; }
-  if (tab === 'poupar') { list = swaps.map((x, i) => srow(x, i, 'sell-swap', 'Vendes por <b class="num">' + usd(x.c.ask / 100) + '</b> · compras por <b class="num">' + usd(x.alt[1] / 100) + '</b>' + (x.less ? ' · <span class="c-warn">dá ' + usesTxt(x.alt[0]) + '</span>' : ''))).join(''); empty = hasPx ? 'Nenhuma troca que poupe pelo menos $1.' : 'Faltam os preços do mercado.'; }
+  if (tab === 'poupar') { list = swaps.map((x, i) => srow(x, i, 'sell-swap', 'Vendes por <b class="num">' + usd(x.c.ask / 100) + '</b> · compras ' + (TS_TIER(x.alt[2]) && TS_TIER(x.alt[2]) !== x.c.t ? 'uma ' + esc(TS_TIER(x.alt[2])) + ' ' : '') + 'por <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'Nenhuma troca que poupe pelo menos $1.' : 'Faltam os preços do mercado.'; }
   const ed = S.edMine && S.edMine.at ? S.edMine.at : null;
   return '<div class="card"><div class="list-head"><h2>Vender ' + helpBtn('vender') + '</h2><span class="small muted">preços ' + (ed ? ago(ed) : 'por ler') + '</span></div>' +
     '<div class="lu-search"><input class="field" id="sellSearch" type="search" placeholder="Jogador, equipa ou raridade…" autocomplete="off" aria-label="Procurar jogador, equipa ou raridade" value="' + esc(S.sellQ || '') + '"></div>' +
@@ -4878,12 +4879,12 @@ function sellPlayerSheet(id) {
 function sellSwapSheet(i, down) {
   const x = ((S.sellData || {})[down ? 'downs' : 'swaps'] || [])[i]; if (!x) return;
   const a = x.alt;
-  openSheet('<h3>' + esc(nameOf(x.P.id)) + '</h3><div class="small muted">' + (down ? 'Rara a mais: ' + esc(useTxt(x.P.use)) : 'Trocar por uma igual mais barata') + '</div>' +
+  openSheet('<h3>' + esc(nameOf(x.P.id)) + '</h3><div class="small muted">' + (down ? 'Rara a mais: ' + esc(useTxt(x.P.use)) : 'Trocar por uma mais barata com os mesmos usos') + '</div>' +
     (down ? '<div class="note info">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' chega. Se o quiseres usar mais vezes nas próximas runs, a tua dá ' + esc(usesTxt(x.c.u)) + '.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>A tua</h2></div><ul class="list">' + sellCardLi(x.c, '') + '</ul></div>' +
     '<div class="card"><div class="list-head"><h2>A que compras</h2></div><ul class="list"><li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[TS_TIER(a[2])] || 'c') + '">' + esc(TS_TIER(a[2]) || a[2]) + '</span></div><div class="mo-set">' + esc(a[4]) + (a[5] && !isStd(a[5]) ? ' <span class="muted">· ' + esc(a[5]) + '</span>' : '') + '</div><div class="ps sell-d">' + esc(usesTxt(a[0])) + ' · ' + (a[3] > 0 ? 'ASP ' + usd(a[3] / 100) : 'ASP —') + '</div></div><div class="sell-g"><b class="num">' + usd(a[1] / 100) + '</b><small>low ask</small></div></li></ul></div>' +
     '<div class="card panel">' + [['Vendes a tua (low ask)', usd(x.c.ask / 100)], ['Comissão (5%)', '−' + usd(x.c.ask * SELL_FEE / 100)], ['Compras a outra (low ask)', '−' + usd(a[1] / 100)], ['Poupas', '<b class="c-good">+' + usd(x.save / 100) + '</b>']].map(([k, v]) => '<div class="status-line"><span>' + k + '</span><span>' + v + '</span></div>').join('') + '</div>' +
-    (down ? '' : x.less ? '<div class="note">A outra dá ' + esc(usesTxt(x.alt[0])) + ' por run e a tua dá ' + esc(usesTxt(x.c.u)) + ' (o ASP dela é mais baixo).</div>' : '<div class="small muted">Mesma raridade, com os mesmos usos (' + esc(usesTxt(x.c.u)) + ') ou mais.</div>') +
+    (down ? '' : x.less ? '<div class="note">A outra dá ' + esc(usesTxt(x.alt[0])) + ' por run e a tua dá ' + esc(usesTxt(x.c.u)) + ' (o ASP dela é mais baixo).</div>' : '<div class="small muted">Dá os mesmos usos (' + esc(usesTxt(x.c.u)) + ') ou mais.</div>') +
     '<div class="small muted">Preços do mercado ' + ago(mkOf(x.P.id).at) + ': confirma no Top Shot antes de vender.</div>');
 }
 // as cartas (Moments) de um jogador, cada uma com o escalão que tem: muda-se carta a carta
