@@ -1206,3 +1206,5 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .gc td.who2 .avatar { display: inline-grid; vertical-align: middle; margin-right: 7px; }
 .gc td.who2 > span:not(.avatar) { display: inline-grid; vertical-align: middle; }
 .gc tr.me td.who2 { box-shadow: inset 3px 0 0 var(--accent), -8px 0 0 var(--surface), 4px 0 0 var(--surface); }
+.h-disc { font-weight: 700; color: var(--good); }
+.hero .h-disc { color: var(--board-good); }

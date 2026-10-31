@@ -1079,6 +1079,8 @@ with sync_playwright() as pw:
     h0 = pg.locator('#runMeta').inner_text().replace('\n', ' ')
     pg.locator('#tab-hoje button.acc-chip[data-acc="s1"]').first.click(); pg.wait_for_timeout(500)
     print('O cabeçalho segue a conta:', h0, '→', pg.locator('#runMeta').inner_text().replace('\n', ' '))
+    pg.click('#t-grupo'); pg.wait_for_timeout(500); hg = pg.locator('#runMeta').inner_text().replace('\n', ' '); pg.click('#t-hoje'); pg.wait_for_timeout(500)
+    print('O noutras abas, a melhor conta:', hg, '· ok' if hg == h0 else '· ERRO')
     pg.locator('#tab-hoje button.acc-chip[data-acc="main"]').first.click(); pg.wait_for_timeout(300)
     pg.select_option('#jmode', 'historic'); pg.wait_for_timeout(800)
     print('O historic:', ' · '.join(pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()), '|', pg.locator('#tab-hoje .h-hero .gb').inner_text().replace('\n', ' '), '| dias:', pg.locator('#tab-hoje .day-strip .ds:not([disabled])').count(), 'de', pg.locator('#tab-hoje .day-strip .ds').count())
@@ -1105,6 +1107,23 @@ with sync_playwright() as pw:
     print('O pro:', pg.locator('#runMeta').inner_text(), '·', pg.locator('#tab-hoje .card h2').all_inner_texts(), '· dias:', pg.locator('#tab-hoje .day-strip .ds').all_inner_texts())
     pg.select_option('#jmode', 'classic'); pg.wait_for_timeout(800)
     print('O volta ao Classic:', pg.locator('#tab-hoje .day-strip [data-action="hd"]').count() > 0)
+    pg.close()
+    # O3: desconto de colecionador por conta, pela carteira (cartas de lendas): Drexler Ultimate só na terose (−20%)
+    colH = {'sets': {'Legends of the Paint': {'tier': 'Ultimate'}}, 'items': {}, 'players': {}, 'lg': {'clyde drexler': {'n': 'Clyde Drexler', 'c': {'s1': ['Legends of the Paint']}}}}
+    dbo3 = seeded(); To3 = dbo3['tables']; To3['runs'][0]['fictitious'] = False
+    To3['members'].append({'user_id': 'u-eu', 'role': 'admin'}); To3['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'smurfs': [{'id': 's1', 'topshot_username': 'terose'}], 'collection': colH})
+    To3['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    To3['chain_results'] = []; To3['injuries'] = []
+    pg = new_page(b, dbo3)
+    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(HISTJ) + "); localStorage.setItem('fb-jmode', 'historic'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-29T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    dx0 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text()
+    pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(600)
+    dx1 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text(); tm1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()
+    print('O3 desconto por conta:', dx0, '|', dx1, '|', tm1, '· ok' if '87 RP' in dx0 and '−' not in dx0 and '70 RP −20%' in dx1 else '· ERRO')
     pg.close()
     # O2: Grupo → Classificação → Historic: o lugar de cada conta em cada dia, com prémio
     HO = json.loads(HISTJ); AE, AS, AR = 'e7fb03955ade55fa', '1111aaaa2222bbbb', '5555eeee6666ffff'

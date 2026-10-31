@@ -406,6 +406,10 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   ok('historic: simulação dá probabilidades e média perto do esperado', ev.every(r => r.p40 >= r.p10 && r.p10 >= r.p1 && Math.abs(r.mean - r.ev) < 4), ev.map(r => [r.mean, r.ev, r.p40]));
   const all = FB.histEval(M, best, 2000).sort((p, q) => (q.p40 - p.p40) || (q.mean - p.mean)), port = FB.histPortfolio(all, 3, 2);
   ok('historic: smurfs com equipas diferentes (≥ 2 lendas) e a hipótese de pelo menos uma sobe', port.length === 3 && port.every((p, i) => port.slice(0, i).every(o => p.ids.filter(id => !o.ids.includes(id)).length >= 2)) && port[2].union > port[0].p40 && port[0].ids.join() === all[0].ids.join(), port.map(p => [p.p40, p.union]));
+  // conta com orçamento próprio (descontos das cartas dela): só recebe equipas que lhe servem
+  const okK = (e, k) => k !== 1 || !e.ids.includes(all[0].ids[0]);
+  const port2 = FB.histPortfolio(all, 3, 2, okK);
+  ok('historic: equipa de cada conta respeita o que lhe serve', port2.length === 3 && !port2[1].ids.includes(all[0].ids[0]) && port2[0].ids.join() === all[0].ids.join(), port2.map(p => p.ids));
   const M11 = FB.histModel(H, 'run-fb-historic-2026-10-20-d11', { now: Date.parse('2026-10-29T14:00:00Z') }), t0 = Date.now(), b11 = FB.histBest(M11, 200);
   ok('historic: 100 lendas (dia 11) em menos de 1 s', b11.length === 200 && Date.now() - t0 < 1000, Date.now() - t0);
 }

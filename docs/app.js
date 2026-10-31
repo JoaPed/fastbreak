@@ -1479,7 +1479,7 @@ function renderHeader() {
   if (run.fictitious) bits.push('<span class="chip">Teste</span>');
   // uma linha só: em que dia vai e o registo (as datas estão na faixa da Jornada)
   // com smurfs: o registo e as bolinhas da conta com mais vitórias (em empate, a principal); depois de escolheres uma conta, os dessa
-  if (r) { const nd = nextDay(), bk = S.accPicked && S.multi && S.multi.byKey[S.acc] ? S.acc : bestAcc(), m = S.multi ? S.multi.byKey[bk] : r; bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span>', runDots(nd, bk) + recChip(m.wins, m.losses) + (S.multi && accounts().length > 1 ? '<span class="rec-acc">' + esc(accLabel(bk)) + '</span>' : '')); }
+  if (r) { const nd = nextDay(), bk = S.tab === 'hoje' && S.accPicked && S.multi && S.multi.byKey[S.acc] ? S.acc : bestAcc(), m = S.multi ? S.multi.byKey[bk] : r; bits.push('<span>' + (nd ? 'Dia ' + (nd.idx + 1) + ' de ' + S.days.length : 'Terminada') + '</span>', runDots(nd, bk) + recChip(m.wins, m.losses) + (S.multi && accounts().length > 1 ? '<span class="rec-acc">' + esc(accLabel(bk)) + '</span>' : '')); }
   else if (S.days.length) bits.push('<span>' + dShort(S.days[0].date) + ' – ' + dShort(S.days[S.days.length - 1].date) + '</span>');
   $('runMeta').innerHTML = bits.join('<span aria-hidden="true">·</span>');
 }
@@ -1933,6 +1933,21 @@ const hLoad = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'nu
 S.hsel = hLoad('fb-hsel', {}); S.hdisc = hLoad('fb-hdisc', {});
 const hSave = () => { try { localStorage.setItem('fb-hsel', JSON.stringify(S.hsel)); localStorage.setItem('fb-hdisc', JSON.stringify(S.hdisc)); } catch (e) {} };
 const H_DISC = [[0, 'Nenhuma'], [5, 'Common ou Fandom'], [10, 'Rare'], [15, 'Legendary'], [20, 'Ultimate']];
+// desconto de colecionador no Historic pelo escalão da melhor carta da lenda (regras do Top Shot)
+const H_TIER_PCT = { Common: 5, Fandom: 5, Rare: 10, 'Rare+': 10, Legendary: 15, Ultimate: 20 };
+// pela carteira lida no site: a melhor carta de cada lenda numa conta → {nomeNormalizado: {pct, tier}}
+function hWalletDisc(acc) {
+  const col = (S.profile || {}).collection || {}, out = {};
+  Object.entries(col.lg || {}).forEach(([k, L]) => ((L && L.c && L.c[acc]) || []).forEach(sk => { const t = setTier(col, sk), v = H_TIER_PCT[t] || 5; if (!out[k] || v > out[k].pct) out[k] = { pct: v, tier: t }; }));
+  return out;
+}
+// descontos de uma conta para as lendas de um dia ({id: %}): os da carteira dessa conta; a carta marcada à mão numa
+// lenda vale para todas as contas (se for maior)
+function hDiscs(acc, rows) {
+  const w = hWalletDisc(acc), d = {};
+  rows.forEach(x => { const v = Math.max((w[norm(x.name)] || {}).pct || 0, +S.hdisc[x.id] || 0); if (v) d[x.id] = v; });
+  return d;
+}
 // arquivo do Historic no site (docs/data/historic, guardado pela tarefa "Arquivo do Historic"): os dias jogados de
 // todas as runs, para o modelo aprender com mais jogos de cada lenda do que os da run atual
 S.histArch = null;
@@ -1958,17 +1973,26 @@ function histData(H) {
 }
 function histCalc(H, dayId) {
   const nArch = S.histArch && S.histArch.runs ? S.histArch.runs.reduce((t, r) => t + (r.days || []).length, 0) : 0;
-  const sel = S.hsel[dayId] || { fix: [], ban: [] }, key = [H.at, dayId, JSON.stringify(sel), JSON.stringify(S.hdisc), accounts().length, nArch].join('|');
+  const accs = accounts(), dd = (H.days || []).find(d => d.id === dayId), prow = ((dd && dd.players) || []).map(p => ({ id: p[0], name: p[1] }));
+  // cada conta com os descontos das cartas dela (carteira) e os marcados à mão
+  const discs = accs.map(a => hDiscs(a.id, prow));
+  const sel = S.hsel[dayId] || { fix: [], ban: [] }, key = [H.at, dayId, JSON.stringify(sel), JSON.stringify(discs), accs.length, nArch].join('|');
   // guardadas por dia (a faixa dos dias mostra a hipótese de cada dia aberto)
   const hc = S.histCache || (S.histCache = {}); if (hc[key]) return hc[key];
   if (Object.keys(hc).length > 40) S.histCache = {};
-  const M = FB.histModel(histData(H), dayId, { disc: S.hdisc }); if (!M) return null;
-  const best = FB.histBest(M, 200, sel.fix, sel.ban);
+  const M0 = FB.histModel(histData(H), dayId, {}); if (!M0) return null;
+  const Ms = discs.map(d => Object.assign({}, M0, { rows: M0.rows.map(x => Object.assign({}, x, { cost: x.rp * (1 - (+d[x.id] || 0) / 100) })) }));
+  const cost = Ms.map(M => new Map(M.rows.map(x => [x.id, x.cost])));
+  const costIn = (ids, k) => ids.reduce((t, id) => t + (cost[k].get(id) || 0), 0), fits = (e, k) => costIn(e.ids, k) <= M0.budget + 1e-9;
+  // candidatas: as melhores equipas que cabem no orçamento de cada conta (com as cartas dela), juntas
+  const seen = new Map(), done = new Set();
+  discs.forEach((d, k) => { const js = JSON.stringify(d); if (done.has(js)) return; done.add(js); FB.histBest(Ms[k], 200, sel.fix, sel.ban).forEach(t => { const kk = t.ids.slice().sort().join(); if (!seen.has(kk)) seen.set(kk, t); }); });
   // a sugestão: a que mais vezes chega aos prémios (40 primeiros); desempata pelos pontos
-  const ev = FB.histEval(M, best, 3000).sort((p, q) => (q.p40 - p.p40) || (q.mean - p.mean));
-  // com smurfs: uma equipa diferente por conta (juntas, mais vezes pelo menos uma chega aos prémios)
-  const nAcc = accounts().length, port = nAcc > 1 ? FB.histPortfolio(ev, nAcc, 2) : null;
-  return (S.histCache[key] = { key, M, ev, sel, port });
+  const ev = FB.histEval(M0, [...seen.values()], 3000).sort((p, q) => (q.p40 - p.p40) || (q.mean - p.mean));
+  // com smurfs: uma equipa diferente por conta, que caiba no orçamento dela (juntas, mais vezes pelo menos uma chega aos prémios)
+  const nAcc = accs.length, port = nAcc > 1 ? FB.histPortfolio(ev, nAcc, 2, fits).map((e, k) => Object.assign({}, e, { cost: costIn(e.ids, k) })) : null;
+  const ev0 = nAcc > 1 ? ev : ev.filter(e => fits(e, 0)).map(e => Object.assign({}, e, { cost: costIn(e.ids, 0) }));
+  return (S.histCache[key] = { key, M: Ms[0], Ms, ev: ev0, sel, port, fits, costIn, discs });
 }
 // faixa dos dias como a da run: nos abertos a hipótese de top 40 da equipa sugerida, nos que acabaram o lugar da conta
 function histStrip(H, open, day, C) {
@@ -2028,7 +2052,8 @@ function histPastHtml(H, day) {
   const sTot = sIds ? sum(sIds) : null, sRank = sTot != null ? rankOfScore(sTot) : null;
   const sugCard = sIds ? '<div class="card"><div class="list-head"><h2>A sugestão da app</h2><span class="small muted"><b class="num">' + f1(sTot) + ' pts</b> · ' + (sRank ? 'teria ficado em ' + sRank + '.º' : 'fora dos 40 primeiros') + '</span></div><ul class="list">' + sIds.slice().sort((a, b) => ((pts.get(b) || {}).v || 0) - ((pts.get(a) || {}).v || 0)).map(id => line(id, lu && lu.includes(id) ? ' <span class="pill ok">levaste</span>' : '')).join('') + '</ul></div>' : '';
   // a melhor equipa possível (com os pontos que saíram e os Roster Points do dia, com as tuas cartas)
-  const rows = [...pts.values()].filter(x => rp.has(x.id)).map(x => ({ id: x.id, mu: x.v, cost: rp.get(x.id) * (1 - (+S.hdisc[x.id] || 0) / 100) })).sort((a, b) => b.mu - a.mu);
+  const dsc = hDiscs(acc.id, [...pts.values()]);
+  const rows = [...pts.values()].filter(x => rp.has(x.id)).map(x => ({ id: x.id, mu: x.v, cost: rp.get(x.id) * (1 - (+dsc[x.id] || 0) / 100) })).sort((a, b) => b.mu - a.mu);
   const ideal = rows.length >= 5 ? (FB.histBest({ rows, budget: +((H.budget || {}).limit) || 350 }, 1) || [])[0] : null;
   const idealCard = ideal ? '<div class="card"><div class="list-head"><h2>A melhor equipa possível</h2><span class="small muted"><b class="num">' + f1(ideal.ev) + ' pts</b> · ' + f0(ideal.cost) + ' RP</span></div><ul class="list">' + ideal.ids.map(id => line(id)).join('') + '</ul></div>' : '';
   const best = [...pts.values()].sort((a, b) => b.v - a.v).slice(0, 10);
@@ -2056,8 +2081,9 @@ function renderHistoric(el) {
   const C = S.histMemo = histCalc(H, day.id);
   const strip = histStrip(H, open, day, C);
   if (!C || !C.ev.length) { el.innerHTML = head + strip + '<div class="note">Não há nenhuma equipa de 5 que caiba no orçamento com estas escolhas. Solta um fixado ou repõe alguém.</div>' + histLegendsCard(C, day); return; }
-  const M = C.M, byId = new Map(M.rows.map(x => [x.id, x])), sel = C.sel, accs = accounts(), port = C.port && C.port.length ? C.port : null;
+  const sel = C.sel, accs = accounts(), port = C.port && C.port.length ? C.port : null;
   const ai = port ? Math.min(S.hacc || 0, port.length - 1) : 0, best = port ? port[ai] : C.ev[0];
+  const M = (C.Ms && C.Ms[ai]) || C.M, byId = new Map(M.rows.map(x => [x.id, x]));
   // com smurfs: uma equipa por conta (botões com a hipótese de cada uma) e a hipótese de pelo menos uma chegar lá
   const accBar = port ? '<div class="j-accs h-accs" role="group" aria-label="Contas">' + port.map((p, i) => '<button type="button" class="acc-chip" data-action="h-acc" data-i="' + i + '" aria-pressed="' + (i === ai) + '">' + esc(accLabel((accs[i] || {}).id || 'main')) + ' <b class="num c-' + tone(Math.min(1, p.p40 * 2)) + '">' + pct(p.p40) + '</b></button>').join('') + '</div>' +
     '<div class="small muted h-port">Uma equipa diferente para cada conta: juntas, pelo menos uma fica nos 40 primeiros em <b>' + pct(port[port.length - 1].union) + '</b> (só com a melhor: ' + pct(port[0].p40) + ').</div>' : '';
@@ -2068,7 +2094,7 @@ function renderHistoric(el) {
   const row = id => {
     const x = byId.get(id), fx = sel.fix.includes(id), opp = x.opp ? (day.games.some(g => g[1] === x.team) ? 'vs ' : '@ ') + hTeam(x.opp) : '';
     return '<li><button class="row" type="button" data-action="h-card" data-id="' + esc(id) + '" data-day="' + esc(day.id) + '"><span class="who">' + hFace(x) + '<div style="min-width:0"><div class="pn">' + (fx ? icoLock : '') + '<span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + '</div>' +
-      '<div class="ps">' + esc(hTeam(x.team)) + ' ' + esc(opp) + ' · ' + f0(x.cost) + ' RP · ' + (x.own != null ? pct(x.own / 100) + ' escolhem' : '') + '</div>' +
+      '<div class="ps">' + esc(hTeam(x.team)) + ' ' + esc(opp) + ' · ' + f0(x.cost) + ' RP' + (x.cost < x.rp - 1e-9 ? ' <span class="h-disc">−' + Math.round((1 - x.cost / x.rp) * 100) + '%</span>' : '') + ' · ' + (x.own != null ? pct(x.own / 100) + ' escolhem' : '') + '</div>' +
       '<div class="ps">' + (x.n ? 'média ' + f0(x.avg) + ' em ' + plural(x.n, 'jogo', 'jogos') : 'ainda sem jogos') + '</div></div></span>' +
       '<div class="pv"><div class="v num">' + f0(x.mu) + '</div><div class="u">pts</div></div></button></li>';
   };
@@ -2079,7 +2105,7 @@ function renderHistoric(el) {
     '<div class="small muted h-odds">Top 10 ' + pct(best.p10) + ' · 1.º lugar ' + pct(best.p1) + '. ' + esc(cutTxt + learnTxt) + '</div>' +
     '<ul class="list jc-list">' + best.ids.map(row).join('') + '</ul>' +
     (sel.fix.length || sel.ban.length ? '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="h-reset" data-day="' + esc(day.id) + '">Voltar à sugestão</button></div>' : '') + '</div>';
-  const alts = C.ev.filter(r => !(port || [best]).some(p => p.ids.join() === r.ids.join())).slice(0, 3).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
+  const alts = C.ev.filter(r => !(port || [best]).some(p => p.ids.join() === r.ids.join()) && (!C.fits || C.fits(r, ai))).slice(0, 3).map(r => Object.assign({}, r, { cost: C.costIn ? C.costIn(r.ids, ai) : r.cost })).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
   const H0 = groupHist(), src = '<div class="small muted h-src">Dados do Top Shot de ' + esc(ago(H0.at)) + ' · ' + plural(M.dayIds.length, 'dia jogado', 'dias jogados') + ' na simulação' + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">ler outra vez</button>' : '') + '</div>';
   el.innerHTML = head + strip + accBar + hero + (alts ? '<div class="card"><div class="list-head"><h2>Outras equipas</h2><span class="small muted">pela mesma conta</span></div><ul class="list">' + alts + '</ul></div>' : '') + histLegendsCard(C, day) + src;
   hFilter();
@@ -2087,15 +2113,16 @@ function renderHistoric(el) {
 // todas as lendas do dia: pontos esperados, custo, quem escolhe; + fixa, × tira, tocar no nome = a tua carta (desconto)
 function histLegendsCard(C, day) {
   if (!C) return '';
-  const sel = C.sel, inBest = new Set(C.ev.length ? C.ev[0].ids : []);
-  const rows = C.M.rows.map(x => { const ban = sel.ban.includes(x.id), fx = sel.fix.includes(x.id);
+  const ai = C.port && C.port.length ? Math.min(S.hacc || 0, C.port.length - 1) : 0, team = C.port && C.port.length ? C.port[ai] : C.ev[0];
+  const sel = C.sel, inBest = new Set(team ? team.ids : []), M = (C.Ms && C.Ms[ai]) || C.M;
+  const rows = M.rows.map(x => { const ban = sel.ban.includes(x.id), fx = sel.fix.includes(x.id);
     return '<li class="lu-row' + (ban ? ' h-ban' : '') + '" data-n="' + esc(norm(x.name) + ' ' + hTeam(x.team).toLowerCase()) + '"><button class="lu-main" type="button" data-action="h-card" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '">' + hFace(x, 'sm') + '<span class="lu-t"><span class="pn">' + (fx ? icoLock : '') + '<span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + '</span>' +
-      '<span class="ps">' + (inBest.has(x.id) ? '<b class="c-good">na equipa</b> · ' : '') + esc(hTeam(x.team)) + ' · ' + f0(x.cost) + ' RP' + (x.cost < x.rp ? ' (carta)' : '') + (x.n ? ' · média ' + f0(x.avg) : '') + (x.own != null ? ' · ' + pct(x.own / 100) : '') + '</span></span></button>' +
+      '<span class="ps">' + (inBest.has(x.id) ? '<b class="c-good">na equipa</b> · ' : '') + esc(hTeam(x.team)) + ' · ' + f0(x.cost) + ' RP' + (x.cost < x.rp - 1e-9 ? ' <span class="h-disc">−' + Math.round((1 - x.cost / x.rp) * 100) + '%</span>' : '') + (x.n ? ' · média ' + f0(x.avg) : '') + (x.own != null ? ' · ' + pct(x.own / 100) : '') + '</span></span></button>' +
       '<div class="pv"><div class="v num">' + f0(x.mu) + '</div><div class="u">pts</div></div>' +
       (ban ? '<button class="btn small" type="button" data-action="h-ban" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '">Repor</button>'
         : '<button class="lu-ic add" type="button" data-action="h-fix" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '" aria-pressed="' + fx + '" aria-label="Fixar ' + esc(x.name) + '" title="Fixar na equipa">' + (fx ? icoLockBtn : icoPlus) + '</button>' +
           '<button class="lu-ic" type="button" data-action="h-ban" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '" aria-label="Tirar ' + esc(x.name) + ' deste dia" title="Tirar deste dia">' + icoX + '</button>') + '</li>'; }).join('');
-  return '<div class="card"><div class="list-head"><h2>Lendas do dia ' + histDayNo(day.id) + ' ' + helpBtn('historic') + '</h2><span class="small muted">' + plural(C.M.rows.length, 'lenda', 'lendas') + '</span></div>' +
+  return '<div class="card"><div class="list-head"><h2>Lendas do dia ' + histDayNo(day.id) + ' ' + helpBtn('historic') + '</h2><span class="small muted">' + plural(M.rows.length, 'lenda', 'lendas') + '</span></div>' +
     '<div class="lu-search"><input class="field" id="hSearch" type="search" placeholder="Procurar lenda ou equipa…" autocomplete="off" aria-label="Procurar lenda ou equipa" value="' + esc(S.hq || '') + '"></div>' +
     '<ul class="list" id="hList">' + rows + '<li class="row small muted lu-none" hidden>Nenhuma lenda com esse nome ou equipa.</li></ul></div>';
 }
@@ -2119,10 +2146,12 @@ function hBan(day, id) {
 }
 function hCardSheet(day, id) {
   const C = S.histMemo, x = C && C.M.rows.find(r => r.id === id); if (!x) return;
+  const accs = accounts(), wl = accs.map(a => ({ a, w: hWalletDisc(a.id)[norm(x.name)] })).filter(z => z.w);
+  const wTxt = wl.length ? '<div class="note info h-wal">Na carteira: ' + wl.map(z => '<b>' + esc(z.w.tier) + '</b>' + (accs.length > 1 ? ' na ' + esc(accLabel(z.a.id)) : '') + ' (−' + z.w.pct + '%)').join(' · ') + '</div>' : '';
   const cur = +S.hdisc[id] || 0, sl = S.hsel[day] || { fix: [], ban: [] }, fixed = sl.fix.includes(id), banned = sl.ban.includes(id);
   openSheet('<div class="h-sheet-top">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class="note info">🕊️ Descansa em paz (' + hRip(x) + '). Na simulação continua a fazer 36 minutos por jogo, sem se queixar das pernas.</div>' : '') + '<div class="small muted">' + esc(hTeam(x.team)) + ' · ' + x.rp + ' RP · ' + (x.n ? 'média ' + f1(x.avg) + ' pts em ' + plural(x.n, 'jogo', 'jogos') + ' (' + x.hist.map(f0).join(', ') + ')' : 'ainda sem jogos') + ' · esperado hoje ' + f1(x.mu) + '</div>' +
-    '<div class="label" style="margin-top:6px">A tua melhor carta dele</div><div class="chips" role="group" aria-label="A tua melhor carta">' + H_DISC.map(([v, l]) => '<button type="button" data-action="h-disc" data-id="' + esc(id) + '" data-v="' + v + '" aria-pressed="' + (cur === v) + '">' + l + (v ? ' · −' + v + '%' : '') + '</button>').join('') + '</div>' +
-    '<div class="small muted">Com uma carta dele, custa menos Roster Points e a carta conta para o desempate. Fica guardado neste aparelho.</div>' +
+    wTxt + '<div class="label" style="margin-top:6px">' + (wl.length ? 'Outra carta (à mão)' : 'A tua melhor carta dele') + '</div><div class="chips" role="group" aria-label="A tua melhor carta">' + H_DISC.map(([v, l]) => '<button type="button" data-action="h-disc" data-id="' + esc(id) + '" data-v="' + v + '" aria-pressed="' + (cur === v) + '">' + l + (v ? ' · −' + v + '%' : '') + '</button>').join('') + '</div>' +
+    '<div class="small muted">Com uma carta dele custa menos Roster Points. As cartas vêm da carteira de cada conta (Jogadores → Coleção → Ler carteira); a marcada aqui vale para todas as contas.</div>' +
     '<div class="btns"><button class="btn" type="button" data-action="h-fix" data-id="' + esc(id) + '" data-day="' + esc(day) + '" data-close="1">' + (fixed ? 'Soltar' : 'Fixar na equipa') + '</button><button class="btn" type="button" data-action="h-ban" data-id="' + esc(id) + '" data-day="' + esc(day) + '" data-close="1">' + (banned ? 'Repor neste dia' : 'Tirar deste dia') + '</button></div>');
 }
 function renderHoje() {
@@ -4001,6 +4030,8 @@ function histGroupDays() {
   }));
   return { H, at: H.at, days: [...by.values()].filter(d => (d.lines && d.lines.length) || Object.keys(d.mine).length) };
 }
+// "HISTORIC - RUN 1 - 2026-27 SEASON" → "Run 1"
+const hRunShort = run => { const n = String((run || {}).name || ''), m = n.match(/run\s*(\d+)/i); return m ? 'Run ' + m[1] : n || 'Historic'; };
 const hMineOf = (D, x) => { const ak = x.addr ? addrKey(x.addr) : null; return (ak && D.mine[ak]) || (x.acc === 'main' ? D.mine['_me:' + x.uid] : null) || null; };
 const hPrize = (D, rank) => { const b = rank && (D.bands || []).find(z => rank >= z[0] && rank <= z[1]); return b ? +b[2] || 0 : 0; };
 function histClassifHtml() {
@@ -4019,12 +4050,12 @@ function histClassifHtml() {
   };
   const rows = people.map(z => '<tr' + (z.x.uid === S.session.user.id ? ' class="me"' : '') + ' data-action="friend" data-id="' + esc(z.x.uid) + '" data-acc="' + esc(z.x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(z.x.acc === 'main' ? z.x.uid : z.x.uid + '|' + z.x.acc, z.x.name) +
     '<span><b>' + esc(z.x.name) + '</b>' + (z.x.acc !== 'main' ? '<small>smurf' + (z.x.owner ? ' de ' + esc(z.x.owner) : '') + '</small>' : z.x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
-    '<td class="rr' + (z.paid ? ' z-p' : '') + '"><b>' + z.paid + '/' + z.played + '</b><small>nos prémios</small></td>' + z.cells.map(cell).join('') + '<td class="money">' + (z.won ? money(z.won) : '—') + '</td></tr>').join('');
+    z.cells.map(cell).join('') + '<td class="money">' + (z.won ? money(z.won) : '—') + '</td></tr>').join('');
   const dayTot = (D, k) => { let t = 0, w = 0, any = false; people.forEach(z => { const c = z.cells[k]; if (c.m) { any = true; if (c.m.rank <= hLastPaid(D)) w++; t += hPrize(D, c.m.rank); } }); return { t, w, any }; };
   const all = people.reduce((t, z) => t + z.won, 0);
-  const totRow = people.length > 1 ? '<tr class="tot"><td class="who2"><span><b>Grupo</b></span></td><td></td>' + days.map((D, k) => { const q = dayTot(D, k); return '<td><b>' + (q.t ? money(q.t) : '—') + '</b>' + (q.any ? '<small>' + q.w + ' ✓</small>' : '') + '</td>'; }).join('') + '<td class="money"><b>' + (all ? money(all) : '—') + '</b></td></tr>' : '';
-  const head = '<tr><th class="who2">Conta</th><th>Dias</th>' + days.map(D => '<th>Dia ' + histDayNo(D.id) + '</th>').join('') + '<th>Ganho</th></tr>';
-  return '<div class="card"><div class="list-head"><h2>Classificação do Historic</h2></div><div class="small muted" style="padding:0 16px 6px">' + esc((G.H.run || {}).name || 'Historic') + ' · lugares ' + ago(G.at) + ' · prémios até ao ' + hLastPaid(days[days.length - 1]) + '.º</div>' +
+  const totRow = people.length > 1 ? '<tr class="tot"><td class="who2"><span><b>Grupo</b></span></td>' + days.map((D, k) => { const q = dayTot(D, k); return '<td><b>' + (q.t ? money(q.t) : '—') + '</b>' + (q.any ? '<small>' + q.w + ' ✓</small>' : '') + '</td>'; }).join('') + '<td class="money"><b>' + (all ? money(all) : '—') + '</b></td></tr>' : '';
+  const head = '<tr><th class="who2">Conta</th>' + days.map(D => '<th>Dia ' + histDayNo(D.id) + '</th>').join('') + '<th>Ganho</th></tr>';
+  return '<div class="card"><div class="list-head"><h2>Classificação do Historic</h2></div><div class="small muted" style="padding:0 16px 6px">' + esc(hRunShort(G.H.run)) + ' · lugares ' + ago(G.at) + '</div>' +
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + rows + totRow + '</tbody></table></div></div>';
 }
 // Classic ou Historic na Classificação (sem escolha: segue o modo da Jornada)
@@ -5298,12 +5329,14 @@ async function walletSheet() {
   Object.entries(sets).forEach(([k, x]) => { const a = tierAuto(x.name, x.meta, x.counts), xs = x.counts.slice().sort((p, q) => p - q);
     sets[k] = Object.assign({ n: x.n, auto: a.tier, how: a.how }, xs.length ? { med: xs[(xs.length - 1) >> 1] } : {}, prevSets[k] && prevSets[k].tier ? { tier: prevSets[k].tier } : {}); });
   const find = catalogIndex();
-  const by = new Map(), outside = new Map(), accTot = {};
+  const by = new Map(), outside = new Map(), accTot = {}, lg = {};
   reads.forEach(({ a, w }) => {
     accTot[a.id] = { moments: w.total + w.extra.length, listed: w.listedAll };
     const add = (r, sale) => {
       const name = r[0]; if (!name) return;
       const p = find(name);
+      // lendas (e quem não é desta época): os sets de cada conta, para o desconto de colecionador do Historic
+      if (!p || norm(p.name) !== norm(name)) { const L = lg[norm(name)] || (lg[norm(name)] = { n: name, c: {} }), ks = L.c[a.id] || (L.c[a.id] = []); if (!ks.includes(setKey(r))) ks.push(setKey(r)); }
       if (!p) { outside.set(norm(name), name); return; }
       const e = by.get(p.id) || { p, n: 0, sale: 0, owners: {}, sets: {}, bySet: {}, ids: [] };
       const fid = String(r[3]), sub = /\/\s*(\d+)/.exec(r[7] || ''), mint = sub ? +sub[1] : +(((editions[String(r[4])] || {})[String(r[5])]) || 0);
@@ -5317,7 +5350,7 @@ async function walletSheet() {
   // coleção guardada no perfil (serve para todas as runs e para saber onde está cada Moment)
   const players = {}, colTmp = { sets, items, mt };
   found.forEach(e => { players[e.p.id] = { name: e.p.name, moments: e.n, owners: e.owners, sets: Object.keys(e.sets).slice(0, 8), bySet: e.bySet, ids: e.ids }; players[e.p.id].uses = tierUsesOf(colTmp, players[e.p.id]); });
-  S.walletCol = { read_at: new Date().toISOString(), accounts: accTot, players, sets, items, mt, outside: [...outside.values()].slice(0, 60) };
+  S.walletCol = { read_at: new Date().toISOString(), accounts: accTot, players, sets, items, mt, lg, outside: [...outside.values()].slice(0, 60) };
   S.walletCol.tl = tierLabels(S.walletCol);
   const hasRun = !!S.runId && S.mineLoaded;
   const inWallet = new Set(found.map(e => String(e.p.id)));
@@ -5340,7 +5373,9 @@ async function walletSheet() {
     if (rem.length) diff.push('<div><b class="down">−' + plural(rem.length, 'Moment saiu', 'Moments saíram') + ':</b> ' + grp(rem, prevItems, prevCol) + '.</div>');
     if (moved.length) diff.push('<div><b>' + plural(moved.length, 'Moment mudou', 'Moments mudaram') + ' de conta:</b> ' + grp(moved, items, S.walletCol, f => '→ ' + esc(accLabel(items[f].a))) + '.</div>');
   }
-  openSheet('<h3>A tua coleção</h3><div class="small muted">' + tot + ' · ' + found.length + ' jogadores na NBA esta época</div>' +
+  const hNames = new Set(); ((groupHist() || {}).days || []).forEach(d => (d.players || d.lines || []).forEach(x => hNames.add(norm(x[1]))));
+  const nLg = Object.keys(lg).filter(k => hNames.has(k)).length;
+  openSheet('<h3>A tua coleção</h3><div class="small muted">' + tot + ' · ' + found.length + ' jogadores na NBA esta época' + (nLg ? ' · ' + plural(nLg, 'lenda do Historic', 'lendas do Historic') + ' com carta (desconto)' : '') + '</div>' +
     (failed.length ? '<div class="note">Não consegui ler: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' tem o mesmo endereço Flow de outra conta: só li essa carteira uma vez. Confirma os endereços em Ajustes → Perfil.</div>' : '') +
     (diff.length ? '<div class="note info">' + diff.join('') + '</div>' : prevItems ? '<div class="small muted">Nenhum Moment novo desde a última leitura.</div>' : '') +

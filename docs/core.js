@@ -1377,13 +1377,15 @@
   }
   // várias contas (smurfs): equipas diferentes que, juntas, mais vezes põem pelo menos uma nos 40 primeiros (cada nova
   // equipa muda pelo menos minDiff lendas face às já escolhidas); devolve [{…equipa, union: P(pelo menos uma até aqui)}]
-  function histPortfolio(evs, n, minDiff) {
+  // ok(e, k): se a equipa e serve à conta k (ex.: cabe no orçamento dela, com os descontos das cartas dela)
+  function histPortfolio(evs, n, minDiff, ok) {
     minDiff = minDiff == null ? 2 : minDiff; if (!evs.length) return [];
     const N = evs[0].hit.length, cover = new Uint8Array(N), out = [];
     const diff = (a, b) => a.ids.filter(id => !b.ids.includes(id)).length;
     for (let k = 0; k < n; k++) {
       let best = null, bestU = -1;
       for (const e of evs) {
+        if (ok && !ok(e, k)) continue;
         if (out.some(o => diff(o, e) < minDiff)) continue;
         let u = 0; for (let i = 0; i < N; i++) if (cover[i] || e.hit[i]) u++;
         if (u > bestU || (u === bestU && best && e.mean > best.mean)) { bestU = u; best = e; }

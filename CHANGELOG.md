@@ -4,6 +4,8 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-31
+- **João** — Historic com descontos de colecionador por conta: a carteira lida no site passa a guardar as cartas de lendas, e cada conta tem o desconto da melhor carta que tem de cada lenda (Common/Fandom −5%, Rare −10%, Legendary −15%, Ultimate −20%); a equipa sugerida de cada conta cabe nos 350 RP com os descontos dela. Para isso é preciso ler a carteira outra vez (Jogadores → Coleção).
+- **João** — Cabeçalho: nas abas que não são a Jornada mostra sempre a conta com melhor registo. Classificação do Historic sem a coluna "Dias" e com o texto curto ("Run 1 · lugares há …").
 - **João** — Grupo → Classificação com Classic / Historic: no Historic, o lugar de cada conta do grupo em cada dia, o prémio desse dia, quantos dias ficou nos prémios e o total ganho (a coluna das contas já não deixa ver números por trás ao deslizar, também no Classic).
 - **João** — Dias já jogados de uma conta sem previsão guardada (ex.: smurf que jogou num dia sem lineup no plano): o lineup mostra o que cada jogador fez, em vez de só os nomes.
 - **João** — Jornada: cartão "Os melhores do dia" (ao vivo e nos dias jogados) com o total do teu lineup, o do melhor lineup possível com os teus jogadores e o do melhor na NBA; toca num para ver os 5.
