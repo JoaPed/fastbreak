@@ -4793,9 +4793,10 @@ function sellSwaps(ps) {
   ps.forEach(P => { const mk = mkOf(P.id); if (!mk) return;
     P.cards.forEach(c => { if (!c.ask) return;
       const [cb, ...cs] = String(c.it.s || '').split(' · '), same = m => (c.it.si != null && m[6] != null ? +m[6] === +c.it.si && +m[7] === +c.it.pi : setBaseN(m[4]) === setBaseN(cb) && (isStd(m[5]) ? !cs.length : norm(m[5]) === norm(cs.join(' · '))));
-      // a mesma raridade (de qualquer set); de preferência com os mesmos usos ou mais
-      const pool = mk.list.filter(m => TS_TIER(m[2]) === c.t && !same(m)).sort((a, b) => a[1] - b[1]);
-      const alt = pool.find(m => m[0] >= c.u) || pool[0];
+      // a mesma raridade (de qualquer set) e pelo menos os mesmos usos: uma Fandom que dá 3 usos pelo ASP (All-Star) só
+      // se troca por outra que também dê 3, nunca por uma que dê menos
+      const pool = mk.list.filter(m => TS_TIER(m[2]) === c.t && !same(m) && m[0] >= c.u).sort((a, b) => a[1] - b[1]);
+      const alt = pool[0];
       if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
       if (save >= 100) out.push({ P, c, alt, save, less: alt[0] < c.u });
     }); });

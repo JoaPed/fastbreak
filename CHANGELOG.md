@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-31
+- **João** — Vender → Poupar: só sugere trocar por uma carta da mesma raridade que dê pelo menos os mesmos usos (uma Fandom que dá 3 usos pelo ASP já não aparece para trocar por uma que dá 1).
 - **João** — Plantel → As tuas cartas: o preço de cada carta numa linha própria (ASP e a mais barata à venda), sem ficar cortado. Pro: o valor da tua carta vem da edição certa (série, set e tiragem), não do nome do set (um Base Set de 60 000 deixava de valer como um de 2019). Historic: entre os pontos e as lendas fica só uma linha (top 10, 1.º e quanto faz o 40.º).
 - **João** — Historic com descontos de colecionador por conta: a carteira lida no site passa a guardar as cartas de lendas, e cada conta tem o desconto da melhor carta que tem de cada lenda (Common/Fandom −5%, Rare −10%, Legendary −15%, Ultimate −20%); a equipa sugerida de cada conta cabe nos 350 RP com os descontos dela. Para isso é preciso ler a carteira outra vez (Jogadores → Coleção).
 - **João** — Cabeçalho: nas abas que não são a Jornada mostra sempre a conta com melhor registo. Classificação do Historic sem a coluna "Dias" e com o texto curto ("Run 1 · lugares há …").
