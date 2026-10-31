@@ -1569,6 +1569,60 @@ function liveBoard(d, part) {
   if (!many) { const x = d.totals[0]; return part === 'top' ? big(x) + sub(x) : bar(x); }
   return '<div class="lv-board many">' + d.totals.map(x => '<div class="lv-st"><div class="lv-lab">' + esc(statShort(x.stat)) + '</div>' + big(x) + bar(x) + sub(x) + '</div>').join('') + '</div>';
 }
+// ---- o melhor lineup do dia (com o que cada um já fez): com os teus jogadores e na NBA toda ----
+// pelas fichas da ESPN de todos os jogos do dia (relidas de 2 em 2 minutos enquanto se vê). Uma estatística: os 5 que
+// mais fizeram; duas ou mais: os 5 que deixam a pior delas mais perto (ou mais acima) do alvo
+S.topAt = {};
+function topLoad(date) {
+  const day = S.days.find(d => d.date === date), B = S.box[date]; if (!day || (B && B.busy)) return;
+  if (Date.now() - (S.topAt[date] || 0) < 110e3) return;
+  S.topAt[date] = Date.now();
+  const teams = new Set(); (day.games || []).forEach(g => { teams.add(g[0]); teams.add(g[1]); });
+  boxLoad(date, teams).then(() => { if (S.tab === 'hoje') renderHoje(); });
+}
+function topBest(cands, T) {
+  const sc = c => c.vals.reduce((t, v, k) => t + v / T[k], 0);
+  const top = cands.slice().sort((a, b) => sc(b) - sc(a));
+  if (T.length === 1 || top.length <= 5) return top.slice(0, 5);
+  // várias estatísticas: todas as combinações de 5 entre os 18 melhores no conjunto (8568)
+  const pool = top.slice(0, 18); let best = null, bv = -Infinity;
+  const rec = (st, cur) => {
+    if (cur.length === 5) { const r = T.map((t, k) => cur.reduce((u, c) => u + c.vals[k], 0) / t), v = Math.min(...r) + 0.01 * r.reduce((x, y) => x + y, 0); if (v > bv) { bv = v; best = cur.slice(); } return; }
+    for (let i = st; i <= pool.length - (5 - cur.length); i++) { cur.push(pool[i]); rec(i + 1, cur); cur.pop(); }
+  };
+  rec(0, []);
+  return best.sort((a, b) => sc(b) - sc(a));
+}
+function topLineupCard(r, day, mine, live) {
+  const objs = (day.objectives || []).filter(o => o && o.stat && +o.target > 0); if (!objs.length || !r) return '';
+  topLoad(day.date);
+  const title = live ? 'Os melhores até agora' : 'Os melhores do dia';
+  const B = S.box[day.date], lines = B ? Object.entries(B.lines || {}) : [];
+  if (!lines.length) return '<div class="card top-lu"><div class="list-head"><h2>' + title + '</h2></div><div class="pad small muted">' + (B && !B.busy && B.err ? 'A ESPN não respondeu. Tenta daqui a pouco.' : 'A ler as fichas dos jogos…') + '</div></div>';
+  const T = objs.map(o => +o.target), many = objs.length > 1;
+  const val = (v, id) => objs.map(o => Math.max(0, +FB.statValue(v, o.stat, id ? pAvg(id) : null) || 0));
+  const byNorm = new Map(); S.players.forEach(p => { if (p && p.name) byNorm.set(norm(p.name), p); });
+  // os teus: o plantel desta conta (ao vivo, só os que ainda têm usos) que jogou nesse dia
+  const ros = r.model.players.filter((p, i) => !live || r.model.uses[i] > 0 || mine.includes(p.id)).map(p => { const b = boxFor(day.date, p.id); return b ? { id: p.id, vals: val(b.v, p.id) } : null; }).filter(Boolean);
+  const owned = new Set(r.model.players.map(p => p.id));
+  const all = lines.map(([nm, ln]) => { const p = byNorm.get(nm), id = p ? String(canon(p.id)) : null; return { id, nm, t: ln.t, e: ln.e, vals: val(ln.v, id) }; });
+  const myL = mine.map(id => { const b = boxFor(day.date, id); return { id, vals: b ? val(b.v, id) : T.map(() => 0), dnp: !b }; });
+  const sums = l => T.map((t, k) => l.reduce((u, c) => u + c.vals[k], 0));
+  const views = [['lu', 'O teu lineup', myL], ['mine', 'Com os teus', topBest(ros, T)], ['nba', 'Na NBA', topBest(all, T)]].filter(v => v[2].length);
+  const cur = views.find(v => v[0] === S.topView) || views[views.length - 1];
+  const nmOf = c => c.id ? nameOf(c.id) : c.nm.replace(/(^|[\s'-])\S/g, x => x.toUpperCase());
+  const ava = c => c.id ? face(c.id, 'sm') : '<span class="face sm" style="--av:' + (TEAM_COLOR[c.t] || 'var(--muted)') + '" aria-hidden="true"><b>' + esc(initials(nmOf(c))) + '</b>' +
+    (c.e ? '<img src="https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/' + encodeURIComponent(c.e) + '.png&w=96&h=70" width="96" height="70" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span>';
+  const tag = c => cur[0] !== 'lu' && mine.includes(c.id) ? '<span class="top-tag on">no lineup</span>' : cur[0] === 'nba' && owned.has(c.id) ? '<span class="top-tag">tens</span>' : '';
+  const row = c => '<li class="row top-row">' + ava(c) + '<span class="top-nm"><b>' + esc(nmOf(c)) + '</b>' + tag(c) + '</span>' +
+    '<span class="top-v">' + c.vals.map((v, k) => '<span><b class="num' + (c.dnp ? ' dim' : '') + '">' + lvNum(v) + '</b>' + (many ? '<small>' + esc(statShort(objs[k].stat)) + '</small>' : '') + '</span>').join('') + '</span></li>';
+  // três totais lado a lado (o teu, o melhor com os teus, o melhor na NBA); o escolhido mostra os 5 por baixo
+  const tile = ([k, lab, l]) => '<button type="button" class="top-tile' + (k === cur[0] ? ' on' : '') + '" data-action="top-view" data-v="' + k + '" aria-pressed="' + (k === cur[0]) + '"><span class="top-lab">' + lab + '</span><span class="top-tot">' +
+    sums(l).map((v, k2) => '<span><b class="num ' + (v >= T[k2] ? 'c-ok' : live ? '' : 'c-no') + '">' + f0(v) + '</b>' + (many ? '<small>' + esc(statShort(objs[k2].stat)) + '</small>' : '') + '</span>').join('') + '</span></button>';
+  return '<div class="card top-lu' + (many ? ' many' : '') + '"><div class="list-head"><h2>' + title + '</h2><span class="small muted">alvo ' + objs.map(o => f0(o.target) + ' ' + esc(statShort(o.stat))).join(' + ') + '</span></div>' +
+    '<div class="top-tiles" style="--n:' + views.length + '">' + views.map(tile).join('') + '</div>' +
+    '<ul class="list top-list">' + cur[2].map(row).join('') + '</ul>' + (live ? '<div class="pad small muted">Com o que cada um já fez; atualiza com os jogos.</div>' : '') + '</div>';
+}
 function objVals(md, pi, live) {
   return (md.objs || []).map((o, k) => {
     const info = (md.info[pi] || [])[k] || {}, st = live ? info.liveState : null;
@@ -2114,8 +2168,9 @@ function pastDayHtml(J) {
   const out = ['<div class="card hero day-hero past">' + COURT + '<div class="hero-top"><span class="eyebrow">Dia ' + (J.idx + 1) + ' · ' + dWeek(J.date) + ', ' + dShort(J.date) + '</span><span class="small muted">' + src + '</span></div>' +
     '<div class="score">' + goal + ring + '</div>' + bars + accs + '</div>'];
   if (done && !pl.chain && !pl.box && calc && calc.res !== res) out.push('<div class="note">Pelas estatísticas deste lineup: ' + (calc.res === 'win' ? 'vitória' : 'derrota') + ' (' + madeTxt(calc.objs, calc.tot) + '). Se foi este o lineup, muda o resultado.</div>');
-  out.push((none ? '' : predVsActualHtml(J.date)) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineup.map(id => '<li class="row"><span>' + esc(nameOf(id)) + '</span></li>').join('') || '<li class="row muted small">' + (none ? 'Não levaste lineup neste dia: o Top Shot não te tem na classificação do dia. Os usos dos jogadores não se gastaram.' : 'Sem jogadores registados.') + '</li>') + '</ul></div>');
+  out.push((none ? '' : predVsActualHtml(J.date)) || '<div class="card"><div class="list-head"><h2>Lineup</h2></div><ul class="list">' + (lineupDoneRows(J.date, lineup, objs) || '<li class="row muted small">' + (none ? 'Não levaste lineup neste dia: o Top Shot não te tem na classificação do dia. Os usos dos jogadores não se gastaram.' : 'Sem jogadores registados.') + '</li>') + '</ul></div>');
   out.push('<div class="ctr-btn"><button class="btn' + (lineup.length ? '' : ' primary') + '" type="button" data-action="past-lu" data-date="' + J.date + '">' + (lineup.length ? 'Mudar os jogadores' : 'Escolher os jogadores') + '</button></div>');
+  if (run && !run.fictitious && (day.games || []).length) out.push(topLineupCard(r, day, lineup, false));
   if ((day.games || []).length) {
     // valor de cada jogador do plantel nesse dia (do guardado ou das fichas), por baixo do jogo dele
     const lp = {};
@@ -2238,6 +2293,7 @@ function renderJornada(el) {
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '') +
     bansLine + '</div>');
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
+  if (live) html.push(topLineupCard(r, nd, d.live ? d.live.submitted : d.lineup, true));
   html.push(todayPlayersCard(r, md, nd, isCur));
   if (isCur) html.push(betterCard(), buyLine());
   el.innerHTML = html.join('');
@@ -2882,6 +2938,28 @@ function analiseHtml() {
   return html.join('');
 }
 // folha de um dia fechado: previsto ao lado do real, jogador a jogador
+// lineup de um dia sem previsão guardada nesta conta (ex.: a smurf jogou num dia em que o plano não lhe dava lineup):
+// o que cada um fez e, se outra conta guardou a previsão desse jogador, o previsto
+S.luBoxAt = {};
+function lineupDoneRows(date, lineup, objs) {
+  if (!lineup.length) return '';
+  const units = objs.map(o => esc(statShort(o.stat))), many = objs.length > 1;
+  const predOf = id => { for (const a of accounts()) { const sn = (planOf(a.id).proj || {})[date]; if (sn && sn.pl && sn.pl[id] && (sn.o || []).map(x => x.stat).join() === objs.map(x => x.stat).join()) return sn.pl[id][0]; } return null; };
+  const vals = lineup.map(id => (objs.length ? valsFor(S.acc, date, id, objs) : undefined));
+  // valores que faltam: lê as fichas dos jogos desses jogadores (no máximo de 2 em 2 minutos)
+  if (objs.length && vals.some(v => v === undefined) && Date.now() - (S.luBoxAt[date] || 0) > 120e3) {
+    S.luBoxAt[date] = Date.now();
+    setTimeout(() => { boxLoad(date, new Set(lineup.map(pTeam).filter(Boolean))).then(() => { if (S.tab === 'hoje') renderHoje(); }); }, 0);
+  }
+  return lineup.map((id, i) => {
+    const a = vals[i], pr = predOf(id);
+    const v = a === undefined ? '<div class="pv"><div class="v num muted">…</div></div>' : a === null ? '<div class="pv"><div class="small muted" style="font-weight:600">não jogou</div></div>' :
+      many ? '<div class="pv pv-multi">' + objs.map((o, k) => '<div><b class="num">' + f1(a[k] || 0) + '</b><span class="u">' + units[k] + '</span></div>').join('') + '</div>' :
+      '<div class="pv"><div class="v num">' + f1(a[0]) + '</div><div class="u">' + (pr ? '<span class="' + (a[0] >= pr[0] ? 'good-t' : 'warn-t') + '">' + (a[0] >= pr[0] ? '+' : '−') + f1(Math.abs(a[0] - pr[0])) + '</span>' : units[0]) + '</div></div>';
+    return '<li class="row"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></div>' +
+      (pr ? '<div class="ps">previsto ' + pr.map((x, k) => f1(x) + (many ? ' ' + units[k] : '')).join(' · ') + '</div>' : '') + '</div></span>' + v + '</li>';
+  }).join('');
+}
 function predVsActualHtml(date) {
   const sn = (curPlan().proj || {})[date]; if (!sn || !(sn.o || []).length) return '';
   const pl = ((curPlan().played || {})[date]) || {}, act = sn.act || {}, o = sn.o[0], u = esc(statShort(o.stat)), many = sn.o.length > 1;
@@ -3908,6 +3986,50 @@ function emprestimosHtml() {
     '<button class="btn primary" type="button" data-action="borrow-run"' + (n && !S.borrow.busy ? '' : ' disabled') + '>Ver o que compensa pedir</button></div>' +
     '<div id="borrowOut" class="stack">' + out + '</div>';
 }
+// ---- Classificação do Historic: o lugar de cada conta do grupo em cada dia (lido no Top Shot com o Historic) ----
+// dias do documento mais recente; os lugares juntam as leituras de todos (a mais recente primeiro). "_me" é o lineup de
+// quem leu (sem endereço): fica pela conta principal dessa pessoa
+function histGroupDays() {
+  const docs = [S.histMine && S.session ? { h: S.histMine, uid: S.session.user.id } : null].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.hist ? { h: x.share.hist, uid: x.user_id } : null))
+    .filter(z => z && z.h.at && Array.isArray(z.h.days)).sort((p, q) => String(q.h.at).localeCompare(String(p.h.at)));
+  if (!docs.length) return null;
+  const H = docs[0].h, by = new Map(H.days.map(d => [d.id, Object.assign({}, d, { mine: {}, no: new Set() })]));
+  docs.forEach(({ h, uid }) => h.days.forEach(d => {
+    const D = by.get(d.id); if (!D) return;
+    Object.entries(d.mine || {}).forEach(([k, v]) => { const key = k === '_me' ? '_me:' + uid : k; if (v && v.rank && !D.mine[key]) D.mine[key] = v; });
+    (d.no || []).forEach(k => D.no.add(k));
+  }));
+  return { H, at: H.at, days: [...by.values()].filter(d => (d.lines && d.lines.length) || Object.keys(d.mine).length) };
+}
+const hMineOf = (D, x) => { const ak = x.addr ? addrKey(x.addr) : null; return (ak && D.mine[ak]) || (x.acc === 'main' ? D.mine['_me:' + x.uid] : null) || null; };
+const hPrize = (D, rank) => { const b = rank && (D.bands || []).find(z => rank >= z[0] && rank <= z[1]); return b ? +b[2] || 0 : 0; };
+function histClassifHtml() {
+  const G = histGroupDays(), money = c => usd(c / 100);
+  if (!G || !G.days.length) return '<div class="card"><div class="list-head"><h2>Classificação do Historic</h2></div><div class="pad small muted">Ainda não há lugares do Historic: aparecem depois de se ler o Historic no Top Shot.</div></div>';
+  const days = G.days;
+  const people = groupEntries().map(x => {
+    const cells = days.map(D => { const m = hMineOf(D, x), ak = x.addr ? addrKey(x.addr) : null; return { D, m, no: !m && ak && D.no.has(ak) }; });
+    const played = cells.filter(c => c.m), paid = played.filter(c => c.m.rank <= hLastPaid(c.D));
+    return { x, cells, played: played.length, paid: paid.length, won: played.reduce((t, c) => t + hPrize(c.D, c.m.rank), 0), best: played.length ? Math.min(...played.map(c => c.m.rank)) : 1e9 };
+  }).filter(z => z.played).sort((a, b) => (b.won - a.won) || (b.paid - a.paid) || (a.best - b.best) || (b.played - a.played));
+  if (!people.length) return '<div class="card"><div class="list-head"><h2>Classificação do Historic</h2></div><div class="pad small muted">Ainda ninguém do grupo tem lugar no Historic (só aparecem as contas com endereço Flow no perfil).</div></div>';
+  const cell = c => {
+    const r = c.m && c.m.rank, pz = r ? hPrize(c.D, r) : 0, tip = 'Dia ' + histDayNo(c.D.id) + (r ? ': ' + r + '.º' + (c.D.entries ? ' de ' + c.D.entries : '') + (c.m.score != null ? ' · ' + f1(c.m.score) + ' pontos' : '') : c.no ? ': sem lineup' : '');
+    return '<td class="c ' + (r ? (r <= hLastPaid(c.D) ? 'w' : 'l') : 'n') + '" title="' + esc(tip) + '">' + (r ? r.toLocaleString('pt-PT') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : '—') + '</td>';
+  };
+  const rows = people.map(z => '<tr' + (z.x.uid === S.session.user.id ? ' class="me"' : '') + ' data-action="friend" data-id="' + esc(z.x.uid) + '" data-acc="' + esc(z.x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(z.x.acc === 'main' ? z.x.uid : z.x.uid + '|' + z.x.acc, z.x.name) +
+    '<span><b>' + esc(z.x.name) + '</b>' + (z.x.acc !== 'main' ? '<small>smurf' + (z.x.owner ? ' de ' + esc(z.x.owner) : '') + '</small>' : z.x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
+    '<td class="rr' + (z.paid ? ' z-p' : '') + '"><b>' + z.paid + '/' + z.played + '</b><small>nos prémios</small></td>' + z.cells.map(cell).join('') + '<td class="money">' + (z.won ? money(z.won) : '—') + '</td></tr>').join('');
+  const dayTot = (D, k) => { let t = 0, w = 0, any = false; people.forEach(z => { const c = z.cells[k]; if (c.m) { any = true; if (c.m.rank <= hLastPaid(D)) w++; t += hPrize(D, c.m.rank); } }); return { t, w, any }; };
+  const all = people.reduce((t, z) => t + z.won, 0);
+  const totRow = people.length > 1 ? '<tr class="tot"><td class="who2"><span><b>Grupo</b></span></td><td></td>' + days.map((D, k) => { const q = dayTot(D, k); return '<td><b>' + (q.t ? money(q.t) : '—') + '</b>' + (q.any ? '<small>' + q.w + ' ✓</small>' : '') + '</td>'; }).join('') + '<td class="money"><b>' + (all ? money(all) : '—') + '</b></td></tr>' : '';
+  const head = '<tr><th class="who2">Conta</th><th>Dias</th>' + days.map(D => '<th>Dia ' + histDayNo(D.id) + '</th>').join('') + '<th>Ganho</th></tr>';
+  return '<div class="card"><div class="list-head"><h2>Classificação do Historic</h2></div><div class="small muted" style="padding:0 16px 6px">' + esc((G.H.run || {}).name || 'Historic') + ' · lugares ' + ago(G.at) + ' · prémios até ao ' + hLastPaid(days[days.length - 1]) + '.º</div>' +
+    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + rows + totRow + '</tbody></table></div></div>';
+}
+// Classic ou Historic na Classificação (sem escolha: segue o modo da Jornada)
+const gcMode = () => S.gcMode || (S.jmode === 'historic' ? 'historic' : 'classic');
+const gcSeg = () => '<div class="seg gc-mode" role="group" aria-label="Modo">' + [['classic', 'Classic'], ['historic', 'Historic']].map(([k, l]) => '<button type="button" data-action="gc-mode" data-v="' + k + '" aria-pressed="' + (gcMode() === k) + '">' + l + '</button>').join('') + '</div>';
 function renderGrupo() {
   const el = $('tab-grupo');
   if (S.loading) { el.innerHTML = empty('A carregar…', 'A ler o grupo.'); return; }
@@ -3915,6 +4037,7 @@ function renderGrupo() {
   const gsub = subOf('grupo');
   if (gsub === 'lineups') { el.innerHTML = subBar('grupo') + '<div class="stack">' + lineupsHtml() + '</div>'; return; }
   if (gsub === 'emprestimos') { el.innerHTML = subBar('grupo') + '<div class="stack">' + emprestimosHtml() + '</div>'; return; }
+  if (gcMode() === 'historic') { el.innerHTML = subBar('grupo') + gcSeg() + histClassifHtml(); return; }
   const nd = nextDay(), R = groupRanks(), people = groupEntries();
   // com os lugares do Top Shot, a ordem é a da classificação oficial (vitórias e o desempate deles)
   if (R) people.sort((a, b) => ((a.rk && a.rk.found ? a.rk.rank : 1e9) - (b.rk && b.rk.found ? b.rk.rank : 1e9)) || (b.wins - a.wins));
@@ -3949,7 +4072,7 @@ function renderGrupo() {
   const hasLu = d => { const rd = rdays.find(z => z.date === d.date); return !!(rd && Object.values(rd.accs || {}).some(a => Array.isArray(a.lu) && a.lu.length)); };
   const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map((d, k) => '<th title="' + esc(objsText(d)) + '">' + (hasLu(d) ? '<button class="gc-day" type="button" data-action="day-lus" data-date="' + d.date + '" aria-label="Lineups do dia ' + (S.days.indexOf(d) + 1) + '">Dia ' + (S.days.indexOf(d) + 1) + ' ›</button>' : 'Dia ' + (S.days.indexOf(d) + 1)) + '</th>').join('') + '<th>Ganho</th></tr>';
   const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top Shot ainda não lidos';
-  el.innerHTML = subBar('grupo') + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
+  el.innerHTML = subBar('grupo') + gcSeg() + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div>' +
     // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
     (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
@@ -5741,7 +5864,7 @@ function espnBox(json) {
       for (const a of st.athletes || []) {
         if (a.didNotPlay || !(a.stats || []).length) continue;
         const v = {}; for (const [k, [i, part]] of Object.entries(I)) if (i >= 0) v[k] = parseFloat(String(a.stats[i] || '0').split('-')[part]) || 0;
-        out[norm((a.athlete || {}).displayName)] = { t, v };
+        out[norm((a.athlete || {}).displayName)] = { t, v, e: (a.athlete || {}).id || null };
       }
     }
   }
@@ -5869,7 +5992,7 @@ async function boxLoad(date, teams) {
       try {
         const res = await fetch(ESPN_SUMMARY(id), { cache: 'no-store' }); if (!res.ok) return;
         const js = await res.json(), box = espnBox(js), s = espnState(js) || st[id] || 'in', n = boxCount(box);
-        Object.entries(box).forEach(([nm, x]) => { B.lines[nm] = { t: x.t, v: x.v, st: s }; });
+        Object.entries(box).forEach(([nm, x]) => { B.lines[nm] = { t: x.t, v: x.v, st: s, e: x.e || null }; });
         ids[id].forEach(t => { B.gs[t] = { id, st: s }; B.n[t] = n[t] || 0; });
         if (s === 'post') B.fin[id] = true;
       } catch (e) { /* bloqueado ou sem rede: tenta mais tarde */ }
@@ -6176,6 +6299,7 @@ document.addEventListener('click', async e => {
     case 'past-lu-save': luEditSave(); break;
     case 'live-lu': S.luEdit = { date, ids: (((curPlan().live || {})[date] || {}).lineup || sheetLineup(date)).slice(), live: true }; luEditSheet(); break;
     case 'live-lu-save': await liveLuSave(); break;
+    case 'top-view': S.topView = b.dataset.v; renderHoje(); break;
     case 'live-refresh': S.liveAt = Date.now(); await liveFetch(false); schedule(); break;
     case 'past-lu-all': if (S.luEdit) { S.luEdit.all = true; luEditSheet(); } break;
     case 'undo-result': undoResult(date); closeSheet(); break;
@@ -6204,6 +6328,7 @@ document.addEventListener('click', async e => {
     case 'sell-down': sellSwapSheet(+b.dataset.i, true); break;
     case 'sell-tab': S.sellTab = b.dataset.v; try { localStorage.setItem('fb-sell-tab', S.sellTab); } catch (e) {} render(); sellFilter(); break;
     case 'day-lus': dayLineupsSheet(date); break;
+    case 'gc-mode': S.gcMode = b.dataset.v; renderGrupo(); break;
     case 'run-apply': b.disabled = true; await runApply(+b.dataset.i); break;
     case 'ed-apply': closeSheet(); edApply(); toast('Raridade e ASP aplicados: os usos do grupo foram acertados.'); break;
     case 'wallet-apply': b.disabled = true; await walletApply(); break;

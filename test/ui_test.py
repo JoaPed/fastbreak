@@ -1025,6 +1025,13 @@ with sync_playwright() as pw:
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(5000)
     print('N lineup levado mantido:', sorted(pg.locator('#tab-hoje .day-hero .jc-list button[data-id]').evaluate_all('els => els.map(e => e.dataset.id)')), '· diag:', pg.locator('#tab-hoje .live-diag').inner_text().replace('\n', ' ') if pg.locator('#tab-hoje .live-diag').count() else 'sem linha')
     print('N botões ao vivo:', pg.locator('#tab-hoje .day-hero .jc-btns').inner_text().replace(chr(10), ' | '))
+    # os melhores até agora: o teu lineup (Brunson 14 + Cade 24 + Maxey 19 = 57), o melhor com os teus e o melhor na NBA
+    pg.wait_for_timeout(2500)
+    tl = pg.locator('#tab-hoje .top-lu .top-tile')
+    tt = [x.replace('\n', ' ') for x in tl.all_inner_texts()]
+    pg.click('#tab-hoje .top-lu .top-tile[data-v="mine"]'); pg.wait_for_timeout(500)
+    tm = pg.locator('#tab-hoje .top-lu .top-row .top-nm b').all_inner_texts()
+    print('N os melhores:', tt, '· com os teus:', tm, '· ok' if len(tt) == 3 and tt[0].endswith(' 57') and len(tm) == 5 and 'Cade Cunningham' in tm and pg.locator('#tab-hoje .top-lu .top-tile[data-v="mine"][aria-pressed="true"]').count() == 1 else '· ERRO')
     pg.click('#tab-hoje button[data-action="live-lu"]'); pg.wait_for_timeout(2500)
     print('N folha:', pg.locator('#sheetPanel').inner_text().replace(chr(10), ' | ')[:700])
     pg.click('#sheetPanel button[data-action="past-lu-pick"][data-id="brunson"]'); pg.wait_for_timeout(300)
@@ -1034,6 +1041,27 @@ with sync_playwright() as pw:
     print('N aviso:', pg.locator('#toast').inner_text())
     print('N ao vivo:', store(pg, '__FAKE_DB.tables.user_runs[0].plan.live'))
     print('N placar:', pg.locator('#tab-hoje .day-hero').inner_text().replace(chr(10), ' | ')[:500])
+    pg.close()
+    # N2: dia já jogado sem previsão guardada nesta conta (ex.: smurf que jogou num dia sem lineup no plano): o cartão
+    # do lineup mostra o que cada um fez; e os melhores do dia (o teu lineup, com os teus, na NBA)
+    N_ST = {k_: ('post', 4, 'Final') for k_ in range(12)}
+    dbn2 = seeded(); T = dbn2['tables']
+    T['runs'][0]['fictitious'] = False
+    for d_ in T['run_days']: d_['games'] = [gm[:3] + ['espn:4019%05d' % (j + 1)] for j, gm in enumerate(d_['games'])] if d_['date'] == N_D1 else d_['games']
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {'played': {N_D1: {'done': True, 'result': 'loss', 'lineup': ['brunson', 'kat', 'cade', 'maxey', 'jbrown']}}}, 'updated_at': '2026-10-20T10:00:00Z'}]
+    T['chain_results'] = []; T['injuries'] = []
+    pg = new_page(b, dbn2)
+    pg.route('https://site.api.espn.com/**', n_h)
+    pg.clock.set_fixed_time('2026-10-22T20:30:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    pg.click('#tab-hoje button[data-action="hd"][data-date="' + N_D1 + '"]'); pg.wait_for_timeout(4000)
+    luc = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Lineup')).first
+    vs = luc.locator('.pv .v').all_inner_texts()
+    tops = [x.replace('\n', ' ') for x in pg.locator('#tab-hoje .top-lu .top-tile').all_inner_texts()]
+    print('N2 lineup sem previsão:', vs, '· melhores do dia:', tops, '· ok' if len(vs) == 5 and '24,0' in vs and len(tops) == 3 else '· ERRO')
     pg.close()
     # O: Jornada → modo Historic (dados lidos no Top Shot): equipa sugerida, tirar, procurar, carta, outro dia
     HISTJ = (root / 'test' / 'fixtures' / 'historic.json').read_text()
@@ -1077,6 +1105,32 @@ with sync_playwright() as pw:
     print('O pro:', pg.locator('#runMeta').inner_text(), '·', pg.locator('#tab-hoje .card h2').all_inner_texts(), '· dias:', pg.locator('#tab-hoje .day-strip .ds').all_inner_texts())
     pg.select_option('#jmode', 'classic'); pg.wait_for_timeout(800)
     print('O volta ao Classic:', pg.locator('#tab-hoje .day-strip [data-action="hd"]').count() > 0)
+    pg.close()
+    # O2: Grupo → Classificação → Historic: o lugar de cada conta em cada dia, com prémio
+    HO = json.loads(HISTJ); AE, AS, AR = 'e7fb03955ade55fa', '1111aaaa2222bbbb', '5555eeee6666ffff'
+    for k_, d_ in enumerate(HO['days']):
+        if not d_.get('lines'): continue
+        lg = [str(l[0]) for l in d_['lines'][:5]]
+        d_['mine'] = {AE: {'rank': 3 if k_ == 0 else 120, 'score': 250.5, 'lu': lg}, AR: {'rank': 30, 'score': 241, 'lu': lg[::-1]}}
+        d_['no'] = [AS]
+    dbo2 = seeded(); To2 = dbo2['tables']; To2['runs'][0]['fictitious'] = False
+    To2['members'].append({'user_id': 'u-eu', 'role': 'admin'})
+    To2['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0x' + AE, 'smurfs': [{'id': 's1', 'topshot_username': 'terose', 'flow_address': '0x' + AS}]})
+    [x.update({'flow_address': '0x' + AR}) for x in To2['profiles'] if x['user_id'] == 'u-amigo']
+    To2['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    To2['chain_results'] = []; To2['injuries'] = []
+    pg = new_page(b, dbo2)
+    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(json.dumps(HO)) + "); localStorage.setItem('fb-jmode', 'historic'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-29T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-grupo'); pg.wait_for_timeout(1000)
+    hr = pg.locator('#tab-grupo .gc tbody tr:not(.tot) td.who2 b').all_inner_texts()
+    c1 = pg.locator('#tab-grupo .gc tbody tr.me td.c').first.inner_text().replace('\n', ' ')
+    print('O2 classificação do Historic:', hr, '· dia 1:', c1, '· ok' if hr == ['João', 'Rui'] and c1 == '3.º +$20' else '· ERRO')
+    pg.click('#tab-grupo button[data-action="gc-mode"][data-v="classic"]'); pg.wait_for_timeout(500)
+    print('O2 volta ao Classic:', pg.locator('#tab-grupo .card h2').first.inner_text().strip())
     pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha

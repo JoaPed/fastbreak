@@ -1179,3 +1179,30 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .lv-list .pv .v { font-size: 30px; }
 .live-diag { font-size: 11.5px; color: var(--board-muted); text-align: right; margin: -2px 0 2px; }
 .live-diag .btn.link { font-size: 11.5px; padding: 0; min-height: 0; color: var(--board-fill); }
+/* os melhores do dia: três totais (o teu lineup, o melhor com os teus, o melhor na NBA) e os 5 do escolhido */
+.top-tiles { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 6px; padding: 0 12px 4px; }
+.top-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; text-align: left; padding: 9px 10px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.top-tile.on { background: var(--surface-2); border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.top-lab { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.top-tile.on .top-lab { color: var(--ink); }
+.top-tot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.top-tot b { font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1; }
+.top-tot b.c-ok { color: var(--good); } .top-tot b.c-no { color: var(--bad); }
+.top-tot small, .top-v small { font-size: 10.5px; font-weight: 700; color: var(--muted); margin-left: 2px; }
+.top-list .top-row { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 7px 16px; }
+.top-nm { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.top-nm b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.top-tag { font-size: 11px; font-weight: 700; padding: 0 6px; line-height: 18px; border-radius: 6px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.top-tag.on { background: var(--accent-soft); color: var(--accent); }
+.top-v { display: inline-flex; align-items: baseline; gap: 0 10px; }
+.top-v b { font-family: var(--font-display); font-weight: 800; font-size: 22px; line-height: 1; color: var(--ink); }
+.top-v b.dim { color: var(--faint); }
+.top-lu.many .top-v > span { min-width: 58px; text-align: right; }
+.gc-mode { margin: 0 0 10px; }
+/* coluna das contas fixa: a célula ocupa a linha toda e tapa os espaços dos lados (ao deslizar a tabela não se vê
+   nada por baixo/ao lado dela) */
+.gc td.who2 { display: table-cell; vertical-align: middle; box-shadow: -8px 0 0 var(--surface), 4px 0 0 var(--surface); }
+.gc th.who2 { box-shadow: -8px 0 0 var(--surface), 4px 0 0 var(--surface); }
+.gc td.who2 .avatar { display: inline-grid; vertical-align: middle; margin-right: 7px; }
+.gc td.who2 > span:not(.avatar) { display: inline-grid; vertical-align: middle; }
+.gc tr.me td.who2 { box-shadow: inset 3px 0 0 var(--accent), -8px 0 0 var(--surface), 4px 0 0 var(--surface); }
