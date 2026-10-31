@@ -1145,3 +1145,37 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .j-nav.multi .j-accs::-webkit-scrollbar { display: none; }
 .j-nav.multi .acc-chip { flex: none; white-space: nowrap; }
 .j-nav.multi .j-links { align-self: flex-end; }
+/* ---- Jornada ao vivo: placar grande e pistas por jogador (feito branco, previsto às riscas, traço = esperado antes do jogo) ---- */
+.lv-big { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+.lv-big b { font-family: var(--font-display); font-weight: 800; font-size: 50px; line-height: .92; color: var(--board-ink); }
+.lv-big span { font-family: var(--font-display); font-weight: 700; font-size: 19px; color: var(--board-muted); }
+.lv-sub { font-size: 13px; color: var(--board-muted); margin-top: 3px; } .lv-sub b { color: var(--board-ink); } .lv-sub b.up { color: var(--board-good); }
+.lv-bar { position: relative; height: 11px; border-radius: 7px; background: rgba(255, 255, 255, .08); margin: 20px 0 6px; }
+.lv-bar i { position: absolute; inset: 0 auto 0 0; background: var(--board-ink); border-radius: 7px 0 0 7px; }
+.lv-bar u, .lv-trk u { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(134, 166, 255, .75) 0 5px, rgba(134, 166, 255, .42) 5px 10px); }
+.lv-bar em { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--board-ball); }
+.lv-bar small { position: absolute; top: -19px; transform: translateX(-50%); font-family: var(--font-display); font-weight: 800; font-size: 12.5px; color: var(--board-ball); }
+.lv-board.many { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 6px; }
+.lv-board.many .lv-big b { font-size: 40px; }
+.lv-board.many .lv-bar { margin-top: 18px; }
+.lv-lab { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--board-muted); }
+.lv-list .lv-row { align-items: center; }
+.lv-list .pn { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.lv-chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 0 6px; font-size: 11.5px; font-weight: 700; line-height: 18px; white-space: nowrap; }
+.lv-chip.on { background: rgba(255, 138, 69, .15); color: var(--board-ball); }
+.lv-chip.on i { width: 5px; height: 5px; border-radius: 50%; background: var(--board-ball); box-shadow: 0 0 0 3px rgba(255, 138, 69, .22); }
+.lv-chip.end { background: rgba(72, 193, 133, .10); color: #5E9E80; }
+.lv-chip.pre { background: rgba(255, 255, 255, .07); color: var(--board-muted); }
+.lv-list .ps .up { color: var(--board-good); } .lv-list .ps .down { color: var(--board-bad); }
+.lv-tk { margin-top: 6px; } .lv-tk.many { display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; gap: 7px; margin-top: 4px; }
+.lv-tk .lb { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: var(--board-muted); }
+.lv-tk b { font-family: var(--font-display); font-weight: 800; font-size: 17px; text-align: right; color: var(--board-ink); } .lv-tk b.dim { color: var(--board-muted); }
+.lv-trk { position: relative; height: 6px; border-radius: 4px; background: rgba(255, 255, 255, .08); }
+.lv-trk i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 4px; background: var(--board-ink); }
+.lv-trk i.end { background: #4F8A6E; }
+.lv-trk u { border-radius: 0 4px 4px 0; } .lv-trk u.pre { border-radius: 4px; opacity: .6; }
+.lv-trk em { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--board-muted); }
+.lv-pre .nm, .lv-list .pv .v.dim { color: var(--board-muted) !important; }
+.lv-list .pv .v { font-size: 30px; }
+.live-diag { font-size: 11.5px; color: var(--board-muted); text-align: right; margin: -2px 0 2px; }
+.live-diag .btn.link { font-size: 11.5px; padding: 0; min-height: 0; color: var(--board-fill); }

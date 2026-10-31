@@ -206,7 +206,7 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(500)
     print('B ao vivo (sozinho):', pg.locator('.hero .jc-txt').inner_text().replace('\n', ' '))
     print('B ao vivo:', store(pg, 'Object.values(__FAKE_DB.tables.user_runs[0].plan.live)[0].players'))
-    print('B placar ao vivo:', pg.locator('.hero .jc-sub').first.inner_text().replace('\n', ' '))
+    print('B placar ao vivo:', pg.locator('.hero .lv-sub').first.inner_text().replace('\n', ' '))
 
     pg.click('#t-run'); pg.wait_for_timeout(400)
     print('B run (prémios):', pg.locator('#tab-run .run-board').inner_text().replace('\n', ' | '), '// distribuição:', pg.locator('#tab-run .dist i').count(), 'barras ·', pg.locator('#tab-run .dist-legend').inner_text().replace('\n', ' '))

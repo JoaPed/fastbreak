@@ -1524,6 +1524,52 @@ function guard(el, needRoster) {
 }
 
 // ---- valores por objetivo (num dia de combinação há um por estatística: 3PM e 3PA, AST e STL…) ----
+// ---- ao vivo (pistas): por estatística, o que cada jogador já fez, até onde deve ir e o que se esperava antes do jogo ----
+function liveLine(md, pi, k) {
+  const info = (md.info[pi] || [])[k] || {}, st = info.liveState, known = +info.known || 0, exp = +info.mu || 0;
+  const end = st === 'fim' ? known : st === 'jogo' ? known + (+info.muLeft || 0) : exp;
+  return { st, known, exp, end, started: st === 'fim' || st === 'jogo' || st === 'jogo?' };
+}
+// régua de cada estatística: a mesma para o lineup todo (dá para comparar os jogadores)
+function liveScale(md, ids, r) {
+  return md.objs.map((o, k) => Math.max(1, ...ids.map(id => { const pi = r.model.pIndex.get(id); if (pi == null) return 0; const x = liveLine(md, pi, k); return Math.max(x.known, x.end, x.exp); })) * 1.08);
+}
+const lvNum = v => (Math.abs(v) >= 10 || Number.isInteger(v) ? f0(v) : f1(v));
+function liveTrack(x, mx) {
+  const pc = v => Math.max(0, Math.min(100, v / mx * 100)).toFixed(1), e = '<em style="left:' + pc(x.exp) + '%"></em>';
+  if (x.st === 'fim') return '<div class="lv-trk"><i class="end" style="width:' + pc(x.known) + '%"></i>' + e + '</div>';
+  if (!x.started) return '<div class="lv-trk"><u class="pre" style="left:0;width:' + pc(x.end) + '%"></u>' + e + '</div>';
+  return '<div class="lv-trk"><i style="width:' + pc(x.known) + '%"></i><u style="left:' + pc(x.known) + '%;width:' + (+pc(x.end) - +pc(x.known)).toFixed(1) + '%"></u>' + e + '</div>';
+}
+// linha de um jogador ao vivo: nome e estado; uma pista por estatística; à direita o que já fez
+function liveRow(r, md, nd, id, scale, extra) {
+  const pi = r.model.pIndex.get(id), p = r.model.players[pi], xs = md.objs.map((o, k) => liveLine(md, pi, k)), x0 = xs[0] || {};
+  const st = x0.st, info = md.info[pi][0] || {};
+  const chip = st === 'fim' ? '<span class="lv-chip end">Final</span>' : st === 'jogo' ? '<span class="lv-chip on"><i></i>' + (info.q ? 'Q' + info.q : 'Playing') + '</span>' : st === 'jogo?' ? '<span class="lv-chip on"><i></i>Playing</span>' : '<span class="lv-chip pre">' + esc(tipOf(nd, id) || '–') + '</span>';
+  const many = md.objs.length > 1;
+  // para onde vai (só a jogar): verde se acima do que se esperava, vermelho se abaixo
+  const tone = x => (x.end >= x.exp * 1.1 ? ' up' : x.end <= x.exp * 0.9 ? ' down' : '');
+  const sub = st === 'jogo' ? '≈ ' + md.objs.map((o, k) => '<span class="' + tone(xs[k]).trim() + '">' + lvNum(xs[k].end) + (many ? ' ' + esc(statShort(o.stat)) : '') + '</span>').join(' · ')
+    : st === 'fim' ? 'forecast ' + md.objs.map((o, k) => lvNum(xs[k].exp) + (many ? ' ' + esc(statShort(o.stat)) : '')).join(' · ')
+    : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd).replace(/ · \d\d:\d\d$/, '')); // a hora já está no selo
+  const tracks = md.objs.map((o, k) => '<div class="lv-tk' + (many ? ' many' : '') + '">' + (many ? '<span class="lb">' + esc(statShort(o.stat)) + '</span>' : '') + liveTrack(xs[k], scale[k]) + (many ? '<b class="num' + (xs[k].started ? '' : ' dim') + '">' + (xs[k].started ? lvNum(xs[k].known) : lvNum(xs[k].end)) + '</b>' : '') + '</div>').join('');
+  const right = many ? '' : '<div class="pv"><div class="v num' + (x0.started ? '' : ' dim') + '">' + (x0.started ? lvNum(x0.known) : lvNum(x0.end)) + '</div><div class="u">' + (x0.started ? esc(statShort(md.objs[0].stat)) : 'forecast') + '</div></div>';
+  const gid = x0.started ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
+  return '<li class="lv-li' + (x0.started ? '' : ' lv-pre') + '"><button class="row lv-row" type="button" ' + (/^espn:/.test(gid) ? 'data-action="game-box" data-gid="' + esc(gid) + '"' : 'data-action="player"') + ' data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0;flex:1"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + chip + (extra || '') + '</div><div class="ps">' + sub + '</div>' + tracks + '</div></span>' + right + '</button></li>';
+}
+// placar ao vivo do dia: por estatística, o feito em grande, a barra (feito + previsto) com o alvo e o que falta
+function liveBoard(d, part) {
+  const many = d.totals.length > 1, pc = (v, mx) => Math.max(0, Math.min(100, v / mx * 100)).toFixed(1);
+  const big = x => '<div class="lv-big"><b class="num">' + f0(x.known) + '</b><span>/ ' + x.target + '</span></div>';
+  const sub = x => { const left = Math.max(0, x.target - x.known), P = FB.probAtLeast(x.mu, x.sd * x.sd, x.target);
+    // com duas estatísticas há pouco espaço: só o fim previsto e a hipótese dessa estatística
+    return '<div class="lv-sub">' + (many ? (left > 0 ? '' : '<b class="up">target reached</b> · ') + 'end ≈ <b>' + f0(x.mu) + '</b> · ' + pct(P) : (left > 0 ? '<b>' + f0(left) + '</b> · ' : '<b class="up">target reached</b> · ') + 'end forecast <b>' + f0(x.mu) + '</b>') + '</div>'; };
+  const bar = x => { const mx = Math.max(x.target * 1.15, x.mu * 1.05, x.known, 1);
+    return '<div class="lv-bar" aria-hidden="true"><i style="width:' + pc(x.known, mx) + '%"></i><u style="left:' + pc(x.known, mx) + '%;width:' + Math.max(0, pc(x.mu, mx) - pc(x.known, mx)).toFixed(1) + '%"></u><em style="left:' + pc(x.target, mx) + '%"></em><small style="left:' + pc(x.target, mx) + '%">' + x.target + '</small></div>'; };
+  // uma estatística: o número e o que falta ao lado do anel (part 'top'); a barra a toda a largura por baixo ('bar')
+  if (!many) { const x = d.totals[0]; return part === 'top' ? big(x) + sub(x) : bar(x); }
+  return '<div class="lv-board many">' + d.totals.map(x => '<div class="lv-st"><div class="lv-lab">' + esc(statShort(x.stat)) + '</div>' + big(x) + bar(x) + sub(x) + '</div>').join('') + '</div>';
+}
 function objVals(md, pi, live) {
   return (md.objs || []).map((o, k) => {
     const info = (md.info[pi] || [])[k] || {}, st = live ? info.liveState : null;
@@ -2145,7 +2191,13 @@ function renderJornada(el) {
   // lineup
   const locks = new Set(((curPlan().locks || {})[nd.date]) || []), bans = ((curPlan().bans || {})[nd.date]) || [];
   const lp = live ? ((liveDoc(nd.date) || {}).players || {}) : {};
-  const rows = d.lineup.map(id => {
+  // ao vivo: pistas (feito, previsto até ao fim, o que se esperava), por estado: a jogar, terminados, por começar
+  const lvScale = live ? liveScale(md, d.lineup, r) : null;
+  const lvOrder = id => { const x = liveLine(md, r.model.pIndex.get(id), 0); return x.st === 'jogo' || x.st === 'jogo?' ? 0 : x.st === 'fim' ? 1 : 2; };
+  const rows = live ? d.lineup.slice().sort((a, b) => lvOrder(a) - lvOrder(b)).map(id => {
+    const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
+    return liveRow(r, md, nd, id, lvScale, (tr ? '<span class="pill prov">Send from ' + esc(accLabel(tr.from)) + '</span>' : '') + (d.live.submitted.includes(id) ? '' : '<span class="pill prov">New</span>'));
+  }).join('') : d.lineup.map(id => {
     const pi = r.model.pIndex.get(id), p = r.model.players[pi], info = md.info[pi][0];
     let ps;
     if (live) {
@@ -2175,14 +2227,12 @@ function renderJornada(el) {
   if (compact) {
     const objLine = (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + ' ' + esc(statShort(x.stat))).join(' + ');
     const perStat = t ? d.totals.map(x => '<span>' + esc(statShort(x.stat)) + ' ' + (live ? '<b class="num">' + f0(x.known) + '</b>/' + x.target + ' · end ≈ ' + f1(x.mu) : '<b class="num">' + f1(x.mu) + '</b>/' + x.target) + ' · ' + pct(FB.probAtLeast(x.mu, x.sd * x.sd, x.target)) + '</span>').join('<span aria-hidden="true"> · </span>') : '';
-    // ao vivo: uma barra fina por estatística (feito + o que falta prever) e, no fim, o total
-    const liveBars = live && t ? '<div class="jc-bars">' + d.totals.map(x => { const max = Math.max(x.target * 1.2, x.mu + x.sd, 1), kw = Math.min(100, x.known / max * 100), fw = Math.max(0, Math.min(100 - kw, (x.mu - x.known) / max * 100)); return '<div class="bar" aria-hidden="true"><i class="k" style="width:' + kw.toFixed(1) + '%"></i><i class="f" style="left:' + kw.toFixed(1) + '%;width:' + fw.toFixed(1) + '%"></i><i class="t" style="left:' + Math.min(99, x.target / max * 100).toFixed(1) + '%"></i></div>'; }).join('') + '</div>' : '';
-    const LD = S.liveDiag, liveDiag = live ? '<div class="row small muted live-diag" style="display:block">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' of ' + LD.sub + ' with stats' + ((LD.miss || []).length ? ' (missing: ' + LD.miss.map(esc).join(', ') + ')' : '') + (LD.err ? ' · error: ' + esc(LD.err) : '') + ' · ' : '') + '<button class="btn link small" type="button" data-action="live-refresh">Refresh</button></div>' : '';
+    const LD = S.liveDiag, liveDiag = live ? '<div class="live-diag">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' of ' + LD.sub + ' with stats' + ((LD.miss || []).length ? ' (missing: ' + LD.miss.map(esc).join(', ') + ')' : '') + (LD.err ? ' · error: ' + esc(LD.err) : '') + ' · ' : '') + '<button class="btn link small" type="button" data-action="live-refresh">Refresh</button></div>' : '';
     const finalLine = allFinal && t ? '<div class="row small jc-final" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> of ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">you won</b>' : '<b class="down">you lost</b>') + '</div>' : '';
     const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Change lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Share the lineup" title="Share the lineup">' + icoShare + '</button>' : ''].filter(Boolean);
     html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Today' : 'Day ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Live</span>' : '') + '</span>' +
-      '<div class="jc-sub">' + (d.noObjective ? 'No target' : d.lineup.length ? perStat : '') + '</div>' + (live ? '' : '<div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1st game ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
-      liveBars + liveDiag + (d.lineup.length ? '<ul class="list jc-list">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
+      (live ? (d.totals.length === 1 && t ? liveBoard(d, 'top') : '') : '<div class="jc-sub">' + (d.noObjective ? 'No target' : d.lineup.length ? perStat : '') + '</div>') + (live ? '' : '<div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1st game ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
+      (live && t ? liveBoard(d, 'bar') : '') + liveDiag + (d.lineup.length ? '<ul class="list jc-list' + (live ? ' lv-list' : '') + '">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
       (btns.length ? '<div class="jc-btns">' + btns.join('') + '</div>' : '') + '</div>';
   } else html.splice(luAt, 0, '<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Change</button>' : '<span class="small muted">' + (live ? 'live points' : d.lineup.length ? d.lineup.length + ' of ' + md.size : '') + '</span>') + '</div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'This account doesn’t play this day: the Moments are worth more in the others.' : noneTxt) + '</div>') +

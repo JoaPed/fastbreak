@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-31
+- **João** — Jornada ao vivo redesenhada: o que já se fez em grande com a barra até ao alvo; cada jogador com a sua pista (feito, previsto até ao fim, traço do esperado), ordenados por a jogar / terminados / por começar; dias com duas estatísticas com um número e uma pista por estatística.
 - **João** — Ao vivo com smurfs: todas as contas entram ao vivo e são atualizadas juntas de 2 em 2 minutos (antes só a que estava aberta, e as outras ficavam paradas); a atualização periódica já não para se outra coisa falhar.
 - **João** — Durante os jogos o lineup levado não muda sozinho (quem ainda não jogou fica; só sai quem não puder jogar). Trocas melhores só nas Sugestões para hoje. Ao vivo: estatísticas da ESPN procuradas pela equipa e uma linha com o que veio ("3 de 5 com estatísticas · Atualizar").
 - **João** — Jornada com smurfs: contas lado a lado numa linha (desliza de lado se não couberem) e Lineup · Porquê · Comparar por baixo.
