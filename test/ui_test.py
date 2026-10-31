@@ -1125,6 +1125,42 @@ with sync_playwright() as pw:
     dx1 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text(); tm1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()
     print('O3 desconto por conta:', dx0, '|', dx1, '|', tm1, '· ok' if '87 RP' in dx0 and '−' not in dx0 and '70 RP −20%' in dx1 else '· ERRO')
     pg.close()
+    # C2: compras contam com o dia de hoje (antes dos jogos o lineup de hoje guardado não prende quem se compra agora)
+    dbc = seeded(); Tc = dbc['tables']; Tc['runs'][0]['fictitious'] = False
+    Tc['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    Tc['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    Tc['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 1, 'status': 'ok'} for pid in list(roster['players'])[:14]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    Tc['chain_results'] = []; Tc['injuries'] = []
+    pg = new_page(b, dbc)
+    pg.clock.set_fixed_time('2026-10-29T15:00:00Z')  # dia 10 de 11, antes dos jogos
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(4000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    hc = store(pg, '(__FAKE_DB.tables.user_runs[0].plan.hold || {}).ids || []')
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
+    pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=180000)
+    br = [x.replace('\n', ' ') for x in pg.locator('#buyOut .buy-row').all_inner_texts()]
+    print('C2 compras contam com hoje (lineup guardado: %s):' % hc, [x[:80] for x in br[:4]], '· ok' if any('dia 10' in x for x in br) else '· ERRO')
+    pg.close()
+    # C3: com smurf no fim da run (0 vitórias, 2 dias por jogar), as compras não falam de prémios que já não dão
+    # (o motor baixa os patamares para haver um alvo; esses não são prémios a sério) nem trocam os de uma conta pelos da outra
+    dbc3 = seeded(); Tc3 = dbc3['tables']; Tc3['runs'][0]['fictitious'] = False
+    Tc3['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    Tc3['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'smurfs': [{'id': 's1', 'topshot_username': 'joao_smurf'}]})
+    Tc3['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 1, 'status': 'ok'} for pid in list(roster['players'])[:14]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    Tc3['chain_results'] = []; Tc3['injuries'] = []
+    pg = new_page(b, dbc3)
+    pg.clock.set_fixed_time('2026-10-29T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(4000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
+    pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=180000); pg.wait_for_timeout(500)
+    br3 = [x.replace('\n', ' ') for x in pg.locator('#buyOut .buy-row').all_inner_texts()]
+    import re as _re
+    big = [x[:70] for x in br3 if any(int(w) > 2 for w in _re.findall(r'(\d+) vitórias', x))]
+    print('C3 prémios que já não dão:', len(br3), 'compras ·', big[:3], '· ok' if br3 and not big else '· ERRO')
+    pg.close()
     # O2: Grupo → Classificação → Historic: o lugar de cada conta em cada dia, com prémio
     HO = json.loads(HISTJ); AE, AS, AR = 'e7fb03955ade55fa', '1111aaaa2222bbbb', '5555eeee6666ffff'
     for k_, d_ in enumerate(HO['days']):

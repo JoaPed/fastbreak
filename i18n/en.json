@@ -2520,6 +2520,8 @@
  "</b> · compras ": "</b> · buy ",
  "uma ": "a ",
  "por <b class=\"num\">": "for <b class=\"num\">",
+ "nohold": null,
+ "A escolher candidatos…": "Picking candidates…",
  "normal": null,
  "sem": null,
  "odds": null,

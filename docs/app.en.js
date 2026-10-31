@@ -1363,13 +1363,15 @@ function keepConflict(acc, date, id) {
   const req = others.concat([acc]).map(k => usedCount(k, id) + 1).sort((a, b) => b - a);
   return req.some((r, j) => r > (cd[j] || 0));
 }
+// raw = true: sem o lineup de hoje guardado nem o levado ao vivo; raw = 'nohold': só sem o de hoje guardado (compras:
+// um jogador comprado agora ainda pode entrar no lineup de hoje, se os jogos não começaram)
 function planForEngine(acc, raw) {
   let pa = planOf(acc); const sk = skippedDays(acc);
   // o lineup de hoje fica como estava (keep) até haver um claramente melhor ou alguém ficar de fora (holdSync, holdCheck)
   const hd = !raw && holdOn(acc); if (hd) pa = Object.assign({}, pa, { keep: Object.assign({}, pa.keep || {}, { [hd.d]: hd.ids.slice() }) });
   // durante os jogos o lineup levado não muda sozinho: quem ainda não jogou fica (só sai se não puder jogar); trocas
   // melhores só nas Sugestões para hoje (pedido do João)
-  if (!raw) Object.entries(pa.live || {}).forEach(([d, l]) => { if (l && l.active && Array.isArray(l.lineup) && l.lineup.length && !((pa.played || {})[d] || {}).done) pa = Object.assign({}, pa, { keep: Object.assign({}, pa.keep || {}, { [d]: l.lineup.slice() }) }); });
+  if (raw !== true) Object.entries(pa.live || {}).forEach(([d, l]) => { if (l && l.active && Array.isArray(l.lineup) && l.lineup.length && !((pa.played || {})[d] || {}).done) pa = Object.assign({}, pa, { keep: Object.assign({}, pa.keep || {}, { [d]: l.lineup.slice() }) }); });
   if (accounts().length > 1 && pa.keep) {
     const keep = {}; let cut = false;
     Object.entries(pa.keep).forEach(([d, ids]) => { const ok = (ids || []).filter(id => !keepConflict(acc, d, id)); if (ok.length !== (ids || []).length) cut = true; keep[d] = ok; });
@@ -2598,10 +2600,10 @@ function evalAltAsync(mod) {
   const list = accounts().map(a => { const x = a.id === 'main' ? base : engineInputs(a.id); let plan = x.plan; if (a.id === S.acc) { plan = clone(plan); modCap(mod, plan); } return { key: a.id, roster: x.roster, plan }; });
   return engineCall('planGroup', [base.run, list, base.odds, engOpts()], S.acc);
 }
-function planWithAsync(mod, kicks) {
-  if (!S.multi) { const y = engineInputs('main'); mod(y.roster.players); return engineCall('planRun', [y.run, y.roster, y.odds, y.plan, engOpts()]); }
-  const base = engineInputs('main');
-  const list = accounts().map(a => { const y = a.id === 'main' ? base : engineInputs(a.id); const ro = clone(y.roster); mod(ro.players); return { key: a.id, roster: ro, plan: y.plan }; });
+function planWithAsync(mod, kicks, raw) {
+  if (!S.multi) { const y = engineInputs('main', raw); mod(y.roster.players); return engineCall('planRun', [y.run, y.roster, y.odds, y.plan, engOpts()]); }
+  const base = engineInputs('main', raw);
+  const list = accounts().map(a => { const y = a.id === 'main' ? base : engineInputs(a.id, raw); const ro = clone(y.roster); mod(ro.players); return { key: a.id, roster: ro, plan: y.plan }; });
   return engineCall('planGroup', [base.run, list, base.odds, Object.assign(engOpts(), kicks != null ? { kicks } : {})], 'main');
 }
 function evalAlt(mod) {
@@ -2756,7 +2758,7 @@ function renderRun() {
   if (sub === 'contas' && S.multi) {
     const g = S.multi, P = mainResult().prizes;
     html.push('<div class="card"><div class="list-head"><h2>Your accounts ' + helpBtn('contas') + '</h2><span class="small muted">joint plan</span></div><ul class="list">' + g.keys.map(k => { const rk = g.byKey[k], vk = rk.normal;
-      return '<li><button class="row" type="button" data-action="acc-run" data-acc="' + esc(k) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(accLabel(k)) + '</span></div><div class="ps">' + recordTxt(rk.wins, rk.losses) + ' · expected ' + f1(rk.wins + vk.expected) + '</div></div>' + (P.length ? miniAros(P, vk.prizeProbs) : '') + '</button></li>'; }).join('') + '</ul></div>');
+      return '<li><button class="row" type="button" data-action="acc-run" data-acc="' + esc(k) + '"><div style="min-width:0"><div class="pn"><span class="nm">' + esc(accLabel(k)) + '</span></div><div class="ps">' + recordTxt(rk.wins, rk.losses) + ' · expected ' + f1(rk.wins + vk.expected) + '</div></div>' + ((rk.prizes || P).length ? miniAros(rk.prizes || P, vk.prizeProbs) : '') + '</button></li>'; }).join('') + '</ul></div>');
     html.push(transfersCard());
     el.innerHTML = html.join(''); return;
   }
@@ -3460,7 +3462,7 @@ function buyHtml() {
     (B.mode !== 'more' ? '<label class="small muted">Max price (optional, in $)<input class="field" id="buyMax" type="number" inputmode="decimal" min="0" step="1" placeholder="e.g. 6" value="' + (B.max || '') + '" autocomplete="off"></label>' : '') +
     '<button class="btn primary" type="button" data-action="buy-run">' + (B.mode === 'new' ? 'Find the best buys' : 'See who is worth upgrading') + '</button>' +
     '<label class="small muted">Check a player<input class="field" id="buySearch" type="search" placeholder="Name, e.g. Curry…" autocomplete="off"></label><div id="buyFound" class="search-list" hidden></div></div>' +
-    '<div id="buyOut" class="stack">' + (B.results ? buyResultsHtml(B.results) : '') + '</div>' + specHtml();
+    '<div id="buyOut" class="stack">' + (B.busy ? '<div class="small muted" id="buyProg">' + esc(B.prog || 'Picking candidates…') + '</div>' : B.results ? buyResultsHtml(B.results) : '') + '</div>' + specHtml();
 }
 // ---- Especialistas: os melhores da NBA em cada estatística (época atual misturada com a passada) ----
 S.spec = { stat: null };
@@ -3568,7 +3570,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
     // 1.ª peneira (todos): o ganho direto de cada um no dia em que mais ajuda, com o plano atual
     const score = {};
     accs.forEach(k => {
-      const x = engineInputs(k), wide = clone(x.roster), rk = S.multi ? S.multi.byKey[k] : r; if (!rk) return;
+      const x = engineInputs(k, 'nohold'), wide = clone(x.roster), rk = S.multi ? S.multi.byKey[k] : r; if (!rk) return;
       pool.forEach(id => add(id)(wide.players));
       const mw = FB.buildModel(x.run, wide, x.odds, x.plan, engOpts());
       FB.buyScreen(mw, rk.normal, pool.map(id => mw.pIndex.get(id)).filter(i => i != null), U).forEach(z => { score[z.id] = (score[z.id] || 0) + z.score; });
@@ -3581,7 +3583,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
       if (prog) prog('Comparing the ' + pre.length + ' most promising (of ' + pool.length + ')…');
       for (const k of accs) {
         if (alive && !alive()) return null;
-        const x = engineInputs(k), wide = clone(x.roster), rk = S.multi ? S.multi.byKey[k] : r; if (!rk) continue;
+        const x = engineInputs(k, 'nohold'), wide = clone(x.roster), rk = S.multi ? S.multi.byKey[k] : r; if (!rk) continue;
         pre.forEach(id => add(id)(wide.players));
         try { (await engineCall('buyRank', [x.run, wide, x.roster, x.odds, x.plan, { days: rk.normal.days.map(d => ({ date: d.date, lineup: d.lineup })) }, pre, engOpts()])).forEach(z => { gain[z.id] = (gain[z.id] || 0) + z.gain; }); }
         catch (e) { console.warn('purchases: 2nd pass', e); }
@@ -3593,14 +3595,15 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
   const list = [];
   let base = null;
   if (shortlist.length) {
-    base = kicks != null && S.multi ? await planWithAsync(() => {}, kicks) : planNow();
+    // a base também sem o lineup de hoje guardado, para comparar igual com igual (hoje ainda pode mudar)
+    base = await planWithAsync(() => {}, kicks, 'nohold');
     for (let k = 0; k < shortlist.length; k++) {
       if (alive && !alive()) return null;
       const id = shortlist[k];
       if (prog) prog('Redoing the run with ' + nameOf(id) + '… ' + (k + 1) + ' of ' + shortlist.length);
       await tick();
       if (alive && !alive()) return null;
-      try { list.push({ id, ev: await planWithAsync(add(id), kicks) }); } catch (e) { console.warn(e); }
+      try { list.push({ id, ev: await planWithAsync(add(id), kicks, 'nohold') }); } catch (e) { console.warn(e); }
     }
   }
   list.sort((a, b) => b.ev.total - a.ev.total);
@@ -3610,9 +3613,12 @@ async function buyRun(onlyId) {
   const B = S.buy, out = $('buyOut'); if (!out) return;
   const mode = onlyId ? (S.mine.roster[onlyId] ? 'more' : 'new') : B.mode;
   out.innerHTML = '<div class="small muted" id="buyProg">Picking candidates…</div>';
+  B.busy = true; B.prog = 'Picking candidates…';
   await tick(30);
   const mx = parseFloat(String((($('buyMax') || {}).value) || B.max || '').replace(',', '.')); B.max = mx > 0 ? mx : null;
-  const res = await computeBuy({ onlyId, mode, U: B.uses, maxPrice: B.max, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog: t => { const el = $('buyProg'); if (el) el.textContent = t; } });
+  let res;
+  try { res = await computeBuy({ onlyId, mode, U: B.uses, maxPrice: B.max, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog: t => { B.prog = t; const el = $('buyProg'); if (el) el.textContent = t; } }); }
+  finally { B.busy = false; }
   if (!res || !$('buyOut')) return;
   if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (res.priced != null ? 'No ' + tierName(B.uses) + ' with games in the remaining days is listed up to ' + usd(res.maxPrice) + '. Raise the max price.' : mode === 'more' ? 'Nobody in your roster gains uses with a ' + tierName(B.uses) + (res.unsold ? ' that is for sale' : '') + '. Try a tier higher.' : res.unsold ? 'None of the candidates has a ' + tierName(B.uses) + ' for sale.' : 'There are no candidates with games in the remaining days.') + '</div>'; return; }
   if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, B.uses) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.</div>'; return; }
@@ -3759,11 +3765,15 @@ function scheduleAutoBuy() {
   }, S.multi ? 6000 : 2500);
 }
 // resumo de uma compra: o prémio que mais sobe, as vitórias esperadas e os dias em que passa a jogar
+// os patamares de prémio de cada conta (os dela: com poucas vitórias e poucos dias, o motor baixa-os para haver um
+// alvo; esses, marcados auto, não são prémios a sério e não entram nas compras)
+const prizesOf = (R, k) => { const g = R.base && R.base.group, e = g && g.byKey && g.byKey[k]; return (e && e.prizes) || mainResult().prizes; };
+const realPrizes = (R, k, f) => prizesOf(R, k).forEach((p, i) => { if (!p.auto) f(p, i); });
 function buySummary(R, x) {
-  const prizes = mainResult().prizes, keys = R.base.group ? R.base.group.keys : ['main'], id = String(x.id);
+  const keys = R.base.group ? R.base.group.keys : ['main'], id = String(x.id);
   const resOf = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res);
   let best = null;
-  prizes.forEach((p, i) => keys.forEach(k => { const b = resOf(R.base, k).prizeProbs[i], a = resOf(x.ev, k).prizeProbs[i]; if (!best || a - b > best.dl) best = { k, p, dl: a - b, from: b, to: a }; }));
+  keys.forEach(k => realPrizes(R, k, (p, i) => { const b = resOf(R.base, k).prizeProbs[i], a = resOf(x.ev, k).prizeProbs[i]; if (!best || a - b > best.dl) best = { k, p, dl: a - b, from: b, to: a }; }));
   const wk = k => (R.base.group ? R.base.group.byKey[k].wins : mainResult().wins) || 0;
   const e0 = keys.reduce((t, k) => t + wk(k) + resOf(R.base, k).expected, 0), e1 = keys.reduce((t, k) => t + wk(k) + resOf(x.ev, k).expected, 0);
   const days = new Set();
@@ -3803,7 +3813,7 @@ function buyTipsCard(limit, jornada) {
 function buyResultsHtml(R) {
   const usesTxt = n => n + ' use' + (n > 1 ? 's' : '');
   if (!R.list.length) return '<div class="note info">' + (R.single ? 'He doesn’t play on the remaining days (or has no averages).' : 'No ' + tierTxt(R.U) + ' changes your run.') + '</div>';
-  const prizes = mainResult().prizes, keys = R.base.group ? R.base.group.keys : ['main'], multi = keys.length > 1;
+  const keys = R.base.group ? R.base.group.keys : ['main'], multi = keys.length > 1;
   const resOf = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res);
   const seen = new Set(R.list.map(x => String(x.id)).concat(R.skip || [])), left = R.rank ? R.rank.filter(id => !seen.has(id)).length : 0;
   const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Looked at the ' + R.pool + ' players with games in the remaining days' + (R.maxPrice ? ' and a ' + tierName(R.U) + ' listed up to ' + usd(R.maxPrice) : '') + ' and fully re-ran the run with the ' + R.list.length + ' most promising.' + (R.unsold ? ' Left out ' + R.unsold + ' with no ' + tierName(R.U) + ' for sale.' : '') + '</div>';
@@ -3822,7 +3832,7 @@ function buyResultsHtml(R) {
     const days = [...byDay.values()].sort((p, q) => p.d.date.localeCompare(q.d.date));
     // prémios que mudam (pelo menos 1 pp)
     let best = null; const moved = [];
-    prizes.forEach((p, i) => keys.forEach(k => { const b = resOf(R.base, k).prizeProbs[i], a = resOf(x.ev, k).prizeProbs[i]; if (!best || a - b > best.dl) best = { k, p, dl: a - b, from: b, to: a }; if (Math.abs(pp(a) - pp(b)) >= 1) moved.push({ k, p, b, a }); }));
+    keys.forEach(k => realPrizes(R, k, (p, i) => { const b = resOf(R.base, k).prizeProbs[i], a = resOf(x.ev, k).prizeProbs[i]; if (!best || a - b > best.dl) best = { k, p, dl: a - b, from: b, to: a }; if (Math.abs(pp(a) - pp(b)) >= 1) moved.push({ k, p, b, a }); }));
     const wk = k => (R.base.group ? R.base.group.byKey[k].wins : mainResult().wins) || 0; // vitórias já feitas
     const e0 = keys.reduce((t, k) => t + wk(k) + resOf(R.base, k).expected, 0), e1 = keys.reduce((t, k) => t + wk(k) + resOf(x.ev, k).expected, 0);
     const byPrize = best && pp(best.to) - pp(best.from) >= 1, worth = byPrize || e1 - e0 >= 0.15;
