@@ -58,6 +58,30 @@ export function archive(docs, dir) {
   return total;
 }
 
+// o mesmo que o norm() do site (as chaves das cartas de lendas foram guardadas assim)
+export const normName = name => String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ı/g, 'i').replace(/ł/g, 'l').replace(/ø/g, 'o').replace(/[đð]/g, 'd').replace(/ß/g, 'ss').replace(/æ/g, 'ae').replace(/œ/g, 'oe')
+  .replace(/[.'’`]/g, '').replace(/-/g, ' ').replace(/\b(jr|sr|ii|iii|iv)\b/g, '').replace(/\s+/g, ' ').trim();
+// por conta: quantas lendas do Historic têm carta na carteira lida no site ({conta: {lendas, sets}})
+export function legendCount(profile, legends) {
+  const col = (profile && profile.collection) || {}, out = {};
+  if (!col.lg) return null;
+  Object.entries(col.lg).forEach(([k, L]) => { if (!legends.has(k)) return; Object.entries((L && L.c) || {}).forEach(([acc, sets]) => { const o = out[acc] || (out[acc] = { lendas: 0, sets: 0 }); o.lendas++; o.sets += (sets || []).length; }); });
+  return out;
+}
+async function legendCards(docs) {
+  const H = { apikey: KEY, Authorization: 'Bearer ' + KEY };
+  const r = await fetch(URL_ + '/rest/v1/profiles?select=display_name,topshot_username,smurfs,collection', { headers: H });
+  if (!r.ok) throw new Error('profiles ' + r.status);
+  const legends = new Set(); docs.forEach(h => (h.days || []).forEach(d => (d.players || d.lines || []).forEach(x => legends.add(normName(x[1])))));
+  for (const p of await r.json()) {
+    if (!p.collection) continue;
+    const lab = a => a === 'main' ? (p.topshot_username || p.display_name || '?') : ((p.smurfs || []).find(x => x && x.id === a) || {}).topshot_username || a;
+    const c = legendCount(p, legends);
+    console.log('::notice title=Cartas de lendas::' + (p.topshot_username || p.display_name || '?') + ' · carteira lida ' + String(p.collection.read_at || '?').slice(0, 16) + ' · ' +
+      (c == null ? 'leitura antiga, sem lendas (ler a carteira outra vez)' : Object.keys(c).length ? Object.entries(c).map(([a, x]) => lab(a) + ': ' + x.lendas + ' lendas do Historic').join(' · ') : 'nenhuma lenda do Historic com carta'));
+  }
+}
+
 if (import.meta.url === 'file://' + process.argv[1]) {
   let docs = [];
   if (process.argv[2]) docs = process.argv.slice(2).map(f => JSON.parse(readFileSync(f, 'utf8'))); // à mão: ficheiros do favorito "FB historic dados"
@@ -70,6 +94,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     // diagnóstico (só contagens): o que cada leitura trouxe de cada dia
     docs.forEach(h => console.log('::notice title=Historic lido::' + h.at + ' · ' + (h.days || []).map(d => String(d.id).split('-').pop() + ':' + (d.lines && d.lines.length ? 'L' : d.players ? 'P' : '-') + (d.mine ? 'm' + Object.keys(d.mine).length : '') + (d.no ? 'n' + d.no.length : '') + (d.top ? 't' : '') + (d.mineErr ? '!' : '')).join(' ') + ((h.days || []).find(d => d.mineErr) ? ' · erro: ' + (h.days.find(d => d.mineErr).mineErr) : '') + ((h.days || []).find(d => d.ceKeys) ? ' · callerEntry: ' + h.days.find(d => d.ceKeys).ceKeys.join(',') : '')));
   }
+  // cartas de lendas lidas nas carteiras (desconto de colecionador no Historic): só contagens por conta, para ver se a
+  // leitura da carteira já as trouxe (o que cada um tem fica no site; aqui só quantas lendas do Historic e de que raridade)
+  if (!process.argv[2]) { try { await legendCards(docs); } catch (e) { console.log('::warning::cartas de lendas: ' + e.message); } }
   const n = archive(docs, DIR);
   console.log(n ? `::notice::Historic: ${n} dias novos ou completados no arquivo` : 'Historic: nada de novo');
 }

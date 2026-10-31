@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-10-31
+- **João** — Tarefa "Arquivo do Historic": diz também, por conta, quantas lendas do Historic têm carta na carteira lida no site (para confirmar os descontos sem pedir a ninguém).
 - **João** — Comprar: as sugestões contam com o dia de hoje (antes dos jogos, o lineup de hoje guardado já não prende quem se compra agora; antes só apareciam dias seguintes). Os prémios de cada conta com os patamares dela, sem os alvos que o plano inventa quando já não há prémio ao alcance (a smurf com 1 vitória a 2 dias do fim já não aparece com "6 vitórias"); o mesmo nos aros de Run → Contas. O texto de progresso não desaparece se a página se redesenhar a meio.
 - **João** — Vender → Poupar: só sugere trocar por uma carta que dê pelo menos os mesmos usos, de qualquer raridade (uma Fandom que dá 3 usos pelo ASP já não aparece para trocar por uma que dá menos); quando a que compras é de outra raridade, diz qual ("compras uma Rare por $7").
 - **João** — Plantel → As tuas cartas: o preço de cada carta numa linha própria (ASP e a mais barata à venda), sem ficar cortado. Pro: o valor da tua carta vem da edição certa (série, set e tiragem), não do nome do set (um Base Set de 60 000 deixava de valer como um de 2019). Historic: entre os pontos e as lendas fica só uma linha (top 10, 1.º e quanto faz o 40.º).

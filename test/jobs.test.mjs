@@ -258,5 +258,12 @@ ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d ===
   ok('Discord: canal de origem que passa sempre', passes({ content: 'x', author: { username: 'NBA Top Shot #🔧-site-status-and-updates' } }, ch, { sempre: ['site-status-and-updates'], palavras: ['nada'] }) && !passes({ content: 'x', author: { username: 'NBA Top Shot #⚡-challenges' } }, ch, { sempre: ['site-status-and-updates'], palavras: ['nada'] }));
   ok('Discord: ids grandes comparados como números', newer('1300000000000000010', '1300000000000000009') && !newer('999999999999999999', '1300000000000000000'));
 }
+// cartas de lendas (desconto do Historic): contagem por conta, só das lendas que estão no Historic
+{
+  const { legendCount, normName } = await import('../scripts/hist-archive.mjs');
+  const L = new Set([normName('Clyde Drexler'), normName('Alperen Şengün')]);
+  const c = legendCount({ collection: { lg: { 'clyde drexler': { n: 'Clyde Drexler', c: { main: ['A', 'B'], s1: ['C'] } }, 'gary payton': { n: 'Gary Payton', c: { main: ['X'] } } } } }, L);
+  ok('historic: cartas de lendas por conta (só as do Historic)', c.main.lendas === 1 && c.main.sets === 2 && c.s1.lendas === 1 && legendCount({ collection: {} }, L) === null && normName('Şengün Jr.') === 'sengun', c);
+}
 console.log(fails ? fails + ' falha(s)' : 'tarefas: tudo certo');
 process.exit(fails ? 1 : 0);
