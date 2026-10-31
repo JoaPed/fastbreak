@@ -2176,7 +2176,7 @@ function renderJornada(el) {
     const perStat = t ? d.totals.map(x => '<span>' + esc(statShort(x.stat)) + ' ' + (live ? '<b class="num">' + f0(x.known) + '</b>/' + x.target + ' · fim ≈ ' + f1(x.mu) : '<b class="num">' + f1(x.mu) + '</b>/' + x.target) + ' · ' + pct(FB.probAtLeast(x.mu, x.sd * x.sd, x.target)) + '</span>').join('<span aria-hidden="true"> · </span>') : '';
     // ao vivo: uma barra fina por estatística (feito + o que falta prever) e, no fim, o total
     const liveBars = live && t ? '<div class="jc-bars">' + d.totals.map(x => { const max = Math.max(x.target * 1.2, x.mu + x.sd, 1), kw = Math.min(100, x.known / max * 100), fw = Math.max(0, Math.min(100 - kw, (x.mu - x.known) / max * 100)); return '<div class="bar" aria-hidden="true"><i class="k" style="width:' + kw.toFixed(1) + '%"></i><i class="f" style="left:' + kw.toFixed(1) + '%;width:' + fw.toFixed(1) + '%"></i><i class="t" style="left:' + Math.min(99, x.target / max * 100).toFixed(1) + '%"></i></div>'; }).join('') + '</div>' : '';
-    const LD = S.liveDiag, liveDiag = live ? '<div class="row small muted live-diag" style="display:block">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' de ' + LD.sub + ' com estatísticas' + (LD.miss.length ? ' (sem: ' + LD.miss.map(esc).join(', ') + ')' : '') + ' · ' : '') + '<button class="btn link small" type="button" data-action="live-refresh">Atualizar</button></div>' : '';
+    const LD = S.liveDiag, liveDiag = live ? '<div class="row small muted live-diag" style="display:block">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' de ' + LD.sub + ' com estatísticas' + ((LD.miss || []).length ? ' (sem: ' + LD.miss.map(esc).join(', ') + ')' : '') + (LD.err ? ' · erro: ' + esc(LD.err) : '') + ' · ' : '') + '<button class="btn link small" type="button" data-action="live-refresh">Atualizar</button></div>' : '';
     const finalLine = allFinal && t ? '<div class="row small jc-final" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '';
     const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões para hoje</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar o lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Mudar o lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Partilhar o lineup" title="Partilhar o lineup">' + icoShare + '</button>' : ''].filter(Boolean);
     html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Hoje' : 'Dia ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Ao vivo</span>' : '') + '</span>' +
@@ -2195,13 +2195,22 @@ function renderJornada(el) {
 // Ao vivo: liga-se sozinho quando o 1.º jogo do dia começa, com o lineup submetido (lido da blockchain, se já lá
 // estiver; senão o do plano). Prende quem já jogou, lê os pontos da ESPN de 2 em 2 minutos e refaz o resto da run.
 function ensureLive() {
-  const nd = S.result ? nextDay() : null; if (!nd || liveOn(nd.date)) return false;
-  const tip = firstTipOf(nd), d0 = view().days[0];
-  if (tip == null || Date.now() < tip || !d0 || d0.date !== nd.date) return false;
-  const cur = liveDoc(nd.date);
-  const lineup = cur && cur.lineup && cur.lineup.length ? cur.lineup : chainLineupToday(nd.date) || d0.lineup.slice();
-  if (!lineup.length) return false;
-  planPatch({ live: { [nd.date]: { active: true, lineup, players: (cur && cur.players) || {} } } });
+  // todas as contas ao mesmo tempo (não só a que estás a ver): cada uma com o lineup que tinha quando o 1.º jogo começou
+  const nd = S.result ? nextDay() : null; if (!nd) return false;
+  const tip = firstTipOf(nd); if (tip == null || Date.now() < tip) return false;
+  let started = false;
+  (S.multi ? accounts().map(a => a.id) : ['main']).forEach(k => {
+    const pa = planOf(k), cur = (pa.live || {})[nd.date];
+    if (cur && cur.active) return;
+    const R = S.multi ? S.multi.byKey[k] : S.result, d0 = R && R.normal.days[0];
+    if (!d0 || d0.date !== nd.date) return;
+    const lineup = cur && cur.lineup && cur.lineup.length ? cur.lineup : chainLineupToday(nd.date, k) || d0.lineup.slice();
+    if (!lineup.length) return;
+    pa.live = Object.assign({}, pa.live || {}, { [nd.date]: Object.assign({}, cur || {}, { active: true, lineup, players: (cur && cur.players) || {} }) });
+    started = true;
+  });
+  if (!started) return false;
+  saveMine(); schedule();
   S.liveAt = Date.now(); setTimeout(() => liveFetch(true), 300);
   return true;
 }
@@ -2480,8 +2489,9 @@ const altMods = {
 // ---- Sugestões para hoje (antes "Opções"): o plano comparado com as alternativas, cada uma com a run toda refeita ----
 // Antes dos jogos: ir com tudo hoje ou guardar um dos que mais pesam. Durante os jogos (com os pontos que já
 // entraram): manter, tirar um ou poupar os que ainda não jogaram. Quem sai antes de o jogo começar não gasta o uso.
-function chainLineupToday(date) {
-  const uid = S.session.user.id, rows = ((S.group || {}).chain || []).filter(c => c.user_id === uid && c.date === date && (c.account || 'main') === S.acc && (c.lineup || []).length);
+function chainLineupToday(date, acc) {
+  acc = acc || S.acc;
+  const uid = S.session.user.id, rows = ((S.group || {}).chain || []).filter(c => c.user_id === uid && c.date === date && (c.account || 'main') === acc && (c.lineup || []).length);
   if (!rows.length) return null;
   const byName = new Map(Object.keys(S.mine.roster || {}).map(id => [norm(nameOf(id)), id]));
   const ids = rows[0].lineup.map(n => byName.get(norm(n))).filter(Boolean);
@@ -5703,7 +5713,9 @@ function liveVals(nd, raw, id) {
 // Vai buscar as estatísticas ao vivo dos jogadores do lineup submetido (ESPN; NBA para ids antigos)
 async function liveFetch(quiet) {
   const nd = nextDay(); if (!nd) return;
-  const sub = ((liveDoc(nd.date) || {}).lineup) || [];
+  // os lineups ao vivo de todas as contas (uma leitura serve a todas)
+  const liveAccs = (S.multi ? accounts().map(a => a.id) : ['main']).filter(k => { const l = (planOf(k).live || {})[nd.date]; return l && l.active && (l.lineup || []).length; });
+  const sub = [...new Set(liveAccs.flatMap(k => planOf(k).live[nd.date].lineup))];
   const players = {}; let ok = 0;
   const byName = new Map(sub.map(id => [norm(nameOf(id)), id]));
   // placar da ESPN do dia: estado de cada jogo e o id do jogo de cada equipa (pela equipa vai-se sempre à ficha certa)
@@ -5714,7 +5726,7 @@ async function liveFetch(quiet) {
       (c.competitors || []).forEach(x => { const t = espnAbbr((x.team || {}).abbreviation); if (t) evOfTeam[t] = 'espn:' + ev.id; }); });
   } catch (e) { /* sem placar: usa os ids do calendário */ }
   const gameIds = new Set(), gidOf = {};
-  sub.forEach(id => { const team = (S.result.model.players[S.result.model.pIndex.get(id)] || {}).team, g = FB.gameOf(nd, team); const gid = (team && evOfTeam[team]) || (g && g[3]) || null; if (gid) { gameIds.add(gid); gidOf[id] = gid; } });
+  sub.forEach(id => { const team = pTeam(id), g = FB.gameOf(nd, team); const gid = (team && evOfTeam[team]) || (g && g[3]) || null; if (gid) { gameIds.add(gid); gidOf[id] = gid; } });
   if (!gameIds.size) { if (!quiet) toast('Sem identificador de jogo no calendário. Mete os valores à mão.'); return; }
   await Promise.all([...gameIds].map(async gid => {
     try {
@@ -5749,7 +5761,11 @@ async function liveFetch(quiet) {
   // o que a última leitura trouxe (aparece por baixo das barras ao vivo; ajuda a ver se a ESPN está a responder)
   S.liveDiag = { at: Date.now(), games: gameIds.size, ok, found: Object.keys(players).length, sub: sub.length, miss: sub.filter(id => !players[id] && gidOf[id] && (status[gidOf[id]] || {}).state !== 'pre').map(id => lastName(id)) };
   if (!ok) { if (!quiet) toast('Ainda sem estatísticas ao vivo. Tenta daqui a pouco ou põe os valores à mão.'); return; }
-  if (Object.keys(players).length) planPatch({ live: { [nd.date]: { players } } });
+  if (Object.keys(players).length) {
+    liveAccs.forEach(k => { const l = planOf(k).live[nd.date], mine = {}; l.lineup.forEach(id => { if (players[id]) mine[id] = players[id]; });
+      if (Object.keys(mine).length) l.players = Object.assign({}, l.players || {}, mine); });
+    saveMine(); schedule();
+  }
   S.liveAt = Date.now();
   if (!quiet) toast('Estatísticas ao vivo atualizadas.');
 }
@@ -6351,10 +6367,10 @@ let sdrag = null;
 // estatísticas ao vivo atualizam de 2 em 2 minutos e o placar dos jogos de hoje enquanto há jogos
 setInterval(() => {
   if (!S.session || document.visibilityState !== 'visible') return;
-  boxTick(); // fichas finais: fecham os dias que acabaram
+  try { boxTick(); } catch (e) { console.warn('boxTick', e); } // fichas finais: fecham os dias que acabaram
   const nd = nextDay(); if (!nd) return;
-  if (!liveOn(nd.date)) ensureLive();
-  if (liveOn(nd.date)) { schedule(); if (Date.now() - (S.liveAt || 0) > 115e3) { S.liveAt = Date.now(); liveFetch(true); } }
+  try { ensureLive(); } catch (e) { console.warn('ensureLive', e); }
+  if (liveOn(nd.date) || (S.multi && accounts().some(a => ((planOf(a.id).live || {})[nd.date] || {}).active))) { schedule(); if (Date.now() - (S.liveAt || 0) > 115e3) { S.liveAt = Date.now(); liveFetch(true).catch(e => { S.liveDiag = Object.assign({}, S.liveDiag, { at: Date.now(), err: String(e.message || e).slice(0, 60) }); }); } }
   if (S.tab === 'hoje' && gamesWindow(nd)) refreshBoard(nd.date);
   if (Date.now() - (S.oddsAt || 0) > 10 * 60e3) refreshOdds();
 }, 60000);
