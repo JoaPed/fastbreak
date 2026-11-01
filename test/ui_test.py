@@ -324,7 +324,7 @@ with sync_playwright() as pw:
     pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="contas"]'); pg.wait_for_timeout(500)
     trc = pg.locator('#tab-run .card').filter(has_text='Transferências')
     print('C transferências:', trc.inner_text().replace('\n', ' | ')[:400] if trc.count() else 'sem cartão')
-    print('C a fazer por conta:', [x.replace('\n', ' ') for x in pg.locator('#tab-hoje .todo .todo-grp').all_inner_texts()])
+    print('C a fazer por conta:', [x.replace('\n', ' ') for x in pg.locator('#tab-hoje .todo .todo-grp > span').all_inner_texts()])
     pg.click('#tab-run button[data-action="sub"][data-sub="premios"]'); pg.wait_for_timeout(300)
     pg.click('#t-hoje'); pg.wait_for_timeout(400)
     print('C a fazer (com trocas):', pg.locator('#tab-hoje .todo').inner_text().replace('\n', ' | ')[:300] if pg.locator('#tab-hoje .todo').count() else 'nada')
@@ -425,6 +425,21 @@ with sync_playwright() as pw:
             print('C usar o plano melhor:', pg.locator('#toast').inner_text(), '· guardado:', store(pg, '__FAKE_DB.tables.user_runs.filter(r => r.plan && r.plan.hint).map(r => r.user_id + "/" + r.run_id)'), '· cartão:', pg.locator('#tab-hoje .card.better').count())
     except Exception as e:
         print('C procura de plano melhor: não correu em 150 s')
+    pg.click('#t-hoje'); pg.wait_for_timeout(600)
+    # trocas pelo script do Top Shot: o botão da conta abre o Top Shot com os Moments certos; de volta, ficam feitos
+    tsurl = []
+    pg.route('https://nbatopshot.com/**', lambda r: (tsurl.append(1), r.fulfill(status=200, content_type='text/html', body='<html>ts</html>')))
+    t0n = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count()
+    pg.locator('#tab-hoje .todo .todo-send').first.click(); pg.wait_for_url('https://nbatopshot.com/**', timeout=15000)
+    trj = json.loads(base64.urlsafe_b64decode(pg.url.split('fbsync=')[1] + '=='))
+    print('C trocas pelo script:', [(x['name'], x['tier'], x['fid'], x['fromL'] + '>' + x['toL']) for x in trj['tr']], '· ok' if trj['do'] == ['tr'] and trj['tr'] and all(x['fid'] and x['to'] and x['k'].startswith('run-1|tr|') for x in trj['tr']) else '· ERRO')
+    back = {'v': 1, 'sv': 19, 'do': ['tr'], 'at': '2026-10-21T15:00:00Z', 'accs': [], 'tr': {'done': [x['k'] for x in trj['tr']], 'fail': []}}
+    pg.goto('https://site.test/#fbranks=' + base64.urlsafe_b64encode(json.dumps(back).encode()).decode().rstrip('=')); pg.wait_for_timeout(800)
+    if pg.locator('#auEmail').is_visible(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_timeout(4500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    t1n = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count()
+    print('C trocas feitas pelo script:', t0n, '→', t1n, '· aviso:', pg.locator('#toast').inner_text(), '· ok' if t1n < t0n and 'mandado' in pg.locator('#toast').inner_text() else '· ERRO')
     pg.close()
 
     # ---------- D: admin apaga as runs de teste ----------
@@ -1062,6 +1077,31 @@ with sync_playwright() as pw:
     vs = luc.locator('.pv .v').all_inner_texts()
     tops = [x.replace('\n', ' ') for x in pg.locator('#tab-hoje .top-lu .top-tile').all_inner_texts()]
     print('N2 lineup sem previsão:', vs, '· melhores do dia:', tops, '· ok' if len(vs) == 5 and '24,0' in vs and len(tops) == 3 else '· ERRO')
+    pg.close()
+    # T: o script do Top Shot manda os Moments (API falsa): confirma o dono, manda, espera que chegue e volta ao site
+    A_, B_ = 'e7fb03955ade55fa', '1111aaaa2222bbbb'
+    tjob = {'do': ['tr'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}],
+            'tr': [{'k': 'k1', 'fid': '111', 'name': 'Nikola Jokić', 'tier': 'Legendary', 'from': A_, 'to': B_, 'fromL': 'Principal', 'toL': 'Terose'},
+                   {'k': 'k2', 'fid': '333', 'name': 'Shai Gilgeous-Alexander', 'tier': 'Common', 'from': A_, 'to': B_, 'fromL': 'Principal', 'toL': 'Terose'}]}
+    towner = {'111': '0x' + A_, '333': '0x9999888877776666'}; tcalls = []
+    def tapi(r):
+        m = r.request.url.split('atlas.v1.')[1]; bd = json.loads(r.request.post_data or '{}'); tcalls.append(m)
+        if m == 'NFTService/GetNFT': return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps({'nft': {'id': bd['nftId'], 'ownerAddress': towner[bd['nftId']]}}))
+        if m == 'NFTService/TransferNfts':
+            for i in bd['nftIds']: towner[i] = bd['recipientFlowAddress']
+            return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps({'dapperInvocationId': 'x', 'status': 'PENDING'}))
+        return r.fulfill(status=404, body='')
+    pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
+    pg.route('https://api.production.atlas.dapperlabs.com/**', tapi)
+    pg.goto('https://nbatopshot.com/fastbreak#fbsync=' + base64.urlsafe_b64encode(json.dumps(tjob).encode()).decode().rstrip('='))
+    pg.evaluate((docs / 'fb-lugares.js').read_text()); pg.evaluate("new Headers().set('authorization', 'Bearer x')"); pg.wait_for_timeout(500)
+    tl = pg.locator('body > div').last.inner_text().replace('\n', ' | ')
+    sent0 = tcalls.count('NFTService/TransferNfts')
+    pg.click('#fbtrgo'); pg.wait_for_url('https://site.test/**', timeout=30000)
+    tback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
+    print('T script das trocas:', tl[:160], '| antes de Enviar:', sent0, '| volta:', tback.get('tr'), '· ok' if sent0 == 0 and tback['tr']['done'] == ['k1'] and tback['tr']['fail'][0][0] == 'k2' and towner['111'].endswith(B_) else '· ERRO')
     pg.close()
     # O: Jornada → modo Historic (dados lidos no Top Shot): equipa sugerida, tirar, procurar, carta, outro dia
     HISTJ = (root / 'test' / 'fixtures' / 'historic.json').read_text()

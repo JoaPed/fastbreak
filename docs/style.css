@@ -1220,3 +1220,5 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .todo-pl .tpill { font-size: 10.5px; padding: 0 6px; }
 .todo-t .todo-at { display: block; }
 .todo-li.done .todo-pl b { text-decoration: line-through; }
+.todo-grp-s { display: flex !important; justify-content: space-between; align-items: center; gap: 8px; }
+.todo-send { flex: none; padding: 4px 10px; min-height: 0; font-size: 12.5px; }

@@ -1,7 +1,8 @@
 (()=>{
 // FB lugares: na página do Fast Break do Top Shot, pede o lugar na run de cada conta do grupo (endereços vindos do
 // nosso site no #fbsync=...) e volta ao site com os resultados. A sessão do Top Shot só é usada aqui, nos pedidos à
-// API do próprio Top Shot; para o nosso site vão só os lugares e os preços do mercado.
+// API do próprio Top Shot; para o nosso site vão só os lugares e os preços do mercado. Também manda os Moments das
+// trocas do "A fazer" entre as tuas contas, só depois de tocares em "Enviar" (e para o site só volta o que foi).
 if (window.__fbl) { window.__fbl.box.style.display = 'block'; return; }
 const API = 'https://api.production.atlas.dapperlabs.com/atlas.v1.';
 const B64 = { dec: s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))), enc: o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') };
@@ -258,7 +259,9 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 18, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 19, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
+    if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
     if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
@@ -274,10 +277,53 @@ async function go() {
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
     const luN = (out.days || []).reduce((t, d) => t + Object.values(d.accs || {}).filter(a => a.lu && a.lu.length).length, 0);
-    say('Feito: ' + [want.has('ranks') || want.has('lu') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('lu') ? luN + ' lineups em ' + (out.days || []).length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.pro ? 'preços do Pro de ' + Object.keys(out.pro.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : '', out.hist ? 'Historic: ' + out.hist.days.filter(d => d.lines && d.lines.length).length + ' dias jogados, ' + ((out.hist.days.find(d => d.players && d.players.length) || {}).players || []).length + ' lendas no próximo dia' : out.histErr ? 'Historic: ' + out.histErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
+    say('Feito: ' + [out.tr ? out.tr.done.length + ' Moments mandados' : '', want.has('ranks') || want.has('lu') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('lu') ? luN + ' lineups em ' + (out.days || []).length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.pro ? 'preços do Pro de ' + Object.keys(out.pro.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : '', out.hist ? 'Historic: ' + out.hist.days.filter(d => d.lines && d.lines.length).length + ' dias jogados, ' + ((out.hist.days.find(d => d.players && d.players.length) || {}).players || []).length + ' lendas no próximo dia' : out.histErr ? 'Historic: ' + out.histErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }
+}
+// ---- trocas entre contas ----
+// O site manda a lista do "A fazer" de uma conta: [{k: chave do A fazer, fid: id do Moment, name, tier, from/to: endereço
+// sem 0x, fromL/toL: nome da conta}]. Mostra a lista e só manda quando tocas em "Enviar". Antes de cada um confirma
+// que o Moment está mesmo na conta de onde sai (GetNFT); depois manda (NFTService/TransferNfts, o pedido que o Top Shot
+// usa quando ofereces um Moment) e espera até ele aparecer na outra conta. Volta ao site com o que foi e o que não foi.
+const addrK = a => String(a || '').replace(/^0x/i, '').toLowerCase();
+function sendMoments(list) {
+  return new Promise(done => {
+    const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const groups = {}; list.forEach(x => { (groups[x.fromL + ' → ' + x.toL] = groups[x.fromL + ' → ' + x.toL] || []).push(x); });
+    const BTN = 'margin:8px 8px 0 0;padding:10px 14px;font-weight:700;border-radius:9px;border:0;';
+    say('<div><b>' + list.length + ' Moment' + (list.length > 1 ? 's' : '') + ' para mandar</b> (só os desta conta, ' + esc(list[0].fromL) + '):</div>' +
+      Object.entries(groups).map(([g, xs]) => '<div style="margin-top:6px;color:#aaa">' + esc(g) + '</div>' + xs.map(x => '<div>· <b>' + esc(x.name) + '</b>' + (x.tier ? ' <span style="color:#f80">' + esc(x.tier) + '</span>' : '') + (x.serial ? ' #' + esc(x.serial) : '') + '</div>').join('')).join('') +
+      '<div><button id="fbtrgo" style="' + BTN + 'background:#f80;color:#111">Enviar</button><button id="fbtrno" style="' + BTN + 'background:#333;color:#eee">Cancelar</button></div>');
+    box.querySelector('#fbtrno').onclick = () => { say('Cancelado: não mandei nada.'); done(null); };
+    box.querySelector('#fbtrgo').onclick = async () => {
+      const res = { done: [], fail: [] }, lines = [];
+      const show = () => say(lines.join('<br>'));
+      for (const x of list) {
+        lines.push('· ' + esc(x.name) + ': a mandar…'); show();
+        const set = t => { lines[lines.length - 1] = '· ' + esc(x.name) + ': ' + t; show(); };
+        try {
+          // está nesta conta? (o Top Shot também recusaria; assim sabe-se porquê)
+          const nf = ((await call('NFTService/GetNFT', { nftId: String(x.fid), product: 'nba' })) || {}).nft || {};
+          const own = addrK(nf.ownerAddress);
+          if (own && own === addrK(x.to)) { set('já estava na ' + esc(x.toL) + ' ✓'); res.done.push(x.k); continue; }
+          if (own && own !== addrK(x.from)) { set('<span style="color:#f88">não está na ' + esc(x.fromL) + '</span>'); res.fail.push([x.k, 'não está na conta']); continue; }
+          // o endereço vai no formato em que o Top Shot o devolve (com ou sem 0x)
+          const to = /^0x/i.test(String(nf.ownerAddress || '')) ? '0x' + addrK(x.to) : addrK(x.to);
+          const r = await call('NFTService/TransferNfts', { nftIds: [String(x.fid)], product: 'nba', recipientFlowAddress: to, entity: 'ENTITY_NFT' });
+          if (/fail|error|reject/i.test(String(r && r.status))) { set('<span style="color:#f88">recusado (' + esc(r.status) + ')</span>'); res.fail.push([x.k, String(r.status)]); continue; }
+          set('enviado, a confirmar…');
+          let ok = false;
+          for (let i = 0; i < 12 && !ok; i++) { await wait(1500); try { const n2 = ((await call('NFTService/GetNFT', { nftId: String(x.fid), product: 'nba' })) || {}).nft || {}; ok = addrK(n2.ownerAddress) === addrK(x.to); } catch (e) {} }
+          set(ok ? 'na ' + esc(x.toL) + ' ✓' : 'enviado (ainda a chegar à ' + esc(x.toL) + ')');
+          res.done.push(x.k);
+        } catch (err) { set('<span style="color:#f88">não deu: ' + esc(String(err.message || err).slice(0, 60)) + '</span>'); res.fail.push([x.k, String(err.message || err).slice(0, 60)]); }
+      }
+      lines.push('<br><b>' + res.done.length + ' de ' + list.length + ' mandados.</b> A voltar ao site…'); show();
+      await wait(1500); done(res);
+    };
+  });
 }
 // a run Classic da NBA (a que está a decorrer e, se o Top Shot já a mostrar, a seguinte): dias com os objetivos,
 // jogadores por lineup e prémios da run e de cada dia. Vai também uma amostra dos campos (sem objetos) para se

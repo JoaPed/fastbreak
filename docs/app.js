@@ -722,6 +722,11 @@ function takeRanksHash() {
   const m = location.hash.match(/fbranks=([A-Za-z0-9_-]+)/); if (!m) return;
   try {
     const d = b64u.dec(m[1]);
+    if (d && d.tr && Array.isArray(d.tr.done)) {
+      d.tr.done.forEach(k => { if (typeof k === 'string' && /\|tr\|/.test(k)) TODO_DONE[k] = TODO_DONE[k] || Date.now(); }); todoSave();
+      const nd = d.tr.done.length, nf = (d.tr.fail || []).length; setTimeout(() => toast(plural(nd, 'Moment mandado', 'Moments mandados') + ' ✓' + (nf ? ' · ' + plural(nf, 'ficou por mandar', 'ficaram por mandar') : '')), 600); delete d.tr;
+    }
+    if (d && Array.isArray(d.do) && d.do.join() === 'tr') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; } // só trocas: o resto não muda
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
     if (d && d.pro && d.pro.p) { S.proMine = d.pro; S.proMemo = null; try { localStorage.setItem('fb-pro', JSON.stringify(d.pro)); } catch (e) {} S.pickNote = (S.pickNote || '') + ' Pro: preços de ' + Object.keys(d.pro.p).length + ' jogadores' + (d.pro.err ? ' (' + d.pro.err + ')' : '') + '.'; delete d.pro; }
     // que script correu: sem "sv" (ou antigo) é o automático antigo, que não lê os picks
@@ -2422,6 +2427,23 @@ function todoSave() {
 }
 const icoTick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 S.todoShow = false;
+// trocas de hoje que saem de uma conta, com o Moment a mandar (o da conta que chega para os usos, o de menos usos e mais
+// barato: os melhores ficam) e os endereços das duas contas
+function trJob(from) {
+  const nd = nextDay(), col = (S.profile || {}).collection || {}, uid = S.session.user.id; if (!S.multi || !nd || !col.items) return null;
+  const used = new Set(), out = [], miss = [];
+  S.multi.transfers.filter(t => t.before <= nd.date && t.from === from).forEach(t => {
+    const k = (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before; if (TODO_DONE[k]) return;
+    const fa = accAddr(uid, t.from), ta = accAddr(uid, t.to); if (!fa || !ta) { miss.push(nameOf(t.id)); return; }
+    const need = t.uses || 1, cs = Object.keys(col.items).filter(f => String(col.items[f].p) === String(t.id) && (col.items[f].a || 'main') === from && !used.has(f))
+      .map(f => { const e = cardEd(col, f); return { f, u: cardUses(col, f), ask: e && e.ask ? e.ask : 1e12 }; });
+    const c = cs.filter(x => x.u >= need).sort((a, b) => (a.u - b.u) || (a.ask - b.ask))[0] || cs.sort((a, b) => b.u - a.u)[0];
+    if (!c) { miss.push(nameOf(t.id)); return; }
+    used.add(c.f); const it = col.items[c.f];
+    out.push({ k, fid: c.f, name: nameOf(t.id), tier: momentTier(col, c.f), serial: it.n || null, from: addrKey(fa), to: addrKey(ta), fromL: accLabel(t.from), toL: accLabel(t.to) });
+  });
+  return { list: out, miss, from: addrKey(accAddr(uid, from)) };
+}
 function todoCard(r, v, d, md, nd, live, tips) {
   const items = [], done = [];
   const btn = (attrs, html, sub, key) => {
@@ -2450,7 +2472,9 @@ function todoCard(r, v, d, md, nd, live, tips) {
           const li = '<li class="todo-li' + (on ? ' done' : '') + '"><button class="todo-ck" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Feito. Desmarcar' : 'Marcar como mandados') + '">' + icoTick + '</button><button class="row" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '"><div style="min-width:0"><div class="todo-t">' + html + '</div></div></button></li>';
           if (on) { done.push(li); return ''; } return li;
         }).filter(Boolean);
-        if (lines.length) { items.push('<li class="row small todo-grp" style="display:block">Da <b>' + esc(accLabel(f)) + '</b> para a <b>' + esc(accLabel(to)) + '</b></li>', ...lines); }
+        // o script do Top Shot manda-os todos de uma vez (entra-se numa conta de cada vez: um botão por conta de onde saem)
+        const canSend = !!(accAddr(S.session.user.id, f) && accAddr(S.session.user.id, to));
+        if (lines.length) { items.push('<li class="row small todo-grp todo-grp-s"><span>Da <b>' + esc(accLabel(f)) + '</b> para a <b>' + esc(accLabel(to)) + '</b></span>' + (canSend ? '<button class="btn small todo-send" type="button" data-action="tr-go" data-from="' + esc(f) + '">Enviar no Top Shot</button>' : '') + '</li>', ...lines); }
       });
       // sem textos por baixo (pedido do João): as trocas dos dias seguintes aparecem quando chegar a vez delas
     }
@@ -6319,6 +6343,12 @@ document.addEventListener('click', async e => {
     case 'todo-tick': { const ks = String(b.dataset.k || '').split(' ').filter(Boolean), k = ks[0] || ''; // uma linha pode ter vários (Moments da mesma hora)
       if (ks.every(x => TODO_DONE[x])) ks.forEach(x => { delete TODO_DONE[x]; }); else { ks.forEach(x => { TODO_DONE[x] = TODO_DONE[x] || Date.now(); }); toast('Feito ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
+    case 'tr-go': { const J = trJob(b.dataset.from);
+      if (!J || !J.list.length) { toast(J && J.miss.length ? 'Não encontrei na carteira lida os Moments de ' + J.miss.join(', ') + '. Lê a carteira outra vez.' : 'Nada para mandar desta conta.'); break; }
+      if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { toast('Abre o site no Safari para isto (na app do ecrã principal o Top Shot abre sem a tua sessão).'); break; }
+      const job = { do: ['tr'], back: siteBase(), accs: [{ a: J.from, uid: S.session.user.id, acc: b.dataset.from }], tr: J.list };
+      b.disabled = true; toast('A abrir o Top Shot: entra na ' + accLabel(b.dataset.from) + '…' + (J.miss.length ? ' (sem ' + J.miss.join(', ') + ')' : ''));
+      setTimeout(() => { location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + b64u.enc(job); }, 1300); setTimeout(() => { b.disabled = false; }, 4000); break; }
     case 'fold': { const k = b.dataset.k; S.fold[k] = !S.fold[k]; try { localStorage.setItem('fb-fold', JSON.stringify(S.fold)); } catch (e) {} render(); break; }
     case 'lu-all': if (S.lu) { S.lu.all = true; luRender(); } break;
     case 'lu-view': S.luView = b.dataset.v === 'pessoa' ? 'pessoa' : null; try { localStorage.setItem('fb-luview', S.luView || ''); } catch (e) {} render(); break;
