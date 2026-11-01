@@ -2434,27 +2434,25 @@ function todoCard(r, v, d, md, nd, live, tips) {
   if (S.multi) {
     if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Lê as carteiras das tuas contas', 'Para saber o que mandar para cada conta.', 'wallet|' + today));
     else {
-      const due = S.multi.transfers.filter(t => t.before <= nd.date), later = S.multi.transfers.filter(t => t.before > nd.date);
+      const due = S.multi.transfers.filter(t => t.before <= nd.date);
       // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot) e, dentro, uma linha por hora
       // limite com os Moments dessa hora; o visto marca a linha toda (cada Moment fica dado como mandado)
       const accOrder = accounts().map(a => a.id), tipOf = t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team; return team ? FB.tipTime(day, team) : null; };
       // um grupo por par de contas (de onde sai → para onde vai): com 3 contas, "Main → Terose" e "Main → smurf" à parte
       const pairs = [...new Set(due.map(t => t.from + '>' + t.to))].map(k => k.split('>')).sort((a, b) => (accOrder.indexOf(a[0]) - accOrder.indexOf(b[0])) || (accOrder.indexOf(a[1]) - accOrder.indexOf(b[1])));
-      let anyTr = false;
       pairs.forEach(([f, to]) => {
         const byTime = new Map();
         due.filter(t => t.from === f && t.to === to).forEach(t => { const tt = tipOf(t), k = tt ? hm(new Date(tt).toISOString()) : '—'; (byTime.get(k) || byTime.set(k, { tt: tt || Infinity, list: [] }).get(k)).list.push(t); });
         const lines = [...byTime.entries()].sort((a, b) => a[1].tt - b[1].tt).map(([k, g]) => {
-          const tag = t => t.uses && collectionInfo(t.id).nTop < collectionInfo(t.id).copies ? '<span class="todo-tier">' + (t.uses >= 4 ? 'L' : t.uses >= 2 ? 'R' : 'C') + '</span>' : '';
+          const tag = t => { if (!t.uses || !(collectionInfo(t.id).nTop < collectionInfo(t.id).copies)) return ''; const tn = t.uses >= 4 ? 'Legendary' : t.uses >= 2 ? 'Rare' : 'Common'; return '<span class="tpill t-' + TIER_CLS[tn] + '">' + tn + '</span>'; };
           const keys = g.list.map(t => (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before), on = keys.every(x => TODO_DONE[x]);
-          const html = '<span class="todo-at">' + (k === '—' ? 'antes do jogo' : 'até ' + k) + '</span> ' + g.list.map(t => '<b>' + esc(lastName(t.id)) + '</b>' + tag(t)).join(' · ');
+          const html = '<span class="todo-at">' + (k === '—' ? 'antes do jogo' : 'até ' + k) + '</span><span class="todo-pls">' + g.list.map(t => '<span class="todo-pl">' + face(t.id, 'xs') + '<b>' + esc(nameOf(t.id)) + '</b>' + tag(t) + '</span>').join('') + '</span>';
           const li = '<li class="todo-li' + (on ? ' done' : '') + '"><button class="todo-ck" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Feito. Desmarcar' : 'Marcar como mandados') + '">' + icoTick + '</button><button class="row" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '"><div style="min-width:0"><div class="todo-t">' + html + '</div></div></button></li>';
           if (on) { done.push(li); return ''; } return li;
         }).filter(Boolean);
-        if (lines.length) { anyTr = true; items.push('<li class="row small todo-grp" style="display:block">Da <b>' + esc(accLabel(f)) + '</b> para a <b>' + esc(accLabel(to)) + '</b></li>', ...lines); }
+        if (lines.length) { items.push('<li class="row small todo-grp" style="display:block">Da <b>' + esc(accLabel(f)) + '</b> para a <b>' + esc(accLabel(to)) + '</b></li>', ...lines); }
       });
-      if (anyTr) items.push('<li class="row small muted" style="display:block">No Top Shot: oferece cada Moment à outra conta.</li>');
-      if (later.length) items.push('<li class="row small muted" style="display:block">Depois: ' + later.slice(0, 3).map(t => esc(lastName(t.id)) + ' → ' + esc(accLabel(t.to)) + ' até ' + dShort(t.before)).join(' · ') + (later.length > 3 ? ' e mais ' + (later.length - 3) : '') + '.</li>');
+      // sem textos por baixo (pedido do João): as trocas dos dias seguintes aparecem quando chegar a vez delas
     }
   }
   d.lineup.forEach(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], j = info.injury;

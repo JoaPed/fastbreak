@@ -1212,3 +1212,11 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .mo-px { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; margin-top: 3px; }
 .mo-px b { font-family: var(--font-display); font-weight: 800; font-size: 16px; color: var(--ink); }
 .mo-px .muted b { font-size: 14px; color: var(--muted); }
+/* A fazer → trocas: cada Moment com a cara e o nome */
+.todo-pls { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 5px; }
+.todo-pl { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.todo-pl .face.xs { width: 28px; height: 28px; } .todo-pl .face.xs b { font-size: 10px; } .todo-pl .face.xs img { width: 40px; }
+.todo-pl b { font-weight: 600; white-space: nowrap; }
+.todo-pl .tpill { font-size: 10.5px; padding: 0 6px; }
+.todo-t .todo-at { display: block; }
+.todo-li.done .todo-pl b { text-decoration: line-through; }

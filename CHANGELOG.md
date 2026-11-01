@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-01
+- **João** — A fazer → trocas entre contas: cada Moment com a foto, o nome completo e a hora limite por cima; sem os textos por baixo ("No Top Shot: …" e "Depois: …").
+
 ## 2026-10-31
 - **João** — Tarefa "Arquivo do Historic": diz também, por conta, quantas lendas do Historic têm carta na carteira lida no site (para confirmar os descontos sem pedir a ninguém).
 - **João** — Comprar: as sugestões contam com o dia de hoje (antes dos jogos, o lineup de hoje guardado já não prende quem se compra agora; antes só apareciam dias seguintes). Os prémios de cada conta com os patamares dela, sem os alvos que o plano inventa quando já não há prémio ao alcance (a smurf com 1 vitória a 2 dias do fim já não aparece com "6 vitórias"); o mesmo nos aros de Run → Contas. O texto de progresso não desaparece se a página se redesenhar a meio.
