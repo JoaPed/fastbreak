@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-01
+- **João** — Sonda das trocas (docs/sonda-trocas.html): favorito que só lê, para ver como o Top Shot manda um Moment para outra conta (pedidos no código e os que a página faz quando se oferece um à mão, sem valores nem autorização).
 - **João** — A fazer → trocas entre contas: cada Moment com a foto, o nome completo e a hora limite por cima; sem os textos por baixo ("No Top Shot: …" e "Depois: …").
 
 ## 2026-10-31
