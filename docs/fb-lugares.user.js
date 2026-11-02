@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      22
+// @version      23
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -269,7 +269,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 20, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 21, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -371,8 +371,16 @@ async function readRanks(out, withLu) {
   {
     say('A ver a run…');
     const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
-    // a run que acabou deixa de vir nas ativas: usa a que o site já conhece (para ler os últimos dias)
-    const run = runs.find(r => /classic/i.test(r.id) && r.league === 'nba' && r.mode === 'RUN_MODE_CLASSIC') || runs.find(r => /nba-classic/.test(r.id)) || (job.tsRun ? { id: job.tsRun, name: null, leaderboardId: 'run:' + job.tsRun } : null);
+    // a run do site: a que começa no mesmo dia (o id do Top Shot tem a data de início: run-nba-classic-AAAA-MM-DD). Com
+    // uma run nova já a decorrer, a que acabou deixa de vir nas ativas: usa-se a que o site conhece (para ler os últimos dias)
+    const cls = runs.filter(r => (/classic/i.test(r.id) && r.league === 'nba' && r.mode === 'RUN_MODE_CLASSIC') || /nba-classic/.test(r.id));
+    // (com folga de 3 dias, caso o 1.º dia do site não seja o mesmo do Top Shot)
+    const dOf = id => { const m = String(id || '').match(/(\d{4}-\d{2}-\d{2})/); return m ? Date.parse(m[1]) : NaN; };
+    const gap = id => Math.abs(dOf(id) - Date.parse(job.runStart));
+    const near = id => !job.runStart || gap(id) <= 3 * 864e5;
+    const mine = job.runStart ? cls.filter(r => near(r.id)).sort((a, b) => gap(a.id) - gap(b.id))[0] : null;
+    const known = job.tsRun && near(job.tsRun) ? job.tsRun : job.runStart ? 'run-nba-classic-' + job.runStart : null;
+    const run = mine || (known && !cls.some(r => r.id === known) ? { id: known, name: null, leaderboardId: 'run:' + known } : null) || cls.find(r => r.id === known) || cls[0] || null;
     if (!run) throw new Error('não encontrei a run Classic da NBA');
     const lb = run.leaderboardId || ('run:' + run.id); Object.assign(out, { run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], cut: {} });
     let n = 0;

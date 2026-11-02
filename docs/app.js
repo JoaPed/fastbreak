@@ -782,7 +782,7 @@ function rankJob(what) {
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && (!want.includes('lu') || d.luv) && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
   const H = groupHist();
-  return Object.assign({ accs, back: siteBase(), known, do: want, tsRun: R && R.run && R.run.id ? R.run.id : null, hRun: H && H.run && H.run.id ? H.run.id : null }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {}, want.includes('pro') ? { pro: proWanted().map(id => [id, nameOf(id)]) } : {});
+  return Object.assign({ accs, back: siteBase(), known, do: want, tsRun: R && R.run && R.run.id ? R.run.id : null, runStart: S.days.length ? S.days[0].date : null, hRun: H && H.run && H.run.id ? H.run.id : null }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {}, want.includes('pro') ? { pro: proWanted().map(id => [id, nameOf(id)]) } : {});
 }
 // as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
 async function loadGroupCards() {
