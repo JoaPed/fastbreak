@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-02
+- **João** — FB lugares: a página mostra a versão atual do leitor e a caixa laranja no Top Shot também (v24), para saberes se tens o script certo.
 - **João** — Atualizar com o Top Shot já não fica parado em “Toca em Leaderboard”: lê pela parte pública do Top Shot, sem precisar da sessão (só as trocas precisam). Script automático na versão 24.
 - **João** — Sonda da sessão (docs/sonda-sessao.html): favorito que só lê, para ver porque o leitor fica parado em “Toca em Leaderboard” e se ainda se lê a Run 1.
 - **João** — Atualizar com o Top Shot lê a run do site (pelo 1.º dia), mesmo com a Run 2 já a decorrer: dá para ler os resultados da Run 1 que acabou. Script automático na versão 23.
