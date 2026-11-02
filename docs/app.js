@@ -4482,6 +4482,12 @@ async function runPlan(x) {
   const id = site ? site.id : (S.runs.some(r => r.id === runSlug(name)) ? runSlug(name) + '-' + start.replace(/-/g, '').slice(2) : runSlug(name));
   return { x, start, end, name: site ? site.name : name, id, site, rows, unknown: [...unknown], extend: site && (start < site.start_date || end > site.end_date) };
 }
+// patamares de vitórias da run nova: os prémios por vitórias que o Top Shot dá (packs aos 5, 9, 12…); o valor de cada
+// um não vem (é um pack): fica o da run anterior pela ordem, senão 10/30/100 — acerta-se no Admin
+function runMilePrizes(P, prev) {
+  const ms = (P.x && P.x.miles) || []; if (!ms.length) return prev ? prev.prizes : [];
+  return ms.map((m, i) => ({ wins: m[0], value: prev && prev.prizes[i] ? +prev.prizes[i].value || 0 : [10, 30, 100][i] || 100, label: m[1] || undefined }));
+}
 async function runReviewSheet() {
   const R = S.runRead; if (!R) return;
   const money = c => { const v = c / 100; return '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('pt-PT')); };
@@ -4502,7 +4508,7 @@ async function runReviewSheet() {
       (rows ? '<ul class="list">' + rows + '</ul>' : '') +
       '<div class="row small" style="display:block"><b>Prémios da run</b>' + (x.qual ? ' (top ' + x.qual + ' qualifica)' : '') + ': ' + (x.bands.length ? bandTxt(x.bands) : '<span class="muted">o Top Shot não mostrou</span>') + '</div>' +
       (dayBands.length ? '<div class="row small" style="display:block"><b>Prémios de cada dia</b>: ' + bandTxt(dayBands) + '</div>' : '') +
-      (!P.site ? '<div class="row small muted" style="display:block">Patamares de vitórias para o plano: ' + (prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.map(p => p.wins + 'V').join(' · ') + ')' : 'nenhum') + '. ' + (P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today) ? 'Fica a run ativa.' : 'Fica ativa quando começar (carrega outra vez em Run e prémios nesse dia).') + '</div>' : '') +
+      (!P.site ? '<div class="row small muted" style="display:block">Patamares de vitórias para o plano: ' + ((P.x && P.x.miles || []).length ? 'os do Top Shot (' + P.x.miles.map(m => m[0] + 'V').join(' · ') + ')' : prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.map(p => p.wins + 'V').join(' · ') + ')' : 'nenhum') + '. ' + (P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today) ? 'Fica a run ativa.' : 'Fica ativa quando começar (carrega outra vez em Run e prémios nesse dia).') + '</div>' : '') +
       '<div class="btns" style="padding:4px 16px 14px"><button class="btn primary" type="button" data-action="run-apply" data-i="' + i + '"' + (ch || !P.site || (P.start <= today && !P.site.active && P.site.end_date >= today) ? '' : ' disabled') + '>' + (!P.site ? 'Criar a run' : ch ? 'Aplicar ' + plural(ch, 'mudança', 'mudanças') : P.start <= today && !P.site.active && P.site.end_date >= today ? 'Ativar a run' : 'Nada a mudar') + '</button></div></div>';
   };
   const raw = R.runs.length ? JSON.stringify({ run: R.runs[0].raw, dia: ((R.runs[0].days || [])[0] || {}).raw, objetivo: ((((R.runs[0].days || [])[0] || {}).objs || [])[0] || {}).raw }, null, 1) : '';
@@ -4521,7 +4527,7 @@ async function runApply(i) {
     active = P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today);
     const prev = S.runs.filter(r => !r.fictitious && (r.prizes || []).length).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0];
     if (active && S.runs.some(r => r.active)) ok = await adminWrite(sb.from('runs').update({ active: false }).eq('active', true));
-    if (ok) ok = await adminWrite(sb.from('runs').insert({ id: P.id, name: P.name, mode: 'classic', start_date: P.start, end_date: P.end, prizes: prev ? prev.prizes : [], active, fictitious: false }));
+    if (ok) ok = await adminWrite(sb.from('runs').insert({ id: P.id, name: P.name, mode: 'classic', start_date: P.start, end_date: P.end, prizes: runMilePrizes(P, prev), active, fictitious: false }));
   } else {
     const patch = {};
     if (P.start < P.site.start_date) patch.start_date = P.start;

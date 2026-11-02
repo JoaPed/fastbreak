@@ -2554,6 +2554,7 @@
  "usesManual": null,
  "injIgnore": null,
  "availDates": null,
+ "os do Top Shot (": "the Top Shot ones (",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2835,7 +2836,8 @@
   "en": "none",
   "at": {
    "'<div class=\"status-line\"><span>Código atual</span><span class=\"kbd\">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'nenhum') + '</span></div>' +": "none",
-   "(!P.site ? '<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ' + (prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.ma": true
+   "(!P.site ? '<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ' + (prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.ma": true,
+   "(!P.site ? '<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ' + ((P.x && P.x.miles || []).length ? 'os do Top Shot (' + P": "none"
   }
  },
  "membro": {
