@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-02
+- **João** — Classificação por runs: em Grupo → Classificação escolhe-se a run numa lista (Classic e Historic); a Run 1 mostra-se com os lugares, os dias e o dinheiro ganho. O site abre sempre na run atual e "Atualizar com o Top Shot" lê sempre a run atual. Leitor (v25) acha a run nova mesmo sem a lista das runs ativas.
 - **João** — Pasta `notas/` com o que o Claude foi aprendendo (API do Top Shot, regras de usos, picks, preços, história do site), para qualquer Claude que trabalhe no site.
 - **João** — FB lugares: a página mostra a versão atual do leitor e a caixa laranja no Top Shot também (v24), para saberes se tens o script certo.
 - **João** — Atualizar com o Top Shot já não fica parado em “Toca em Leaderboard”: lê pela parte pública do Top Shot, sem precisar da sessão (só as trocas precisam). Script automático na versão 24.

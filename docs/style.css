@@ -1199,6 +1199,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .top-v b.dim { color: var(--faint); }
 .top-lu.many .top-v > span { min-width: 58px; text-align: right; }
 .gc-mode { margin: 0 0 10px; }
+.gc-runsel { display: flex; margin: -2px 4px 10px; font-size: 15px; font-weight: 600; color: var(--ink); }
 /* coluna das contas fixa: a célula ocupa a linha toda e tapa os espaços dos lados (ao deslizar a tabela não se vê
    nada por baixo/ao lado dela) */
 .gc td.who2 { display: table-cell; vertical-align: middle; box-shadow: -8px 0 0 var(--surface), 4px 0 0 var(--surface); }

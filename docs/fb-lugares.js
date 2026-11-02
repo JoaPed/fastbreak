@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 24; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 25; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -270,7 +270,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 22, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 23, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -344,8 +344,17 @@ const bandsOf = x => (((x || {}).reward || {}).bands || []).map(b => [+b.rankLow
 const etDay = t => { const ms = Date.parse(t); return isFinite(ms) ? new Date(ms - 4 * 3600e3).toISOString().slice(0, 10) : null; };
 async function readRun() {
   say('A ler a run e os prémios…');
-  const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
-  const nba = runs.filter(r => (!r.league || r.league === 'nba') && (r.mode === 'RUN_MODE_CLASSIC' || /classic/i.test(String(r.id) + ' ' + (r.name || ''))));
+  let runs = [];
+  try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {}
+  let nba = runs.filter(r => (!r.league || r.league === 'nba') && (r.mode === 'RUN_MODE_CLASSIC' || /classic/i.test(String(r.id) + ' ' + (r.name || ''))));
+  // sem a lista das runs ativas (a API pública pode não a dar): procura a run Classic que começou nos últimos dias
+  // pelo id (run-nba-classic-AAAA-MM-DD), a mais recente com dias
+  if (!nba.length) {
+    for (let k = 1; k >= -7 && !nba.length; k--) {
+      const id = 'run-nba-classic-' + new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
+      try { const res = await call('GameEngineService/SearchContests', { product: 'nba', runId: id }); if ((res.contests || []).length) nba = [{ id, name: null }]; } catch (err) {}
+    }
+  }
   const out = [];
   for (const r of nba.slice(0, 4)) {
     const x = { id: r.id, name: r.name || null, mode: r.mode || null, starts: r.startsAt || r.startAt || r.opensAt || null, ends: r.endsAt || null, bands: bandsOf(r), qual: r.reward && r.reward.qualifier ? +r.reward.qualifier.rankHigh : null, raw: prim(r), days: [] };

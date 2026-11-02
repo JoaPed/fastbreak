@@ -234,7 +234,8 @@
    "if (d && !gotRanks) setTimeout(() => toast('Lido no Top Shot.' + (S.pxNew != null ? ' Preços de ' + S.pxNew + ' jogadores' + (S.pxMissN ? ' (' + S.pxMissN + ' n": " players",
    "if (gotRanks) { const old = groupRanks(); d.days = mergeRankDays((old && old.run && d.run && old.run.id === d.run.id ? old.days : null) || [], d.days || []); S.": " players",
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
-   "if (d && d.pro && d.pro.p) { S.proMine = d.pro; S.proMemo = null; try { localStorage.setItem('fb-pro', JSON.stringify(d.pro)); } catch (e) {} S.pickNote = (S.pi": true
+   "if (d && d.pro && d.pro.p) { S.proMine = d.pro; S.proMemo = null; try { localStorage.setItem('fb-pro', JSON.stringify(d.pro)); } catch (e) {} S.pickNote = (S.pi": true,
+   "return '<div class=\"card\">' + title + '<div class=\"small muted\" style=\"padding:0 16px 6px\">' + esc(runShort(run)) + ' terminada' + (R.total ? ' · ' + R.total.to": " players"
   }
  },
  " PTS": null,
@@ -1964,7 +1965,6 @@
  "Já está no site": "Already on the site",
  "Lida ": "Read ",
  "Nada a mudar": "Nothing to change",
- "Run Classic": null,
  "run_id,date": null,
  "dia novo": "new day",
  "dias novos": "new days",
@@ -2536,6 +2536,18 @@
  ". Toca num dia para o rever.</div>": ". Tap a day to review it.</div>",
  "https://nbatopshot.com/fastbreak?league=nba": null,
  "#fbsync=": null,
+ " · atual": " · current",
+ "A atualizar a ": "Updating ",
+ "loading": null,
+ "<div class=\"list-head\"><h2>Classificação</h2></div>": "<div class=\"list-head\"><h2>Standings</h2></div>",
+ "<div class=\"pad small muted\">Não há lugares do Top Shot lidos para a ": "<div class=\"pad small muted\">No Top Shot standings read for ",
+ "<div class=\"pad small muted\">Ninguém do grupo aparece na classificação da ": "<div class=\"pad small muted\">Nobody in the group is in the standings of ",
+ " terminada": " finished",
+ "<div class=\"card\"><div class=\"pad small muted\" id=\"gcProg\" role=\"status\">A carregar a ": "<div class=\"card\"><div class=\"pad small muted\" id=\"gcProg\" role=\"status\">Loading ",
+ "<div class=\"card\"><div class=\"pad small muted\">Não deu para ler a ": "<div class=\"card\"><div class=\"pad small muted\">Could not read ",
+ "<label class=\"gc-runsel\"><span class=\"vh\">Run</span><span class=\"mode-pick\">": null,
+ "<select id=\"gcRunSel\" aria-label=\"Run\">": null,
+ " · terminada": " · finished",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2601,7 +2613,8 @@
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true,
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
    "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
-   "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "days"
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "days",
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "days"
   }
  },
  "dia": {
@@ -2615,7 +2628,8 @@
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true,
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
    "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
-   "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "day"
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "day",
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "day"
   }
  },
  "jogo": {

@@ -630,12 +630,13 @@ async function fetchAll(table, cols, filter) {
   return out;
 }
 function pickRun() {
-  let saved = null, savedAct = null; try { saved = localStorage.getItem('fb-run'); savedAct = localStorage.getItem('fb-run-act'); } catch (e) {}
-  const act = S.runs.find(r => r.active);
-  // uma run ficou ativa depois da última escolha (p. ex. a run nova lida da blockchain): passa para ela
-  if (act && saved && saved !== act.id && savedAct !== act.id) { S.switchedTo = act.name; return act.id; }
+  // ao abrir o site fica sempre na run atual (pedido do João); outra run vê-se em Ajustes → Preferências até fechar.
+  // Sem run ativa: a última que se viu, senão a primeira
+  const act = S.runs.find(r => r.active && !r.fictitious) || S.runs.find(r => r.active);
+  if (act) return act.id;
+  let saved = null; try { saved = localStorage.getItem('fb-run'); } catch (e) {}
   if (saved && S.runs.some(r => r.id === saved)) return saved;
-  return act ? act.id : (S.runs[0] ? S.runs[0].id : null);
+  return S.runs[0] ? S.runs[0].id : null;
 }
 async function loadRun(runId) {
   S.runId = runId; S.days = []; S.odds = {}; S.prevGames = {}; S.board = null; S.mine = { roster: {}, plan: {} }; S.mineLoaded = false; S.pendingUses = {}; S.lastSummary = '';
@@ -1747,6 +1748,8 @@ function jornadaNav(date, sub) {
 S.jmode = (() => { try { return localStorage.getItem('fb-jmode') || 'classic'; } catch (e) { return 'classic'; } })();
 const JMODES = [['classic', 'Classic'], ['historic', 'Historic'], ['pro', 'Pro']];
 // o modo escolhe-se no título (na Jornada): "Run 1 · Classic ▾" — não ocupa uma linha por cima do lineup
+// nome curto da run ("Run 2")
+const runShort = x => String((x && x.name) || 'Run').replace(/ · .*$/, '');
 function modeTitle(run) {
   const lab = { classic: 'Classic', historic: 'Historic', pro: 'Pro' }; // só o modo (o n.º da run não é preciso aqui)
   return '<span class="mode-pick">' + esc(lab[S.jmode] || lab.classic) + '<svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -4053,8 +4056,8 @@ function emprestimosHtml() {
 // ---- Classificação do Historic: o lugar de cada conta do grupo em cada dia (lido no Top Shot com o Historic) ----
 // dias do documento mais recente; os lugares juntam as leituras de todos (a mais recente primeiro). "_me" é o lineup de
 // quem leu (sem endereço): fica pela conta principal dessa pessoa
-function histGroupDays() {
-  const docs = [S.histMine && S.session ? { h: S.histMine, uid: S.session.user.id } : null].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.hist ? { h: x.share.hist, uid: x.user_id } : null))
+function histGroupDays(past) {
+  const docs = (past ? [] : [S.histMine && S.session ? { h: S.histMine, uid: S.session.user.id } : null]).concat((past || (S.group || {}).summaries || []).map(x => x.share && x.share.hist ? { h: x.share.hist, uid: x.user_id } : null))
     .filter(z => z && z.h.at && Array.isArray(z.h.days)).sort((p, q) => String(q.h.at).localeCompare(String(p.h.at)));
   if (!docs.length) return null;
   const H = docs[0].h, by = new Map(H.days.map(d => [d.id, Object.assign({}, d, { mine: {}, no: new Set() })]));
@@ -4069,8 +4072,8 @@ function histGroupDays() {
 const hRunShort = run => { const n = String((run || {}).name || ''), m = n.match(/run\s*(\d+)/i); return m ? 'Run ' + m[1] : n || 'Historic'; };
 const hMineOf = (D, x) => { const ak = x.addr ? addrKey(x.addr) : null; return (ak && D.mine[ak]) || (x.acc === 'main' ? D.mine['_me:' + x.uid] : null) || null; };
 const hPrize = (D, rank) => { const b = rank && (D.bands || []).find(z => rank >= z[0] && rank <= z[1]); return b ? +b[2] || 0 : 0; };
-function histClassifHtml() {
-  const G = histGroupDays(), money = c => usd(c / 100);
+function histClassifHtml(past) {
+  const G = histGroupDays(past), money = c => usd(c / 100);
   if (!G || !G.days.length) return '<div class="card"><div class="list-head"><h2>Classificação do Historic</h2></div><div class="pad small muted">Ainda não há lugares do Historic: aparecem depois de se ler o Historic no Top Shot.</div></div>';
   const days = G.days;
   const people = groupEntries().map(x => {
@@ -4093,6 +4096,80 @@ function histClassifHtml() {
   return '<div class="card"><div class="list-head"><h2>Classificação do Historic</h2></div><div class="small muted" style="padding:0 16px 6px">' + esc(hRunShort(G.H.run)) + ' · lugares ' + ago(G.at) + '</div>' +
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + rows + totRow + '</tbody></table></div></div>';
 }
+// ---- Classificação de runs que já acabaram ----
+// Grupo → Classificação mostra uma run de cada vez (a tabela não cresce): a atual e, nos botões, as que acabaram. De
+// uma run que acabou vêm os lugares e os prémios lidos no Top Shot e publicados nos resumos dessa run.
+const realRuns = () => S.runs.filter(r => !r.fictitious).slice().sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')));
+function gcRunId() {
+  if (S.gcRun && S.runs.some(r => r.id === S.gcRun)) return S.gcRun;
+  // sem escolha: a run atual quando já tem lugares do Top Shot; no início de uma run nova, a anterior (que já tem tudo)
+  const R = groupRanks(), prev = realRuns().find(r => r.id !== S.runId && String(r.start_date || '') < String((curRun() || {}).start_date || ''));
+  return R && (R.accs || []).some(a => a.found) || !prev ? S.runId : prev.id;
+}
+function gcRunSeg() {
+  const rl = realRuns(); if (!rl.some(r => r.id === S.runId) && curRun()) rl.unshift(curRun());
+  if (rl.length < 2) return '';
+  return '<label class="gc-runsel"><span class="vh">Run</span><span class="mode-pick">' + esc(runShort(rl.find(r => r.id === gcRunId()))) + (gcRunId() === S.runId ? ' · atual' : ' · terminada') +
+    '<svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '<select id="gcRunSel" aria-label="Run">' + rl.map(r => '<option value="' + esc(r.id) + '"' + (gcRunId() === r.id ? ' selected' : '') + '>' + esc(runShort(r)) + (r.id === S.runId ? ' · atual' : '') + '</option>').join('') + '</select></span></label>';
+}
+async function loadPastSums(runId) {
+  S.pastSums = S.pastSums || {}; if (S.pastSums[runId]) return;
+  S.pastSums[runId] = 'loading';
+  try {
+    const [sums, days] = await Promise.all([q(sb.from('summaries').select('user_id,share').eq('run_id', runId)), q(sb.from('run_days').select('date,objectives').eq('run_id', runId).order('date'))]);
+    S.pastSums[runId] = { sums: sums || [], days: days || [] };
+  } catch (e) { S.pastSums[runId] = { err: String((e && e.message) || e).slice(0, 80) }; }
+  if (S.tab === 'grupo') renderGrupo();
+}
+// as contas do grupo pelo perfil (principal e smurfs com endereço), para ler os lugares de uma run que já acabou
+function pastEntries() {
+  const mem = new Set(S.group.members.map(m => m.user_id)), out = [];
+  S.group.profiles.filter(p => mem.has(p.user_id)).forEach(p => {
+    out.push({ uid: p.user_id, acc: 'main', name: p.display_name || 'Sem nome', addr: p.flow_address || null });
+    (Array.isArray(p.smurfs) ? p.smurfs : []).forEach((x, k) => { if (x && x.id) out.push({ uid: p.user_id, acc: x.id, name: x.topshot_username || 'Smurf ' + (k + 1), owner: p.display_name, addr: x.flow_address || null }); });
+  });
+  return out;
+}
+const gcMoney = c => { const v = c / 100; return '$' + (v % 1 ? v.toFixed(2).replace('.', ',') : v.toLocaleString('pt-PT')); };
+function pastRanks(sums) {
+  const docs = sums.map(x => x.share && x.share.ranks).filter(r => r && r.at && Array.isArray(r.accs)).sort((p, q) => String(p.at).localeCompare(String(q.at)));
+  if (!docs.length) return null;
+  const best = docs[docs.length - 1], rid = (best.run || {}).id;
+  return Object.assign({}, best, { days: docs.filter(r => (r.run || {}).id === rid).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
+}
+function pastClassicHtml(run, P) {
+  const R = pastRanks(P.sums), title = '<div class="list-head"><h2>Classificação</h2></div>';
+  if (!R) return '<div class="card">' + title + '<div class="pad small muted">Não há lugares do Top Shot lidos para a ' + esc(runShort(run)) + '.</div></div>';
+  const money = gcMoney, runPrize = r => { const b = (R.bands || []).find(z => r >= z[0] && r <= z[1]); return b ? +b[2] || 0 : 0; };
+  const dayPrize = (d, dr) => { if (!dr || !dr.rank) return 0; const bands = d && d.bands && d.bands.length ? d.bands : DAY_BANDS, b = bands.find(z => dr.rank >= z[0] && dr.rank <= z[1]); return b ? b[2] : 0; };
+  const sdays = P.days.length ? P.days : R.days.map(d => ({ date: d.date })), rd = date => R.days.find(z => z.date === date);
+  const days = sdays.filter(d => rd(d.date));
+  const lastPaid = (R.bands || []).length ? Math.max(...R.bands.map(b => b[1])) : null, qual = R.qual;
+  const zone = r => (qual && r <= qual ? ' z-q' : lastPaid && r <= lastPaid ? ' z-p' : '');
+  const ppl = pastEntries().filter(x => x.addr).map(x => {
+    const ak = addrKey(x.addr), rk = R.accs.find(a => a.found && addrKey(a.a) === ak) || null;
+    const won = R.days.reduce((t, d) => t + dayPrize(d, (d.accs || {})[ak]), 0), rp = rk ? runPrize(rk.rank) : 0;
+    return { x, ak, rk, rp, won, wins: rk && rk.wins != null ? rk.wins : R.days.filter(d => ((d.accs || {})[ak] || {}).won).length };
+  }).filter(z => z.rk || z.won || days.some(d => (rd(d.date).accs || {})[z.ak])).sort((a, b) => ((a.rk ? a.rk.rank : 1e9) - (b.rk ? b.rk.rank : 1e9)) || (b.wins - a.wins));
+  if (!ppl.length) return '<div class="card">' + title + '<div class="pad small muted">Ninguém do grupo aparece na classificação da ' + esc(runShort(run)) + '.</div></div>';
+  const cell = (z, d) => {
+    const D = rd(d.date), dr = (D.accs || {})[z.ak], no = !(dr && dr.rank) && D.final && (D.asked || []).includes(z.ak), pz = dayPrize(D, dr);
+    const res = dr && dr.rank ? (dr.won ? 'w' : 'l') : 'n', tip = dShort(d.date) + (no ? ': sem lineup' : dr && dr.rank ? (dr.won ? ': ganhou' : ': perdeu') + (D.total ? ' · ' + dr.rank + ' de ' + D.total : '') : '');
+    return '<td class="c ' + res + '" title="' + esc(tip) + '">' + (dr && dr.rank ? dr.rank.toLocaleString('pt-PT') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : '—') + '</td>';
+  };
+  const rows = ppl.map(z => '<tr' + (z.x.uid === S.session.user.id ? ' class="me"' : '') + '><td class="who2">' + avatar(z.x.acc === 'main' ? z.x.uid : z.x.uid + '|' + z.x.acc, z.x.name) +
+    '<span><b>' + esc(z.x.name) + '</b>' + (z.x.acc !== 'main' ? '<small>smurf' + (z.x.owner ? ' de ' + esc(z.x.owner) : '') + '</small>' : z.x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
+    '<td class="rr' + (z.rk ? zone(z.rk.rank) : '') + '">' + (z.rk ? '<b>' + z.rk.rank.toLocaleString('pt-PT') + '.º</b>' : '<b class="muted">—</b>') + '<small>' + plural(z.wins, 'vitória', 'vitórias') + (z.rp ? ' · ' + money(z.rp) : '') + '</small></td>' +
+    days.map(d => cell(z, d)).join('') + '<td class="money">' + (z.won + z.rp ? money(z.won + z.rp) : '—') + '</td></tr>').join('');
+  const dayTot = d => { const D = rd(d.date); let t = 0, w = 0, any = false; ppl.forEach(z => { const dr = (D.accs || {})[z.ak]; if (dr && dr.rank) { any = true; if (dr.won) w++; t += dayPrize(D, dr); } }); return { t, w, any }; };
+  const all = ppl.reduce((t, z) => t + z.won + z.rp, 0);
+  const totRow = ppl.length > 1 ? '<tr class="tot"><td class="who2"><span><b>Grupo</b></span></td><td></td>' + days.map(d => { const q = dayTot(d); return '<td><b>' + (q.t ? money(q.t) : '—') + '</b>' + (q.any ? '<small>' + q.w + ' ✓</small>' : '') + '</td>'; }).join('') + '<td class="money"><b>' + (all ? money(all) : '—') + '</b></td></tr>' : '';
+  const hasLu = d => Object.values(rd(d.date).accs || {}).some(a => Array.isArray(a.lu) && a.lu.length);
+  const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map(d => { const n = sdays.indexOf(d) + 1; return '<th title="' + esc(objsText(d)) + '">' + (hasLu(d) ? '<button class="gc-day" type="button" data-action="day-lus" data-date="' + d.date + '" data-run="' + esc(run.id) + '" aria-label="Lineups do dia ' + n + '">Dia ' + n + ' ›</button>' : 'Dia ' + n) + '</th>'; }).join('') + '<th>Ganho</th></tr>';
+  return '<div class="card">' + title + '<div class="small muted" style="padding:0 16px 6px">' + esc(runShort(run)) + ' terminada' + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + '</div>' +
+    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + rows + totRow + '</tbody></table></div></div>';
+}
 // Classic ou Historic na Classificação (sem escolha: segue o modo da Jornada)
 const gcMode = () => S.gcMode || (S.jmode === 'historic' ? 'historic' : 'classic');
 const gcSeg = () => '<div class="seg gc-mode" role="group" aria-label="Modo">' + [['classic', 'Classic'], ['historic', 'Historic']].map(([k, l]) => '<button type="button" data-action="gc-mode" data-v="' + k + '" aria-pressed="' + (gcMode() === k) + '">' + l + '</button>').join('') + '</div>';
@@ -4103,7 +4180,17 @@ function renderGrupo() {
   const gsub = subOf('grupo');
   if (gsub === 'lineups') { el.innerHTML = subBar('grupo') + '<div class="stack">' + lineupsHtml() + '</div>'; return; }
   if (gsub === 'emprestimos') { el.innerHTML = subBar('grupo') + '<div class="stack">' + emprestimosHtml() + '</div>'; return; }
-  if (gcMode() === 'historic') { el.innerHTML = subBar('grupo') + gcSeg() + histClassifHtml(); return; }
+  // uma run que já acabou (botões da run): só a tabela dela, com os lugares e o que se ganhou
+  const gr = gcRunId(), bar = gcSeg() + gcRunSeg();
+  if (gr !== S.runId) {
+    const P = S.pastSums && S.pastSums[gr], prun = S.runs.find(r => r.id === gr);
+    if (!P) loadPastSums(gr);
+    el.innerHTML = subBar('grupo') + bar + (!P || P === 'loading' ? '<div class="card"><div class="pad small muted" id="gcProg" role="status">A carregar a ' + esc(runShort(prun)) + '…</div></div>'
+      : P.err ? '<div class="card"><div class="pad small muted">Não deu para ler a ' + esc(runShort(prun)) + ': ' + esc(P.err) + '</div></div>'
+      : gcMode() === 'historic' ? histClassifHtml(P.sums) : pastClassicHtml(prun, P));
+    return;
+  }
+  if (gcMode() === 'historic') { el.innerHTML = subBar('grupo') + bar + histClassifHtml(); return; }
   const nd = nextDay(), R = groupRanks(), people = groupEntries();
   // com os lugares do Top Shot, a ordem é a da classificação oficial (vitórias e o desempate deles)
   if (R) people.sort((a, b) => ((a.rk && a.rk.found ? a.rk.rank : 1e9) - (b.rk && b.rk.found ? b.rk.rank : 1e9)) || (b.wins - a.wins));
@@ -4138,7 +4225,7 @@ function renderGrupo() {
   const hasLu = d => { const rd = rdays.find(z => z.date === d.date); return !!(rd && Object.values(rd.accs || {}).some(a => Array.isArray(a.lu) && a.lu.length)); };
   const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map((d, k) => '<th title="' + esc(objsText(d)) + '">' + (hasLu(d) ? '<button class="gc-day" type="button" data-action="day-lus" data-date="' + d.date + '" aria-label="Lineups do dia ' + (S.days.indexOf(d) + 1) + '">Dia ' + (S.days.indexOf(d) + 1) + ' ›</button>' : 'Dia ' + (S.days.indexOf(d) + 1)) + '</th>').join('') + '<th>Ganho</th></tr>';
   const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top Shot ainda não lidos';
-  el.innerHTML = subBar('grupo') + gcSeg() + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
+  el.innerHTML = subBar('grupo') + bar + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
     '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div>' +
     // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
     (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
@@ -4148,13 +4235,14 @@ function renderGrupo() {
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
 // os lineups que cada conta do grupo levou num dia (lidos no Top Shot com os lugares), do melhor lugar para o pior
-function dayLineupsSheet(date) {
-  const R = groupRanks(), rd = R && (R.days || []).find(z => z.date === date), day = S.days.find(d => d.date === date) || {}; if (!rd) return;
-  const ppl = groupEntries().map(x => ({ x, a: x.addr ? (rd.accs || {})[addrKey(x.addr)] : null })).filter(z => z.a && z.a.rank).sort((p, q) => p.a.rank - q.a.rank);
+function dayLineupsSheet(date, runId) {
+  const P = runId && runId !== S.runId && S.pastSums ? S.pastSums[runId] : null, days = P && P.days ? P.days : S.days;
+  const R = P && P.sums ? pastRanks(P.sums) : groupRanks(), rd = R && (R.days || []).find(z => z.date === date), day = days.find(d => d.date === date) || {}; if (!rd) return;
+  const ppl = (P ? pastEntries() : groupEntries()).map(x => ({ x, a: x.addr ? (rd.accs || {})[addrKey(x.addr)] : null })).filter(z => z.a && z.a.rank).sort((p, q) => p.a.rank - q.a.rank);
   const pl = z => { const id = tsIdOf(z[1]); return '<span class="lp-pl">' + (id ? face(id, 'sm') : '<span class="face sm"><b>' + esc(initials(z[1] || '?')) + '</b></span>') + '<span class="lp-nm">' + esc(id ? lastName(id) : (z[1] || '?').split(' ').slice(-1)[0]) + '</span></span>'; };
   const row = ({ x, a }) => '<li class="row lp-row' + (x.acc !== 'main' ? ' smurf' : '') + '"><div class="lp-who">' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) + '<div style="min-width:0"><div class="nm">' + esc(x.name) + '</div><div class="small ' + (a.won ? 'c-good' : 'c-bad') + '">' + (a.won ? '✓ ' : '✕ ') + a.rank.toLocaleString('pt-PT') + '.º' + (rd.total ? ' de ' + rd.total.toLocaleString('pt-PT') : '') + '</div></div></div>' +
     '<div class="lp-pls">' + (Array.isArray(a.lu) && a.lu.length ? a.lu.map(pl).join('') : '<span class="small muted">' + (a.luh ? 'lineup escondido' : 'sem lineup lido') + '</span>') + '</div></li>';
-  openSheet('<h3>Lineups do dia ' + (S.days.indexOf(day) + 1) + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div>' +
+  openSheet('<h3>Lineups do dia ' + (days.indexOf(day) + 1) + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div>' +
     (ppl.length ? '<div class="card"><ul class="list lp-list">' + ppl.map(row).join('') + '</ul></div>' : '<div class="note info">Ainda não há lineups lidos para este dia.</div>') +
     '<div class="small muted">Lidos no Top Shot com os lugares ' + ago(R.at) + '.</div>');
 }
@@ -4361,7 +4449,8 @@ async function runPlan(x) {
   const end = days.length ? days[days.length - 1].date : x.ends ? etDay(Date.parse(x.ends) - 12 * 3600e3) : start;
   if (!start) return null;
   const n = String(x.name || x.id || '').match(/run\s*(\d+)/i);
-  const name = n ? 'Run ' + n[1] + ' · Classic' : (x.name || 'Run Classic');
+  // sem n.º no nome (a API pública não dá o nome da run): a seguir às runs a sério que o site já tem
+  const name = n ? 'Run ' + n[1] + ' · Classic' : x.name || 'Run ' + (S.runs.filter(r => !r.fictitious && r.start_date && r.start_date < (start || '')).length + 1) + ' · Classic';
   const site = S.runs.find(r => !r.fictitious && r.start_date && Math.abs(Date.parse(r.start_date) - Date.parse(start)) <= 3 * 864e5) || null;
   let have = [];
   if (site) have = site.id === S.runId ? S.days : ((await q(sb.from('run_days').select('date,objectives').eq('run_id', site.id)).catch(() => [])) || []);
@@ -6313,6 +6402,9 @@ document.addEventListener('click', async e => {
     case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Endereço copiado: cola-o no Safari.'), () => toast(u)); break; }
     case 'job-odds': await jobOdds(); break;
     case 'ranks-go': { const what = String(b.dataset.do || 'ranks,picks').split(',');
+      // a ler o Top Shot é sempre a run atual: quem está a ver uma run que acabou (p. ex. a Run 1) passa para a atual
+      // antes (ler a run antiga outra vez todos os dias só tornava o leitor mais lento)
+      { const act = S.runs.find(x => x.active && !x.fictitious); if (act && act.id !== S.runId) { S.loading = true; render(); await loadRun(act.id); S.loading = false; compute(); render(); renderAjustes(); toast('A atualizar a ' + runShort(act) + '.'); } }
       if (!b.dataset.ready && what.includes('ed')) { const lbl = b.innerHTML; b.disabled = true; b.textContent = 'A preparar…'; loadGroupCards().finally(() => { b.disabled = false; b.innerHTML = lbl; b.dataset.ready = '1'; b.click(); }); break; }
       delete b.dataset.ready; const J = rankJob(what); if (!J.accs.length) { toast('Ninguém do grupo tem endereço Flow no perfil.'); break; }
       // na app do ecrã principal o Top Shot abre numa janela à parte, sem a tua sessão e sem favoritos: tem de ser no Safari
@@ -6420,8 +6512,9 @@ document.addEventListener('click', async e => {
     case 'sell-swap': sellSwapSheet(+b.dataset.i); break;
     case 'sell-down': sellSwapSheet(+b.dataset.i, true); break;
     case 'sell-tab': S.sellTab = b.dataset.v; try { localStorage.setItem('fb-sell-tab', S.sellTab); } catch (e) {} render(); sellFilter(); break;
-    case 'day-lus': dayLineupsSheet(date); break;
+    case 'day-lus': dayLineupsSheet(date, b.dataset.run); break;
     case 'gc-mode': S.gcMode = b.dataset.v; renderGrupo(); break;
+    case 'gc-run': S.gcRun = b.dataset.v; renderGrupo(); break;
     case 'run-apply': b.disabled = true; await runApply(+b.dataset.i); break;
     case 'ed-apply': closeSheet(); edApply(); toast('Raridade e ASP aplicados: os usos do grupo foram acertados.'); break;
     case 'wallet-apply': b.disabled = true; await walletApply(); break;
@@ -6539,6 +6632,7 @@ document.addEventListener('change', async e => {
   const t = e.target, a = t.dataset.action;
   if (t.dataset && t.dataset.moTier) { await momentTierChange(t.dataset.moTier, t.value); return; }
   if (t.id === 'jmode') { S.jmode = t.value; try { localStorage.setItem('fb-jmode', t.value); } catch (e2) {} t.blur(); S.hdCenter = true; renderHeader(); renderHoje(); return; }
+  if (t.id === 'gcRunSel') { S.gcRun = t.value; renderGrupo(); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run ligada à blockchain.' : 'Ligação removida.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
   if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null, +t.dataset.k || 0);

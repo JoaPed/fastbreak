@@ -1168,6 +1168,28 @@ with sync_playwright() as pw:
     rb4 = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
     pg.close()
     print('T4 sem sessão (API pública):', len(t4), 'pedidos', rb4['accs'], '· ok' if t4 and all(p and not a for p, a, m in t4) and rb4['accs'][0].get('rank') == 12 and (rb4.get('run') or {}).get('id') == 'run-nba-classic-2026-10-20' else '· ERRO')
+    # T5: ler a run nova (Admin → Run) sem a lista das runs ativas: acha-a pelo id com a data de início
+    t5 = []
+    def rapi5(r):
+        u = r.request.url; m = u.split('atlas.v1.')[1]; bd = json.loads(r.request.post_data or '{}'); H = {'access-control-allow-origin': '*'}
+        t5.append((m, bd.get('runId')))
+        if m == 'GameEngineService/SearchContests' and bd.get('runId') == 'run-nba-classic-2026-11-03':
+            return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'contests': [{'id': 'contest-run-nba-classic-2026-11-03-2026-11-0%d' % k, 'locksAt': '2026-11-0%dT23:00:00Z' % k, 'objectives': [{'statAbbreviation': 'PTS', 'target': 120}]} for k in (3, 4)]}))
+        if m == 'GameEngineService/SearchContests': return r.fulfill(status=200, content_type='application/json', headers=H, body='{"contests": []}')
+        return r.fulfill(status=404, headers=H, body='{}')
+    pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
+    pg.clock.set_fixed_time('2026-11-04T12:00:00Z')
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
+    pg.route('https://api.production.atlas.dapperlabs.com/**', rapi5)
+    rjob = {'do': ['run'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}]}
+    pg.goto('https://nbatopshot.com/fastbreak?league=nba#fbsync=' + base64.urlsafe_b64encode(json.dumps(rjob).encode()).decode().rstrip('='))
+    pg.evaluate((docs / 'fb-lugares.js').read_text())
+    pg.wait_for_url('https://site.test/**', timeout=30000)
+    rb5 = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
+    pg.close()
+    rr5 = (rb5.get('runs') or [{}])[0]
+    print('T5 run nova sem lista:', rr5.get('id'), len(rr5.get('days') or []), 'dias', rb5.get('runErr') or '', '· ok' if rr5.get('id') == 'run-nba-classic-2026-11-03' and len(rr5.get('days') or []) == 2 else '· ERRO')
     # O: Jornada → modo Historic (dados lidos no Top Shot): equipa sugerida, tirar, procurar, carta, outro dia
     HISTJ = (root / 'test' / 'fixtures' / 'historic.json').read_text()
     dbo = seeded(); To = dbo['tables']; To['runs'][0]['fictitious'] = False
@@ -1291,6 +1313,47 @@ with sync_playwright() as pw:
     print('O2 classificação do Historic:', hr, '· dia 1:', c1, '· ok' if hr == ['João', 'Rui'] and c1 == '3.º +$20' else '· ERRO')
     pg.click('#tab-grupo button[data-action="gc-mode"][data-v="classic"]'); pg.wait_for_timeout(500)
     print('O2 volta ao Classic:', pg.locator('#tab-grupo .card h2').first.inner_text().strip())
+    pg.close()
+    # O4: Classificação por runs: com a Run 2 a decorrer, o botão da Run 1 mostra o lugar final de cada conta e o
+    # dinheiro ganho (prémio da run + prémios dos dias); no Historic, os dias da Run 1
+    import datetime as _dt
+    dbg = seeded(); Tg = dbg['tables']; Tg['runs'][0]['fictitious'] = False; Tg['runs'][0]['active'] = False
+    sh = lambda d: (_dt.date.fromisoformat(d) + _dt.timedelta(days=14)).isoformat()
+    Tg['runs'].append(dict(Tg['runs'][0], id='run-2', name='Run 2 · Classic', start_date=sh(Tg['runs'][0]['start_date']), end_date=sh(Tg['runs'][0]['end_date']), active=True, chain_run_id=None))
+    Tg['run_days'] += [dict(d, run_id='run-2', date=sh(d['date']), games=[gm[:2] + [sh(gm[2][:10]) + gm[2][10:]] + gm[3:] for gm in d['games']]) for d in Tg['run_days'] if d['run_id'] == 'run-1']
+    Tg['members'].append({'user_id': 'u-eu', 'role': 'admin'})
+    Tg['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0x' + AE, 'smurfs': [{'id': 's1', 'topshot_username': 'terose', 'flow_address': '0x' + AS}]})
+    [x.update({'flow_address': '0x' + AR}) for x in Tg['profiles'] if x['user_id'] == 'u-amigo']
+    ros = {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}
+    Tg['user_runs'] = [{'user_id': 'u-eu', 'run_id': r_, 'roster': ros, 'plan': {}, 'updated_at': '2026-11-03T10:00:00Z'} for r_ in ('run-1', 'run-2')]
+    Tg['chain_results'] = []; Tg['injuries'] = []
+    d0, d1_ = run['days'][0]['date'], run['days'][1]['date']
+    rk1 = {'v': 1, 'at': '2026-11-01T10:00:00Z', 'run': {'id': 'run-nba-classic-2026-10-20'}, 'total': 3000, 'bands': [[1, 1, 200000, ''], [6, 10, 10000, ''], [11, 30, 5000, '']], 'cut': {},
+           'accs': [{'a': AE, 'found': True, 'rank': 8, 'wins': 11}, {'a': AS, 'found': True, 'rank': 40, 'wins': 9}, {'a': AR, 'found': True, 'rank': 25, 'wins': 10}],
+           'days': [{'id': 'c0', 'date': d0, 'final': True, 'accs': {AE: {'rank': 3, 'won': True, 'lu': [['1', 'shai gilgeous alexander']]}, AR: {'rank': 60, 'won': True}}}, {'id': 'c1', 'date': d1_, 'final': True, 'accs': {AS: {'rank': 9, 'won': True}}}]}
+    Tg['summaries'] = [s_ for s_ in Tg['summaries'] if s_['run_id'] != 'run-1'] + [{'user_id': 'u-eu', 'run_id': 'run-1', 'wins': 11, 'losses': 2, 'share': {'ranks': rk1, 'hist': HO}}]
+    pg = new_page(b, dbg)
+    pg.clock.set_fixed_time('2026-11-04T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-grupo'); pg.wait_for_timeout(800)
+    # sem escolha: a Run 2 ainda não tem lugares, por isso abre na Run 1 (com os dias todos, como a da run atual)
+    runs4 = pg.locator('#gcRunSel option').all_inner_texts(); on4 = pg.locator('#gcRunSel').input_value()
+    heads4 = pg.locator('#tab-grupo .gc thead th').all_inner_texts()
+    rows4 = [' '.join(t.split()) for t in pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()]
+    pg.screenshot(path=str(shots / 'classif-run1.png'), full_page=True)
+    pg.click('#tab-grupo .gc-day[data-date="' + d0 + '"]'); pg.wait_for_timeout(500)
+    lus4 = pg.locator('#sheet h3').inner_text() if pg.locator('#sheet').is_visible() else ''
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#tab-grupo button[data-action="gc-mode"][data-v="historic"]'); pg.wait_for_timeout(800)
+    h4 = pg.locator('#tab-grupo .gc tbody tr:not(.tot) td.who2 b').all_inner_texts()
+    pg.emulate_media(color_scheme='dark'); pg.click('#tab-grupo button[data-action="gc-mode"][data-v="classic"]'); pg.wait_for_timeout(500)
+    pg.screenshot(path=str(shots / 'classif-run1-escuro.png'), full_page=True)
+    pg.select_option('#gcRunSel', 'run-2'); pg.wait_for_timeout(600)
+    cur4 = pg.locator('#tab-grupo .card .small.muted').first.inner_text()
+    print('O4 classificação por runs:', runs4, on4, '|', heads4[:4], '|', rows4[:1], rows4[-1:], '| lineups:', lus4, '| Historic:', h4, '| Run 2:', cur4[:40],
+          '· ok' if runs4 == ['Run 2 · atual', 'Run 1'] and on4 == 'run-1' and heads4[:4] == ['Conta', 'Run', 'Dia 1 ›', 'Dia 2'] and rows4[0].startswith('J João tu 8.º 11 vitórias · $100 3.º +$50') and rows4[-1].endswith('$212') and lus4 == 'Lineups do dia 1' and h4 == ['João', 'Rui'] and ('Run 2' in cur4 or 'ainda não lidos' in cur4) else '· ERRO')
     pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
