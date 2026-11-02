@@ -1148,6 +1148,26 @@ with sync_playwright() as pw:
         t3 += [bd.get('leaderboardId') for m, bd in rcalls if m == 'LeaderboardService/GetSubjectRank']
         pg.close()
     print('T3 run do site com outra ativa:', t3, '· ok' if t3 == ['run:run-nba-classic-2026-10-20', 'run:run-nba-classic-2026-10-20', 'run:run-nba-classic-2026-11-03'] else '· ERRO')
+    # T4: sem sessão (a página do Fast Break já não põe autorização): o leitor começa sozinho e lê pela API pública
+    t4 = []
+    def rapi4(r):
+        u = r.request.url; m = u.split('atlas.v1.')[1]; bd = json.loads(r.request.post_data or '{}'); H = {'access-control-allow-origin': '*'}
+        t4.append(('/public/' in u, bool(r.request.headers.get('authorization')), m))
+        if '/public/' not in u: return r.fulfill(status=401, headers=H, body='{}')
+        if m == 'GameEngineService/ListActiveRuns': return r.fulfill(status=404, headers=H, body='{}')
+        if m == 'LeaderboardService/GetSubjectRank': return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'found': True, 'entry': {'rank': '12', 'displayScore': '8', 'tiebreakerScore': '1'}, 'totalCount': '3000'}))
+        return r.fulfill(status=200, content_type='application/json', headers=H, body='{}')
+    pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
+    pg.route('https://api.production.atlas.dapperlabs.com/**', rapi4)
+    rjob = {'do': ['ranks'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}], 'runStart': '2026-10-20'}
+    pg.goto('https://nbatopshot.com/fastbreak?league=nba#fbsync=' + base64.urlsafe_b64encode(json.dumps(rjob).encode()).decode().rstrip('='))
+    pg.evaluate((docs / 'fb-lugares.js').read_text())
+    pg.wait_for_url('https://site.test/**', timeout=30000)
+    rb4 = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
+    pg.close()
+    print('T4 sem sessão (API pública):', len(t4), 'pedidos', rb4['accs'], '· ok' if t4 and all(p and not a for p, a, m in t4) and rb4['accs'][0].get('rank') == 12 and (rb4.get('run') or {}).get('id') == 'run-nba-classic-2026-10-20' else '· ERRO')
     # O: Jornada → modo Historic (dados lidos no Top Shot): equipa sugerida, tirar, procurar, carta, outro dia
     HISTJ = (root / 'test' / 'fixtures' / 'historic.json').read_text()
     dbo = seeded(); To = dbo['tables']; To['runs'][0]['fictitious'] = False

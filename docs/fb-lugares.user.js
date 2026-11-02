@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      23
+// @version      24
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -26,17 +26,27 @@ box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bott
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
-say('Toca uma vez em <b>Leaderboard</b> (ou muda de separador) para eu começar…');
+// as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
+// precisam da sessão: para essas espera que toques em Leaderboard (a página põe a autorização nos pedidos dela)
+const needTok = Array.isArray(job.do) && job.do.includes('tr');
+say(needTok ? 'Toca uma vez em <b>Leaderboard</b> (ou muda de separador) para eu começar…' : 'A começar…');
 // a sessão: o cabeçalho que a própria página põe nos pedidos à API (fica só aqui, em memória)
 const grab = (n, v) => { try { if (String(n).toLowerCase() === 'authorization' && v && !S.tok) { S.tok = String(v); go(); } } catch (e) {} };
 const hs = Headers.prototype.set, ha = Headers.prototype.append;
 Headers.prototype.set = function (n, v) { grab(n, v); return hs.apply(this, arguments); };
 Headers.prototype.append = function (n, v) { grab(n, v); return ha.apply(this, arguments); };
 const wait = ms => new Promise(f => setTimeout(f, ms));
-const call = async (m, body, tries = 0) => {
-  const r = await fetch(API + m, { method: 'POST', headers: { 'content-type': 'application/json', 'connect-protocol-version': '1', authorization: S.tok }, body: JSON.stringify(body) });
+if (!needTok) setTimeout(() => go(), 2500); // se a página der a sessão antes disto, começa com ela
+const APIP = 'https://api.production.atlas.dapperlabs.com/public/atlas.v1.';
+const call = async (m, body, tries = 0, pub = !S.tok) => {
+  if (pub && /TransferNfts/.test(m)) throw new Error('precisa da sessão: toca em Leaderboard');
+  const h = { 'content-type': 'application/json', 'connect-protocol-version': '1' };
+  if (!pub) h.authorization = S.tok;
+  const r = await fetch((pub ? APIP : API) + m, { method: 'POST', headers: h, body: JSON.stringify(body) });
+  // com sessão, um pedido que a API privada recusa tenta-se na pública
+  if (!pub && [401, 403, 404].includes(r.status) && !/TransferNfts/.test(m)) return call(m, body, tries, true);
   // muitos pedidos seguidos: o Top Shot pode pedir para abrandar → espera e tenta outra vez (até 4 vezes)
-  if ((r.status === 429 || r.status === 503) && tries < 4) { await wait(1500 * (tries + 1)); return call(m, body, tries + 1); }
+  if ((r.status === 429 || r.status === 503) && tries < 4) { await wait(1500 * (tries + 1)); return call(m, body, tries + 1, pub); }
   if (!r.ok) throw new Error(m.split('/').pop() + ' ' + r.status);
   return r.json();
 };
@@ -269,7 +279,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 21, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 22, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -370,7 +380,8 @@ async function readRun() {
 async function readRanks(out, withLu) {
   {
     say('A ver a run…');
-    const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
+    let runs = [];
+    try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {} // sem a lista: vai pela run do site
     // a run do site: a que começa no mesmo dia (o id do Top Shot tem a data de início: run-nba-classic-AAAA-MM-DD). Com
     // uma run nova já a decorrer, a que acabou deixa de vir nas ativas: usa-se a que o site conhece (para ler os últimos dias)
     const cls = runs.filter(r => (/classic/i.test(r.id) && r.league === 'nba' && r.mode === 'RUN_MODE_CLASSIC') || /nba-classic/.test(r.id));
