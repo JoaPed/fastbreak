@@ -1660,7 +1660,7 @@ function jornadaDay() {
   const r = S.result; if (!r) return null;
   const nd0 = nextDay();
   if (S.hd && (!S.days.some(x => x.date === S.hd) || (nd0 && S.hd === nd0.date))) S.hd = null;
-  const date = S.hd || (nd0 ? nd0.date : null); if (!date) return null;
+  const date = S.hd || (nd0 ? nd0.date : S.days.length ? S.days[S.days.length - 1].date : null); if (!date) return null;
   const day = S.days.find(x => x.date === date), { md, d } = dayInfo(date);
   return { date, day, idx: S.days.indexOf(day), md, d, cur: !!nd0 && date === nd0.date, past: !md || !d };
 }
@@ -2222,6 +2222,7 @@ function renderJornada(el) {
   const r = S.result, v = view(), J = jornadaDay();
   if (!J) { el.innerHTML = empty('Run terminada', 'Acabaste com ' + r.wins + ' vitórias em ' + r.playedCount + ' dias.'); return; }
   const sub = subOf('hoje'), html = [dayStrip(J.date), jornadaNav(J.date, sub)];
+  if (!nextDay()) html.push('<div class="note info run-end">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias') + '. Toca num dia para o rever.</div>');
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
   if (run.fictitious) html.push('<div class="note">Run de teste: jogos e objetivos inventados.' + (real ? ' <button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Ver a ' + esc(real.name) + '</button>' : '') + '</div>');
   if (J.past) {
@@ -4936,7 +4937,8 @@ function cardsBlock(id) {
     return '<li class="row mo-row"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + TIER_CLS[t] + '">' + esc(t) + '</span>' + (up ? '<span class="tpill t-asp">' + esc(b[2]) + '</span>' : '') + (w !== 5 && WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">à venda</span>' : '') + '</div>' +
       '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
       '<div class="ps">' + [it.n ? '#' + f0(it.n) + (it.m ? ' de ' + f0(it.m) : '') : it.m ? 'tiragem ' + f0(it.m) : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
-      '<div class="mo-px">' + (e && e.asp > 0 ? '<span>ASP <b class="num">' + usd(e.asp / 100) + '</b></span>' : '<span class="muted">' + (e ? 'sem vendas' : 'sem dados do Top Shot') + '</span>') + (e && e.ask ? '<span class="muted">à venda desde <b class="num">' + usd(e.ask / 100) + '</b></span>' : '') + '</div>' +
+      '<div class="mo-px">' + (e && e.asp > 0 ? '<span>ASP <b class="num">' + usd(e.asp / 100) + '</b></span>' : '<span class="muted">' + (e ? 'sem vendas' : 'sem dados do Top Shot') + '</span>') + (e && e.ask ? '<span class="muted">à venda desde <b class="num">' + usd(e.ask / 100) + '</b></span>' : '') +
+        (accounts().length > 1 && accAddr(S.session.user.id, it.a || 'main') ? '<button class="btn link small mo-send" type="button" data-action="card-send" data-fid="' + esc(f) + '">Mandar…</button>' : '') + '</div>' +
       (e && e.tier ? '' : '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Escalão desta carta">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + usesTxt(TIER_USES[z]) + '</option>').join('') + '</select>') + '</div>' +
       '<div class="pv mo-u' + (cu === u ? ' top' : '') + '"><div class="v num">' + usesN(cu) + '</div><div class="u">' + (cu === 1 ? 'uso' : 'usos') + '</div></div></li>'; }).join('');
   const tc = {}; its.forEach(x => { tc[x.t] = (tc[x.t] || 0) + 1; });
@@ -6343,6 +6345,19 @@ document.addEventListener('click', async e => {
     case 'todo-tick': { const ks = String(b.dataset.k || '').split(' ').filter(Boolean), k = ks[0] || ''; // uma linha pode ter vários (Moments da mesma hora)
       if (ks.every(x => TODO_DONE[x])) ks.forEach(x => { delete TODO_DONE[x]; }); else { ks.forEach(x => { TODO_DONE[x] = TODO_DONE[x] || Date.now(); }); toast('Feito ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
+    case 'card-send': { const col = (S.profile || {}).collection || {}, it = (col.items || {})[b.dataset.fid]; if (!it) break; const from = it.a || 'main';
+      const to = accounts().filter(a => a.id !== from && accAddr(S.session.user.id, a.id));
+      openSheet('<h3>Mandar ' + esc(nameOf(it.p)) + '</h3><div class="small muted">' + esc(momentTier(col, b.dataset.fid)) + ' · ' + esc(String(it.s || '').split(' · ')[0]) + (it.n ? ' #' + f0(it.n) : '') + ' · está na ' + esc(accLabel(from)) + '</div>' +
+        '<div class="small">Para que conta? O Top Shot abre com este Moment e só o manda quando tocares em <b>Enviar</b>.</div>' +
+        '<div class="btns" style="flex-wrap:wrap">' + to.map(a => '<button class="btn primary" type="button" data-action="card-send-to" data-fid="' + esc(b.dataset.fid) + '" data-to="' + esc(a.id) + '">' + esc(accLabel(a.id)) + '</button>').join('') + '</div>'); break; }
+    case 'card-send-to': { const col = (S.profile || {}).collection || {}, f = b.dataset.fid, it = (col.items || {})[f], uid = S.session.user.id; if (!it) break;
+      const from = it.a || 'main', to = b.dataset.to, fa = accAddr(uid, from), ta = accAddr(uid, to); if (!fa || !ta) { toast('Falta o endereço Flow de uma das contas (Ajustes → Perfil).'); break; }
+      if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { toast('Abre o site no Safari para isto (na app do ecrã principal o Top Shot abre sem a tua sessão).'); break; }
+      // a chave como a das trocas do A fazer (hoje): de volta, o Moment conta já na outra conta até a carteira ser lida outra vez
+      const k = (S.runId || '') + '|tr|' + it.p + '|' + from + '>' + to + '|' + todayET();
+      const job = { do: ['tr'], back: siteBase(), accs: [{ a: addrKey(fa), uid, acc: from }], tr: [{ k, fid: f, name: nameOf(it.p), tier: momentTier(col, f), serial: it.n || null, from: addrKey(fa), to: addrKey(ta), fromL: accLabel(from), toL: accLabel(to) }] };
+      b.disabled = true; closeSheet(); toast('A abrir o Top Shot: entra na ' + accLabel(from) + '…');
+      setTimeout(() => { location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + b64u.enc(job); }, 1300); break; }
     case 'tr-go': { const J = trJob(b.dataset.from);
       if (!J || !J.list.length) { toast(J && J.miss.length ? 'Não encontrei na carteira lida os Moments de ' + J.miss.join(', ') + '. Lê a carteira outra vez.' : 'Nada para mandar desta conta.'); break; }
       if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { toast('Abre o site no Safari para isto (na app do ecrã principal o Top Shot abre sem a tua sessão).'); break; }

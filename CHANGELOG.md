@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-02
+- **João** — Plantel → ficha do jogador → As tuas cartas: "Mandar…" em cada carta, para a mandar para outra conta pelo script do Top Shot (só manda depois de "Enviar"). Run acabada: a Jornada abre no último dia e continua a dar para andar por todos os dias, com o resumo por cima.
+
 ## 2026-11-01
 - **João** — Trocas entre contas pelo script do Top Shot: no A fazer, "Enviar no Top Shot" em cada conta de onde saem Moments; o leitor (FB lugares, userscript v21) mostra a lista, só manda depois de "Enviar" (NFTService/TransferNfts, como quando ofereces à mão), confirma que cada Moment estava na conta e chegou à outra, e volta ao site com as trocas marcadas como feitas.
 - **João** — Sonda das trocas, versão 2: vê também os campos do pedido que manda o Moment (o Top Shot manda-o com NFTService/TransferNfts, sem abrir a carteira).

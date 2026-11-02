@@ -1222,3 +1222,4 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .todo-li.done .todo-pl b { text-decoration: line-through; }
 .todo-grp-s { display: flex !important; justify-content: space-between; align-items: center; gap: 8px; }
 .todo-send { flex: none; padding: 4px 10px; min-height: 0; font-size: 12.5px; }
+.mo-px .mo-send { margin-left: auto; padding: 0; min-height: 0; font-size: 13px; font-weight: 600; }

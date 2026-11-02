@@ -1661,7 +1661,7 @@ function jornadaDay() {
   const r = S.result; if (!r) return null;
   const nd0 = nextDay();
   if (S.hd && (!S.days.some(x => x.date === S.hd) || (nd0 && S.hd === nd0.date))) S.hd = null;
-  const date = S.hd || (nd0 ? nd0.date : null); if (!date) return null;
+  const date = S.hd || (nd0 ? nd0.date : S.days.length ? S.days[S.days.length - 1].date : null); if (!date) return null;
   const day = S.days.find(x => x.date === date), { md, d } = dayInfo(date);
   return { date, day, idx: S.days.indexOf(day), md, d, cur: !!nd0 && date === nd0.date, past: !md || !d };
 }
@@ -2223,6 +2223,7 @@ function renderJornada(el) {
   const r = S.result, v = view(), J = jornadaDay();
   if (!J) { el.innerHTML = empty('Run finished', 'You finished with ' + r.wins + ' wins in ' + r.playedCount + ' days.'); return; }
   const sub = subOf('hoje'), html = [dayStrip(J.date), jornadaNav(J.date, sub)];
+  if (!nextDay()) html.push('<div class="note info run-end">Run finished: ' + plural(r.wins, 'win', 'wins') + ' in ' + plural(r.playedCount, 'day', 'days') + '. Tap a day to review it.</div>');
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
   if (run.fictitious) html.push('<div class="note">Test run: made-up games and goals.' + (real ? ' <button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Open ' + esc(real.name) + '</button>' : '') + '</div>');
   if (J.past) {
@@ -4937,7 +4938,8 @@ function cardsBlock(id) {
     return '<li class="row mo-row"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + TIER_CLS[t] + '">' + esc(t) + '</span>' + (up ? '<span class="tpill t-asp">' + esc(b[2]) + '</span>' : '') + (w !== 5 && WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">for sale</span>' : '') + '</div>' +
       '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
       '<div class="ps">' + [it.n ? '#' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') : it.m ? 'mint count ' + f0(it.m) : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
-      '<div class="mo-px">' + (e && e.asp > 0 ? '<span>ASP <b class="num">' + usd(e.asp / 100) + '</b></span>' : '<span class="muted">' + (e ? 'no sales' : 'no Top Shot data') + '</span>') + (e && e.ask ? '<span class="muted">listed from <b class="num">' + usd(e.ask / 100) + '</b></span>' : '') + '</div>' +
+      '<div class="mo-px">' + (e && e.asp > 0 ? '<span>ASP <b class="num">' + usd(e.asp / 100) + '</b></span>' : '<span class="muted">' + (e ? 'no sales' : 'no Top Shot data') + '</span>') + (e && e.ask ? '<span class="muted">listed from <b class="num">' + usd(e.ask / 100) + '</b></span>' : '') +
+        (accounts().length > 1 && accAddr(S.session.user.id, it.a || 'main') ? '<button class="btn link small mo-send" type="button" data-action="card-send" data-fid="' + esc(f) + '">Send…</button>' : '') + '</div>' +
       (e && e.tier ? '' : '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Tier of this card">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + usesTxt(TIER_USES[z]) + '</option>').join('') + '</select>') + '</div>' +
       '<div class="pv mo-u' + (cu === u ? ' top' : '') + '"><div class="v num">' + usesN(cu) + '</div><div class="u">' + (cu === 1 ? 'use' : 'uses') + '</div></div></li>'; }).join('');
   const tc = {}; its.forEach(x => { tc[x.t] = (tc[x.t] || 0) + 1; });
@@ -6344,6 +6346,19 @@ document.addEventListener('click', async e => {
     case 'todo-tick': { const ks = String(b.dataset.k || '').split(' ').filter(Boolean), k = ks[0] || ''; // uma linha pode ter vários (Moments da mesma hora)
       if (ks.every(x => TODO_DONE[x])) ks.forEach(x => { delete TODO_DONE[x]; }); else { ks.forEach(x => { TODO_DONE[x] = TODO_DONE[x] || Date.now(); }); toast('Done ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
+    case 'card-send': { const col = (S.profile || {}).collection || {}, it = (col.items || {})[b.dataset.fid]; if (!it) break; const from = it.a || 'main';
+      const to = accounts().filter(a => a.id !== from && accAddr(S.session.user.id, a.id));
+      openSheet('<h3>Send ' + esc(nameOf(it.p)) + '</h3><div class="small muted">' + esc(momentTier(col, b.dataset.fid)) + ' · ' + esc(String(it.s || '').split(' · ')[0]) + (it.n ? ' #' + f0(it.n) : '') + ' · in ' + esc(accLabel(from)) + '</div>' +
+        '<div class="small">To which account? Top Shot opens with this Moment and only sends it when you tap <b>Enviar</b> (send).</div>' +
+        '<div class="btns" style="flex-wrap:wrap">' + to.map(a => '<button class="btn primary" type="button" data-action="card-send-to" data-fid="' + esc(b.dataset.fid) + '" data-to="' + esc(a.id) + '">' + esc(accLabel(a.id)) + '</button>').join('') + '</div>'); break; }
+    case 'card-send-to': { const col = (S.profile || {}).collection || {}, f = b.dataset.fid, it = (col.items || {})[f], uid = S.session.user.id; if (!it) break;
+      const from = it.a || 'main', to = b.dataset.to, fa = accAddr(uid, from), ta = accAddr(uid, to); if (!fa || !ta) { toast('One of the accounts is missing its Flow address (Settings → Profile).'); break; }
+      if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { toast('Open the site in Safari for this (in the home screen app Top Shot opens without your session).'); break; }
+      // a chave como a das trocas do A fazer (hoje): de volta, o Moment conta já na outra conta até a carteira ser lida outra vez
+      const k = (S.runId || '') + '|tr|' + it.p + '|' + from + '>' + to + '|' + todayET();
+      const job = { do: ['tr'], back: siteBase(), accs: [{ a: addrKey(fa), uid, acc: from }], tr: [{ k, fid: f, name: nameOf(it.p), tier: momentTier(col, f), serial: it.n || null, from: addrKey(fa), to: addrKey(ta), fromL: accLabel(from), toL: accLabel(to) }] };
+      b.disabled = true; closeSheet(); toast('Opening Top Shot: log in to ' + accLabel(from) + '…');
+      setTimeout(() => { location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + b64u.enc(job); }, 1300); break; }
     case 'tr-go': { const J = trJob(b.dataset.from);
       if (!J || !J.list.length) { toast(J && J.miss.length ? 'I did not find in the wallet read the Moments of ' + J.miss.join(', ') + '. Read the wallet again.' : 'Nothing to send from this account.'); break; }
       if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { toast('Open the site in Safari for this (in the home screen app Top Shot opens without your session).'); break; }

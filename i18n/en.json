@@ -2528,6 +2528,13 @@
  "tr": null,
  "A abrir o Top Shot: entra na ": "Opening Top Shot: log in to ",
  " (sem ": " (without ",
+ "\">Mandar…</button>": "\">Send…</button>",
+ "<h3>Mandar ": "<h3>Send ",
+ " · está na ": " · in ",
+ "<div class=\"small\">Para que conta? O Top Shot abre com este Moment e só o manda quando tocares em <b>Enviar</b>.</div>": "<div class=\"small\">To which account? Top Shot opens with this Moment and only sends it when you tap <b>Enviar</b> (send).</div>",
+ "Falta o endereço Flow de uma das contas (Ajustes → Perfil).": "One of the accounts is missing its Flow address (Settings → Profile).",
+ "<div class=\"note info run-end\">Run terminada: ": "<div class=\"note info run-end\">Run finished: ",
+ ". Toca num dia para o rever.</div>": ". Tap a day to review it.</div>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2592,7 +2599,8 @@
    "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "days",
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true,
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
-   "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true
+   "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "days"
   }
  },
  "dia": {
@@ -2605,7 +2613,8 @@
    "'<ul class=\"list\">' + rows + (B.changes.length > 5 ? '<li class=\"row small muted\" style=\"display:block\">e mais ' + plural(B.changes.length - 5, 'dia', 'dias') +": "day",
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(P.name) + '</h2><span class=\"small muted\">' + dShort(P.start) + ' – ' + dShort(P.end) + ' · ' + plu": true,
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
-   "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true
+   "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "day"
   }
  },
  "jogo": {
