@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-02
+- **João** — Sonda dos objetivos (docs/sonda-objetivos.html): favorito que só lê, para ver onde o Top Shot dá os objetivos dos dias da run nova.
 - **João** — Leitor v26: lê os objetivos de cada dia da run nova e acha a run nova do Historic, mesmo pela parte pública do Top Shot.
 - **João** — O plantel é o mesmo em todas as runs: a run nova traz-o sozinha (sem aviso), com os usos todos de volta; só muda quando alguém lê a carteira.
 - **João** — Classificação por runs: em Grupo → Classificação escolhe-se a run numa lista (Classic e Historic); a Run 1 mostra-se com os lugares, os dias e o dinheiro ganho. O site abre sempre na run atual e "Atualizar com o Top Shot" lê sempre a run atual. Leitor (v25) acha a run nova mesmo sem a lista das runs ativas.
