@@ -657,12 +657,28 @@ async function loadRun(runId) {
   S.mineSeen = mine ? Date.parse(mine.updated_at) : 0; S.mineBase = clone(S.mine);
   S.mineLoaded = true;
   mergeDuplicates();
+  await carryRoster(run);
   syncTierUses();
   await loadOdds();
   await loadGroup();
   applyChainResults();
   schedule();
   loadPrevGames();
+}
+// run nova sem plantel: traz o da run anterior, com os usos todos de volta (os usos são por run). Os usos vêm da
+// coleção (melhor carta) ou dos usos por run da run anterior; quem comprar ou vender lê a carteira outra vez.
+async function carryRoster(run) {
+  if (!run || run.fictitious || Object.keys(S.mine.roster || {}).length) return;
+  const prev = realRuns().filter(r => r.id !== run.id && String(r.start_date || '') < String(run.start_date || ''))[0]; if (!prev) return;
+  let row = null; try { row = await q(sb.from('user_runs').select('roster,plan').eq('run_id', prev.id).eq('user_id', S.session.user.id).maybeSingle()); } catch (e) { return; }
+  const ro = (row && row.roster) || {}, ids = Object.keys(ro); if (!ids.length || S.runId !== run.id) return;
+  const played = Object.values(((row.plan || {}).played) || {}).filter(pl => pl && pl.done);
+  ids.forEach(pid => {
+    const e = ro[pid] || {}, per = colTopUses(pid) || (e.tierUses != null ? +e.tierUses : (+e.uses || 0) + played.filter(pl => (pl.lineup || []).includes(pid)).length) || 1;
+    const n = Object.assign({}, e, { uses: per, status: 'ok' }); ['su', 'sm', 'usesManual', 'injIgnore', 'availDates'].forEach(k => delete n[k]);
+    S.mine.roster[pid] = n;
+  });
+  saveMine(); toast('Plantel da ' + runShort(prev) + ' copiado: ' + plural(ids.length, 'jogador', 'jogadores') + ', com os usos todos.');
 }
 // odds dos dias da run (chegam à tarde): lidas ao abrir a run, ao voltar ao site e de 10 em 10 minutos.
 // Devolve true se chegaram odds novas.

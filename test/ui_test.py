@@ -1355,6 +1355,21 @@ with sync_playwright() as pw:
     print('O4 classificação por runs:', runs4, on4, '|', heads4[:4], '|', rows4[:1], rows4[-1:], '| lineups:', lus4, '| Historic:', h4, '| Run 2:', cur4[:40],
           '· ok' if runs4 == ['Run 2 · atual', 'Run 1'] and on4 == 'run-1' and heads4[:4] == ['Conta', 'Run', 'Dia 1 ›', 'Dia 2'] and rows4[0].startswith('J João tu 8.º 11 vitórias · $100 3.º +$50') and rows4[-1].endswith('$212') and lus4 == 'Lineups do dia 1' and h4 == ['João', 'Rui'] and ('Run 2' in cur4 or 'ainda não lidos' in cur4) else '· ERRO')
     pg.close()
+    # O5: run nova sem plantel: traz o da run anterior com os usos todos (os usos por run: os que sobraram + os gastos)
+    dbc = json.loads(json.dumps(dbg)); Tc = dbc['tables']
+    r1p = list(roster['players'])[:16]
+    Tc['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 0 if k < 5 else 2, 'status': 'out' if k == 6 else 'ok', 'injIgnore': k == 7} for k, pid in enumerate(r1p)},
+                        'plan': {'played': {run['days'][0]['date']: {'done': True, 'result': 'win', 'lineup': r1p[:5]}, run['days'][1]['date']: {'done': True, 'result': 'loss', 'lineup': r1p[:5]}}}, 'updated_at': '2026-11-01T10:00:00Z'}]
+    pg = new_page(b, dbc)
+    pg.clock.set_fixed_time('2026-11-04T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    t5 = pg.locator('#toast').inner_text()
+    pg.wait_for_timeout(2500)
+    ro5 = json.loads(store(pg, "(__FAKE_DB.tables.user_runs.find(u => u.run_id === 'run-2') || {}).roster || {}"))
+    us5 = sorted(set((v['uses'], v['status'], 'injIgnore' in v) for v in ro5.values()))
+    print('O5 plantel da run anterior:', len(ro5), us5, '|', t5, '· ok' if len(ro5) == 16 and us5 == [(2, 'ok', False)] and 'Run 1' in t5 else '· ERRO')
+    pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
     dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']
