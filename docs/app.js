@@ -665,7 +665,7 @@ async function loadRun(runId) {
   schedule();
   loadPrevGames();
 }
-// run nova sem plantel: traz o da run anterior, com os usos todos de volta (os usos são por run). Os usos vêm da
+// o plantel é o mesmo em todas as runs: numa run nova sem plantel, traz o da anterior com os usos todos de volta (os usos são por run). Os usos vêm da
 // coleção (melhor carta) ou dos usos por run da run anterior; quem comprar ou vender lê a carteira outra vez.
 async function carryRoster(run) {
   if (!run || run.fictitious || Object.keys(S.mine.roster || {}).length) return;
@@ -678,7 +678,7 @@ async function carryRoster(run) {
     const n = Object.assign({}, e, { uses: per, status: 'ok' }); ['su', 'sm', 'usesManual', 'injIgnore', 'availDates'].forEach(k => delete n[k]);
     S.mine.roster[pid] = n;
   });
-  saveMine(); toast('Plantel da ' + runShort(prev) + ' copiado: ' + plural(ids.length, 'jogador', 'jogadores') + ', com os usos todos.');
+  saveMine(); // sem aviso: o plantel é o mesmo em todas as runs (só muda quando alguém lê a carteira)
 }
 // odds dos dias da run (chegam à tarde): lidas ao abrir a run, ao voltar ao site e de 10 em 10 minutos.
 // Devolve true se chegaram odds novas.

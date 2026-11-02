@@ -1368,7 +1368,7 @@ with sync_playwright() as pw:
     pg.wait_for_timeout(2500)
     ro5 = json.loads(store(pg, "(__FAKE_DB.tables.user_runs.find(u => u.run_id === 'run-2') || {}).roster || {}"))
     us5 = sorted(set((v['uses'], v['status'], 'injIgnore' in v) for v in ro5.values()))
-    print('O5 plantel da run anterior:', len(ro5), us5, '|', t5, '· ok' if len(ro5) == 16 and us5 == [(2, 'ok', False)] and 'Run 1' in t5 else '· ERRO')
+    print('O5 plantel da run anterior:', len(ro5), us5, '|', t5, '· ok' if len(ro5) == 16 and us5 == [(2, 'ok', False)] and 'copiado' not in t5 else '· ERRO')
     pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
