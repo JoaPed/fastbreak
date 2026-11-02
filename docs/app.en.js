@@ -717,6 +717,8 @@ function adoptMine() {
 const b64u = { enc: o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), dec: x => JSON.parse(decodeURIComponent(escape(atob(x.replace(/-/g, '+').replace(/_/g, '/'))))) };
 const addrKey = a => String(a || '').replace(/^0x/, '').toLowerCase();
 try { S.ranksMine = JSON.parse(localStorage.getItem('fb-ranks') || 'null'); } catch (e) { S.ranksMine = null; }
+// a página do Fast Break da NBA no Top Shot (a /fastbreak sozinha vai para o /play, que sem run a decorrer fica vazio)
+const TS_FB = 'https://nbatopshot.com/fastbreak?league=nba';
 // endereço da pasta do site (funciona com e sem a barra no fim: …/fastbreak e …/fastbreak/)
 const siteBase = () => location.origin + (/\.[a-z]+$/i.test(location.pathname) ? location.pathname.replace(/[^/]*$/, '') : location.pathname.replace(/\/?$/, '/'));
 function takeRanksHash() {
@@ -780,7 +782,8 @@ function rankJob(what) {
     (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.flow_address) accs.push({ a: addrKey(x.flow_address), uid: p.user_id, acc: x.id }); });
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && (!want.includes('lu') || d.luv) && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
-  return Object.assign({ accs, back: siteBase(), known, do: want }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {}, want.includes('pro') ? { pro: proWanted().map(id => [id, nameOf(id)]) } : {});
+  const H = groupHist();
+  return Object.assign({ accs, back: siteBase(), known, do: want, tsRun: R && R.run && R.run.id ? R.run.id : null, hRun: H && H.run && H.run.id ? H.run.id : null }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {}, want.includes('pro') ? { pro: proWanted().map(id => [id, nameOf(id)]) } : {});
 }
 // as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
 async function loadGroupCards() {
@@ -6317,7 +6320,7 @@ document.addEventListener('click', async e => {
       if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { openSheet('<h3>Open in Safari</h3><div class="small">In the home-screen app, Top Shot opens in a separate window, without your session and without your bookmarks. Open <b>' + esc(siteBase().replace(/^https?:\/\//, '')) + '</b> in <b>Safari</b> (sign in the first time) and tap <b>Update ranks</b> there.</div><div class="btns" style="margin-top:12px"><button class="btn primary" type="button" data-action="copy-site">Copy the address</button></div>'); break; } const e = b64u.enc(J); try { window.name = 'fbsync:' + e; } catch (er) {}
       // no telemóvel, um toque num endereço do Top Shot abre a app deles (sem o leitor). Mudar de página já fora do
       // toque (passado mais de 1 s) faz o Safari/Chrome abrir o site no próprio browser.
-      b.disabled = true; toast('Opening Top Shot in the browser…'); setTimeout(() => { location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + e; }, 1300); setTimeout(() => { b.disabled = false; }, 4000); break; }
+      b.disabled = true; toast('Opening Top Shot in the browser…'); setTimeout(() => { location.href = TS_FB + '#fbsync=' + e; }, 1300); setTimeout(() => { b.disabled = false; }, 4000); break; }
     case 'lock': choiceSheet(id, date, 'lock'); break;
     case 'lock-yes': lockToggle(id, date, true); luBack(date); break;
     case 'unlock': lockToggle(id, date, false); luBack(date); break;
@@ -6358,13 +6361,13 @@ document.addEventListener('click', async e => {
       const k = (S.runId || '') + '|tr|' + it.p + '|' + from + '>' + to + '|' + todayET();
       const job = { do: ['tr'], back: siteBase(), accs: [{ a: addrKey(fa), uid, acc: from }], tr: [{ k, fid: f, name: nameOf(it.p), tier: momentTier(col, f), serial: it.n || null, from: addrKey(fa), to: addrKey(ta), fromL: accLabel(from), toL: accLabel(to) }] };
       b.disabled = true; closeSheet(); toast('Opening Top Shot: log in to ' + accLabel(from) + '…');
-      setTimeout(() => { location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + b64u.enc(job); }, 1300); break; }
+      setTimeout(() => { location.href = TS_FB + '#fbsync=' + b64u.enc(job); }, 1300); break; }
     case 'tr-go': { const J = trJob(b.dataset.from);
       if (!J || !J.list.length) { toast(J && J.miss.length ? 'I did not find in the wallet read the Moments of ' + J.miss.join(', ') + '. Read the wallet again.' : 'Nothing to send from this account.'); break; }
       if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) { toast('Open the site in Safari for this (in the home screen app Top Shot opens without your session).'); break; }
       const job = { do: ['tr'], back: siteBase(), accs: [{ a: J.from, uid: S.session.user.id, acc: b.dataset.from }], tr: J.list };
       b.disabled = true; toast('Opening Top Shot: log in to ' + accLabel(b.dataset.from) + '…' + (J.miss.length ? ' (without ' + J.miss.join(', ') + ')' : ''));
-      setTimeout(() => { location.href = 'https://nbatopshot.com/fastbreak#fbsync=' + b64u.enc(job); }, 1300); setTimeout(() => { b.disabled = false; }, 4000); break; }
+      setTimeout(() => { location.href = TS_FB + '#fbsync=' + b64u.enc(job); }, 1300); setTimeout(() => { b.disabled = false; }, 4000); break; }
     case 'fold': { const k = b.dataset.k; S.fold[k] = !S.fold[k]; try { localStorage.setItem('fb-fold', JSON.stringify(S.fold)); } catch (e) {} render(); break; }
     case 'lu-all': if (S.lu) { S.lu.all = true; luRender(); } break;
     case 'lu-view': S.luView = b.dataset.v === 'pessoa' ? 'pessoa' : null; try { localStorage.setItem('fb-luview', S.luView || ''); } catch (e) {} render(); break;

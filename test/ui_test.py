@@ -1103,6 +1103,27 @@ with sync_playwright() as pw:
     tback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
     print('T script das trocas:', tl[:160], '| antes de Enviar:', sent0, '| volta:', tback.get('tr'), '· ok' if sent0 == 0 and tback['tr']['done'] == ['k1'] and tback['tr']['fail'][0][0] == 'k2' and towner['111'].endswith(B_) else '· ERRO')
     pg.close()
+    # T2: run que já acabou (o Top Shot já não a dá como ativa): o leitor usa a run que o site conhece para ler os lugares
+    rcalls = []
+    def rapi(r):
+        m = r.request.url.split('atlas.v1.')[1]; bd = json.loads(r.request.post_data or '{}'); rcalls.append((m, bd))
+        H = {'access-control-allow-origin': '*'}
+        if m == 'GameEngineService/ListActiveRuns': return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'runs': []}))
+        if m == 'LeaderboardService/GetSubjectRank': return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'found': True, 'entry': {'rank': '7', 'displayScore': '9', 'tiebreakerScore': '1'}, 'totalCount': '3000'}))
+        if m == 'GameEngineService/SearchContests': return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'contests': []}))
+        return r.fulfill(status=200, content_type='application/json', headers=H, body='{}')
+    pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
+    pg.route('https://api.production.atlas.dapperlabs.com/**', rapi)
+    rjob = {'do': ['ranks'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}], 'tsRun': 'run-nba-classic-2026-10-20'}
+    pg.goto('https://nbatopshot.com/fastbreak?league=nba#fbsync=' + base64.urlsafe_b64encode(json.dumps(rjob).encode()).decode().rstrip('='))
+    pg.evaluate((docs / 'fb-lugares.js').read_text()); pg.evaluate("new Headers().set('authorization', 'Bearer x')")
+    pg.wait_for_url('https://site.test/**', timeout=30000)
+    rback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
+    lbs = [bd.get('leaderboardId') for m, bd in rcalls if m == 'LeaderboardService/GetSubjectRank']
+    print('T2 run acabada:', (rback.get('run') or {}).get('id'), rback.get('accs'), lbs, '· ok' if lbs == ['run:run-nba-classic-2026-10-20'] and rback['accs'][0]['rank'] == 7 else '· ERRO')
+    pg.close()
     # O: Jornada → modo Historic (dados lidos no Top Shot): equipa sugerida, tirar, procurar, carta, outro dia
     HISTJ = (root / 'test' / 'fixtures' / 'historic.json').read_text()
     dbo = seeded(); To = dbo['tables']; To['runs'][0]['fictitious'] = False

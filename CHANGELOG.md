@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-02
+- **João** — Ler no Top Shot abre a página do Fast Break da NBA (nbatopshot.com/fastbreak?league=nba; a /fastbreak sozinha ia para o /play, vazio sem run a decorrer). O leitor (v22) lê os lugares de uma run que já acabou (e do Historic) pela run que o site já conhece.
 - **João** — Plantel → ficha do jogador → As tuas cartas: "Mandar…" em cada carta, para a mandar para outra conta pelo script do Top Shot (só manda depois de "Enviar"). Run acabada: a Jornada abre no último dia e continua a dar para andar por todos os dias, com o resumo por cima.
 
 ## 2026-11-01

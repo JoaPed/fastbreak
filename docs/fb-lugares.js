@@ -206,7 +206,7 @@ const H_KEYS = ['points', 'rebounds', 'assists', 'steals', 'blocks', 'turnovers'
 async function readHist() {
   say('A ler o Historic…');
   const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
-  const run = runs.find(r => /historic/i.test(r.id + ' ' + (r.name || ''))) || runs.find(r => r.league === 'simulation');
+  const run = runs.find(r => /historic/i.test(r.id + ' ' + (r.name || ''))) || runs.find(r => r.league === 'simulation') || (job.hRun ? { id: job.hRun, name: null } : null);
   if (!run) throw new Error('não encontrei a run do Historic');
   let cs = [], page = null;
   for (let i = 0; i < 5; i++) { const x = await call('GameEngineService/SearchContests', Object.assign({ product: 'nba', runId: run.id }, page ? { pageToken: page } : {})); cs = cs.concat(x.contests || []); page = x.nextPageToken; if (!page) break; }
@@ -259,7 +259,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 19, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 20, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -361,7 +361,8 @@ async function readRanks(out, withLu) {
   {
     say('A ver a run…');
     const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
-    const run = runs.find(r => /classic/i.test(r.id) && r.league === 'nba' && r.mode === 'RUN_MODE_CLASSIC') || runs.find(r => /nba-classic/.test(r.id));
+    // a run que acabou deixa de vir nas ativas: usa a que o site já conhece (para ler os últimos dias)
+    const run = runs.find(r => /classic/i.test(r.id) && r.league === 'nba' && r.mode === 'RUN_MODE_CLASSIC') || runs.find(r => /nba-classic/.test(r.id)) || (job.tsRun ? { id: job.tsRun, name: null, leaderboardId: 'run:' + job.tsRun } : null);
     if (!run) throw new Error('não encontrei a run Classic da NBA');
     const lb = run.leaderboardId || ('run:' + run.id); Object.assign(out, { run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], cut: {} });
     let n = 0;
