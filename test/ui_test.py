@@ -1174,7 +1174,10 @@ with sync_playwright() as pw:
         u = r.request.url; m = u.split('atlas.v1.')[1]; bd = json.loads(r.request.post_data or '{}'); H = {'access-control-allow-origin': '*'}
         t5.append((m, bd.get('runId')))
         if m == 'GameEngineService/SearchContests' and bd.get('runId') == 'run-nba-classic-2026-11-03':
-            return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'contests': [{'id': 'contest-run-nba-classic-2026-11-03-2026-11-0%d' % k, 'locksAt': '2026-11-0%dT23:00:00Z' % k, 'objectives': [{'statAbbreviation': 'PTS', 'target': 120}]} for k in (3, 4)]}))
+            return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'contests': [{'id': 'contest-run-nba-classic-2026-11-03-2026-11-0%d' % k, 'locksAt': '2026-11-0%dT23:00:00Z' % k} for k in (3, 4)]}))
+        if m == 'GameEngineService/GetContest': return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'contest': {'id': bd.get('contestId'), 'objectives': [{'statAbbreviation': 'PTS', 'target': 120}]}}))
+        if m == 'GameEngineService/SearchContests' and bd.get('runId') == 'run-fb-historic-2026-11-03':
+            return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'contests': [{'id': 'run-fb-historic-2026-11-03-d1', 'locksAt': '2026-11-05T23:00:00Z'}]}))
         if m == 'GameEngineService/SearchContests': return r.fulfill(status=200, content_type='application/json', headers=H, body='{"contests": []}')
         return r.fulfill(status=404, headers=H, body='{}')
     pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
@@ -1182,14 +1185,16 @@ with sync_playwright() as pw:
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
     pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
     pg.route('https://api.production.atlas.dapperlabs.com/**', rapi5)
-    rjob = {'do': ['run'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}]}
+    rjob = {'do': ['run', 'hist'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}], 'hRun': 'run-fb-historic-2026-10-20'}
     pg.goto('https://nbatopshot.com/fastbreak?league=nba#fbsync=' + base64.urlsafe_b64encode(json.dumps(rjob).encode()).decode().rstrip('='))
     pg.evaluate((docs / 'fb-lugares.js').read_text())
     pg.wait_for_url('https://site.test/**', timeout=30000)
     rb5 = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
     pg.close()
     rr5 = (rb5.get('runs') or [{}])[0]
-    print('T5 run nova sem lista:', rr5.get('id'), len(rr5.get('days') or []), 'dias', rb5.get('runErr') or '', '· ok' if rr5.get('id') == 'run-nba-classic-2026-11-03' and len(rr5.get('days') or []) == 2 else '· ERRO')
+    ob5 = [[o_.get('a'), o_.get('t')] for d_ in (rr5.get('days') or []) for o_ in d_.get('objs') or []]
+    hr5 = ((rb5.get('hist') or {}).get('run') or {}).get('id')
+    print('T5 run nova sem lista:', rr5.get('id'), len(rr5.get('days') or []), 'dias', ob5, '| Historic:', hr5, rb5.get('runErr') or '', rb5.get('histErr') or '', '· ok' if rr5.get('id') == 'run-nba-classic-2026-11-03' and len(rr5.get('days') or []) == 2 and ob5 == [['PTS', 120], ['PTS', 120]] and hr5 == 'run-fb-historic-2026-11-03' else '· ERRO')
     # O: Jornada → modo Historic (dados lidos no Top Shot): equipa sugerida, tirar, procurar, carta, outro dia
     HISTJ = (root / 'test' / 'fixtures' / 'historic.json').read_text()
     dbo = seeded(); To = dbo['tables']; To['runs'][0]['fictitious'] = False

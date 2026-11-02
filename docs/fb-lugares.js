@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 25; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 26; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -216,8 +216,16 @@ async function picks(addr) {
 const H_KEYS = ['points', 'rebounds', 'assists', 'steals', 'blocks', 'turnovers', 'three_points_made', 'double_double', 'triple_double', 'field_goals_made', 'field_goals_att', 'offensive_rebounds'];
 async function readHist() {
   say('A ler o Historic…');
-  const runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || [];
-  const run = runs.find(r => /historic/i.test(r.id + ' ' + (r.name || ''))) || runs.find(r => r.league === 'simulation') || (job.hRun ? { id: job.hRun, name: null } : null);
+  let runs = [];
+  try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {}
+  let run = runs.find(r => /historic/i.test(r.id + ' ' + (r.name || ''))) || runs.find(r => r.league === 'simulation') || null;
+  // sem a lista das runs ativas (API pública): a run do Historic mais recente que já começou, pelo id
+  // (run-fb-historic-AAAA-MM-DD); se não houver nenhuma, a que o site já conhece
+  for (let k = 1; k >= -14 && !run; k--) {
+    const id = 'run-fb-historic-' + new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
+    try { const res = await call('GameEngineService/SearchContests', { product: 'nba', runId: id }); if ((res.contests || []).length) run = { id, name: null }; } catch (err) {}
+  }
+  if (!run && job.hRun) run = { id: job.hRun, name: null };
   if (!run) throw new Error('não encontrei a run do Historic');
   let cs = [], page = null;
   for (let i = 0; i < 5; i++) { const x = await call('GameEngineService/SearchContests', Object.assign({ product: 'nba', runId: run.id }, page ? { pageToken: page } : {})); cs = cs.concat(x.contests || []); page = x.nextPageToken; if (!page) break; }
@@ -270,7 +278,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 23, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 24, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -364,6 +372,12 @@ async function readRun() {
         const res = await call('GameEngineService/SearchContests', Object.assign({ product: 'nba', runId: r.id }, page ? { pageToken: page } : {}));
         cs = cs.concat(res.contests || []);
         page = res.nextPageToken || null; if (!page) break;
+      }
+      // sem os objetivos na lista dos dias (a API pública pode não os dar): lê-se cada dia (GetContest)
+      for (const c of cs) {
+        if ((c.objectives || []).length) continue;
+        say('A ler os objetivos… ' + (cs.indexOf(c) + 1) + ' de ' + cs.length);
+        try { const g = await call('GameEngineService/GetContest', { contestId: c.id }), gc = g.contest || g; ['objectives', 'reward', 'lineupSize', 'numPlayers', 'rosterSize', 'maxLineupSize', 'playerCount', 'name', 'status', 'locksAt'].forEach(k => { if (gc[k] != null && (c[k] == null || (Array.isArray(c[k]) && !c[k].length))) c[k] = gc[k]; }); } catch (err) {}
       }
       x.days = cs.map((c, i) => ({
         id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || etDay(c.locksAt || c.startsAt), name: c.name || null, locks: c.locksAt || null, status: c.status || null,
