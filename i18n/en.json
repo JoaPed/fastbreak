@@ -1945,7 +1945,6 @@
  "<br><span class=\"small muted\">antes: ": "<br><span class=\"small muted\">before: ",
  "<details class=\"small muted\"><summary>Campos lidos (para diagnóstico)</summary><pre style=\"white-space:pre-wrap;word-break:break-all\">": "<details class=\"small muted\"><summary>Fields read (for troubleshooting)</summary><pre style=\"white-space:pre-wrap;word-break:break-all\">",
  "<div class=\"note info\">O Top Shot não mostrou nenhuma run Classic da NBA. Se a run nova ainda não começou, tenta no primeiro dia.</div>": "<div class=\"note info\">Top Shot didn’t show any NBA Classic run. If the new run hasn’t started yet, try on its first day.</div>",
- "<div class=\"note sug\"><div>Run lida no Top Shot.</div><div class=\"btns\"><button class=\"btn primary\" type=\"button\" data-action=\"run-review\">Ver o que muda</button></div></div>": "<div class=\"note sug\"><div>Run read on Top Shot.</div><div class=\"btns\"><button class=\"btn primary\" type=\"button\" data-action=\"run-review\">See what changes</button></div></div>",
  "<div class=\"note\">Estatística que não conheço: ": "<div class=\"note\">Stat I don’t know: ",
  "<div class=\"note\">Não deu: ": "<div class=\"note\">Didn’t work: ",
  "<div class=\"note\">Não li os dias: ": "<div class=\"note\">Couldn’t read the days: ",
@@ -2374,9 +2373,7 @@
  "MGLE": null,
  "Holo": null,
  "Debut": null,
- "<div class=\"note info\">Ensaio do Pro na run Classic: cada dia leva uma regra inventada (Metallic Gold LE, Holo Icon, estreias, à vez). Na Run 2 as regras vêm do Top Shot.</div>": "<div class=\"note info\">Pro trial on the Classic run: each day gets a made-up rule (Metallic Gold LE, Holo Icon, debuts, in turn). In Run 2 the rules come from Top Shot.</div>",
  "<div class=\"day-strip\" role=\"group\" aria-label=\"Dias do ensaio\">": "<div class=\"day-strip\" role=\"group\" aria-label=\"Trial days\">",
- "<div class=\"hero-top\"><span class=\"eyebrow\">Pro (ensaio) · Dia ": "<div class=\"hero-top\"><span class=\"eyebrow\">Pro (trial) · Day ",
  "</span></div><div class=\"small muted\" style=\"margin-top:4px\">Só contam cartas de <b>": "</span></div><div class=\"small muted\" style=\"margin-top:4px\">Only cards from <b>",
  "<div class=\"score\"><div class=\"gblocks\"><div class=\"gb\"><span class=\"gb-st\">Com o que tens</span><span class=\"gb-n\">": "<div class=\"score\"><div class=\"gblocks\"><div class=\"gb\"><span class=\"gb-st\">With what you have</span><span class=\"gb-n\">",
  "carta que conta": "eligible card",
@@ -2555,6 +2552,15 @@
  "injIgnore": null,
  "availDates": null,
  "os do Top Shot (": "the Top Shot ones (",
+ " Pro: ": " Pro: ",
+ " com as regras.": " with the rules.",
+ "emblema ": "badge ",
+ " ou ": " or ",
+ "qualquer carta": "any card",
+ "real": null,
+ "<div class=\"note info\">Ensaio do Pro na run Classic: cada dia leva uma regra inventada (Metallic Gold LE, Holo Icon, estreias, à vez). As regras a sério vêm do Top Shot em Ajustes → Admin → Run e prémios.</div>": "<div class=\"note info\">Pro rehearsal on the Classic run: each day gets a made-up rule (Metallic Gold LE, Holo Icon, debuts, in turn). The real rules come from Top Shot in Settings → Admin → Run & prizes.</div>",
+ "Pro (ensaio)": "Pro (rehearsal)",
+ " · a carteira não diz que cartas têm o emblema: confirma no Top Shot": " · the wallet does not say which cards have the badge: check on Top Shot",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2621,7 +2627,8 @@
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
    "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
    "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "days",
-   "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "days"
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "days",
+   "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "days"
   }
  },
  "dia": {
@@ -2636,7 +2643,8 @@
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
    "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
    "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "day",
-   "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "day"
+   "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "day",
+   "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "day"
   }
  },
  "jogo": {

@@ -1399,6 +1399,31 @@ with sync_playwright() as pw:
     print('O6 run nova criada:', (r6 or {}).get('name'), [z['wins'] for z in (r6 or {}).get('prizes', [])], d6, '|', sh6[:160],
           '· ok' if r6 and [z['wins'] for z in r6['prizes']] == [5, 9, 12] and r6['name'] == 'Run 2 · Classic' and d6 and d6[0][1] == [{'stat': 'fg3', 'target': 20}, {'stat': 'fg3a', 'target': 40}] else '· ERRO')
     pg.close()
+    # O7: Pro a sério (lido no Top Shot): cada dia com os objetivos do Pro e a regra de cartas (sets e escalões, ou emblemas)
+    pid7 = list(roster['players'])[0]
+    dp = seeded(); Tp = dp['tables']; Tp['runs'][0]['fictitious'] = False
+    Tp['members'].append({'user_id': 'u-eu', 'role': 'admin'})
+    col7 = {'sets': {'Metallic Gold LE': {'tier': 'Rare'}, 'Base Set': {'tier': 'Common'}}, 'items': {'f1': {'p': pid7, 's': 'Metallic Gold LE', 'a': 'main', 'n': 12, 'm': 99}, 'f2': {'p': list(roster['players'])[1], 's': 'Base Set', 'a': 'main', 'n': 5, 'm': 9999}}, 'players': {}}
+    Tp['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col7})
+    Tp['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    Tp['chain_results'] = []; Tp['injuries'] = []
+    pr7 = {'at': '2026-10-19T10:00:00Z', 'id': 'run-nba-pro-2026-10-20', 'days': [
+        {'id': 'p1', 'date': run['days'][0]['date'], 'objs': [{'k': 'points', 'a': 'PTS', 't': 80}], 'req': {'sets': [['5', 'Metallic Gold LE', []]], 'badges': [], 'all': False}},
+        {'id': 'p2', 'date': run['days'][1]['date'], 'objs': [{'k': 'assists', 'a': 'AST', 't': 30}, {'k': 'steals', 'a': 'STL', 't': 4}], 'req': {'sets': [], 'badges': [['top-shot-debut', 'Top Shot Debut']], 'all': False}}]}
+    pg = new_page(b, dp)
+    pg.add_init_script("try { localStorage.setItem('fb-prorun', " + json.dumps(json.dumps(pr7)) + "); localStorage.setItem('fb-jmode', 'pro'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.wait_for_timeout(1500)
+    e1 = pg.locator('#tab-hoje .day-hero').first.inner_text().replace('\n', ' | ')
+    base1 = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='O teu lineup')).inner_text().replace('\n', ' | ')
+    pg.screenshot(path=str(shots / 'pro-real.png'), full_page=True)
+    pg.click('#tab-hoje button[data-action="pro-day"][data-date="' + run['days'][1]['date'] + '"]'); pg.wait_for_timeout(1200)
+    e2 = pg.locator('#tab-hoje .day-hero').first.inner_text().replace('\n', ' | ')
+    print('O7 Pro a sério:', e1[:120], '|', base1[:120], '|', e2[:160], '· ok' if 'Pro · Dia 1 · 80 PTS' in e1 and 'Metallic Gold LE' in e1 and 'ensaio' not in e1 and roster['players'][pid7]['name'].split()[-1] in base1 and '30 AST + 4 STL' in e2 and 'emblema Top Shot Debut' in e2 else '· ERRO')
+    pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
     dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']

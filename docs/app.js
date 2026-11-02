@@ -752,6 +752,7 @@ function takeRanksHash() {
     S.pickNote = !d || !Array.isArray(d.accs) || (Array.isArray(d.do) && !d.do.includes('picks')) ? null : d.picks && Array.isArray(d.picks.ev) ? ' Picks: ' + d.picks.ev.length + ' jogos.' : d.picksErr ? ' Picks: não deu (' + d.picksErr + ').' : (+d.sv || 0) < 8 ? ' Picks: o script do Top Shot é antigo — se usas o automático (Tampermonkey/Userscripts), reinstala-o ou desliga-o e usa o favorito.' : ' Picks: nenhum aberto.';
     if (d && d.picks && Array.isArray(d.picks.ev)) { S.picksMine = d.picks; try { localStorage.setItem('fb-picks', JSON.stringify(d.picks)); } catch (e) {} delete d.picks; }
     if (d && d.hist && Array.isArray(d.hist.days)) { histTake(d.hist); delete d.hist; }
+    if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)); } catch (e) {} S.pickNote = (S.pickNote || '') + ' Pro: ' + plural(d.prorun.days.length, 'dia', 'dias') + ' com as regras.'; S.lastSummary = ''; delete d.prorun; }
     else if (d && d.histErr) S.pickNote = (S.pickNote || '') + ' Historic: não deu (' + d.histErr + ').';
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
     if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runReview = true; S.pickNote = (S.pickNote || '') + (d.runs ? ' Run: ' + (d.runs.length ? d.runs.map(r => r.days.length + ' dias').join(', ') : 'nenhuma run Classic') + '.' : ' Run: não deu (' + (d.runErr || '?') + ').'); delete d.runs; }
@@ -1124,7 +1125,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {}, S.histMine && S.histMine.at && Date.now() - Date.parse(S.histMine.at) < 3 * 864e5 ? { hist: S.histMine } : {}, S.proMine && S.proMine.at && Date.now() - Date.parse(S.proMine.at) < 3 * 864e5 ? { pro: S.proMine } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.proRunMine && S.proRunMine.at ? { prorun: S.proRunMine } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {}, S.histMine && S.histMine.at && Date.now() - Date.parse(S.histMine.at) < 3 * 864e5 ? { hist: S.histMine } : {}, S.proMine && S.proMine.at && Date.now() - Date.parse(S.proMine.at) < 3 * 864e5 ? { pro: S.proMine } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -1799,7 +1800,39 @@ function groupPro() {
   const docs = [S.proMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.pro)).filter(d => d && d.at && d.p);
   return docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
 }
-const proRule = idx => PRO_FAM[idx % PRO_FAM.length];
+const proRuleTest = idx => PRO_FAM[idx % PRO_FAM.length];
+// ---- Pro a sério: dias, objetivos e regra de cartas lidos no Top Shot (Run e prémios / Preços do Pro) ----
+try { S.proRunMine = JSON.parse(localStorage.getItem('fb-prorun') || 'null'); } catch (e) { S.proRunMine = null; }
+function groupProRun() {
+  const docs = [S.proRunMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.prorun)).filter(d => d && d.at && Array.isArray(d.days) && d.days.length);
+  const r = docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
+  // só serve se coincidir com a run do site (mesmas datas)
+  return r && S.days.some(d => r.days.some(x => x.date === d.date)) ? r : null;
+}
+const proRunDay = date => { const R = groupProRun(); return R ? R.days.find(d => d.date === date) || null : null; };
+// regra de um dia: a do Top Shot ({sets, badges}) ou, sem ela, a do ensaio (as famílias à vez)
+function proRule(idx) {
+  const d = S.days[idx], pd = d && proRunDay(d.date);
+  if (!pd) return proRuleTest(idx);
+  const q = pd.req || {}, sets = q.sets || [], badges = q.badges || [];
+  const names = [...new Set(sets.map(z => z[1]).filter(Boolean))], fam = PRO_FAM.find(f => names.some(n => f.re.test(n))) || null;
+  const tiers = [...new Set(sets.flatMap(z => z[2] || []))];
+  const tierTxt = tiers.length ? ' (' + tiers.map(t => t.charAt(0) + t.slice(1).toLowerCase()).join(', ') + ')' : '';
+  const name = names.length ? names.join(', ') + tierTxt : badges.length ? 'emblema ' + badges.map(z => z[1]).join(q.all ? ' e ' : ' ou ') : 'qualquer carta';
+  // cartas que contam: o set (pelo nome) e, se a regra diz, o escalão; os emblemas não vêm na carteira
+  const okSet = new Map(); sets.forEach(z => { const k = norm(z[1]); const t = okSet.get(k) || new Set(); (z[2] || []).forEach(x => t.add(String(x).toUpperCase())); if (!(z[2] || []).length) t.add('*'); okSet.set(k, t); });
+  return { k: fam ? fam.k : 'real', name, real: true, badges: badges.length ? badges.map(z => z[1]) : null, all: !!q.all,
+    re: { test: set => { const t = okSet.get(norm(String(set || '').split(' · ')[0])); return !!t; } },
+    ok: (set, tier) => { const t = okSet.get(norm(String(set || '').split(' · ')[0])); return !!t && (t.has('*') || t.has(String(tier || '').toUpperCase())); } };
+}
+// as minhas cartas que contam num dia do Pro a sério (por jogador)
+function proOwnedReal(rule) {
+  const col = (S.profile || {}).collection, items = (col && col.items) || {}, by = new Map();
+  Object.keys(items).forEach(f => { const it = items[f]; if (!it.p) return; const e = cardEd(col, f), tier = (e && e.tier) || momentTier(col, f);
+    if (!rule.ok(it.s, tier)) return; const x = by.get(it.p) || by.set(it.p, { id: it.p, n: 0, accs: new Set(), sets: new Set(), tier: null }).get(it.p);
+    x.n++; x.accs.add(it.a || 'main'); x.sets.add(String(it.s).replace(/ · .*$/, '')); if (tier) x.tier = x.tier && TIER_RANK[x.tier] >= TIER_RANK[tier] ? x.tier : tier; });
+  return by;
+}
 // jogadores cujo preço o leitor vai ver: os que têm jogo nos dias que faltam (mais minutos primeiro) e os do Pro que já tens
 function proWanted() {
   const today = todayET(), teams = new Set(); S.days.forEach(d => { if (d.date >= today) (d.games || []).forEach(g => { teams.add(g[0]); teams.add(g[1]); }); });
@@ -1810,12 +1843,15 @@ function proWanted() {
 }
 // modelo com todos os candidatos (os que tens das famílias do Pro e os que têm preço): só para as contas de um dia
 function proModel(P) {
-  const owned = proOwned(), key = [S.runId, P && P.at, owned.map(x => x.by.size).join(), Object.keys(S.odds || {}).length, S.days.length].join('|');
+  const PR = groupProRun(), owned = proOwned(), key = [S.runId, P && P.at, PR && PR.at, owned.map(x => x.by.size).join(), Object.keys(S.odds || {}).length, S.days.length].join('|');
   if (S.proMemo && S.proMemo.key === key) return S.proMemo;
   const x = engineInputs('main'), wide = { players: {} }, ids = new Set(Object.keys((P && P.p) || {}));
   owned.forEach(o => o.by.forEach((e, id) => ids.add(id)));
+  if (PR) Object.values((((S.profile || {}).collection || {}).items) || {}).forEach(it => { if (it.p) ids.add(String(it.p)); }); // regras a sério: qualquer set pode contar
   ids.forEach(id => { const c = S.players.get(String(id)) || {}; if (!c.team) return; wide.players[id] = { name: c.name || id, team: c.team, uses: 9, status: gone(id) ? 'fora' : 'ok', avg: c.avg || null, copies: 1, owner: 'main' }; });
-  let mw = null; try { mw = FB.buildModel(x.run, wide, x.odds, { played: {}, locks: {}, bans: {} }, engOpts()); } catch (e) { console.warn('pro', e); }
+  // com o Pro lido no Top Shot, cada dia leva os objetivos do Pro (os jogos são os mesmos)
+  const run = PR ? Object.assign({}, x.run, { days: x.run.days.map(d => { const pd = PR.days.find(z => z.date === d.date); if (!pd) return d; const objs = pd.objs.map(o => ({ stat: FB.mapStat(o.k) || FB.mapStat(o.a), target: +o.t })).filter(o => o.stat && o.target > 0); return objs.length ? Object.assign({}, d, { objectives: objs }) : d; }) }) : x.run;
+  let mw = null; try { mw = FB.buildModel(run, wide, x.odds, { played: {}, locks: {}, bans: {} }, engOpts()); } catch (e) { console.warn('pro', e); }
   S.proMemo = { key, mw, owned };
   return S.proMemo;
 }
@@ -1837,12 +1873,12 @@ function proBest(md, pool) {
 function proDay(date) {
   const P = groupPro(), M = proModel(P), mw = M.mw; if (!mw) return null;
   const idx = S.days.findIndex(d => d.date === date), md = mw.days.find(z => z.day.date === date); if (idx < 0 || !md) return null;
-  const rule = proRule(idx), fam = M.owned.find(o => o.f.k === rule.k), mine = new Set([...fam.by.keys()]);
+  const rule = proRule(idx), fam = M.owned.find(o => o.f.k === rule.k), mine = new Set(rule.real ? [...proOwnedReal(rule).keys()] : [...fam.by.keys()]);
   const elig = i => md.eligSet.has(i);
   const ownIdx = [...mine].map(id => mw.pIndex.get(id)).filter(i => i != null && elig(i));
   const base = proBest(md, ownIdx);
   // compras: a cada passo, a carta (da família do dia) que mais sobe a hipótese, até 5 ou até deixar de valer a pena
-  const price = id => { const r = P && P.p[id] && P.p[id][rule.k]; return r ? r : null; };
+  const price = id => { const r = P && rule.k !== 'real' && P.p[id] && P.p[id][rule.k]; return r ? r : null; };
   const con = i => md.objs.reduce((t, o, k) => t + md.mu[i][k] / (md.T[k] || 1), 0);
   const cands = mw.players.map((p, i) => i).filter(i => elig(i) && !mine.has(mw.players[i].id) && price(mw.players[i].id)).sort((a, b) => con(b) - con(a)).slice(0, 40);
   let L = base.set.slice(), Pc = base.P; const steps = [], size = md.size || 5;
@@ -1890,14 +1926,15 @@ function renderPro(el) {
   const fams = proOwned(), multi = accounts().length > 1, hasCol = !!(((S.profile || {}).collection || {}).items);
   const today = todayET(), days = S.days.map((d, i) => ({ d, i })).filter(x => x.d.date >= today);
   if (!days.some(x => x.d.date === S.proDay)) S.proDay = days.length ? days[0].d.date : null;
-  const intro = '<div class="note info">Ensaio do Pro na run Classic: cada dia leva uma regra inventada (Metallic Gold LE, Holo Icon, estreias, à vez). Na Run 2 as regras vêm do Top Shot.</div>';
+  const PR = groupProRun();
+  const intro = PR ? '' : '<div class="note info">Ensaio do Pro na run Classic: cada dia leva uma regra inventada (Metallic Gold LE, Holo Icon, estreias, à vez). As regras a sério vêm do Top Shot em Ajustes → Admin → Run e prémios.</div>';
   const strip = days.length ? '<div class="day-strip" role="group" aria-label="Dias do ensaio">' + days.map(({ d, i }) => '<button type="button" class="ds" data-action="pro-day" data-date="' + d.date + '" aria-pressed="' + (d.date === S.proDay) + '"><b class="num">' + (i + 1) + '</b><small>' + dWeek(d.date) + '</small><span class="ds-v">' + esc(proRule(i).short) + '</span></button>').join('') + '</div>' : '';
   let dayHtml = '';
   if (S.proDay) {
     const X = S.result ? proDay(S.proDay) : null, P = groupPro(), dn = S.days.findIndex(d => d.date === S.proDay) + 1, rule = proRule(dn - 1);
-    const objs = ((S.days[dn - 1] || {}).objectives || []).filter(o => o && o.stat).map(o => o.target + ' ' + statShort(o.stat)).join(' + ');
+    const pdo = proRunDay(S.proDay), objs = pdo ? pdo.objs.map(o => o.t + ' ' + (o.a || o.k)).join(' + ') : ((S.days[dn - 1] || {}).objectives || []).filter(o => o && o.stat).map(o => o.target + ' ' + statShort(o.stat)).join(' + ');
     const li = (id, right, sub) => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + sub + '</small></span>' + right + '</li>';
-    const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">Pro (ensaio) · Dia ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Só contam cartas de <b>' + esc(rule.name) + '</b></div>' +
+    const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">' + (rule.real ? 'Pro' : 'Pro (ensaio)') + ' · Dia ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Só contam cartas de <b>' + esc(rule.name) + '</b>' + (rule.badges ? ' · a carteira não diz que cartas têm o emblema: confirma no Top Shot' : '') + '</div>' +
       (X ? '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">Com o que tens</span><span class="gb-n">' + pct(X.base.P) + '</span><span class="gb-t">' + plural(X.base.ids.length, 'carta que conta', 'cartas que contam') + ' a jogar</span></div></div>' + winRing(X.final.P, tone(X.final.P), pct(X.final.P), X.steps.length ? 'compras' : 'vitória') + '</div>' : '') + '</div>';
     if (!X) dayHtml = head + '<div class="note">Ainda a calcular o plano…</div>';
     else {
@@ -4590,7 +4627,6 @@ function adminHtml(run) {
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="' + (edOn() ? 'px,ed' : 'px') + '">Preços dos jogadores' + (edOn() ? ' e das cartas (ASP)' : '') + '</button><span class="small muted">2–4 minutos. De vez em quando.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="pro">Preços do Pro</button><span class="small muted">2–3 minutos. A carta mais barata de cada família de sets do Pro. Uma vez por dia chega.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run e prémios</button><span class="small muted">Rápido. Quando sai uma run nova, se a blockchain não a trouxer.</span></div>' +
-    (S.runRead ? '<div class="note sug"><div>Run lida no Top Shot.</div><div class="btns"><button class="btn primary" type="button" data-action="run-review">Ver o que muda</button></div></div>' : '') +
     '<div class="small muted">No Top Shot toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div></div>');
   out.push(jobsCard());
   const imp = chainImportCard(); if (imp) out.push(imp);
