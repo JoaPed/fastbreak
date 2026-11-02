@@ -38,6 +38,8 @@ Dono: João (JoaPed). O site é usado todos os dias pelo grupo: o que entra no `
 - `supabase/schema.sql` — base de dados e regras de acesso (idempotente: corre-se inteiro no SQL Editor).
 - `i18n/en.json` — dicionário português → inglês.
 - `test/` — testes (Node) e `ui_test.py` (Playwright, com um Supabase falso em `test/fake-supabase.js`).
+- `notas/` — o que já se descobriu e decidiu (API do Top Shot, regras de usos, picks, preços, história do site).
+  Lê antes de mexer no leitor ou no motor; acrescenta lá o que descobrires (sem chaves nem dados pessoais).
 
 ## Inglês (sempre que mudam textos em `app.js` ou `core.js`)
 1. `npm i --no-save acorn acorn-walk` (uma vez).
