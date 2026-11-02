@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-02
+- **João** — Sonda da sessão (docs/sonda-sessao.html): favorito que só lê, para ver porque o leitor fica parado em “Toca em Leaderboard” e se ainda se lê a Run 1.
 - **João** — Atualizar com o Top Shot lê a run do site (pelo 1.º dia), mesmo com a Run 2 já a decorrer: dá para ler os resultados da Run 1 que acabou. Script automático na versão 23.
 - **João** — Sonda das runs, versão 2: anota todos os pedidos da página desde o início (também GraphQL do Fast Break antigo).
 - **João** — Sonda das runs (docs/sonda-runs.html): favorito que só lê, para ver como o Top Shot mostra uma run que já acabou (runs ativas e pedidos da página ao abrir a Run 1 e a classificação).
