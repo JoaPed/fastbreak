@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-02
+- **João** — Sonda dos objetivos, versão 2: pede o pormenor de cada dia da run nova e mostra os objetivos de cada um.
 - **João** — Leitor v27 e "Run e prémios": a run nova traz os patamares de vitórias do Top Shot (packs aos 5, 9 e 12 vitórias) em vez dos da run anterior.
 - **João** — Sonda dos objetivos (docs/sonda-objetivos.html): favorito que só lê, para ver onde o Top Shot dá os objetivos dos dias da run nova.
 - **João** — Leitor v26: lê os objetivos de cada dia da run nova e acha a run nova do Historic, mesmo pela parte pública do Top Shot.
