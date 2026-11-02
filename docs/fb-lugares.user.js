@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      27
+// @version      28
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -24,7 +24,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 27; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 28; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -43,7 +43,10 @@ const call = async (m, body, tries = 0, pub = !S.tok) => {
   if (pub && /TransferNfts/.test(m)) throw new Error('precisa da sessão: toca em Leaderboard');
   const h = { 'content-type': 'application/json', 'connect-protocol-version': '1' };
   if (!pub) h.authorization = S.tok;
-  const r = await fetch((pub ? APIP : API) + m, { method: 'POST', headers: h, body: JSON.stringify(body) });
+  let r;
+  // falha de rede (no telemóvel acontece: "Load failed"): espera um pouco e tenta outra vez (até 3 vezes)
+  try { r = await fetch((pub ? APIP : API) + m, { method: 'POST', headers: h, body: JSON.stringify(body) }); }
+  catch (err) { if (tries < 3 && !/TransferNfts/.test(m)) { await wait(800 * (tries + 1)); return call(m, body, tries + 1, pub); } throw err; }
   // com sessão, um pedido que a API privada recusa tenta-se na pública
   if (!pub && [401, 403, 404].includes(r.status) && !/TransferNfts/.test(m)) return call(m, body, tries, true);
   // muitos pedidos seguidos: o Top Shot pode pedir para abrandar → espera e tenta outra vez (até 4 vezes)
@@ -288,7 +291,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 25, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 26, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
