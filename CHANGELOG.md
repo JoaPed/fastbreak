@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-03
+- **João** — Link joaped.github.io/fastbreak/#ler: abre o site e começa sozinho a leitura de todos os dias no Top Shot (admins), para uma automatização dos Atalhos do iPhone às 7:00.
+
 ## 2026-11-02
 - **João** — Pro a sério (leitor v29): o "Run e prémios" e os "Preços do Pro" leem os dias do Pro com os objetivos e as cartas que contam (sets e escalões, ou emblemas); a Jornada → Pro deixa de ser ensaio. Saiu o aviso "Run lida no Top Shot" do Admin.
 - **João** — Leitor v28: tenta outra vez quando um pedido ao Top Shot falha por rede (um dia podia ficar sem objetivos).

@@ -698,6 +698,14 @@ async function refreshOdds() {
     if (await loadOdds()) { schedule(); if (nd && !had && S.odds[nd.date] && Object.keys(S.odds[nd.date].players || {}).length) toast('Chegaram as odds de hoje: o plano foi refeito com elas.'); }
   } catch (e) { /* sem rede: fica como está */ }
 }
+// leitura automática: o link especial do site com #ler (por exemplo numa automatização dos Atalhos do iPhone às 7:00)
+// começa sozinho a leitura de todos os dias no Top Shot (só para quem é admin), como o botão do Admin
+try { if (/^#ler\b/.test(location.hash) || /[?&]ler\b/.test(location.search)) { S.autoRead = true; history.replaceState(null, '', location.pathname); } } catch (e) {}
+function autoReadGo() {
+  if (!S.autoRead || S.role !== 'admin' || !S.runId) return;
+  S.autoRead = false;
+  setTimeout(() => { const x = document.createElement('button'); x.type = 'button'; x.hidden = true; x.dataset.action = 'ranks-go'; x.dataset.do = 'ranks,picks,lu,hist'; document.body.appendChild(x); x.click(); }, 1500);
+}
 async function loadGroup() {
   if (!S.runId) return;
   const run = S.runs.find(r => r.id === S.runId) || {};
@@ -714,6 +722,7 @@ async function loadGroup() {
   if (S.mineLoaded) syncTierUses(); // raridade e ASP das cartas lidos por alguém do grupo
   if (S.edReview && S.edPending && edOn()) { S.edReview = false; setTimeout(edReviewSheet, 900); }
   if (S.runReview && S.runRead) { S.runReview = false; setTimeout(runReviewSheet, 900); } // run lida no Top Shot: mostra o que muda // leitura nova: mostra o que muda antes de aplicar
+  autoReadGo();
 }
 // os lugares e preços que eu li noutro sítio (o Safari e a app do ecrã principal guardam coisas à parte, ou outro
 // aparelho) vêm do meu resumo publicado; sem isto, o resumo seguinte publicava-se sem eles e desapareciam para todos

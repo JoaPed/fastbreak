@@ -1424,6 +1424,20 @@ with sync_playwright() as pw:
     e2 = pg.locator('#tab-hoje .day-hero').first.inner_text().replace('\n', ' | ')
     print('O7 Pro a sério:', e1[:120], '|', base1[:120], '|', e2[:160], '· ok' if 'Pro · Dia 1 · 80 PTS' in e1 and 'Metallic Gold LE' in e1 and 'ensaio' not in e1 and roster['players'][pid7]['name'].split()[-1] in base1 and '30 AST + 4 STL' in e2 and 'emblema Top Shot Debut' in e2 else '· ERRO')
     pg.close()
+    # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
+    d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False
+    T8['members'].append({'user_id': 'u-eu', 'role': 'admin'}); T8['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})
+    T8['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T8['chain_results'] = []; T8['injuries'] = []
+    pg = new_page(b, d8)
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.clock.set_fixed_time('2026-10-21T07:00:00Z')
+    pg.goto('https://site.test/#ler'); pg.wait_for_timeout(500)
+    if pg.locator('#auEmail').is_visible(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_url('https://nbatopshot.com/**', timeout=20000)
+    j8 = json.loads(base64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
+    print('O8 leitura automática #ler:', j8.get('do'), len(j8.get('accs') or []), '· ok' if j8.get('do') == ['ranks', 'picks', 'lu', 'hist'] and j8.get('accs') else '· ERRO')
+    pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
     dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']
