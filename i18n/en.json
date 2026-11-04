@@ -2579,6 +2579,8 @@
  "<span class=\"och-l\"><span class=\"och-tag in\">entra</span>": "<span class=\"och-l\"><span class=\"och-tag in\">in</span>",
  "<span class=\"och-l muted\">mesmo lineup</span>": "<span class=\"och-l muted\">same lineup</span>",
  "<div class=\"card\"><div class=\"list-head\"><h2>Muda noutros dias</h2><span class=\"small muted\">face à sugestão</span></div><ul class=\"list och-list\">": "<div class=\"card\"><div class=\"list-head\"><h2>Changes on other days</h2><span class=\"small muted\">vs the suggestion</span></div><ul class=\"list och-list\">",
+ "<div class=\"row small\" style=\"display:block\"><b>Patamares de vitórias</b>: ": "<div class=\"row small\" style=\"display:block\"><b>Win tiers</b>: ",
+ "</b> <span class=\"pill duv\">muda</span> <span class=\"muted\">(os packs do Top Shot)</span></div>": "</b> <span class=\"pill duv\">changes</span> <span class=\"muted\">(the Top Shot packs)</span></div>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2863,7 +2865,8 @@
   "at": {
    "'<div class=\"status-line\"><span>Código atual</span><span class=\"kbd\">' + (S.invite == null ? '…' : S.invite ? esc(S.invite) : 'nenhum') + '</span></div>' +": "none",
    "(!P.site ? '<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ' + (prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.ma": true,
-   "(!P.site ? '<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ' + ((P.x && P.x.miles || []).length ? 'os do Top Shot (' + P": "none"
+   "(!P.site ? '<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ' + ((P.x && P.x.miles || []).length ? 'os do Top Shot (' + P": "none",
+   "(P.pzChg ? '<div class=\"row small\" style=\"display:block\"><b>Patamares de vitórias</b>: ' + (P.pzFrom.length ? P.pzFrom.map(w => w + 'V').join(' · ') : 'nenhum')": "none"
   }
  },
  "membro": {

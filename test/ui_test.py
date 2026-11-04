@@ -1388,6 +1388,22 @@ with sync_playwright() as pw:
     print('O6 run nova criada:', (r6 or {}).get('name'), [z['wins'] for z in (r6 or {}).get('prizes', [])], d6, '|', sh6[:160],
           '· ok' if r6 and [z['wins'] for z in r6['prizes']] == [5, 9, 12] and r6['name'] == 'Run 2 · Classic' and d6 and d6[0][1] == [{'stat': 'fg3', 'target': 20}, {'stat': 'fg3a', 'target': 40}] else '· ERRO')
     pg.close()
+    # O6b: a run já está no site com os patamares da run anterior (11, 12, 13): o "Run e prémios" troca-os pelos packs (5, 9, 12)
+    dbn2 = json.loads(json.dumps(dbn)); Tn2 = dbn2['tables']
+    Tn2['runs'].append({'id': 'run-2', 'name': 'Run 2 · Classic', 'mode': 'classic', 'start_date': '2026-11-02', 'end_date': '2026-11-15', 'prizes': [{'wins': 11, 'value': 7}, {'wins': 12, 'value': 28}, {'wins': 13, 'value': 365}], 'active': True, 'fictitious': False})
+    Tn2['runs'][0]['active'] = False
+    pg = new_page(b, dbn2)
+    pg.clock.set_fixed_time('2026-11-04T17:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    pg.goto('about:blank'); pg.goto('https://site.test/#fbranks=' + base64.urlsafe_b64encode(json.dumps(back6).encode()).decode().rstrip('=')); pg.wait_for_timeout(800)
+    if pg.locator('#auEmail').is_visible(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_timeout(3500)
+    sh6b = pg.locator('#sheet').inner_text().replace('\n', ' | ') if pg.locator('#sheet').is_visible() else ''
+    pg.click('#sheet button[data-action="run-apply"]'); pg.wait_for_timeout(3000)
+    r6b = json.loads(store(pg, "__FAKE_DB.tables.runs.find(r => r.id === 'run-2')"))
+    print('O6b patamares da run no site:', [(z['wins'], z['value']) for z in r6b['prizes']], '· ok' if [z['wins'] for z in r6b['prizes']] == [5, 9, 12] and [z['value'] for z in r6b['prizes']] == [7, 28, 365] and '11V · 12V · 13V → 5V · 9V · 12V' in sh6b else '· ERRO ' + sh6b[:300])
+    pg.close()
     # O7: Pro a sério (lido no Top Shot): cada dia com os objetivos do Pro e a regra de cartas (sets e escalões, ou emblemas)
     pid7 = list(roster['players'])[0]
     dp = seeded(); Tp = dp['tables']; Tp['runs'][0]['fictitious'] = False

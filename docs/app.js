@@ -4539,7 +4539,10 @@ async function runPlan(x) {
     return { date: d.date, objs: ok, old: h ? h.objectives || [] : null, kind, n: d.n, unk: objs.filter(o => !o.stat).map(o => o.name) };
   });
   const id = site ? site.id : (S.runs.some(r => r.id === runSlug(name)) ? runSlug(name) + '-' + start.replace(/-/g, '').slice(2) : runSlug(name));
-  return { x, start, end, name: site ? site.name : name, id, site, rows, unknown: [...unknown], extend: site && (start < site.start_date || end > site.end_date) };
+  // patamares de vitórias: os do Top Shot (packs aos 5, 9, 12…) quando a run do site tem outros (ex.: copiados da run anterior)
+  const mw = (x.miles || []).map(m => +m[0]), sw = site ? (site.prizes || []).map(p => +p.wins) : [];
+  const pzChg = !!(site && mw.length && JSON.stringify(mw) !== JSON.stringify(sw));
+  return { x, start, end, name: site ? site.name : name, id, site, rows, unknown: [...unknown], extend: site && (start < site.start_date || end > site.end_date), pzChg, pzFrom: sw, pzTo: mw };
 }
 // patamares de vitórias da run nova: os prémios por vitórias que o Top Shot dá (packs aos 5, 9, 12…); o valor de cada
 // um não vem (é um pack): fica o da run anterior pela ordem, senão 10/30/100 — acerta-se no Admin
@@ -4556,7 +4559,7 @@ async function runReviewSheet() {
   const today = todayET(), prev = S.runs.filter(r => !r.fictitious && (r.prizes || []).length).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0];
   const card = (P, i) => {
     if (!P) return '<div class="note">' + esc(R.runs[i].name || R.runs[i].id) + ': sem datas (o Top Shot ainda não mostra os dias).</div>';
-    const x = P.x, ch = P.rows.filter(r => r.kind !== 'k-same').length + (P.extend ? 1 : 0), withObj = P.rows.filter(r => r.objs.length).length;
+    const x = P.x, ch = P.rows.filter(r => r.kind !== 'k-same').length + (P.extend ? 1 : 0) + (P.pzChg ? 1 : 0), withObj = P.rows.filter(r => r.objs.length).length;
     const rows = P.rows.map((r, k) => '<li class="row"><span><b>Dia ' + (k + 1) + '</b> <span class="muted">' + dWeek(r.date) + ' ' + dShort(r.date) + '</span><br>' + (r.objs.length ? esc(objsText({ objectives: r.objs })) : r.unk.length ? '<span class="muted">' + esc(r.unk.join(' + ')) + ' (não conheço)</span>' : '<span class="muted">objetivo ainda não saiu</span>') +
       (r.kind === 'k-chg' ? '<br><span class="small muted">antes: ' + esc(objsText({ objectives: r.old })) + '</span>' : '') + '</span><span class="pill' + (r.kind === 'k-new' ? ' ok' : r.kind === 'k-chg' ? ' duv' : '') + '">' + (r.kind === 'k-new' ? 'novo' : r.kind === 'k-chg' ? 'muda' : 'igual') + '</span></li>').join('');
     const dayBands = ((x.days || []).find(d => (d.bands || []).length) || {}).bands || [];
@@ -4567,6 +4570,7 @@ async function runReviewSheet() {
       (rows ? '<ul class="list">' + rows + '</ul>' : '') +
       '<div class="row small" style="display:block"><b>Prémios da run</b>' + (x.qual ? ' (top ' + x.qual + ' qualifica)' : '') + ': ' + (x.bands.length ? bandTxt(x.bands) : '<span class="muted">o Top Shot não mostrou</span>') + '</div>' +
       (dayBands.length ? '<div class="row small" style="display:block"><b>Prémios de cada dia</b>: ' + bandTxt(dayBands) + '</div>' : '') +
+      (P.pzChg ? '<div class="row small" style="display:block"><b>Patamares de vitórias</b>: ' + (P.pzFrom.length ? P.pzFrom.map(w => w + 'V').join(' · ') : 'nenhum') + ' → <b>' + P.pzTo.map(w => w + 'V').join(' · ') + '</b> <span class="pill duv">muda</span> <span class="muted">(os packs do Top Shot)</span></div>' : '') +
       (!P.site ? '<div class="row small muted" style="display:block">Patamares de vitórias para o plano: ' + ((P.x && P.x.miles || []).length ? 'os do Top Shot (' + P.x.miles.map(m => m[0] + 'V').join(' · ') + ')' : prev ? 'os da ' + esc(prev.name) + ' (' + prev.prizes.map(p => p.wins + 'V').join(' · ') + ')' : 'nenhum') + '. ' + (P.start <= today || !S.runs.some(r => r.active && !r.fictitious && r.end_date >= today) ? 'Fica a run ativa.' : 'Fica ativa quando começar (carrega outra vez em Run e prémios nesse dia).') + '</div>' : '') +
       '<div class="btns" style="padding:4px 16px 14px"><button class="btn primary" type="button" data-action="run-apply" data-i="' + i + '"' + (ch || !P.site || (P.start <= today && !P.site.active && P.site.end_date >= today) ? '' : ' disabled') + '>' + (!P.site ? 'Criar a run' : ch ? 'Aplicar ' + plural(ch, 'mudança', 'mudanças') : P.start <= today && !P.site.active && P.site.end_date >= today ? 'Ativar a run' : 'Nada a mudar') + '</button></div></div>';
   };
@@ -4591,6 +4595,7 @@ async function runApply(i) {
     const patch = {};
     if (P.start < P.site.start_date) patch.start_date = P.start;
     if (P.end > P.site.end_date) patch.end_date = P.end;
+    if (P.pzChg) patch.prizes = runMilePrizes(P, P.site); // os packs do Top Shot (os valores ficam os que a run tinha, pela ordem)
     if (P.start <= today && !P.site.active && P.site.end_date >= today) { patch.active = true; active = true; if (others.length) ok = await adminWrite(sb.from('runs').update({ active: false }).eq('active', true)); }
     if (ok && Object.keys(patch).length) ok = await adminWrite(sb.from('runs').update(patch).eq('id', P.id));
     active = active || P.site.active;
