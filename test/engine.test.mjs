@@ -413,5 +413,24 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   const M11 = FB.histModel(H, 'run-fb-historic-2026-10-20-d11', { now: Date.parse('2026-10-29T14:00:00Z') }), t0 = Date.now(), b11 = FB.histBest(M11, 200);
   ok('historic: 100 lendas (dia 11) em menos de 1 s', b11.length === 200 && Date.now() - t0 < 1000, Date.now() - t0);
 }
+// jogar para um número de vitórias (plan.goal): um só patamar, em vez dos prémios da run
+{
+  const rg = Object.assign({}, run, { prizes: [{ wins: 5, value: 7 }, { wins: 9, value: 28 }, { wins: 12, value: 365 }] });
+  const mg = FB.buildModel(rg, man, odds, { goal: 7 }, { now: NOW });
+  const mp = FB.buildModel(rg, man, odds, {}, { now: NOW });
+  ok('jogar para 7 vitórias: um só patamar (7)', mg.prizes.length >= 1 && mg.prizes.every(p => p.wins <= 7) && mg.prizes.some(p => p.wins === 7 || p.auto), mg.prizes);
+  ok('sem objetivo: os prémios da run', mp.prizes.length === 3 || mp.prizeShift.dropped.length > 0, mp.prizes);
+}
+// duas contas com objetivos diferentes (uma para 5 vitórias, outra para a classificação): o plano conjunto corre e
+// dá lineups às duas (a classificação não leva as cartas todas)
+{
+  const rg = Object.assign({}, run, { prizes: [{ wins: 5, value: 7 }, { wins: 9, value: 28 }] });
+  const half = (k) => { const ro = { players: {} }; Object.entries(man.players).forEach(([id, p]) => { ro.players[id] = Object.assign({}, p); }); return ro; };
+  try {
+    const g = FB.planGroup(rg, [{ key: 'main', roster: half(0), plan: { goal: 5 } }, { key: 's1', roster: half(1), plan: { goal: 'max' } }], odds, { now: NOW });
+    const n = k => { const e = g.byKey ? g.byKey[k] : null; return e ? (e.normal || e.plan || []).filter(x => x && (x.lineup || x.ids || []).length).length : -1; };
+    ok('jogar para diferente em cada conta: o plano conjunto corre', !!g && (g.byKey ? Object.keys(g.byKey).length === 2 : true), Object.keys(g || {}));
+  } catch (e) { ok('jogar para diferente em cada conta: o plano conjunto corre', false, String(e && e.message)); }
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);

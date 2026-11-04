@@ -426,20 +426,9 @@ with sync_playwright() as pw:
     except Exception as e:
         print('C procura de plano melhor: não correu em 150 s')
     pg.click('#t-hoje'); pg.wait_for_timeout(600)
-    # trocas pelo script do Top Shot: o botão da conta abre o Top Shot com os Moments certos; de volta, ficam feitos
-    tsurl = []
-    pg.route('https://nbatopshot.com/**', lambda r: (tsurl.append(1), r.fulfill(status=200, content_type='text/html', body='<html>ts</html>')))
-    t0n = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count()
-    pg.locator('#tab-hoje .todo .todo-send').first.click(); pg.wait_for_url('https://nbatopshot.com/**', timeout=15000)
-    trj = json.loads(base64.urlsafe_b64decode(pg.url.split('fbsync=')[1] + '=='))
-    print('C trocas pelo script:', [(x['name'], x['tier'], x['fid'], x['fromL'] + '>' + x['toL']) for x in trj['tr']], '· ok' if trj['do'] == ['tr'] and trj['tr'] and all(x['fid'] and x['to'] and x['k'].startswith('run-1|tr|') for x in trj['tr']) else '· ERRO')
-    back = {'v': 1, 'sv': 19, 'do': ['tr'], 'at': '2026-10-21T15:00:00Z', 'accs': [], 'tr': {'done': [x['k'] for x in trj['tr']], 'fail': []}}
-    pg.goto('https://site.test/#fbranks=' + base64.urlsafe_b64encode(json.dumps(back).encode()).decode().rstrip('=')); pg.wait_for_timeout(800)
-    if pg.locator('#auEmail').is_visible(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
-    pg.wait_for_timeout(4500)
-    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
-    t1n = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count()
-    print('C trocas feitas pelo script:', t0n, '→', t1n, '· aviso:', pg.locator('#toast').inner_text(), '· ok' if t1n < t0n and 'mandado' in pg.locator('#toast').inner_text() else '· ERRO')
+    # trocas: na Jornada já não há "Enviar no Top Shot" (mandam-se à mão, na Coleção); continuam as trocas a fazer
+    nsend = pg.locator('#tab-hoje .todo .todo-send, #tab-hoje [data-action="tr-go"]').count(); ntr = pg.locator('#tab-hoje .todo .todo-grp-s').count()
+    print('C trocas sem Enviar no Top Shot:', nsend, 'botões ·', ntr, 'grupos de trocas', '· ok' if nsend == 0 and ntr > 0 else '· ERRO')
     pg.close()
 
     # ---------- D: admin apaga as runs de teste ----------
@@ -1437,6 +1426,32 @@ with sync_playwright() as pw:
     pg.wait_for_url('https://nbatopshot.com/**', timeout=20000)
     j8 = json.loads(base64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
     print('O8 leitura automática #ler:', j8.get('do'), len(j8.get('accs') or []), '· ok' if j8.get('do') == ['ranks', 'picks', 'lu', 'hist'] and j8.get('accs') else '· ERRO')
+    pg.close()
+    # O9: jogar para (Ajustes → Preferências, uma linha por conta): "5V" na principal muda o plano dela e fica guardado
+    d9 = seeded(); T9 = d9['tables']; T9['runs'][0]['fictitious'] = False
+    T9['runs'][0]['prizes'] = [{'wins': 5, 'value': 7, 'label': 'pack'}, {'wins': 9, 'value': 28, 'label': 'pack'}, {'wins': 11, 'value': 365, 'label': 'pack'}]
+    T9['members'].append({'user_id': 'u-eu', 'role': 'member'}); T9['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'smurfs': [{'id': 's1', 'topshot_username': 'terose'}]})
+    T9['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T9['chain_results'] = []; T9['injuries'] = []
+    pg = new_page(b, d9)
+    pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="prefs"]'); pg.wait_for_timeout(500)
+    rows9 = [' '.join(t.split()) for t in pg.locator('#tab-ajustes .goal-acc').all_inner_texts()]
+    pg.click('#tab-ajustes .goal-acc button[data-acc="main"][data-v="5"]'); pg.wait_for_timeout(1500)
+    pg.click('#tab-ajustes .goal-acc button[data-acc="s1"][data-v="max"]'); pg.wait_for_timeout(1500)
+    on9 = pg.locator('#tab-ajustes .goal-acc button[aria-pressed="true"]').all_inner_texts()
+    card9 = pg.locator('#tab-ajustes .card').filter(has=pg.locator('h2', has_text='Jogar para'))
+    card9.screenshot(path=str(shots / 'jogar-ajustes.png'))
+    pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(300); card9.screenshot(path=str(shots / 'jogar-ajustes-escuro.png')); pg.emulate_media(color_scheme='light')
+    pg.click('#t-run'); pg.wait_for_timeout(1500)
+    a1 = pg.locator('#tab-run .run-board .aro-col').count(); gl = pg.locator('#tab-run .run-board .goal-line').inner_text() if pg.locator('#tab-run .run-board .goal-line').count() else ''
+    pg.wait_for_timeout(2500)
+    g9 = json.loads(store(pg, "((__FAKE_DB.tables.user_runs.find(u => u.run_id === 'run-1') || {}).plan || {})"))
+    print('O9 jogar para:', rows9, on9, a1, gl, g9.get('goal'), ((g9.get('smurfs') or {}).get('s1') or {}).get('goal'),
+          '· ok' if rows9 == ['Principal Prémios da run Classificação 5V 9V 11V', 'terose Prémios da run Classificação 5V 9V 11V'] and on9 == ['5V', 'Classificação'] and a1 == 1 and '5 vitórias' in gl and g9.get('goal') == 5 and g9['smurfs']['s1']['goal'] == 'max' else '· ERRO')
     pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha

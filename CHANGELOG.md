@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-04
+- **João** — Ajustes → Preferências → Jogar para: cada conta escolhe entre os prémios da run (como até agora, por defeito), a classificação (o máximo de vitórias) ou um patamar (5V, 9V, 12V) com o menor risco. Jornada sem "Enviar no Top Shot" (as trocas mandam-se na Coleção). "Muda noutros dias" com um dia por linha, caras de quem sai e entra e a vitória desse dia.
+
 ## 2026-11-03
 - **João** — Link joaped.github.io/fastbreak/#ler: abre o site e começa sozinho a leitura de todos os dias no Top Shot (admins), para uma automatização dos Atalhos do iPhone às 7:00.
 

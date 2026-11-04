@@ -2542,9 +2542,8 @@ function todoCard(r, v, d, md, nd, live, tips) {
           const li = '<li class="todo-li' + (on ? ' done' : '') + '"><button class="todo-ck" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Done. Unmark' : 'Mark as sent') + '">' + icoTick + '</button><button class="row" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '"><div style="min-width:0"><div class="todo-t">' + html + '</div></div></button></li>';
           if (on) { done.push(li); return ''; } return li;
         }).filter(Boolean);
-        // o script do Top Shot manda-os todos de uma vez (entra-se numa conta de cada vez: um botão por conta de onde saem)
-        const canSend = !!(accAddr(S.session.user.id, f) && accAddr(S.session.user.id, to));
-        if (lines.length) { items.push('<li class="row small todo-grp todo-grp-s"><span>From <b>' + esc(accLabel(f)) + '</b> to <b>' + esc(accLabel(to)) + '</b></span>' + (canSend ? '<button class="btn small todo-send" type="button" data-action="tr-go" data-from="' + esc(f) + '">Send on Top Shot</button>' : '') + '</li>', ...lines); }
+        // sem botão para mandar pelo Top Shot (pedido do João): manda-se à mão, na Coleção, carta a carta
+        if (lines.length) { items.push('<li class="row small todo-grp todo-grp-s"><span>From <b>' + esc(accLabel(f)) + '</b> to <b>' + esc(accLabel(to)) + '</b></span></li>', ...lines); }
       });
       // sem textos por baixo (pedido do João): as trocas dos dias seguintes aparecem quando chegar a vez delas
     }
@@ -2896,13 +2895,26 @@ function runBoard(r, v) {
   const left = r.model.days.length, P = r.prizes;
   const head = '<div class="hero-top"><span class="eyebrow">' + (S.multi ? esc(accLabel(S.acc)) : 'Your run') + ' ' + helpBtn('premios') + '</span><span class="small">' + (left ? plural(left, 'day to play', 'days to play') : 'run finished') + '</span></div>';
   const rec = '<div class="rec-big num">' + r.wins + '<small>' + (r.wins === 1 ? 'win' : 'wins') + '</small>' + r.losses + '<small>' + (r.losses === 1 ? 'loss' : 'losses') + '</small></div>';
-  if (!P.length) return '<div class="card hero run-board">' + head + rec + '<div class="small">Expected at the end: <b>' + f1(r.wins + v.expected) + '</b> of ' + S.days.length + '.' + (S.role === 'admin' ? ' Set the prizes in Settings → Admin.' : '') + '</div></div>';
+  if (!P.length) return '<div class="card hero run-board">' + head + rec + '<div class="small">Expected at the end: <b>' + f1(r.wins + v.expected) + '</b> of ' + S.days.length + '.' + (curPlan().goal === 'max' ? ' Playing for the standings: the most wins.' : S.role === 'admin' ? ' Set the prizes in Settings → Admin.' : '') + '</div>' + goalLine() + '</div>';
   const cols = P.map((p, i) => { const x = v.prizeProbs[i], need = p.wins - r.wins;
     return '<div class="aro-col">' + aro(x, p.wins, 64, likely(x)) + '<div><div class="pc num">' + pct(x) + '</div><div class="lk">' + likely(x) + '</div><div class="nd small">' + (need <= 0 ? 'secured' : need > left ? 'out of reach' : 'need ' + need + ' in ' + left) + '</div></div></div>'; }).join('');
   const withP = P.map((p, i) => [p, v.prizeProbs[i]]), sure = withP.filter(([, x]) => x >= 0.5).pop(), up = withP.find(([, x]) => x < 0.5);
   const line = sure ? 'On track for the <b>' + sure[0].wins + ' wins</b> prize' + (up ? '; the ' + up[0].wins + '-win prize is at ' + pct(up[1]) + '.' : '.') : up ? 'The closest prize is <b>' + up[0].wins + ' wins</b>: ' + likely(up[1]).toLowerCase() + '.' : '';
   const sh = r.model.prizeShift || {}, shTxt = (sh.dropped || []).length ? '<div class="small muted">Out of reach: ' + sh.dropped.join(' and ') + ' wins' + (sh.added.length ? '. Now counting: ' + sh.added.slice().sort((a, b) => a - b).join(' and ') + ' wins' : '') + '.</div>' : '';
-  return '<div class="card hero run-board">' + head + rec + '<div class="aros">' + cols + '</div>' + (line ? '<div class="small">' + line + '</div>' : '') + shTxt + '</div>';
+  return '<div class="card hero run-board">' + head + rec + '<div class="aros">' + cols + '</div>' + (line ? '<div class="small">' + line + '</div>' : '') + shTxt + goalLine() + '</div>';
+}
+// jogar para quê (por conta): os prémios da run todos, ou só um número de vitórias com pouco risco (quem tem menos
+// cartas: as 5 vitórias seguras valem mais do que arriscar nas 12). Os botões são os patamares dos prémios da run.
+// Fica no plano da conta (plan.goal)
+const goalTxt = g => (g === 'max' ? 'the standings (the most wins)' : +g > 0 ? g + ' wins' : '');
+function goalLine() { const g = curPlan().goal; return g ? '<div class="small muted goal-line">Playing for ' + goalTxt(g) + ' · change it in Settings → Preferences</div>' : ''; }
+// Ajustes → Preferências: uma linha por conta, com os patamares dos prémios da run
+function goalCard() {
+  const run = curRun() || {}, tiers = [...new Set((run.prizes || []).map(p => +p.wins).filter(w => w > 0))].sort((a, b) => a - b);
+  const row = a => { const g = String(planOf(a.id).goal || 0), btn = (v, l) => '<button type="button" data-action="goal" data-acc="' + esc(a.id) + '" data-v="' + v + '" aria-pressed="' + (g === String(v)) + '">' + l + '</button>';
+    return '<div class="goal-acc">' + (accounts().length > 1 ? '<div class="label">' + esc(accLabel(a.id)) + '</div>' : '') + '<div class="chips" role="group" aria-label="Play for · ' + esc(accLabel(a.id)) + '">' + btn(0, 'Run prizes') + btn('max', 'Standings') + tiers.map(w => btn(w, w + 'W')).join('') + '</div></div>'; };
+  return '<div class="card panel"><h2>Play for</h2>' + accounts().map(row).join('') +
+    '<div class="small muted">Run prizes: every tier, by its value. Standings: the most wins. A number: only that one, with the least risk.</div></div>';
 }
 // Quantas vitórias no fim da run: probabilidade de cada total, com as zonas de prémio
 function distCard(r, v) {
@@ -4373,6 +4385,7 @@ function renderAjustes() {
   if (sub === 'prefs' && S.runs.length) {
     html.push('<div class="card panel"><h2>Run shown</h2><select class="field" id="runPick" aria-label="Choose run">' + S.runs.map(x => '<option value="' + esc(x.id) + '"' + (x.id === S.runId ? ' selected' : '') + '>' + esc(x.name) + ' · ' + dShort(x.start_date) + (x.active ? ' (active)' : '') + '</option>').join('') + '</select></div>');
   }
+  if (sub === 'prefs' && S.runId) html.push(goalCard());
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Language · Língua</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Language · Língua">' + [['pt', 'Português'], ['en', 'English']].map(([k, l]) => '<button type="button" data-action="lang" data-v="' + k + '" aria-pressed="' + (LANG === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Appearance</h2>' +
@@ -5872,8 +5885,16 @@ function luRender() {
   let chHtml = '';
   if (B && mine) {
     const ch = v.days.filter(x => x.date !== date).map(x => { const b = B.days.find(y => y.date === x.date); if (!b) return null; const ins = x.lineup.filter(id => !b.lineup.includes(id)), outs = b.lineup.filter(id => !x.lineup.includes(id)); return ins.length || outs.length || Math.abs(pp(x.P) - pp(b.P)) >= 3 ? { x, b, ins, outs } : null; }).filter(Boolean);
-    if (ch.length) chHtml = '<div class="card"><div class="list-head"><h2>Changes on other days</h2><span class="small muted">compared with the suggestion</span></div><ul class="list">' +
-      ch.slice(0, 6).map(c => '<li class="row lu-ch"><span><b>Day ' + (c.x.idx + 1) + '</b> ' + pct(c.b.P) + ' → <b class="' + (pp(c.x.P) > pp(c.b.P) ? 'up' : pp(c.x.P) < pp(c.b.P) ? 'down' : '') + '">' + pct(c.x.P) + '</b>' + (c.outs.length ? ' · out ' + c.outs.map(id => esc(lastName(id))).join(', ') : '') + (c.ins.length ? ' · in ' + c.ins.map(id => esc(lastName(id))).join(', ') : '') + '</span></li>').join('') +
+    // um dia por linha: o dia (n.º e dia da semana), quem sai e quem entra (com cara) e a vitória desse dia, com a diferença
+    const chPl = ids => ids.map(id => '<span class="och-pl">' + face(id, 'xs') + esc(lastName(id)) + '</span>').join('');
+    const chRow = c => { const dd = pp(c.x.P) - pp(c.b.P);
+      return '<li class="row och"><span class="och-d"><b class="num">' + (c.x.idx + 1) + '</b><small>' + dWeek(c.x.date) + '</small></span><span class="och-m">' +
+        (c.outs.length ? '<span class="och-l"><span class="och-tag out">out</span>' + chPl(c.outs) + '</span>' : '') +
+        (c.ins.length ? '<span class="och-l"><span class="och-tag in">in</span>' + chPl(c.ins) + '</span>' : '') +
+        (!c.outs.length && !c.ins.length ? '<span class="och-l muted">same lineup</span>' : '') + '</span>' +
+        '<span class="och-p"><b class="num">' + pct(c.x.P) + '</b><small class="' + (dd > 0 ? 'up' : dd < 0 ? 'down' : '') + '">' + (dd ? (dd > 0 ? '+' : '−') + Math.abs(dd) + '%' : 'same') + '</small></span></li>'; };
+    if (ch.length) chHtml = '<div class="card"><div class="list-head"><h2>Changes on other days</h2><span class="small muted">vs the suggestion</span></div><ul class="list och-list">' +
+      ch.slice(0, 6).map(chRow).join('') +
       (ch.length > 6 ? '<li class="row small muted" style="display:block">and ' + plural(ch.length - 6, 'day', 'days') + '</li>' : '') + '</ul></div>';
   }
   // pôr no lineup: quem joga neste dia e não está, do que mais rende para o que menos (com os dias em que o plano o usa)
@@ -6583,6 +6604,7 @@ document.addEventListener('click', async e => {
     case 'day-lus': dayLineupsSheet(date, b.dataset.run); break;
     case 'gc-mode': S.gcMode = b.dataset.v; renderGrupo(); break;
     case 'gc-run': S.gcRun = b.dataset.v; renderGrupo(); break;
+    case 'goal': { const v = b.dataset.v === 'max' ? 'max' : +b.dataset.v || 0, pl = planOf(b.dataset.acc || S.acc); if (v) pl.goal = v; else delete pl.goal; saveMine(); schedule(); renderAjustes(); toast((accounts().length > 1 ? accLabel(b.dataset.acc || S.acc) + ': ' : '') + (v === 'max' ? 'Playing for the standings: the most wins on average.' : v ? 'Playing for ' + v + ' wins, with the least risk.' : 'Playing for the run prizes.')); break; }
     case 'run-apply': b.disabled = true; await runApply(+b.dataset.i); break;
     case 'ed-apply': closeSheet(); edApply(); toast('Rarity and ASP applied: the group’s uses were adjusted.'); break;
     case 'wallet-apply': b.disabled = true; await walletApply(); break;

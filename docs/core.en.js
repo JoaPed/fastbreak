@@ -431,7 +431,10 @@
       on.sort((a, b) => (live(b) - live(a)) || (soft(a) - soft(b)) || (at(b) - at(a)) || (a - b));
       on.slice(uses[pi]).forEach(d => { if (live(d)) return; days[d].locks = days[d].locks.filter(x => x !== pi); if (!soft(d)) droppedLocks.push({ player: p.id, date: days[d].day.date }); });
     });
-    let prizes = (run.prizes || []).map(p => ({ wins: Math.round(+p.wins), value: +p.value > 0 ? +p.value : 1, label: p.label || '' })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
+    // objetivo escolhido pela conta ("jogar para 5 vitórias"): um só patamar, o resto não conta
+    // ("max" = classificação: sem patamares, o máximo de vitórias em média)
+    const goal = plan && +plan.goal > 0 ? Math.round(+plan.goal) : 0, maxW0 = plan && plan.goal === 'max';
+    let prizes = (maxW0 ? [] : goal ? [{ wins: goal, value: 1 }] : run.prizes || []).map(p => ({ wins: Math.round(+p.wins), value: +p.value > 0 ? +p.value : 1, label: p.label || '' })).filter(p => p.wins > 0).sort((a, b) => a.wins - b.wins);
     // patamar que já não dá (faltam mais vitórias do que dias): sai e entra o de baixo, para haver sempre um alvo
     // (ex.: 11/12/13 com 12 dias por jogar e 0 vitórias → 10/11/12); o novo vale o mesmo que o mais baixo que fica
     const maxW = winsSoFar + open.length, prizeShift = { dropped: [], added: [] };
@@ -848,7 +851,9 @@
     const multi = A > 1, AUX = multi ? 0.2 : 1;
     const objs = models.map(m => makeObjective(m, multi && m.prizes.length ? 0.002 : undefined));
     // prioridade entre contas (opts.W): o valor de cada conta conta W vezes (ex.: 1,2 para a mais bem classificada)
-    const W = models.map((m, a) => (opts.W && +opts.W[a] > 0 ? +opts.W[a] : 1));
+    // contas com objetivos diferentes ("jogar para"): a que joga para a classificação (vitórias em média, 0 a N) fica na
+    // mesma escala das que jogam para patamares (probabilidade, 0 a 1): as vitórias contam a dividir pelos dias
+    const W = models.map((m, a) => (opts.W && +opts.W[a] > 0 ? +opts.W[a] : 1) / (hasPrizes && !m.prizes.length ? Math.max(1, m.days.length) : 1));
     const slots = [];
     models.forEach((m, a) => m.days.forEach((md, d) => slots.push({ a, d, md, date: md.day.date })));
     const S_ = slots.length;

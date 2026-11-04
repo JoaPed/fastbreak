@@ -1224,3 +1224,24 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .todo-grp-s { display: flex !important; justify-content: space-between; align-items: center; gap: 8px; }
 .todo-send { flex: none; padding: 4px 10px; min-height: 0; font-size: 12.5px; }
 .mo-px .mo-send { margin-left: auto; padding: 0; min-height: 0; font-size: 13px; font-weight: 600; }
+
+/* jogar para quê (Ajustes → Preferências) */
+.goal-acc { margin: 0 0 12px; }
+.goal-acc .label { margin-bottom: 6px; }
+.run-board .goal-line { margin-top: 10px; color: rgba(255, 255, 255, .7); }
+/* Mudar → "Muda noutros dias": um dia por linha (dia, quem sai e quem entra com cara, vitória desse dia) */
+.och { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.och-d { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: var(--surface-2); line-height: 1.1; }
+.och-d b { font-size: 17px; }
+.och-d small { font-size: 11px; color: var(--muted); }
+.och-m { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.och-l { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 14px; }
+.och-tag { flex: none; width: 38px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.och-tag.out { color: var(--bad); }
+.och-tag.in { color: var(--good); }
+.och-pl { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; }
+.och-p { text-align: right; font-variant-numeric: tabular-nums; }
+.och-p b { display: block; font-size: 17px; }
+.och-p small { font-size: 12px; color: var(--muted); }
+.och-p small.up { color: var(--good); }
+.och-p small.down { color: var(--bad); }
