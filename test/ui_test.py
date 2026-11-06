@@ -1404,6 +1404,19 @@ with sync_playwright() as pw:
     r6b = json.loads(store(pg, "__FAKE_DB.tables.runs.find(r => r.id === 'run-2')"))
     print('O6b patamares da run no site:', [(z['wins'], z['value']) for z in r6b['prizes']], '· ok' if [z['wins'] for z in r6b['prizes']] == [5, 9, 12] and [z['value'] for z in r6b['prizes']] == [7, 28, 365] and '11V · 12V · 13V → 5V · 9V · 12V' in sh6b else '· ERRO ' + sh6b[:300])
     pg.close()
+    # O6c: a leitura de todos os dias (lugares) traz os packs da run: o admin fica com os patamares acertados sozinho
+    dbn3 = json.loads(json.dumps(dbn2))
+    back7 = {'v': 1, 'sv': 28, 'do': ['ranks'], 'at': '2026-11-04T17:00:00Z', 'run': {'id': 'run-nba-classic-2026-11-02'}, 'bands': [], 'miles': [[5, 'a'], [9, 'b'], [12, 'c']], 'accs': [{'a': 'e7fb03955ade55fa', 'found': True, 'rank': 50, 'wins': 2}], 'days': [], 'cut': {}}
+    pg = new_page(b, dbn3)
+    pg.clock.set_fixed_time('2026-11-04T17:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    pg.goto('about:blank'); pg.goto('https://site.test/#fbranks=' + base64.urlsafe_b64encode(json.dumps(back7).encode()).decode().rstrip('=')); pg.wait_for_timeout(800)
+    if pg.locator('#auEmail').is_visible(): pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit')
+    pg.wait_for_timeout(4000)
+    r6c = json.loads(store(pg, "__FAKE_DB.tables.runs.find(r => r.id === 'run-2')"))
+    print('O6c patamares pela leitura diária:', [z['wins'] for z in r6c['prizes']], '· ok' if [z['wins'] for z in r6c['prizes']] == [5, 9, 12] else '· ERRO')
+    pg.close()
     # O7: Pro a sério (lido no Top Shot): cada dia com os objetivos do Pro e a regra de cartas (sets e escalões, ou emblemas)
     pid7 = list(roster['players'])[0]
     dp = seeded(); Tp = dp['tables']; Tp['runs'][0]['fictitious'] = False

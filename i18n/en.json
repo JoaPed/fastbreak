@@ -2581,6 +2581,7 @@
  "<div class=\"card\"><div class=\"list-head\"><h2>Muda noutros dias</h2><span class=\"small muted\">face à sugestão</span></div><ul class=\"list och-list\">": "<div class=\"card\"><div class=\"list-head\"><h2>Changes on other days</h2><span class=\"small muted\">vs the suggestion</span></div><ul class=\"list och-list\">",
  "<div class=\"row small\" style=\"display:block\"><b>Patamares de vitórias</b>: ": "<div class=\"row small\" style=\"display:block\"><b>Win tiers</b>: ",
  "</b> <span class=\"pill duv\">muda</span> <span class=\"muted\">(os packs do Top Shot)</span></div>": "</b> <span class=\"pill duv\">changes</span> <span class=\"muted\">(the Top Shot packs)</span></div>",
+ " Patamares da run: ": " Run tiers: ",
  "normal": null,
  "sem": null,
  "odds": null,

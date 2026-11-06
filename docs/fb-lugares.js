@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 29; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 30; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -281,7 +281,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 27, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 28, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -439,7 +439,7 @@ async function readRanks(out, withLu) {
     const known = job.tsRun && near(job.tsRun) ? job.tsRun : job.runStart ? 'run-nba-classic-' + job.runStart : null;
     const run = mine || (known && !cls.some(r => r.id === known) ? { id: known, name: null, leaderboardId: 'run:' + known } : null) || cls.find(r => r.id === known) || cls[0] || null;
     if (!run) throw new Error('não encontrei a run Classic da NBA');
-    const lb = run.leaderboardId || ('run:' + run.id); Object.assign(out, { run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], cut: {} });
+    const lb = run.leaderboardId || ('run:' + run.id); Object.assign(out, { run: { id: run.id, name: run.name, ends: run.endsAt }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, miles: ((run.reward || {}).milestones || []).map(m => [+m.threshold || 0, m.label || '']).filter(m => m[0] > 0), accs: [], cut: {} });
     let n = 0;
     for (const a of job.accs) {
       say('A ler os lugares… ' + (++n) + ' de ' + job.accs.length);

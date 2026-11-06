@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-06
+- **João** — Leitor v30: a leitura de todos os dias traz os packs da run (5, 9, 12 vitórias) e o site acerta sozinho os patamares (prémios, sugestões, compras, gráfico).
+
 ## 2026-11-04
 - **João** — "Run e prémios" acerta os patamares de vitórias de uma run que já está no site para os packs do Top Shot (5, 9, 12), em vez dos da run anterior.
 - **João** — Ajustes → Preferências → Jogar para: cada conta escolhe entre os prémios da run (como até agora, por defeito), a classificação (o máximo de vitórias) ou um patamar (5V, 9V, 12V) com o menor risco. Jornada sem "Enviar no Top Shot" (as trocas mandam-se na Coleção). "Muda noutros dias" com um dia por linha, caras de quem sai e entra e a vitória desse dia.
