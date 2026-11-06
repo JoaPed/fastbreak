@@ -4937,6 +4937,16 @@ function mktBlock(id) {
 //   raridade; poupas a diferença (−5% na venda)
 // O preço de cada carta é a mais barata à venda da mesma edição (low ask), lida com as Cartas (ASP) no Admin.
 const SELL_FEE = 0.05;
+// trocas seguras (pedido do João): a carta comprada tem de dar os usos pelo escalão, ou pelo ASP com folga (o ASP
+// pode descer: um Common a $10 de ASP comprado por $2 pode voltar a dar só 1 uso). Folga = ASP no dobro do mínimo
+// da faixa que dá esses usos. E só vale a pena com uma poupança a sério: ≥ $3 e ≥ 25% do preço de venda.
+function safeUses(m, need) {
+  const t = TIER_USES[String(m[2] || '').charAt(0).toUpperCase() + String(m[2] || '').slice(1).toLowerCase()] || 1;
+  if (t >= need) return true;
+  const i = ASP_BANDS.findIndex(b => b[1] >= need), lo = i > 0 ? ASP_BANDS[i - 1][0] : 0;
+  return +m[3] > 0 && +m[3] >= 2 * lo;
+}
+const worthSaving = (save, ask) => save >= 300 && save >= 0.25 * ask * (1 - SELL_FEE);
 const nContas = n => n + (n === 1 ? ' conta' : ' contas');
 S.sellTab = (() => { try { return localStorage.getItem('fb-sell-tab') || 'naousadas'; } catch (e) { return 'naousadas'; } })();
 function mkOf(id) {
@@ -5008,10 +5018,10 @@ function sellSwaps(ps) {
       const [cb, ...cs] = String(c.it.s || '').split(' · '), same = m => (c.it.si != null && m[6] != null ? +m[6] === +c.it.si && +m[7] === +c.it.pi : setBaseN(m[4]) === setBaseN(cb) && (isStd(m[5]) ? !cs.length : norm(m[5]) === norm(cs.join(' · '))));
       // qualquer raridade e qualquer set, desde que dê pelo menos os mesmos usos: uma Fandom que dá 3 usos pelo ASP
       // (All-Star) só se troca por outra carta que também dê 3, nunca por uma que dê menos
-      const pool = mk.list.filter(m => !same(m) && m[0] >= c.u).sort((a, b) => a[1] - b[1]);
+      const pool = mk.list.filter(m => !same(m) && m[0] >= c.u && safeUses(m, c.u)).sort((a, b) => a[1] - b[1]);
       const alt = pool[0];
       if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
-      if (save >= 100) out.push({ P, c, alt, save, less: alt[0] < c.u });
+      if (worthSaving(save, c.ask)) out.push({ P, c, alt, save, less: alt[0] < c.u });
     }); });
   return out.sort((a, b) => b.save - a.save);
 }
@@ -5022,9 +5032,9 @@ function sellDowngrades(ps) {
   ps.forEach(P => { if (!P.use || !P.use.total) return; const mk = mkOf(P.id);
     P.cards.filter(c => c.keep && c.ask && c.u > 1).forEach(c => {
       const need = P.use.max; if (need >= c.u) return;
-      const alt = mk ? mk.list.filter(m => m[0] >= need && m[0] < c.u).sort((a, b) => a[1] - b[1])[0] : null;
+      const alt = mk ? mk.list.filter(m => m[0] >= need && m[0] < c.u && safeUses(m, need)).sort((a, b) => a[1] - b[1])[0] : null;
       if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
-      if (save >= 100) out.push({ P, c, alt, save, need });
+      if (worthSaving(save, c.ask)) out.push({ P, c, alt, save, need });
     }); });
   return out.sort((a, b) => b.save - a.save);
 }
