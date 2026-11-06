@@ -1494,9 +1494,35 @@ with sync_playwright() as pw:
     pg.locator('#sheetPanel button[data-action="pro-pick-f"][data-v="all"]').click(); pg.wait_for_timeout(400)
     pg.locator('#sheetPanel #luCand button[data-action="pro-fill"]').first.click(); pg.wait_for_timeout(800)
     t1 = ' '.join(teamc.inner_text().split())
-    ok13 = 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0 and 'com trocas' in t0 and 'A comprar' in t0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'Voltar à sugestão' in t1 and t1 != t0 and \
-        ((nB13 in t0 and 'está em' in t0 and 'Manda para a principal' in t0) or (nB13 not in t0))
+    # Mudar o lineup (como no Classic): × tira, "Adicionar jogador" abre o Quem entra? (com o low ask) e volta à folha
+    pg.locator('#tab-hoje .day-hero button[data-action="pro-lu"]').click(); pg.wait_for_timeout(500)
+    lu0 = ' '.join(pg.locator('#sheetPanel').inner_text().split())
+    pg.locator('#sheetPanel button[data-action="pro-out"]').first.click(); pg.wait_for_timeout(500)
+    lu1 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-mudar.png'))
+    pg.locator('#sheetPanel button[data-action="pro-pick"]').first.click(); pg.wait_for_timeout(500)
+    pk2 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-quem-entra.png'))
+    pg.locator('#sheetPanel #luCand button[data-action="pro-fill"]').first.click(); pg.wait_for_timeout(600)
+    lu2 = ' '.join(pg.locator('#sheetPanel').inner_text().split())
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    okLu = 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in lu1 and 'saiu' in lu1 and 'manter' in lu1 and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in lu2 and 'Voltar à sugestão' in lu2
+    ok13 = 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0 and 'com trocas' in t0 and 'A comprar' in t0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'a tua escolha' in t1 and t1 != t0 and \
+        ((nB13 in t0 and 'está em' in t0 and 'Manda para a principal' in t0) or (nB13 not in t0)) and okLu
+    print('O13 lineup:', lu0[:120], '|', lu1[:160], '|', pk2[:200], '|', lu2[:120])
     print('O13 Pro com equipa:', t0[:300], '|', cB[:200], '|', cX[:200], '|', pk[:200], '|', own[:3], '|', t1[:160], '· ok' if ok13 else '· ERRO')
+    pg.close()
+    # O13b: os dias do Pro já passados aparecem na faixa e mostram a equipa escolhida no site (sem mudar)
+    pg = new_page(b, d13)
+    pg.add_init_script("try { localStorage.setItem('fb-prorun', " + json.dumps(json.dumps(pr13)) + "); localStorage.setItem('fb-jmode', 'pro'); localStorage.setItem('fb-prolu', " + json.dumps(json.dumps({d1: [pA13, pB13]})) + "); } catch (e) {}")
+    pg.clock.set_fixed_time(run['days'][1]['date'] + 'T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.wait_for_timeout(1000)
+    npast = pg.locator('#tab-hoje .day-strip .ds.past').count()
+    pg.click('#tab-hoje button[data-action="pro-day"][data-date="' + d1 + '"]'); pg.wait_for_timeout(600)
+    pc = ' '.join(pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Equipa')).inner_text().split())
+    hb = pg.locator('#tab-hoje .day-hero button[data-action="pro-lu"]').count()
+    print('O13b Pro dias passados:', npast, pc[:160], '· ok' if npast >= 1 and 'dia fechado' in pc and nA13 in pc and nB13 in pc and hb == 0 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False

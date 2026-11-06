@@ -1972,12 +1972,44 @@ function proSwapOf(id, pr) {
   return Object.assign(best, { diff: pr[0] - best.offer * (1 - SELL_FEE), classic: !!(use && use.total) });
 }
 const usdS = v => (v > 0 ? '+' : v < 0 ? '−' : '') + usdC(Math.abs(v)); // diferença com sinal
+// low ask da tua carta mais barata que conta neste dia (para saberes quanto vale antes de escolher)
+function proOwnAsk(X, id) {
+  X.askMemo = X.askMemo || new Map(); if (X.askMemo.has(id)) return X.askMemo.get(id);
+  const col = (S.profile || {}).collection || {}, items = col.items || {}; let a = null;
+  Object.keys(items).forEach(f => { const it = items[f]; if (String(it.p) !== String(id)) return; const e = cardEd(col, f), t = (e && e.tier) || momentTier(col, f); if (e && e.ask && X.rule.ok(it.s, t, e) && (a == null || e.ask < a)) a = e.ask; });
+  X.askMemo.set(id, a); return a;
+}
+// Mudar o lineup (Pro), como no Classic: os 5 com × (tirar), os lugares livres com "Adicionar jogador"; tocar no nome
+// mostra a carta. Quem sai fica com "manter" até escolheres outro
+function proLuSheet(date) {
+  const X = proDay(date); if (!X) return; S.proLuOpen = date;
+  const T = proTeam(X, date), md = X.md, day = md.day, last = S.proOut && S.proOut.date === date ? S.proOut.id : null;
+  const kv = '<div class="kv lu-kv pro-lu-kv"><div><div class="label">Win</div><div class="v num c-' + tone(T.P) + '">' + pct(T.P) + '</div><div class="small muted">' + (T.edited ? 'suggestion ' + pct(X.final.P) : 'the suggestion') + '</div></div>' +
+    '<div><div class="label">To buy</div><div class="v num">' + (T.buy.length ? usdC(T.cost) : '—') + '</div><div class="small muted">' + (T.buy.length ? plural(T.buy.length, 'card', 'cartas') + (T.nSwap ? ' · with swaps ' + usdC(T.cost2) : '') : 'nothing') + '</div></div></div>';
+  const rows = T.ids.map(id => { const c = X.cand.get(id), p = X.mw.players[c.pi];
+    return '<li class="lu-row"><button class="lu-main" type="button" data-action="pro-slot" data-id="' + esc(id) + '" data-date="' + date + '">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(p.name) + '</span></span><span class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '</span><span class="ps">' + proSub(X, id) + '</span></span></button>' + pvHtml(objVals(md, c.pi, false)) +
+      '<button class="lu-ic" type="button" data-action="pro-out" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Remove ' + esc(p.name) + '" title="Remove">' + icoX + '</button></li>'; }).join('');
+  const gap = k => '<li class="lu-row lu-gap"><div class="gapb"><button class="gapb-go" type="button" data-action="pro-pick" data-out="" data-date="' + date + '"><span class="gapb-ic">' + icoPlus + '</span><span class="gapb-t"><b>Add player</b><span>' + (k === 0 && last ? 'out: ' + esc(nameOf(last)) : 'empty spot') + '</span></span></button>' +
+    (k === 0 && last ? '<button class="btn link small gapb-keep" type="button" data-action="pro-keep" data-id="' + esc(last) + '" data-date="' + date + '">keep</button>' : '') + '</div></li>';
+  const nFree = Math.max(0, X.size - T.ids.length);
+  openSheet('<h3>Lineup for day ' + (day.idx + 1) + '</h3><div class="small muted">Pro · ' + esc(dShort(date)) + ' · Only cards from <b>' + esc(X.rule.name) + '</b></div>' + kv +
+    '<ul class="list card lu-list">' + rows + Array.from({ length: nFree }, (_, k) => gap(k)).join('') + '</ul>' +
+    (T.away.length ? '<div class="note pro-away">Send to the main account: ' + T.away.map(id => '<b>' + esc(lastName(id)) + '</b> (' + esc([...X.cand.get(id).own.accs].map(accLabel).join(', ')) + ')').join(', ') + '.</div>' : '') +
+    '<div class="btns">' + (T.edited ? '<button class="btn quiet" type="button" data-action="pro-reset" data-date="' + date + '">Back to the suggestion</button>' : '') + '<button class="btn primary" type="button" data-action="close-sheet">Done</button></div>');
+}
+// dia do Pro já fechado (ou a decorrer): a equipa que escolheste no site, sem mudanças
+function proPastCard(date) {
+  const ids = (S.proLu || {})[date];
+  return '<div class="card"><div class="list-head"><h2>Team</h2><span class="small muted">day closed</span></div>' +
+    (Array.isArray(ids) && ids.length ? '<ul class="list">' + ids.map(id => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + esc(pTeam(id) || '') + '</small></span></li>').join('') + '</ul><div class="pad small muted">The team you picked on the site. The result is on Top Shot.</div>'
+      : '<div class="pad small muted">You did not pick a team on the site for this day. The result is on Top Shot.</div>') + '</div>';
+}
 // a linha de baixo de um jogador: o que tens (e onde está) ou o que compras
 function proSub(X, id) {
   const c = X.cand.get(id); if (!c) return '';
-  if (c.own) { const accs = [...c.own.accs], set = [...c.own.sets][0] || ''; return 'you have · ' + esc(set) + (c.own.tier ? ' ' + esc(c.own.tier) : '') + (c.own.accs.has('main') ? '' : ' · <b class="c-warn">it is in ' + esc(accs.map(accLabel).join(', ')) + '</b>'); }
+  if (c.own) { const accs = [...c.own.accs], set = [...c.own.sets][0] || '', ask = proOwnAsk(X, id); return 'you have · ' + esc(set) + (c.own.tier ? ' ' + esc(c.own.tier) : '') + (ask ? ' · low&nbsp;ask <b class="num">' + usdC(ask) + '</b>' : '') + (c.own.accs.has('main') ? '' : ' · <b class="c-warn">it is in ' + esc(accs.map(accLabel).join(', ')) + '</b>'); }
   const sw = proSwapOf(id, c.pr);
-  return 'buy · ' + esc(proTierTxt(c.pr[1])) + ' ' + esc(c.pr[2] || '') + ' · <b class="num">' + usdC(c.pr[0]) + '</b>' + (sw ? ' · or swap your ' + esc(String(sw.it.s || '').split(' · ')[0]) + ': <b class="num">' + usdS(sw.diff) + '</b>' : '');
+  return 'buy · ' + esc(proTierTxt(c.pr[1])) + ' ' + esc(c.pr[2] || '') + ' · low&nbsp;ask <b class="num">' + usdC(c.pr[0]) + '</b>' + (sw ? ' · or swap your ' + esc(String(sw.it.s || '').split(' · ')[0]) + ': <b class="num">' + usdS(sw.diff) + '</b>' : '');
 }
 function proTeamCard(X, date) {
   const T = proTeam(X, date), md = X.md, day = md.day;
@@ -1987,7 +2019,7 @@ function proTeamCard(X, date) {
   const kv = [['Win', '<b class="num">' + pct(T.P) + '</b>', T.buy.length ? 'with the buys' : 'with what you have'],
     ['To buy', T.buy.length ? '<b class="num">' + usdC(T.cost) + '</b>' : '<b>nothing</b>', T.buy.length ? plural(T.buy.length, 'card', 'cartas') + (T.nSwap ? ' · with swaps ' + usdC(T.cost2) : '') : ''],
     ['To send', T.away.length ? '<b class="num c-warn">' + T.away.length + '</b>' : '<b>nothing</b>', T.away.length ? (T.away.length === 1 ? 'in another account' : 'in other accounts') : '']];
-  return '<div class="card"><div class="list-head"><h2>Team</h2>' + (T.edited ? '<button class="btn small quiet" type="button" data-action="pro-reset" data-date="' + date + '">Back to the suggestion</button>' : '<span class="small muted">suggestion</span>') + '</div>' +
+  return '<div class="card"><div class="list-head"><h2>Team <small class="muted pro-src">· ' + (T.edited ? 'your pick' : 'suggestion') + '</small></h2><button class="btn small" type="button" data-action="pro-lu" data-date="' + date + '">Change</button></div>' +
     '<div class="kv pro-kv3">' + kv.map(([k, v, c]) => '<div><span class="small muted">' + k + '</span>' + v + (c ? '<small>' + c + '</small>' : '') + '</div>').join('') + '</div>' +
     '<ul class="list">' + T.ids.map(row).join('') + free(Math.max(0, X.size - T.ids.length)) + '</ul>' +
     (T.away.length ? '<div class="note pro-away">Only the main account plays Pro. Send to the main one: ' + T.away.map(id => '<b>' + esc(lastName(id)) + '</b> (' + esc([...X.cand.get(id).own.accs].map(accLabel).join(', ')) + ')').join(', ') + '.</div>' : '') +
@@ -2007,7 +2039,7 @@ function proPickSheet(date, out) {
     '<div class="seg pro-pick-seg" role="group" aria-label="Show"><button type="button" data-action="pro-pick-f" data-v="all" data-date="' + date + '" data-out="' + esc(out) + '" aria-pressed="' + !only + '">All</button><button type="button" data-action="pro-pick-f" data-v="own" data-date="' + date + '" data-out="' + esc(out) + '" aria-pressed="' + only + '">Only yours</button></div>' +
     (rows ? '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player"></div><ul class="list card" id="luCand">' + rows + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>'
       : '<div class="note info">' + (only ? 'You have no other card that counts on this day.' : 'Nobody else with a card that counts and a price read on this day.') + '</div>') +
-    (out ? '<button class="btn quiet" type="button" data-action="pro-fill" data-date="' + date + '" data-out="' + esc(out) + '" data-id="">Remove ' + esc(lastName(out)) + ' and leave the spot empty</button>' : ''));
+    (out ? '<button class="btn quiet" type="button" data-action="pro-fill" data-date="' + date + '" data-out="' + esc(out) + '" data-id="">Remove ' + esc(lastName(out)) + ' and leave the spot empty</button>' : ''), S.proLuOpen === date ? () => proLuSheet(date) : null);
 }
 // uma carta tua no Pro: raridade, set, n.º e conta, e o low ask da edição (sem o ASP: no Pro não interessa)
 function proCardLi(c) {
@@ -2032,20 +2064,21 @@ function proSlotSheet(date, id) {
   openSheet('<h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + esc(X.mw.players[c.pi].team) + ' ' + esc(opp(X.mw.players[c.pi].team, X.md.day)) + ' · Only cards from <b>' + esc(X.rule.name) + '</b></div>' +
     (mine.length ? '<div class="card"><div class="list-head"><h2>' + (mine.length > 1 ? 'Yours that count' : 'Yours that counts') + '</h2></div><ul class="list">' + mine.map(proCardLi).join('') + '</ul></div>' : '') + away + buy + swHtml +
     '<div class="small muted">Low ask = the cheapest on sale of that edition' + (X.P ? ' (read ' + esc(ago(X.P.at)) + ')' : '') + '. Check on Top Shot before buying.</div>' +
-    '<div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Close</button><button class="btn primary" type="button" data-action="pro-pick" data-date="' + date + '" data-out="' + esc(id) + '">Swap</button></div>');
+    '<div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Close</button><button class="btn primary" type="button" data-action="pro-pick" data-date="' + date + '" data-out="' + esc(id) + '">Swap</button></div>', S.proLuOpen === date ? () => proLuSheet(date) : null);
 }
 function proFill(date, out, id) {
   const X = proDay(date); if (!X) return;
   const ids = proTeam(X, date).ids.filter(x => x !== out); if (id) ids.push(id);
-  S.proLu[date] = ids.slice(0, X.size); proLuSave(); closeSheet(); renderHoje();
+  S.proLu[date] = ids.slice(0, X.size); proLuSave(); if (S.proOut && S.proOut.date === date && id) S.proOut = null;
+  renderHoje(); if (S.proLuOpen === date) proLuSheet(date); else closeSheet();
 }
 function renderPro(el) {
   const fams = proOwned(), multi = accounts().length > 1, hasCol = !!(((S.profile || {}).collection || {}).items);
-  const today = todayET(), days = S.days.map((d, i) => ({ d, i })).filter(x => x.d.date >= today);
-  if (!days.some(x => x.d.date === S.proDay)) S.proDay = days.length ? days[0].d.date : null;
+  const today = todayET(), days = S.days.map((d, i) => ({ d, i })); // a run toda: os dias passados também se veem
+  if (!days.some(x => x.d.date === S.proDay)) { const nx = days.find(x => x.d.date >= today); S.proDay = nx ? nx.d.date : days.length ? days[days.length - 1].d.date : null; }
   const PR = groupProRun();
   const intro = PR ? '' : '<div class="note info">Pro rehearsal on the Classic run: each day gets a made-up rule (Metallic Gold LE, Holo Icon, debuts, in turn). The real rules come from Top Shot in Settings → Admin → Run & prizes.</div>';
-  const strip = days.length ? '<div class="day-strip" role="group" aria-label="Trial days">' + days.map(({ d, i }) => '<button type="button" class="ds" data-action="pro-day" data-date="' + d.date + '" aria-pressed="' + (d.date === S.proDay) + '"><b class="num">' + (i + 1) + '</b><small>' + dWeek(d.date) + '</small><span class="ds-v">' + esc(proRule(i).short) + '</span></button>').join('') + '</div>' : '';
+  const strip = days.length ? '<div class="day-strip" role="group" aria-label="Pro days">' + days.map(({ d, i }) => '<button type="button" class="ds' + (d.date < today ? ' past' : d.date === today ? ' now' : '') + '" data-action="pro-day" data-date="' + d.date + '" aria-pressed="' + (d.date === S.proDay) + '"><b class="num">' + (i + 1) + '</b><small>' + dWeek(d.date) + '</small><span class="ds-v">' + esc(proRule(i).short) + '</span></button>').join('') + '</div>' : '';
   let dayHtml = '';
   if (S.proDay) {
     const X = S.result ? proDay(S.proDay) : null, P = groupPro(), dn = S.days.findIndex(d => d.date === S.proDay) + 1, rule = proRule(dn - 1);
@@ -2053,7 +2086,9 @@ function renderPro(el) {
     const li = (id, right, sub) => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + sub + '</small></span>' + right + '</li>';
     const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">' + (rule.real ? 'Pro' : 'Pro (rehearsal)') + ' · Day ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Only cards from <b>' + esc(rule.name) + '</b>' + (rule.badges && !edHasBadges() ? ' · to know which cards have the badge, the admin reads the Cards (ASP) again on Top Shot' : '') + '</div>' +
       (X ? '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">With what you have</span><span class="gb-n">' + pct(X.base.P) + '</span><span class="gb-t">' + plural(X.base.ids.length, 'eligible card', 'eligible cards') + ' playing</span></div></div>' + ((T => winRing(T.P, tone(T.P), pct(T.P), 'team'))(proTeam(X, S.proDay))) + '</div>' : '') + '</div>';
-    if (!X) dayHtml = head + '<div class="note">Still working out the plan…</div>';
+    const closed = S.proDay < today || !!(pdo && pdo.locks && Date.now() >= Date.parse(pdo.locks));
+    if (closed) dayHtml = head + proPastCard(S.proDay);
+    else if (!X) dayHtml = head + '<div class="note">Still working out the plan…</div>';
     else {
       let buyCard;
       if (!P) buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2></div><div class="pad small muted">Prices missing: ' + (S.role === 'admin' ? '<button class="btn small" type="button" data-action="ranks-go" data-do="pro">Read Pro prices</button>' : 'the admin reads them in Settings → Admin → Read on Top Shot → Pro prices.') + '</div></div>';
@@ -2067,7 +2102,7 @@ function renderPro(el) {
         const sumTxt = reach ? 'With <b>' + plural(reach.k, 'card', 'cartas') + ' (' + usdC(reach.tot) + ')</b> you go from ' + pct(X.base.P) + ' to over 50%.' : 'With these ' + plural(X.steps.length, 'card', 'cartas') + ' (' + usdC(tot) + ') you reach ' + pct(X.final.P) + '.';
         buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2><span class="small muted">prices from ' + esc(ago(P.at)) + '</span></div><div class="pad small">' + sumTxt + '</div><ul class="list">' + rows + '</ul></div>';
       }
-      dayHtml = head + proTeamCard(X, S.proDay) + (P ? '' : buyCard);
+      dayHtml = head.replace(/<\/div>$/, '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="pro-lu" data-date="' + S.proDay + '">Change lineup</button></div></div>') + proTeamCard(X, S.proDay) + (P ? '' : buyCard);
     }
   }
   const famCard = x => {
@@ -6626,11 +6661,14 @@ document.addEventListener('click', async e => {
     case 'h-acc': S.hacc = +b.dataset.i || 0; renderHoje(); break;
     case 'pro-day': S.proDay = date; S.hdCenter = true; renderHoje(); break;
     case 'pro-card': proCardSheet(date, b.dataset.i); break;
-    case 'pro-pick': proPickSheet(date, b.dataset.out || ''); break;
-    case 'pro-slot': proSlotSheet(date, id); break;
+    case 'pro-pick': if (!(b.closest && b.closest('#sheetPanel'))) S.proLuOpen = null; proPickSheet(date, b.dataset.out || ''); break;
+    case 'pro-slot': if (!$('proLuKv') && !(b.closest && b.closest('#sheetPanel'))) S.proLuOpen = null; proSlotSheet(date, id); break;
+    case 'pro-lu': proLuSheet(date); break;
+    case 'pro-out': { const X = proDay(date); if (X) { S.proLu[date] = proTeam(X, date).ids.filter(x => x !== id); proLuSave(); S.proOut = { date, id }; renderHoje(); proLuSheet(date); } break; }
+    case 'pro-keep': { const X = proDay(date); if (X) { const ids = proTeam(X, date).ids; if (!ids.includes(id)) ids.push(id); S.proLu[date] = ids.slice(0, X.size); proLuSave(); S.proOut = null; renderHoje(); proLuSheet(date); } break; }
     case 'pro-pick-f': S.proPickOwn = b.dataset.v === 'own'; proPickSheet(date, b.dataset.out || ''); break;
     case 'pro-fill': proFill(date, b.dataset.out || '', id); break;
-    case 'pro-reset': delete S.proLu[date]; proLuSave(); renderHoje(); toast('Back to the suggestion.'); break;
+    case 'pro-reset': delete S.proLu[date]; proLuSave(); S.proOut = null; renderHoje(); if (S.proLuOpen === date && $('sheetPanel') && $('sheet').classList.contains('open')) proLuSheet(date); toast('Back to the suggestion.'); break;
     case 'h-fix': if (b.dataset.close) closeSheet(); hFix(b.dataset.day, id); break;
     case 'h-ban': if (b.dataset.close) closeSheet(); hBan(b.dataset.day, id); break;
     case 'h-reset': S.hsel[b.dataset.day] = { fix: [], ban: [] }; hSave(); renderHoje(); break;

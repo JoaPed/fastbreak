@@ -1139,6 +1139,9 @@ p, .note { text-wrap: pretty; }
 .pro-pick-p { display: grid; justify-items: end; gap: 1px; } .pro-pick-p b { font-family: var(--font-display); font-weight: 800; font-size: 18px; } .pro-pick-p small { font-size: 12px; }
 .pro-pick-seg { margin: 12px 0 0; }
 .pro-away { margin: 0 16px 12px; }
+.pro-src { font-family: var(--font-body, inherit); font-weight: 500; font-size: 13px; }
+.ds.past { opacity: .62; } .ds.past[aria-pressed="true"] { opacity: 1; }
+.pro-lu-kv { margin: 14px 0 4px; }
 .pro-kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; } .pro-kv b { text-align: right; }
 .todo-grp { padding-top: 12px; padding-bottom: 2px; color: var(--muted); font-weight: 600; } .todo-grp b { color: var(--ink); }
 .todo-at { color: var(--muted); font-size: 13px; margin-right: 4px; white-space: nowrap; }
