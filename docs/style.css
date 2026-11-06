@@ -1245,3 +1245,9 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .och-p small { font-size: 12px; color: var(--muted); }
 .och-p small.up { color: var(--good); }
 .och-p small.down { color: var(--bad); }
+.sell-fbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 16px 8px; }
+.sell-fs { margin-top: 12px; padding-top: 4px; padding-bottom: 4px; }
+.sf-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.sf-row:last-child { border-bottom: 0; }
+.sf-row > span { display: flex; flex-direction: column; gap: 2px; }
+.sf-row input { flex: none; width: 22px; height: 22px; accent-color: var(--ink); }

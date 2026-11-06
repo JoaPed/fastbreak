@@ -1482,6 +1482,39 @@ with sync_playwright() as pw:
     print('O9 jogar para:', rows9, on9, a1, gl, g9.get('goal'), ((g9.get('smurfs') or {}).get('s1') or {}).get('goal'),
           '· ok' if rows9 == ['Principal Prémios da run Classificação 5V 9V 11V', 'terose Prémios da run Classificação 5V 9V 11V'] and on9 == ['5V', 'Classificação'] and a1 == 1 and '5 vitórias' in gl and g9.get('goal') == 5 and g9['smurfs']['s1']['goal'] == 'max' else '· ERRO')
     pg.close()
+    # O10: Vender → Poupar com filtros: por defeito só a mesma raridade ou acima e usos pelo ASP com folga; "Raridade
+    # mais baixa" deixa trocar um Rare por um Common que dê os mesmos usos (pelo ASP com folga); "Subir de raridade"
+    # mostra trocas para uma raridade acima sem pagar mais
+    pA, pB = list(roster['players'])[0], list(roster['players'])[1]
+    d10 = seeded(); T10 = d10['tables']; T10['runs'][0]['fictitious'] = False
+    T10['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    col10 = {'sets': {}, 'items': {'f1': {'p': pA, 's': 'Throwdowns', 'a': 'main', 'n': 529, 'm': 99}, 'f2': {'p': pB, 's': 'Base Set', 'a': 'main', 'n': 61, 'm': 9999}}, 'players': {}, 'accounts': {'main': {'moments': 2}}, 'read_at': '2026-10-19T10:00:00Z'}
+    T10['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col10})
+    T10['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T10['chain_results'] = []; T10['injuries'] = []
+    ed10 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'RARE', 800, None, None, None, None, None, 1200]], pB: [['Base Set', '', 'COMMON', 200, None, None, None, None, None, 300]]},
+            'mk': {pA: [[2, 500, 'RARE', 3000, 'Metallic Gold LE', ''], [2, 150, 'COMMON', 1200, 'Hustle', ''], [2, 100, 'COMMON', 2500, 'Clamps', '']], pB: [[4, 250, 'LEGENDARY', 4000, 'Holo Icon', '']]}}
+    pg = new_page(b, d10)
+    pg.add_init_script("try { localStorage.setItem('fb-ed', " + json.dumps(json.dumps(ed10)) + "); localStorage.removeItem('fb-sellf'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-plantel'); pg.wait_for_timeout(400); pg.click('#tab-plantel button[data-action="sub"][data-sub="vender"]'); pg.wait_for_timeout(600)
+    pg.click('#tab-plantel button[data-action="sell-tab"][data-v="poupar"]'); pg.wait_for_timeout(500)
+    rd = lambda: [' '.join(t.split()) for t in pg.locator('#sellList .sell-row').all_inner_texts()]
+    r0 = rd()
+    f0 = pg.locator('#tab-plantel .sell-fbar').inner_text()
+    pg.click('#tab-plantel button[data-action="sell-fsheet"]'); pg.wait_for_timeout(400)
+    pg.locator('#sheetPanel').screenshot(path=str(shots / 'vender-filtros-folha.png'))
+    pg.click('#sheetPanel input[data-sellf="down"]'); pg.wait_for_timeout(400); r1 = rd()
+    pg.click('#sheetPanel input[data-sellf="up"]'); pg.wait_for_timeout(400); r2 = rd()
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300); f2 = pg.locator('#tab-plantel .sell-fbar').inner_text()
+    pg.locator('#tab-plantel .card').first.screenshot(path=str(shots / 'vender-filtros.png'))
+    nA, nB = roster['players'][pA]['name'], roster['players'][pB]['name']
+    ok10 = 'Mesma raridade ou acima' in f0 and 'com subidas' in f2 and len(r0) == 1 and '$5' in r0[0] and len(r1) == 1 and 'Common' in r1[0] and '$1' in r1[0] and len(r2) == 2 and any('Sobe para Legendary' in x for x in r2)
+    print('O10 vender com filtros:', r0, '|', r1, '|', r2, '· ok' if ok10 else '· ERRO')
+    pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
     dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']

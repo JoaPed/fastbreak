@@ -4948,6 +4948,19 @@ function safeUses(m, need) {
   return +m[3] > 0 && +m[3] >= 2 * lo;
 }
 const worthSaving = (save, ask) => save >= 300 && save >= 0.25 * ask * (1 - SELL_FEE);
+// filtros do Poupar (combinam-se): raridade mais baixa (desligado: só a mesma raridade ou acima), usos pelo ASP
+// (ligado: conta com o ASP, com folga; desligado: só pelo escalão) e subir de raridade sem pagar mais (os mesmos
+// usos ou mais, numa raridade acima, por igual ou menos)
+function sellF() { if (!S.sellF) { let o = null; try { o = JSON.parse(localStorage.getItem('fb-sellf') || 'null'); } catch (e) {} S.sellF = Object.assign({ down: false, asp: true, up: false }, o || {}); } return S.sellF; }
+const tierRankOf = t => TIER_RANK[TS_TIER(t) || t] || 1;
+// o que os filtros deixam passar, numa linha (por cima da lista)
+function sellFTxt() { const F = sellF(); return (F.down ? 'Any rarity' : 'Same rarity or higher') + ' · ' + (F.asp ? 'uses from ASP, with margin' : 'uses from rarity only') + (F.up ? ' · with rarity upgrades' : ''); }
+const SELL_FS = [['down', 'Allow lower rarity', 'A Common instead of a Rare, if it gives the same uses.'], ['asp', 'Count uses from ASP', 'With margin: ASP at twice the band minimum (ASP can drop).'], ['up', 'Show rarity upgrades', 'One rarity up, same uses, for the same price or less.']];
+function sellFSheet() {
+  const F = sellF();
+  openSheet('<h3>Filters</h3><div class="small muted">For the swaps in Sell → Save. They combine and are kept.</div><div class="card panel sell-fs">' +
+    SELL_FS.map(([k, l, d]) => '<label class="sf-row"><span><b>' + l + '</b><span class="small muted">' + d + '</span></span><input type="checkbox" data-sellf="' + k + '"' + (F[k] ? ' checked' : '') + '></label>').join('') + '</div>');
+}
 const nContas = n => n + (n === 1 ? ' account' : ' accounts');
 S.sellTab = (() => { try { return localStorage.getItem('fb-sell-tab') || 'naousadas'; } catch (e) { return 'naousadas'; } })();
 function mkOf(id) {
@@ -5019,10 +5032,14 @@ function sellSwaps(ps) {
       const [cb, ...cs] = String(c.it.s || '').split(' · '), same = m => (c.it.si != null && m[6] != null ? +m[6] === +c.it.si && +m[7] === +c.it.pi : setBaseN(m[4]) === setBaseN(cb) && (isStd(m[5]) ? !cs.length : norm(m[5]) === norm(cs.join(' · '))));
       // qualquer raridade e qualquer set, desde que dê pelo menos os mesmos usos: uma Fandom que dá 3 usos pelo ASP
       // (All-Star) só se troca por outra carta que também dê 3, nunca por uma que dê menos
-      const pool = mk.list.filter(m => !same(m) && m[0] >= c.u && safeUses(m, c.u)).sort((a, b) => a[1] - b[1]);
-      const alt = pool[0];
-      if (!alt) return; const save = c.ask * (1 - SELL_FEE) - alt[1];
-      if (worthSaving(save, c.ask)) out.push({ P, c, alt, save, less: alt[0] < c.u });
+      const F = sellF(), mine = tierRankOf(c.t);
+      const usesOk = m => m[0] >= c.u && (F.asp ? safeUses(m, c.u) : (TIER_USES[TS_TIER(m[2])] || 1) >= c.u);
+      const pool = mk.list.filter(m => !same(m) && usesOk(m) && (F.down || tierRankOf(m[2]) >= mine)).sort((a, b) => a[1] - b[1]);
+      const alt = pool[0], save = alt ? c.ask * (1 - SELL_FEE) - alt[1] : 0;
+      if (alt && worthSaving(save, c.ask)) { out.push({ P, c, alt, save, less: alt[0] < c.u }); return; }
+      // subir de raridade sem pagar mais: a mais barata de uma raridade acima que dê os mesmos usos, por igual ou menos
+      if (F.up) { const upA = mk.list.filter(m => !same(m) && usesOk(m) && tierRankOf(m[2]) > mine).sort((a, b) => a[1] - b[1])[0], sv = upA ? c.ask * (1 - SELL_FEE) - upA[1] : -1;
+        if (upA && sv >= 0) out.push({ P, c, alt: upA, save: sv, up: true }); }
     }); });
   return out.sort((a, b) => b.save - a.save);
 }
@@ -5067,11 +5084,12 @@ function sellHtml() {
   if (tab === 'naousadas') { list = unused.map(P => prow(P, idleTxt(P))).join(''); empty = S.result ? 'All your players are used this run.' : 'No plan calculated.'; }
   if (tab === 'repetidas') { list = reps.map(P => prow(P, esc(useTxt(P.use)) + ' · ' + plural(P.nExtra, 'extra card', 'extra cards'), true)).join(''); empty = 'No player with more cards than the plan uses.'; }
   if (tab === 'raras') { list = downs.map((x, i) => srow(x, i, 'sell-down', esc(useTxt(x.P.use)) + ' · enough: ' + (x.need === 1 ? 'a Common' : 'one with ' + usesTxt(x.need)) + ' for <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'No card with more uses than the plan needs that’s worth swapping.' : 'Market prices are missing.'; }
-  if (tab === 'poupar') { list = swaps.map((x, i) => srow(x, i, 'sell-swap', 'Sell for <b class="num">' + usd(x.c.ask / 100) + '</b> · buy ' + (TS_TIER(x.alt[2]) && TS_TIER(x.alt[2]) !== x.c.t ? 'a ' + esc(TS_TIER(x.alt[2])) + ' ' : '') + 'for <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'No swap that saves at least $1.' : 'Market prices are missing.'; }
+  if (tab === 'poupar') { list = swaps.map((x, i) => srow(x, i, 'sell-swap', (x.up ? '<b class="c-good">Up to ' + esc(TS_TIER(x.alt[2])) + '</b> · ' : '') + 'Sell for <b class="num">' + usd(x.c.ask / 100) + '</b> · buy ' + (!x.up && TS_TIER(x.alt[2]) && TS_TIER(x.alt[2]) !== x.c.t ? 'a ' + esc(TS_TIER(x.alt[2])) + ' ' : '') + 'for <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'No swap that saves at least $1.' : 'Market prices are missing.'; }
   const ed = S.edMine && S.edMine.at ? S.edMine.at : null;
   return '<div class="card"><div class="list-head"><h2>Sell ' + helpBtn('vender') + '</h2><span class="small muted">prices ' + (ed ? ago(ed) : 'not read yet') + '</span></div>' +
     '<div class="lu-search"><input class="field" id="sellSearch" type="search" placeholder="Player, team or rarity…" autocomplete="off" aria-label="Search player, team or rarity" value="' + esc(S.sellQ || '') + '"></div>' +
     '<div class="chips scroll" role="group" aria-label="List" style="padding:0 16px 8px">' + tabs.map(([v, l, n]) => '<button type="button" data-action="sell-tab" data-v="' + v + '" aria-pressed="' + (tab === v) + '">' + l + ' <span class="muted">' + n + '</span></button>').join('') + '</div>' +
+    (tab === 'poupar' ? '<div class="row small sell-fbar"><span class="muted">' + sellFTxt() + '</span><button class="btn small" type="button" data-action="sell-fsheet">Filters</button></div>' : '') +
     (!hasPx ? '<div class="note info" style="margin:0 16px 10px">' + (S.edPending ? 'There’s a card reading waiting to be applied: Settings → Admin → <b>See what changes</b> → <b>Apply</b>.' : 'Card prices are missing: ' + (S.role === 'admin' ? 'read them in Settings → Admin → <b>Cards (ASP)</b>.' : 'ask the group admin to read the <b>Cards (ASP)</b>.')) +
       (S.edMine && S.edMine.at ? '<div class="small" style="margin-top:6px">Last reading ' + ago(S.edMine.at) + ': ' + (S.edMine.nAsk != null ? S.edMine.nAsk + ' editions with a price' : 'no prices (old script: reinstall it or use the bookmark)') + (S.edMine.askKeys ? ' · fields: ' + esc(S.edMine.askKeys.join(', ')) : '') + '</div>' : '') + '</div>' : '') +
     (list ? '<ul class="list" id="sellList">' + list + '<li class="row small muted sell-none" hidden>No one with that name, team or rarity.</li></ul>' : '<div class="row small muted">' + empty + '</div>') + '</div>';
@@ -6618,6 +6636,7 @@ document.addEventListener('click', async e => {
     case 'sell-player': sellPlayerSheet(id); break;
     case 'sell-swap': sellSwapSheet(+b.dataset.i); break;
     case 'sell-down': sellSwapSheet(+b.dataset.i, true); break;
+    case 'sell-fsheet': sellFSheet(); break;
     case 'sell-tab': S.sellTab = b.dataset.v; try { localStorage.setItem('fb-sell-tab', S.sellTab); } catch (e) {} render(); sellFilter(); break;
     case 'day-lus': dayLineupsSheet(date, b.dataset.run); break;
     case 'gc-mode': S.gcMode = b.dataset.v; renderGrupo(); break;
@@ -6741,6 +6760,7 @@ document.addEventListener('change', async e => {
   if (t.dataset && t.dataset.moTier) { await momentTierChange(t.dataset.moTier, t.value); return; }
   if (t.id === 'jmode') { S.jmode = t.value; try { localStorage.setItem('fb-jmode', t.value); } catch (e2) {} t.blur(); S.hdCenter = true; renderHeader(); renderHoje(); return; }
   if (t.id === 'gcRunSel') { S.gcRun = t.value; renderGrupo(); return; }
+  if (t.dataset && t.dataset.sellf) { const F = sellF(); F[t.dataset.sellf] = !!t.checked; try { localStorage.setItem('fb-sellf', JSON.stringify(F)); } catch (e) {} render(); sellFilter(); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
   if (t.id === 'chainPick') { const run = curRun(); if (await adminWrite(sb.from('runs').update({ chain_run_id: t.value || null }).eq('id', run.id), t.value ? 'Run linked to the blockchain.' : 'Link removed.')) { run.chain_run_id = t.value || null; await loadGroup(); schedule(); } return; }
   if (a === 'obj-stat') setObjective(+t.dataset.i, t.value, null, +t.dataset.k || 0);
