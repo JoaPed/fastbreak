@@ -5023,7 +5023,10 @@ function sellPlayers() {
       });
     } else if (!use) cards.slice(0, N).forEach(c => { c.keep = true; });
     const tc = {}; cards.forEach(c => { tc[c.t] = (tc[c.t] || 0) + 1; });
-    const extra = cards.filter(c => !c.keep);
+    // repetida = há outra carta tua dele com os mesmos usos (a que fica, ou a mais barata do grupo); um Rare e um
+    // Common não são repetidas (pedido do João)
+    cards.forEach((c, i) => { c.dup = !c.keep && cards.some((y, j) => j !== i && y.u === c.u && (y.keep || (!y.dup && j < i))); });
+    const extra = cards.filter(c => c.dup);
     return { id, cards, tc, N, use, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: extra.reduce((t, c) => t + (c.ask || 0), 0), nExtra: extra.length, team: pTeam(id) || '' };
   });
 }
@@ -5120,8 +5123,8 @@ function sellPlayerSheet(id) {
   const rep = P.cards.length > 1;
   openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class="small muted">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + ' · ' + esc(useTxt(P.use)) + '</div>' +
     (P.use && !P.use.total ? '<div class="note info">None of your accounts used him or uses him for the rest of the run' + (P.idle > 1 ? ', and you also didn’t use him in ' + plural(P.idle - 1, 'another run', 'other runs') : '') + '.</div>' : '') +
-    (rep && P.use && P.use.total ? '<div class="small muted">Each account that uses him n times needs a card with at least n uses, and each card plays for one account per night. For what the plan uses, the ones marked "keep" are enough (the cheapest that do); you can sell the others.</div>' : '') +
-    '<div class="card"><ul class="list">' + P.cards.map(c => sellCardLi(c, rep ? (c.keep ? 'keep' : 'extra') : '')).join('') + '</ul></div>' +
+    (rep && P.use && P.use.total ? '<div class="small muted">Each account that uses him n times needs a card with at least n uses, and each card plays for one account per night. For what the plan uses, the ones marked "keep" are enough (the cheapest that do). The "extra" ones give the same uses as another of yours: you can sell them.</div>' : '') +
+    '<div class="card"><ul class="list">' + P.cards.map(c => sellCardLi(c, rep && P.use && P.use.total ? (c.keep ? 'keep' : c.dup ? 'extra' : '') : '')).join('') + '</ul></div>' +
     '<div class="small muted">Low ask = the cheapest listing of that edition right now. You get = low ask − Top Shot’s 5%; to sell faster, list a bit below.</div>');
 }
 function sellSwapSheet(i, down) {

@@ -1526,6 +1526,32 @@ with sync_playwright() as pw:
     ok10 = 'Mesma raridade ou acima' in f0 and 'com subidas' in f2 and len(r0) == 1 and '$5' in r0[0] and len(r1) == 1 and 'Common' in r1[0] and '$1' in r1[0] and len(r2) == 2 and any('Sobe para Legendary' in x for x in r2)
     print('O10 vender com filtros:', r0, '|', r1, '|', r2, '· ok' if ok10 else '· ERRO')
     pg.close()
+
+    # O12: Vender → Repetidas só junta cartas com os mesmos usos: Rare + 2 Commons → 1 Common a mais; Rare + Common → nenhuma
+    d12 = seeded(); T12 = d12['tables']; T12['runs'][0]['fictitious'] = False
+    T12['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    col12 = {'sets': {}, 'items': {'f1': {'p': pA, 's': 'Throwdowns', 'a': 'main', 'n': 529, 'm': 99}, 'f2': {'p': pA, 's': 'Base Set', 'a': 'main', 'n': 61, 'm': 9999}, 'f3': {'p': pA, 's': 'Base Set', 'a': 'main', 'n': 62, 'm': 9999},
+                                     'f4': {'p': pB, 's': 'Throwdowns', 'a': 'main', 'n': 12, 'm': 99}, 'f5': {'p': pB, 's': 'Base Set', 'a': 'main', 'n': 7, 'm': 9999}}, 'players': {}, 'accounts': {'main': {'moments': 5}}, 'read_at': '2026-10-19T10:00:00Z'}
+    T12['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col12})
+    T12['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {'played': {run['days'][0]['date']: {'done': True, 'result': 'win', 'lineup': [pA, pB]}}}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T12['chain_results'] = []; T12['injuries'] = []
+    ed12 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1200, []], ['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300, []]],
+            pB: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1500, []], ['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 250, []]]}}
+    pg = new_page(b, d12)
+    pg.add_init_script("try { localStorage.setItem('fb-ed', " + json.dumps(json.dumps(ed12)) + "); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-21T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-plantel'); pg.wait_for_timeout(400); pg.click('#tab-plantel button[data-action="sub"][data-sub="vender"]'); pg.wait_for_timeout(600)
+    pg.click('#tab-plantel button[data-action="sell-tab"][data-v="repetidas"]'); pg.wait_for_timeout(500)
+    r12 = [' '.join(t.split()) for t in pg.locator('#sellList .sell-row').all_inner_texts()]
+    sh12 = ''; tg12 = []
+    if r12: pg.locator('#sellList .sell-row').first.click(); pg.wait_for_timeout(400); sh12 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); tg12 = pg.locator('#sheetPanel .sell-card .badge').all_inner_texts()
+    nA12, nB12 = roster['players'][pA]['name'], roster['players'][pB]['name']
+    ok12 = len(r12) == 1 and nA12 in r12[0] and '1 carta a mais' in r12[0] and nB12 not in ' '.join(r12) and tg12 == ['fica', 'a mais']
+    print('O12 repetidas só com os mesmos usos:', r12, '|', tg12, '· ok' if ok12 else '· ERRO')
+    pg.close()
     # O11: na Jornada, a ficha de um jogador do lineup tem "Cartas": as cartas que tens dele, em que noites cada conta o
     # usa e "Ver se compensa um 2.º Moment"
     d11 = seeded(); T11 = d11['tables']; T11['runs'][0]['fictitious'] = False
