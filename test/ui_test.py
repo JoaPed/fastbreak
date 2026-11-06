@@ -1559,6 +1559,30 @@ with sync_playwright() as pw:
     ok14 = 'Classificação do Pro' in g14 and '150.º' in g14 and '$10' in g14 and '40.º' in g14 and '+$5' in g14 and '300.º' in g14 and 'só as contas principais' in g14
     print('O14 classificação do Pro:', g14[:300], '· ok' if ok14 else '· ERRO')
     pg.close()
+    # O15: com 5 cadeados no lineup e mais um de quem não joga nesse dia (o caso do Anthony Davis), trocar um continua a dar:
+    # o cadeado de quem não joga não conta para os 5 e sai
+    d0 = run['days'][0]['date']; teams15 = set(t for g in run['days'][0]['games'] for t in g[:2])
+    ros15 = list(roster['players'])[:16]; on15 = [p for p in ros15 if roster['players'][p].get('team') in teams15]; off15 = [p for p in ros15 if roster['players'][p].get('team') not in teams15]
+    d15 = seeded(); T15 = d15['tables']; T15['runs'][0]['fictitious'] = False
+    T15['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T15['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    T15['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in ros15}, 'plan': {'locks': {d0: on15[:5] + off15[:1]}}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T15['chain_results'] = []; T15['injuries'] = []
+    pg = new_page(b, d15)
+    pg.clock.set_fixed_time('2026-10-20T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    lu_idle = "() => { const b = document.getElementById('luBody'); return b && !b.classList.contains('busy') && !document.getElementById('luProg'); }"
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(300)
+    gone15 = pg.locator('#luBody .lu-row button[data-action="lu-ban"]').first.get_attribute('data-id')
+    pg.locator('#luBody .lu-row button[data-action="lu-ban"]').first.click(); pg.wait_for_timeout(400)
+    pg.click('#luBody button[data-action="lu-pick"]'); pg.wait_for_timeout(400)
+    who15 = pg.locator('#sheetPanel button[data-action="lu-fill"]:not([disabled])').first.get_attribute('data-id')
+    pg.locator('#sheetPanel button[data-action="lu-fill"]:not([disabled])').first.click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
+    lk15 = pg.evaluate('__FAKE_DB.tables.user_runs[0].plan.locks')[d0]
+    ok15 = who15 in lk15 and gone15 not in lk15 and off15[0] not in lk15 and len(lk15) == 5
+    print('O15 cadeado de quem não joga não bloqueia:', gone15, '→', who15, lk15, '· ok' if ok15 else '· ERRO')
+    pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False
     T8['members'].append({'user_id': 'u-eu', 'role': 'admin'}); T8['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})

@@ -6043,8 +6043,14 @@ function lockAll(date, on) {
     toast('Todos sem cadeado. O lineup fica igual.');
   }
 }
+// cadeados que contam num dia: sem os de quem não joga nesse dia (lesionado, sem jogo, já sem usos), que não ocupam
+// lugar no lineup e saem quando mexes nos cadeados (antes contavam para o limite de 5 e bloqueavam as trocas)
+function dayLocks(date) {
+  const bad = new Set((((dayInfo(date) || {}).md || {}).badLocks) || []);
+  return new Set((((curPlan().locks || {})[date]) || []).filter(id => !bad.has(id)));
+}
 function lockToggle(id, date, on) {
-  const cur = new Set(((curPlan().locks || {})[date]) || []);
+  const cur = dayLocks(date);
   if (on) {
     const lim = (S.days.find(d => d.date === date) || {}).numPlayers || 5;
     if (cur.size >= lim) { toast('Já tens ' + lim + ' jogadores fixados neste dia.'); return false; }
@@ -6247,7 +6253,7 @@ function luPickSheet(date, out) {
 // troca: sai quem estava no lugar livre (tirado do dia), entra o escolhido (fixado); a run é refeita e o Mudar mostra o efeito
 function luFill(date, out, pick) {
   const P = curPlan(), size = ((dayInfo(date).md) || {}).size || 5;
-  const locks = new Set(((P.locks || {})[date]) || []); locks.delete(out); locks.add(pick);
+  const locks = dayLocks(date); locks.delete(out); locks.add(pick);
   if (locks.size > size) { toast('Já tens ' + size + ' jogadores fixados neste dia: solta um primeiro.'); return; }
   const keep = keepWith(date, pick, out);
   // com o lineup mantido (keep) quem sai não fica "tirado": continua na lista para voltar a entrar com um toque

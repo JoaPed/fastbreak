@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-06
+- **João** — Mudar o lineup: o cadeado de quem não joga nesse dia (lesionado, sem jogo) já não conta para os 5 fixados nem bloqueia as trocas, e sai quando mexes nos cadeados.
 - **João** — Pro: "O que já tens para o dia N" mostra só as tuas cartas que contam nesse dia, com o low ask, a conta, a projeção e se servem (na sugestão, útil, pouco útil, sem jogo).
 - **João** — Pro: o placar do dia segue o teu lineup (quanto custa à esquerda e a vitória no anel). Botão "Sugestões" com três lineups (Barata, Equilibrada e A melhor), com a vitória e o custo total, e "Usar a …".
 - **João** — Classificação: separador Pro (só as contas principais), com o lugar na run e em cada dia e os créditos ganhos. O leitor (v33) lê-a com os lugares.
