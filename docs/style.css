@@ -1142,6 +1142,9 @@ p, .note { text-wrap: pretty; }
 .pro-src { font-family: var(--font-body, inherit); font-weight: 500; font-size: 13px; }
 .ds.past { opacity: .62; } .ds.past[aria-pressed="true"] { opacity: 1; }
 .pro-lu-kv { margin: 14px 0 4px; }
+.pro-off { opacity: .55; } .pro-own-n { padding-bottom: 4px; margin-top: -6px; }
+.pro-fit { white-space: nowrap; } .pro-fit.sug { background: color-mix(in srgb, var(--good) 18%, var(--surface)); color: var(--good); } .pro-fit.good { background: var(--surface-2); color: var(--ink); } .pro-fit.weak, .pro-fit.off { background: var(--surface-2); color: var(--muted); }
+.row.pro-row:has(.pro-fit) { grid-template-columns: auto minmax(0, 1fr) auto auto; }
 .pro-tiles { padding: 0; margin: 14px 0 0; } .pro-opt-c { font-size: 13px; font-weight: 700; color: var(--muted); }
 .pro-opt .btns { padding: 0 16px 14px; margin: 0; }
 .pro-kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; } .pro-kv b { text-align: right; }

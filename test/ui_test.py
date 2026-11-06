@@ -1513,7 +1513,10 @@ with sync_playwright() as pw:
     h2 = ' '.join(pg.locator('#tab-hoje .day-hero').first.inner_text().split())
     okOpt = nOpt == 3 and 'barata' in op.lower() and 'equilibrada' in op.lower() and 'a melhor' in op.lower() and 'Custa $' in op and 'custa' in h2.lower() and 'Usar a equilibrada' in op
     print('O13 sugestões:', nOpt, 'Usar a equilibrada' in op, op[-200:], '|', h2[:160], '· ok' if okOpt else '· ERRO')
-    okLu = okOpt and 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in lu1 and 'saiu' in lu1 and 'manter' in lu1 and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in lu2 and 'Voltar à sugestão' in lu2
+    own13 = ' '.join(pg.locator('#tab-hoje').inner_text().split())
+    okOwn = 'O que já tens para o dia 1' in own13 and 'Metallic Gold LE' in own13 and ('na sugestão' in own13 or 'útil' in own13) and 'úteis' in own13
+    print('O13 o que tens no dia:', okOwn)
+    okLu = okOwn and okOpt and 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in lu1 and 'saiu' in lu1 and 'manter' in lu1 and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in lu2 and 'Voltar à sugestão' in lu2
     ok13 = 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0.replace('\xa0', ' ') and 'a sugestão custa $36' in h0.lower() and 'com trocas $31,73' in h0 and 'a tua equipa custa $51' in h1.lower() and h1 != h0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'a tua escolha' in t1 and t1 != t0 and \
         ((nB13 in t0 and 'está em' in t0 and 'Manda para a principal' in t0) or (nB13 not in t0)) and okLu
     print('O13 lineup:', lu0[:120], '|', lu1[:160], '|', pk2[:200], '|', lu2[:120])

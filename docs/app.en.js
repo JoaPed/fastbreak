@@ -2112,6 +2112,26 @@ function proFill(date, out, id) {
   S.proLu[date] = ids.slice(0, X.size); proLuSave(); if (S.proOut && S.proOut.date === date && id) S.proOut = null;
   renderHoje(); if (S.proLuOpen === date) proLuSheet(date); else closeSheet();
 }
+function proOwnedDayCard(date) {
+  const idx = S.days.findIndex(d => d.date === date); if (idx < 0) return '';
+  const rule = proRule(idx), by = rule.real ? proOwnedReal(rule) : ((proOwned().find(o => o.f.k === rule.k) || {}).by || new Map());
+  const day = S.days[idx], teams = new Set(); (day.games || []).forEach(g => { teams.add(g[0]); teams.add(g[1]); });
+  const col = (S.profile || {}).collection || {}, items = col.items || {};
+  const askOf = id => { let a = null; Object.keys(items).forEach(f => { const it = items[f]; if (String(it.p) !== String(id)) return; const e = cardEd(col, f), t = (e && e.tier) || momentTier(col, f); if (e && e.ask && (rule.ok ? rule.ok(it.s, t, e) : rule.re.test(it.s)) && (a == null || e.ask < a)) a = e.ask; }); return a; };
+  // serve para hoje? a projeção para o objetivo do dia e o lugar entre as opções (as tuas e as que tens à venda)
+  const X = S.result && date >= todayET() ? proDay(date) : null, md = X && X.md;
+  const con = pi => md.objs.reduce((t, o, k) => t + md.mu[pi][k] / (md.T[k] || 1), 0);
+  const order = X ? [...X.cand.values()].map(c => c.pi).sort((a, b) => con(b) - con(a)) : [], sug = new Set(X ? X.final.ids : []);
+  const fit = id => { if (!X) return null; const c = X.cand.get(id); if (!c) return null; const r = order.indexOf(c.pi); return { pi: c.pi, c: con(c.pi), tag: sug.has(id) ? 'sug' : r >= 0 && r < 10 ? 'good' : 'weak' }; };
+  const list = [...by.values()].map(e => ({ e, on: teams.has(pTeam(e.id)), ask: askOf(e.id), fit: fit(e.id) })).sort((a, b) => (b.on - a.on) || ((b.fit ? b.fit.c : 0) - (a.fit ? a.fit.c : 0)) || (TIER_RANK[b.e.tier] || 0) - (TIER_RANK[a.e.tier] || 0) || String(nameOf(a.e.id)).localeCompare(nameOf(b.e.id)));
+  const nOn = list.filter(x => x.on).length;
+  const row = x => { const e = x.e, accs = [...e.accs], away = !e.accs.has('main');
+    return '<li class="row pro-row' + (x.on ? '' : ' pro-off') + '">' + face(e.id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(e.id)) + '</b><small class="pro-sub">' + esc([...e.sets].join(', ')) + (x.ask ? ' · low&nbsp;ask <b class="num">' + usdC(x.ask) + '</b>' : '') + ' · ' + (away ? '<b class="c-warn">' + esc(accs.map(accLabel).join(', ')) + '</b>' : esc(accs.map(accLabel).join(', '))) + '</small></span>' + (x.fit && x.on ? pvHtml(objVals(md, x.fit.pi, false)) : '') +
+      '<span class="pill pro-fit ' + (!x.on ? 'off' : x.fit ? x.fit.tag : '') + '">' + (!x.on ? 'no game' : !x.fit ? esc(e.tier || '') : x.fit.tag === 'sug' ? 'in the suggestion' : x.fit.tag === 'good' ? 'useful' : 'not very useful') + '</span></li>'; };
+  return '<h2 class="sec-h">What you already have for day ' + (idx + 1) + '</h2><div class="card"><div class="list-head"><h2>' + esc(rule.name) + '</h2></div><div class="pad small muted pro-own-n">' + plural(list.length, 'player', 'players') + (list.length ? ' · ' + nOn + ' with a game' + (X ? ' · ' + list.filter(x => x.on && x.fit && x.fit.tag !== 'weak').length + ' useful' : '') : '') + '</div>' +
+    (list.length ? '<ul class="list">' + list.map(row).join('') + '</ul>' + (list.some(x => !x.e.accs.has('main')) ? '<div class="pad small muted">In orange: it is in another account, send it to the main one (only the main account plays Pro).</div>' : '')
+      : '<div class="pad small muted">You have no card that counts on this day.' + (rule.badges && !edHasBadges() ? ' To know the badges, the admin reads the Cards (ASP).' : '') + '</div>') + '</div>';
+}
 function renderPro(el) {
   const fams = proOwned(), multi = accounts().length > 1, hasCol = !!(((S.profile || {}).collection || {}).items);
   const today = todayET(), days = S.days.map((d, i) => ({ d, i })); // a run toda: os dias passados também se veem
@@ -2146,13 +2166,9 @@ function renderPro(el) {
       dayHtml = head.replace(/<\/div>$/, '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="pro-opts" data-date="' + S.proDay + '">Suggestions</button><button class="btn hero-btn" type="button" data-action="pro-lu" data-date="' + S.proDay + '">Change lineup</button></div></div>') + proTeamCard(X, S.proDay) + (P ? '' : buyCard);
     }
   }
-  const famCard = x => {
-    const list = [...x.by.values()].sort((a, b) => (TIER_RANK[b.tier] || 0) - (TIER_RANK[a.tier] || 0) || String(nameOf(a.id)).localeCompare(nameOf(b.id)));
-    return '<div class="card"><div class="list-head"><h2>' + esc(x.f.name) + '</h2><span class="small muted">' + plural(list.length, 'player', 'players') + '</span></div>' +
-      (list.length ? '<ul class="list">' + list.map(e => '<li class="row pro-row">' + face(e.id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(e.id)) + '</b><small class="muted">' + esc([...e.sets].join(', ')) + ((c => c && c.asp ? ' · ASP ' + usdC(c.asp) : '')(proMyCards(e.id).find(y => x.f.re.test(y.set)))) + (multi ? ' · ' + [...e.accs].map(a => esc(accLabel(a))).join(', ') : '') + '</small></span>' + (e.tier ? '<span class="pill">' + esc(e.tier) + (e.n > 1 ? ' ×' + e.n : '') + '</span>' : '') + '</li>').join('') + '</ul>' : '<div class="pad small muted">No cards from these sets in your collection.</div>') + '</div>';
-  };
-  const owned = hasCol ? '<h2 class="sec-h">What you already have for Pro</h2>' + fams.map(famCard).join('') : empty('Your collection', 'You haven\'t read your collection yet: go to Players → Collection to see which cards you have for Pro.');
-  const admin = S.role === 'admin' ? '<div class="card"><div class="pad small">To get ready for Run 2: open the <a href="sonda-pro.html" target="_blank" rel="noopener">Pro probe</a> on a computer, run it on Top Shot and send me the result.</div></div>' : '';
+  // o que já tens que conta no dia escolhido (pela regra desse dia): quem joga primeiro, com a conta e o low ask
+  const owned = !hasCol ? empty('Your collection', 'You haven\'t read your collection yet: go to Players → Collection to see which cards you have for Pro.') : S.proDay ? proOwnedDayCard(S.proDay) : '';
+  const admin = '';
   el.innerHTML = intro + strip + dayHtml + owned + admin;
 }
 // Historic: o dia que vem (para a linha debaixo do título)
