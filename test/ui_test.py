@@ -1419,9 +1419,13 @@ with sync_playwright() as pw:
     pg.close()
     # O7: Pro a sério (lido no Top Shot): cada dia com os objetivos do Pro e a regra de cartas (sets e escalões, ou emblemas)
     pid7 = list(roster['players'])[0]
+    # dia 2 com emblema (Top Shot Debut): conta a carta cuja edição traz o emblema (leitura das Cartas, leitor v31+)
+    teams7b = set(t for g in run['days'][1]['games'] for t in g[:2])
+    pb7 = next(p for p in list(roster['players'])[1:] if roster['players'][p].get('team') in teams7b)
+    pc7 = next(p for p in list(roster['players'])[1:] if roster['players'][p].get('team') in teams7b and p != pb7)
     dp = seeded(); Tp = dp['tables']; Tp['runs'][0]['fictitious'] = False
     Tp['members'].append({'user_id': 'u-eu', 'role': 'admin'})
-    col7 = {'sets': {'Metallic Gold LE': {'tier': 'Rare'}, 'Base Set': {'tier': 'Common'}}, 'items': {'f1': {'p': pid7, 's': 'Metallic Gold LE', 'a': 'main', 'n': 12, 'm': 99}, 'f2': {'p': list(roster['players'])[1], 's': 'Base Set', 'a': 'main', 'n': 5, 'm': 9999}}, 'players': {}}
+    col7 = {'sets': {'Metallic Gold LE': {'tier': 'Rare'}, 'Base Set': {'tier': 'Common'}}, 'items': {'f1': {'p': pid7, 's': 'Metallic Gold LE', 'a': 'main', 'n': 12, 'm': 99}, 'f2': {'p': pb7, 's': 'Base Set', 'a': 'main', 'n': 5, 'm': 9999}, 'f3': {'p': pc7, 's': 'Base Set', 'a': 'main', 'n': 7, 'm': 9999}}, 'players': {}}
     Tp['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col7})
     Tp['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     Tp['chain_results'] = []; Tp['injuries'] = []
@@ -1429,7 +1433,10 @@ with sync_playwright() as pw:
         {'id': 'p1', 'date': run['days'][0]['date'], 'objs': [{'k': 'points', 'a': 'PTS', 't': 80}], 'req': {'sets': [['5', 'Metallic Gold LE', []]], 'badges': [], 'all': False}},
         {'id': 'p2', 'date': run['days'][1]['date'], 'objs': [{'k': 'assists', 'a': 'AST', 't': 30}, {'k': 'steals', 'a': 'STL', 't': 4}], 'req': {'sets': [], 'badges': [['top-shot-debut', 'Top Shot Debut']], 'all': False}}]}
     pg = new_page(b, dp)
-    pg.add_init_script("try { localStorage.setItem('fb-prorun', " + json.dumps(json.dumps(pr7)) + "); localStorage.setItem('fb-jmode', 'pro'); } catch (e) {}")
+    ed7 = {'at': '2026-10-19T10:00:00Z', 'p': {pid7: [['Metallic Gold LE', '', 'MOMENT_TIER_RARE', 3000, None, None, None, None, None, 4000, []]],
+            pb7: [['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300, ['rookie-year', 'top-shot-debut']]],
+            pc7: [['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300, ['rookie-mint']]]}}
+    pg.add_init_script("try { localStorage.setItem('fb-prorun', " + json.dumps(json.dumps(pr7)) + "); localStorage.setItem('fb-ed', " + json.dumps(json.dumps(ed7)) + "); localStorage.setItem('fb-jmode', 'pro'); } catch (e) {}")
     pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
@@ -1440,7 +1447,10 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'pro-real.png'), full_page=True)
     pg.click('#tab-hoje button[data-action="pro-day"][data-date="' + run['days'][1]['date'] + '"]'); pg.wait_for_timeout(1200)
     e2 = pg.locator('#tab-hoje .day-hero').first.inner_text().replace('\n', ' | ')
-    print('O7 Pro a sério:', e1[:120], '|', base1[:120], '|', e2[:160], '· ok' if 'Pro · Dia 1 · 80 PTS' in e1 and 'Metallic Gold LE' in e1 and 'ensaio' not in e1 and roster['players'][pid7]['name'].split()[-1] in base1 and '30 AST + 4 STL' in e2 and 'emblema Top Shot Debut' in e2 else '· ERRO')
+    base2 = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='O teu lineup')).inner_text().replace('\n', ' | ')
+    pg.screenshot(path=str(shots / 'pro-emblema.png'), full_page=True)
+    nb7, nc7 = roster['players'][pb7]['name'], roster['players'][pc7]['name']
+    print('O7 Pro a sério:', e1[:120], '|', base1[:120], '|', e2[:160], '|', base2[:160], '· ok' if 'Pro · Dia 1 · 80 PTS' in e1 and 'Metallic Gold LE' in e1 and 'ensaio' not in e1 and roster['players'][pid7]['name'].split()[-1] in base1 and '30 AST + 4 STL' in e2 and 'emblema Top Shot Debut' in e2 and 'Cartas (ASP)' not in e2 and nb7 in base2 and nc7 not in base2 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False

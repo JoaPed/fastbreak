@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-06
+- **João** — Pro: os dias com emblema (Rookie Year, Top Shot Debut…) contam as cartas que têm esse emblema. O leitor (v31) lê os emblemas de cada carta com as Cartas (ASP) no Admin.
 - **João** — Vender → Poupar e Rara a mais: as cartas à venda contam outra vez os usos pela raridade (Rare 2, Legendary 4); antes só contavam pelo ASP e quase não apareciam trocas.
 - **João** — Vender: "preços há …" conta com a leitura de preços de quem a fez no grupo (dizia "por ler" a quem não leu).
 - **João** — Jornada: a ficha de cada jogador tem "Cartas" (as tuas cartas dele, em que noites cada conta o usa, "Ver se compensa um 2.º Moment" e o mercado).

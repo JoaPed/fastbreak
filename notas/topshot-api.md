@@ -40,5 +40,12 @@ Base: `https://api.production.atlas.dapperlabs.com/atlas.v1.<Serviço>/<Método>
 - Outros do NFTService: GetNFT {nftId, product} (para confirmar o dono depois), GetNFTs, SearchNftsByOwner, GetNftOwnershipHistory, BurnNfts, SearchNftsByEdition. No código aparecem `pollTransferStatus`, `useTransferNftsMutation`, `GiftMomentDialog`.
 - Regras do Top Shot (2 nov 2026): o Código de Conduta proíbe contas secundárias e bots; as regras do Fast Break excluem entradas feitas por bots. O João decidiu fazer trocas e lineups à mão por agora.
 
+## Emblemas (sonda dos emblemas, 6 nov 2026, `docs/sonda-emblemas.html`)
+- Alguns dias do Pro pedem um emblema em vez de um set (`requirement.badges [{slug, name}]`, `matchAllBadges`): nesta run "Rookie Year" (6, 11 e 15 nov) e "Top Shot Debut" (12 nov). A carteira (blockchain) não traz emblemas.
+- Cada edição de `EditionService/SearchEditions` traz `badges: [{slug, slugV2, title, description, visible, metadata}]`, ex.: `rookie-mint`, `rookie-of-the-year`, `rookie-premiere`, `rookie-year`, `top-shot-debut`, `championship-year`, `mvp-year`, `challenge-reward`, `leaderboard-reward`.
+- O filtro do mercado e da coleção é `badgeSlug: ["rookie-of-the-year"]` (lista) no mesmo SearchEditions. `playerId` é lista de **textos** (`["1641705"]`; um número dá 400).
+- `editionTemplate.metadata` traz também `DraftYear`, `NbaSeason`, `TotalYearsExperience`, `DateOfMoment`.
+- O leitor (v31) guarda os emblemas de cada edição na leitura das Cartas (ASP): coluna 10 das linhas de `ed.p` (lista, vazia se não tem). `cardEd` devolve `bd`; `proRule().ok(set, tier, e)` conta a carta se a edição tem o emblema do dia.
+
 ## Blockchain
 - O contrato FastBreakV1 não tem nenhuma run NBA 2026-27 (a última é WNBA de junho 2026): a tarefa da blockchain não traz runs nem lineups desta época. A run nova lê-se no Admin → "Run e prémios".

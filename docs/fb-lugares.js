@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 30; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 31; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -163,7 +163,9 @@ async function editions(cs) {
           // mercado: a mais barata à venda de cada raridade (e número de usos), de qualquer set
           if (ask) { const u = usesOfEd(e.tier, asp), k = String(e.tier || '') + '|' + u; if (!mk[k] || ask < mk[k][1]) mk[k] = [u, ask, String(e.tier || ''), asp, set, String(par || ''), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i)]; }
           if (!x[2].has(setBase(set))) return;
-          rows.push([set, String(par || ''), String(e.tier || ''), asp, e.maxMintSize != null ? +e.maxMintSize : null, pick(e.set, /series(number)?$|^flowSeries/i), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i), isoDay(pick(e, /date.?of.?moment|moment.?date|play.?date|game.?date/i)), ask]);
+          rows.push([set, String(par || ''), String(e.tier || ''), asp, e.maxMintSize != null ? +e.maxMintSize : null, pick(e.set, /series(number)?$|^flowSeries/i), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i), isoDay(pick(e, /date.?of.?moment|moment.?date|play.?date|game.?date/i)), ask,
+            // emblemas da edição (Rookie Year, Rookie of the Year, Top Shot Debut…): os dias do Pro com emblema precisam deles
+            (Array.isArray(e.badges) ? e.badges : []).map(b => b && (b.slug || b.slugV2)).filter(Boolean)]);
         });
         ed.p[x[0]] = rows;
         const mkl = Object.values(mk).sort((a, b) => a[0] - b[0]); if (mkl.length) (ed.mk = ed.mk || {})[x[0]] = mkl;

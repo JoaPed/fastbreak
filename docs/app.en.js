@@ -1834,15 +1834,18 @@ function proRule(idx) {
   const name = names.length ? names.join(', ') + tierTxt : badges.length ? 'badge ' + badges.map(z => z[1]).join(q.all ? ' and ' : ' or ') : 'any card';
   // cartas que contam: o set (pelo nome) e, se a regra diz, o escalão; os emblemas não vêm na carteira
   const okSet = new Map(); sets.forEach(z => { const k = norm(z[1]); const t = okSet.get(k) || new Set(); (z[2] || []).forEach(x => t.add(String(x).toUpperCase())); if (!(z[2] || []).length) t.add('*'); okSet.set(k, t); });
-  return { k: fam ? fam.k : 'real', name, real: true, badges: badges.length ? badges.map(z => z[1]) : null, all: !!q.all,
-    re: { test: set => { const t = okSet.get(norm(String(set || '').split(' · ')[0])); return !!t; } },
-    ok: (set, tier) => { const t = okSet.get(norm(String(set || '').split(' · ')[0])); return !!t && (t.has('*') || t.has(String(tier || '').toUpperCase())); } };
+  // emblemas: lidos com as Cartas (ASP) a partir do leitor v31 (e.bd = os emblemas da edição da carta)
+  const slugs = badges.map(z => z[0]).filter(Boolean), okSetOf = set => !sets.length || !!okSet.get(norm(String(set || '').split(' · ')[0]));
+  const okBadge = e => !slugs.length || (!!e && Array.isArray(e.bd) && (q.all ? slugs.every(z => e.bd.includes(z)) : slugs.some(z => e.bd.includes(z))));
+  return { k: fam ? fam.k : 'real', name, short: names.length ? names[0] : badges.length ? badges[0][1] : 'Any', real: true, badges: badges.length ? badges.map(z => z[1]) : null, all: !!q.all,
+    re: { test: set => okSetOf(set) },
+    ok: (set, tier, e) => { if (!okSetOf(set) || !okBadge(e)) return false; if (!sets.length) return true; const t = okSet.get(norm(String(set || '').split(' · ')[0])); return t.has('*') || t.has(String(tier || '').toUpperCase()); } };
 }
 // as minhas cartas que contam num dia do Pro a sério (por jogador)
 function proOwnedReal(rule) {
   const col = (S.profile || {}).collection, items = (col && col.items) || {}, by = new Map();
   Object.keys(items).forEach(f => { const it = items[f]; if (!it.p) return; const e = cardEd(col, f), tier = (e && e.tier) || momentTier(col, f);
-    if (!rule.ok(it.s, tier)) return; const x = by.get(it.p) || by.set(it.p, { id: it.p, n: 0, accs: new Set(), sets: new Set(), tier: null }).get(it.p);
+    if (!rule.ok(it.s, tier, e)) return; const x = by.get(it.p) || by.set(it.p, { id: it.p, n: 0, accs: new Set(), sets: new Set(), tier: null }).get(it.p);
     x.n++; x.accs.add(it.a || 'main'); x.sets.add(String(it.s).replace(/ · .*$/, '')); if (tier) x.tier = x.tier && TIER_RANK[x.tier] >= TIER_RANK[tier] ? x.tier : tier; });
   return by;
 }
@@ -1947,7 +1950,7 @@ function renderPro(el) {
     const X = S.result ? proDay(S.proDay) : null, P = groupPro(), dn = S.days.findIndex(d => d.date === S.proDay) + 1, rule = proRule(dn - 1);
     const pdo = proRunDay(S.proDay), objs = pdo ? pdo.objs.map(o => o.t + ' ' + (o.a || o.k)).join(' + ') : ((S.days[dn - 1] || {}).objectives || []).filter(o => o && o.stat).map(o => o.target + ' ' + statShort(o.stat)).join(' + ');
     const li = (id, right, sub) => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + sub + '</small></span>' + right + '</li>';
-    const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">' + (rule.real ? 'Pro' : 'Pro (rehearsal)') + ' · Day ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Only cards from <b>' + esc(rule.name) + '</b>' + (rule.badges ? ' · the wallet does not say which cards have the badge: check on Top Shot' : '') + '</div>' +
+    const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">' + (rule.real ? 'Pro' : 'Pro (rehearsal)') + ' · Day ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Only cards from <b>' + esc(rule.name) + '</b>' + (rule.badges && !edHasBadges() ? ' · to know which cards have the badge, the admin reads the Cards (ASP) again on Top Shot' : '') + '</div>' +
       (X ? '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">With what you have</span><span class="gb-n">' + pct(X.base.P) + '</span><span class="gb-t">' + plural(X.base.ids.length, 'eligible card', 'eligible cards') + ' playing</span></div></div>' + winRing(X.final.P, tone(X.final.P), pct(X.final.P), X.steps.length ? 'buying' : 'win') + '</div>' : '') + '</div>';
     if (!X) dayHtml = head + '<div class="note">Still working out the plan…</div>';
     else {
@@ -5370,6 +5373,8 @@ async function edReviewSheet() {
     (ed.err ? '<div class="note">' + esc(ed.err) + '</div>' : '') +
     '<div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Not now</button><button class="btn primary" type="button" data-action="ed-apply">Apply</button></div>';
 }
+// a leitura das cartas já traz os emblemas? (leitor v31+: cada edição com a lista, mesmo vazia)
+const edHasBadges = () => [...edIndex().values()].some(E => (E.rows || []).some(r => Array.isArray(r[10])));
 function edIndex() {
   const key = [(S.group || {}).summaries, S.edMine && S.edMine.at];
   if (S.edIdx && S.edIdx.k[0] === key[0] && S.edIdx.k[1] === key[1]) return S.edIdx.m;
@@ -5399,7 +5404,9 @@ function cardEd(col, fid, idx) {
   const tiers = [...new Set(c.map(r => TS_TIER(r[2])).filter(Boolean))];
   const asps = c.map(r => r[3]);
   const asks = c.map(r => r[9]).filter(x => x > 0); // a mais barata à venda desta edição (leituras novas)
-  return { tier: tiers.length === 1 ? tiers[0] : null, asp: asps.every(a => a != null) ? Math.min(...asps) : null, ask: asks.length ? Math.min(...asks) : null, n: c.length, at: E.at };
+  // emblemas: só das leituras novas (v31+); com várias edições possíveis, só os que todas têm
+  const bd = c.every(r => Array.isArray(r[10])) ? c.map(r => r[10]).reduce((x, y) => x.filter(z => y.includes(z))) : null;
+  return { tier: tiers.length === 1 ? tiers[0] : null, asp: asps.every(a => a != null) ? Math.min(...asps) : null, ask: asks.length ? Math.min(...asks) : null, n: c.length, at: E.at, bd };
 }
 // usos de uma carta: o mínimo do escalão, e o ASP pode subir
 function cardUses(col, f, idx) {
