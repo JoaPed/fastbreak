@@ -5023,11 +5023,11 @@ function sellPlayers() {
       });
     } else if (!use) cards.slice(0, N).forEach(c => { c.keep = true; });
     const tc = {}; cards.forEach(c => { tc[c.t] = (tc[c.t] || 0) + 1; });
-    // repetida = há outra carta tua dele com os mesmos usos (a que fica, ou a mais barata do grupo); um Rare e um
-    // Common não são repetidas (pedido do João)
-    cards.forEach((c, i) => { c.dup = !c.keep && cards.some((y, j) => j !== i && y.u === c.u && (y.keep || (!y.dup && j < i))); });
+    // repetida = carta que o plano não usa e de que tens outra da mesma raridade (a que fica, ou a primeira dessa
+    // raridade); um Rare e um Common não são repetidas (pedido do João)
+    cards.forEach((c, i) => { c.dup = !c.keep && cards.some((y, j) => j !== i && y.t === c.t && (y.keep || (!y.dup && j < i))); });
     const extra = cards.filter(c => c.dup);
-    return { id, cards, tc, N, use, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: extra.reduce((t, c) => t + (c.ask || 0), 0), nExtra: extra.length, team: pTeam(id) || '' };
+    return { id, cards, tc, N, use, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: extra.reduce((t, c) => t + (c.ask || 0), 0), nExtra: extra.length, xRank: extra.reduce((m, c) => Math.max(m, tierRankOf(c.t)), 0), team: pTeam(id) || '' };
   });
 }
 const tcTxt = tc => TIERS.slice().reverse().filter(t => tc[t]).map(t => tc[t] + ' ' + t).join(' · ');
@@ -5072,7 +5072,8 @@ function sellHtml() {
   const past = S.pastUse || {}, pastIds = Object.keys(past);
   ps.forEach(P => { P.idle = 1 + pastIds.filter(r => !past[r].has(String(canon(P.id)))).length; }); // runs seguidas... e as outras em que não o usaste
   const unused = S.result ? ps.filter(P => P.use && !P.use.total).sort((a, b) => (b.idle - a.idle) || (b.value - a.value)) : [];
-  const reps = ps.filter(P => P.cards.length > 1 && P.use && P.use.total && P.nExtra).sort((a, b) => (b.extra - a.extra) || (b.nExtra - a.nExtra));
+  // as mais raras primeiro (a raridade da carta a mais), depois o que valem
+  const reps = ps.filter(P => P.cards.length > 1 && P.use && P.use.total && P.nExtra).sort((a, b) => (b.xRank - a.xRank) || (b.extra - a.extra) || (b.nExtra - a.nExtra));
   const swaps = sellSwaps(ps), downs = sellDowngrades(ps);
   S.sellData = { ps, swaps, downs };
   const tabs = [['naousadas', 'Not used', unused.length], ['repetidas', 'Duplicates', reps.length], ['raras', 'Spare rare', downs.length], ['poupar', 'Save', swaps.length]];
@@ -5123,7 +5124,7 @@ function sellPlayerSheet(id) {
   const rep = P.cards.length > 1;
   openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class="small muted">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + ' · ' + esc(useTxt(P.use)) + '</div>' +
     (P.use && !P.use.total ? '<div class="note info">None of your accounts used him or uses him for the rest of the run' + (P.idle > 1 ? ', and you also didn’t use him in ' + plural(P.idle - 1, 'another run', 'other runs') : '') + '.</div>' : '') +
-    (rep && P.use && P.use.total ? '<div class="small muted">Each account that uses him n times needs a card with at least n uses, and each card plays for one account per night. For what the plan uses, the ones marked "keep" are enough (the cheapest that do). The "extra" ones give the same uses as another of yours: you can sell them.</div>' : '') +
+    (rep && P.use && P.use.total ? '<div class="small muted">Each account that uses him n times needs a card with at least n uses, and each card plays for one account per night. For what the plan uses, the ones marked "keep" are enough (the cheapest that do). The "extra" ones are the same rarity as another of yours and the plan does not use them: you can sell them.</div>' : '') +
     '<div class="card"><ul class="list">' + P.cards.map(c => sellCardLi(c, rep && P.use && P.use.total ? (c.keep ? 'keep' : c.dup ? 'extra' : '') : '')).join('') + '</ul></div>' +
     '<div class="small muted">Low ask = the cheapest listing of that edition right now. You get = low ask − Top Shot’s 5%; to sell faster, list a bit below.</div>');
 }

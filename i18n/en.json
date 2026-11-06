@@ -2599,7 +2599,7 @@
  "Nenhuma troca segura que poupe pelo menos $3 (e 25% do preço).": "No safe swap that saves at least $3 (and 25% of the price).",
  "Qualquer": "Any",
  " · para saber que cartas têm o emblema, o admin lê outra vez as Cartas (ASP) no Top Shot": " · to know which cards have the badge, the admin reads the Cards (ASP) again on Top Shot",
- "<div class=\"small muted\">Cada conta que o usa n vezes precisa de uma carta com pelo menos n usos, e cada carta só joga numa conta por noite. Para o que o plano usa chegam as marcadas \"fica\" (as mais baratas que chegam). As \"a mais\" dão os mesmos usos de outra tua: podes vendê-las.</div>": "<div class=\"small muted\">Each account that uses him n times needs a card with at least n uses, and each card plays for one account per night. For what the plan uses, the ones marked \"keep\" are enough (the cheapest that do). The \"extra\" ones give the same uses as another of yours: you can sell them.</div>",
+ "<div class=\"small muted\">Cada conta que o usa n vezes precisa de uma carta com pelo menos n usos, e cada carta só joga numa conta por noite. Para o que o plano usa chegam as marcadas \"fica\" (as mais baratas que chegam). As \"a mais\" são da mesma raridade de outra tua e o plano não as usa: podes vendê-las.</div>": "<div class=\"small muted\">Each account that uses him n times needs a card with at least n uses, and each card plays for one account per night. For what the plan uses, the ones marked \"keep\" are enough (the cheapest that do). The \"extra\" ones are the same rarity as another of yours and the plan does not use them: you can sell them.</div>",
  "normal": null,
  "sem": null,
  "odds": null,

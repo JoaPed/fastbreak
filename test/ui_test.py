@@ -1527,11 +1527,12 @@ with sync_playwright() as pw:
     print('O10 vender com filtros:', r0, '|', r1, '|', r2, '· ok' if ok10 else '· ERRO')
     pg.close()
 
-    # O12: Vender → Repetidas só junta cartas com os mesmos usos: Rare + 2 Commons → 1 Common a mais; Rare + Common → nenhuma
+    # O12: Vender → Repetidas por raridade e só as que o plano não usa: Rare + 2 Commons → 1 Common a mais; 2 Rares + Common
+    # → 1 Rare a mais (e vem primeiro: as mais raras primeiro); um Rare e um Common nunca são repetidas
     d12 = seeded(); T12 = d12['tables']; T12['runs'][0]['fictitious'] = False
     T12['members'].append({'user_id': 'u-eu', 'role': 'member'})
     col12 = {'sets': {}, 'items': {'f1': {'p': pA, 's': 'Throwdowns', 'a': 'main', 'n': 529, 'm': 99}, 'f2': {'p': pA, 's': 'Base Set', 'a': 'main', 'n': 61, 'm': 9999}, 'f3': {'p': pA, 's': 'Base Set', 'a': 'main', 'n': 62, 'm': 9999},
-                                     'f4': {'p': pB, 's': 'Throwdowns', 'a': 'main', 'n': 12, 'm': 99}, 'f5': {'p': pB, 's': 'Base Set', 'a': 'main', 'n': 7, 'm': 9999}}, 'players': {}, 'accounts': {'main': {'moments': 5}}, 'read_at': '2026-10-19T10:00:00Z'}
+                                     'f4': {'p': pB, 's': 'Throwdowns', 'a': 'main', 'n': 12, 'm': 99}, 'f6': {'p': pB, 's': 'Throwdowns', 'a': 'main', 'n': 13, 'm': 99}, 'f5': {'p': pB, 's': 'Base Set', 'a': 'main', 'n': 7, 'm': 9999}}, 'players': {}, 'accounts': {'main': {'moments': 6}}, 'read_at': '2026-10-19T10:00:00Z'}
     T12['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col12})
     T12['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {'played': {run['days'][0]['date']: {'done': True, 'result': 'win', 'lineup': [pA, pB]}}}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T12['chain_results'] = []; T12['injuries'] = []
@@ -1547,10 +1548,10 @@ with sync_playwright() as pw:
     pg.click('#tab-plantel button[data-action="sell-tab"][data-v="repetidas"]'); pg.wait_for_timeout(500)
     r12 = [' '.join(t.split()) for t in pg.locator('#sellList .sell-row').all_inner_texts()]
     sh12 = ''; tg12 = []
-    if r12: pg.locator('#sellList .sell-row').first.click(); pg.wait_for_timeout(400); sh12 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); tg12 = pg.locator('#sheetPanel .sell-card .badge').all_inner_texts()
+    if len(r12) > 1: pg.locator('#sellList .sell-row').nth(1).click(); pg.wait_for_timeout(400); sh12 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); tg12 = pg.locator('#sheetPanel .sell-card .badge').all_inner_texts()
     nA12, nB12 = roster['players'][pA]['name'], roster['players'][pB]['name']
-    ok12 = len(r12) == 1 and nA12 in r12[0] and '1 carta a mais' in r12[0] and nB12 not in ' '.join(r12) and tg12 == ['fica', 'a mais']
-    print('O12 repetidas só com os mesmos usos:', r12, '|', tg12, '· ok' if ok12 else '· ERRO')
+    ok12 = len(r12) == 2 and nB12 in r12[0] and nA12 in r12[1] and all('1 carta a mais' in x for x in r12) and tg12 == ['fica', 'a mais']
+    print('O12 repetidas por raridade:', r12, '|', tg12, '· ok' if ok12 else '· ERRO')
     pg.close()
     # O11: na Jornada, a ficha de um jogador do lineup tem "Cartas": as cartas que tens dele, em que noites cada conta o
     # usa e "Ver se compensa um 2.º Moment"
