@@ -813,7 +813,7 @@ function rankJob(what) {
   });
   const R = groupRanks(), known = R ? (R.days || []).filter(d => d.final && (!want.includes('lu') || d.luv) && accs.every(x => (d.asked || []).includes(x.a))).map(d => d.id) : [];
   const H = groupHist();
-  return Object.assign({ accs, back: siteBase(), known, do: want, tsRun: R && R.run && R.run.id ? R.run.id : null, runStart: S.days.length ? S.days[0].date : null, hRun: H && H.run && H.run.id ? H.run.id : null }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {}, want.includes('pro') ? { pro: proWanted().map(id => [id, nameOf(id)]) } : {});
+  return Object.assign({ accs, back: siteBase(), known, do: want, tsRun: R && R.run && R.run.id ? R.run.id : null, runStart: S.days.length ? S.days[0].date : null, hRun: H && H.run && H.run.id ? H.run.id : null }, want.includes('px') ? { pl: pxWanted().map(id => [id, nameOf(id)]) } : {}, want.includes('ed') ? { cs: S.groupCards || [] } : {}, want.includes('pro') ? { pro: proWanted().map(id => [id, nameOf(id)]), prd: proRulesWanted() } : {});
 }
 // as cartas de todo o grupo (a minha coleção e as dos outros): por jogador, os sets que é preciso ver no Top Shot
 async function loadGroupCards() {
@@ -1849,6 +1849,11 @@ function proOwnedReal(rule) {
     x.n++; x.accs.add(it.a || 'main'); x.sets.add(String(it.s).replace(/ · .*$/, '')); if (tier) x.tier = x.tier && TIER_RANK[x.tier] >= TIER_RANK[tier] ? x.tier : tier; });
   return by;
 }
+// as regras dos dias do Pro que faltam (para o leitor ler, por dia, a carta mais barata que conta)
+function proRulesWanted() {
+  const R = groupProRun(), today = todayET(); if (!R) return [];
+  return R.days.filter(d => d.date >= today && d.req).map(d => [d.date, { sets: d.req.sets || [], badges: (d.req.badges || []).map(z => z[0]).filter(Boolean), all: !!d.req.all }]);
+}
 // jogadores cujo preço o leitor vai ver: os que têm jogo nos dias que faltam (mais minutos primeiro) e os do Pro que já tens
 function proWanted() {
   const today = todayET(), teams = new Set(); S.days.forEach(d => { if (d.date >= today) (d.games || []).forEach(g => { teams.add(g[0]); teams.add(g[1]); }); });
@@ -1889,12 +1894,14 @@ function proBest(md, pool) {
 function proDay(date) {
   const P = groupPro(), M = proModel(P), mw = M.mw; if (!mw) return null;
   const idx = S.days.findIndex(d => d.date === date), md = mw.days.find(z => z.day.date === date); if (idx < 0 || !md) return null;
-  const rule = proRule(idx), fam = M.owned.find(o => o.f.k === rule.k), mine = new Set(rule.real ? [...proOwnedReal(rule).keys()] : [...fam.by.keys()]);
+  const rule = proRule(idx), fam = M.owned.find(o => o.f.k === rule.k), ownBy = rule.real ? proOwnedReal(rule) : fam.by, mine = new Set([...ownBy.keys()]);
   const elig = i => md.eligSet.has(i);
   const ownIdx = [...mine].map(id => mw.pIndex.get(id)).filter(i => i != null && elig(i));
   const base = proBest(md, ownIdx);
   // compras: a cada passo, a carta (da família do dia) que mais sobe a hipótese, até 5 ou até deixar de valer a pena
-  const price = id => { const r = P && rule.k !== 'real' && P.p[id] && P.p[id][rule.k]; return r ? r : null; };
+  // preço: a carta mais barata que conta neste dia (leitor v32, pela regra do dia); antes disso, a da família do set
+  const exact = !!(P && Array.isArray(P.days) && P.days.includes(date));
+  const price = id => { const r = P && P.p[id]; if (!r) return null; return (exact ? r['d' + date] : r['d' + date] || (rule.k !== 'real' && r[rule.k])) || null; };
   const con = i => md.objs.reduce((t, o, k) => t + md.mu[i][k] / (md.T[k] || 1), 0);
   const cands = mw.players.map((p, i) => i).filter(i => elig(i) && !mine.has(mw.players[i].id) && price(mw.players[i].id)).sort((a, b) => con(b) - con(a)).slice(0, 40);
   let L = base.set.slice(), Pc = base.P; const steps = [], size = md.size || 5;
@@ -1907,7 +1914,10 @@ function proDay(date) {
     steps.push({ id: mw.players[best.c].id, P0: Pc, P: best.P, pr: best.pr, row: price(mw.players[best.c].id), out: best.out != null ? mw.players[best.out].id : null });
     L = best.set; Pc = best.P; if (Pc >= 0.95) break;
   }
-  return { rule, md, base: { ids: base.set.map(i => mw.players[i].id), P: base.P }, steps, final: { ids: L.map(i => mw.players[i].id), P: Pc }, size, P };
+  // candidatos para a equipa: os teus que contam e os que têm preço (só quem joga neste dia)
+  const cand = new Map();
+  mw.players.forEach((p, i) => { if (!elig(i)) return; const own = ownBy.get(p.id) || null, pr = own ? null : price(p.id); if (own || pr) cand.set(p.id, { pi: i, own, pr }); });
+  return { rule, md, mw, cand, base: { ids: base.set.map(i => mw.players[i].id), P: base.P }, steps, final: { ids: L.map(i => mw.players[i].id), P: Pc }, size, P, exact };
 }
 // a carta do jogador que já tens (noutro set) e quanto vale (ASP), para a diferença até à carta do Pro
 // as minhas cartas de um jogador (todas as contas), por set, com o ASP da edição (leitura das cartas, se houver)
@@ -1938,6 +1948,97 @@ function proCardSheet(date, i) {
     '<div class="btns"><button class="btn primary" type="button" data-action="close-sheet">OK</button></div>');
 }
 const usdC = c => usd(c / 100); // preços do Top Shot vêm em cêntimos
+// ---- Pro: a equipa do dia (como o lineup do Classic). Só a conta principal joga o Pro: as cartas que contam e estão
+// noutra conta têm de ir para a principal. Sem escolha tua, a equipa é a sugestão (o que tens + as compras que mais
+// sobem); a escolha fica no aparelho (S.proLu = {data: [ids]})
+try { S.proLu = JSON.parse(localStorage.getItem('fb-prolu') || '{}') || {}; } catch (e) { S.proLu = {}; }
+const proLuSave = () => { try { localStorage.setItem('fb-prolu', JSON.stringify(S.proLu)); } catch (e) {} };
+const proTierTxt = t => t ? String(t).charAt(0) + String(t).slice(1).toLowerCase() : '';
+function proTeam(X, date) {
+  const saved = (S.proLu || {})[date], ids = Array.isArray(saved) ? saved.filter(id => X.cand.has(id)).slice(0, X.size) : X.final.ids.slice();
+  const pis = ids.map(id => X.cand.get(id).pi), buy = ids.filter(id => !X.cand.get(id).own), away = ids.filter(id => { const o = X.cand.get(id).own; return o && !o.accs.has('main'); });
+  const swaps = buy.map(id => proSwapOf(id, X.cand.get(id).pr)), cost2 = buy.reduce((t, id, k) => t + (swaps[k] ? Math.max(0, swaps[k].diff) : X.cand.get(id).pr[0]), 0);
+  return { ids, P: pis.length ? proP(X.md, pis) : 0, buy, cost: buy.reduce((t, id) => t + X.cand.get(id).pr[0], 0), cost2, nSwap: swaps.filter(Boolean).length, away, edited: Array.isArray(saved) };
+}
+// troca rápida: uma carta tua do jogador, da mesma raridade da que conta no dia (e que não conta), vendida pela oferta
+// mais alta (já, −5%) para comprar a do dia pelo low ask. Fica a de oferta mais alta; diff = o que pagas a mais
+function proSwapOf(id, pr) {
+  if (!pr) return null; const want = TS_TIER(pr[1]) || proTierTxt(pr[1]), col = (S.profile || {}).collection || {}, items = col.items || {};
+  let best = null;
+  Object.keys(items).forEach(f => { const it = items[f]; if (String(it.p) !== String(id)) return; const e = cardEd(col, f), t = (e && e.tier) || momentTier(col, f);
+    if (t !== want || !e || !e.offer) return; if (!best || e.offer > best.offer) best = { f, it, t, offer: e.offer }; });
+  if (!best) return null;
+  const use = S.result ? usageOf(id) : null;
+  return Object.assign(best, { diff: pr[0] - best.offer * (1 - SELL_FEE), classic: !!(use && use.total) });
+}
+const usdS = v => (v > 0 ? '+' : v < 0 ? '−' : '') + usdC(Math.abs(v)); // diferença com sinal
+// a linha de baixo de um jogador: o que tens (e onde está) ou o que compras
+function proSub(X, id) {
+  const c = X.cand.get(id); if (!c) return '';
+  if (c.own) { const accs = [...c.own.accs], set = [...c.own.sets][0] || ''; return 'you have · ' + esc(set) + (c.own.tier ? ' ' + esc(c.own.tier) : '') + (c.own.accs.has('main') ? '' : ' · <b class="c-warn">it is in ' + esc(accs.map(accLabel).join(', ')) + '</b>'); }
+  const sw = proSwapOf(id, c.pr);
+  return 'buy · ' + esc(proTierTxt(c.pr[1])) + ' ' + esc(c.pr[2] || '') + ' · <b class="num">' + usdC(c.pr[0]) + '</b>' + (sw ? ' · or swap your ' + esc(String(sw.it.s || '').split(' · ')[0]) + ': <b class="num">' + usdS(sw.diff) + '</b>' : '');
+}
+function proTeamCard(X, date) {
+  const T = proTeam(X, date), md = X.md, day = md.day;
+  const row = id => { const c = X.cand.get(id), p = X.mw.players[c.pi];
+    return '<li><button class="row pro-row" type="button" data-action="pro-slot" data-date="' + date + '" data-id="' + esc(id) + '">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '</small><small class="pro-sub">' + proSub(X, id) + '</small></span>' + pvHtml(objVals(md, c.pi, false)) + '</button></li>'; };
+  const free = n => Array.from({ length: n }, () => '<li><button class="row pro-row pro-free" type="button" data-action="pro-pick" data-date="' + date + '" data-out=""><span class="pro-slot" aria-hidden="true">+</span><span class="pro-n"><b>Empty spot</b><small class="muted">tap to choose</small></span></button></li>').join('');
+  const kv = [['Win', '<b class="num">' + pct(T.P) + '</b>', T.buy.length ? 'with the buys' : 'with what you have'],
+    ['To buy', T.buy.length ? '<b class="num">' + usdC(T.cost) + '</b>' : '<b>nothing</b>', T.buy.length ? plural(T.buy.length, 'card', 'cartas') + (T.nSwap ? ' · with swaps ' + usdC(T.cost2) : '') : ''],
+    ['To send', T.away.length ? '<b class="num c-warn">' + T.away.length + '</b>' : '<b>nothing</b>', T.away.length ? (T.away.length === 1 ? 'in another account' : 'in other accounts') : '']];
+  return '<div class="card"><div class="list-head"><h2>Team</h2>' + (T.edited ? '<button class="btn small quiet" type="button" data-action="pro-reset" data-date="' + date + '">Back to the suggestion</button>' : '<span class="small muted">suggestion</span>') + '</div>' +
+    '<div class="kv pro-kv3">' + kv.map(([k, v, c]) => '<div><span class="small muted">' + k + '</span>' + v + (c ? '<small>' + c + '</small>' : '') + '</div>').join('') + '</div>' +
+    '<ul class="list">' + T.ids.map(row).join('') + free(Math.max(0, X.size - T.ids.length)) + '</ul>' +
+    (T.away.length ? '<div class="note pro-away">Only the main account plays Pro. Send to the main one: ' + T.away.map(id => '<b>' + esc(lastName(id)) + '</b> (' + esc([...X.cand.get(id).own.accs].map(accLabel).join(', ')) + ')').join(', ') + '.</div>' : '') +
+    (T.buy.length ? '<div class="pad small muted">Prices ' + esc(ago(X.P.at)) + ' (the cheapest card that counts' + (X.exact ? ' on this day' : ', by set family') + '). Check on Top Shot before buying.</div>' : '') + '</div>';
+}
+// quem entra: os teus que contam e os que podes comprar, cada um com a vitória da equipa com ele e quanto custa
+function proPickSheet(date, out) {
+  const X = proDay(date); if (!X) return;
+  const T = proTeam(X, date), rest = T.ids.filter(id => id !== out), restPi = rest.map(id => X.cand.get(id).pi), md = X.md, day = md.day;
+  const P0 = out ? T.P : (restPi.length ? proP(md, restPi) : 0), only = S.proPickOwn === true;
+  const list = [...X.cand.entries()].filter(([id, c]) => !T.ids.includes(id) && (!only || c.own)).map(([id, c]) => ({ id, c, P: proP(md, restPi.concat([c.pi])), cost: c.own ? 0 : c.pr[0] }))
+    .sort((a, b) => b.P - a.P || a.cost - b.cost).slice(0, 80);
+  const rows = list.map(x => { const p = X.mw.players[x.c.pi], d = x.P - P0;
+    return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row pro-row" type="button" data-action="pro-fill" data-date="' + date + '" data-out="' + esc(out) + '" data-id="' + esc(x.id) + '">' + face(x.id, 'sm') + '<span class="pro-n"><b>' + esc(p.name) + '</b><small class="muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '</small><small class="pro-sub">' + proSub(X, x.id) + '</small></span>' +
+      '<span class="pro-pick-p"><b class="num">' + pct(x.P) + '</b><small class="num ' + (d > 0.0005 ? 'c-good' : d < -0.0005 ? 'c-bad' : 'muted') + '">' + (Math.abs(d) < 0.0005 ? '=' : (d > 0 ? '+' : '−') + pct(Math.abs(d))) + '</small></span></button></li>'; }).join('');
+  openSheet('<h3>Who comes in?</h3><div class="small muted">' + (out ? 'Instead of ' + esc(nameOf(out)) + ' · ' : '') + 'team now ' + pct(P0) + ' · Only cards from <b>' + esc(X.rule.name) + '</b></div>' +
+    '<div class="seg pro-pick-seg" role="group" aria-label="Show"><button type="button" data-action="pro-pick-f" data-v="all" data-date="' + date + '" data-out="' + esc(out) + '" aria-pressed="' + !only + '">All</button><button type="button" data-action="pro-pick-f" data-v="own" data-date="' + date + '" data-out="' + esc(out) + '" aria-pressed="' + only + '">Only yours</button></div>' +
+    (rows ? '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player"></div><ul class="list card" id="luCand">' + rows + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>'
+      : '<div class="note info">' + (only ? 'You have no other card that counts on this day.' : 'Nobody else with a card that counts and a price read on this day.') + '</div>') +
+    (out ? '<button class="btn quiet" type="button" data-action="pro-fill" data-date="' + date + '" data-out="' + esc(out) + '" data-id="">Remove ' + esc(lastName(out)) + ' and leave the spot empty</button>' : ''));
+}
+// uma carta tua no Pro: raridade, set, n.º e conta, e o low ask da edição (sem o ASP: no Pro não interessa)
+function proCardLi(c) {
+  const it = c.it, [base, ...sub] = String(it.s || '').split(' · '), away = it.a && it.a !== 'main';
+  return '<li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[c.t] || 'c') + '">' + esc(c.t) + '</span>' + (away ? '<span class="badge c-warn">' + esc(accLabel(it.a)) + '</span>' : '') + '</div>' +
+    '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
+    (it.n ? '<div class="ps sell-d">#' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') + (away ? '' : ' · main') + '</div>' : '') + '</div>' +
+    (c.offer && !c.ask ? '<div class="sell-g"><b class="num">' + usd(c.offer / 100) + '</b><small>highest offer</small></div></li>'
+      : '<div class="sell-g' + (c.ask ? '' : ' none') + '"><b class="num">' + (c.ask ? usd(c.ask / 100) : '—') + '</b><small>' + (c.ask ? 'low ask' : 'no price read') + '</small>' + (c.offer ? '<small>offer now ' + usd(c.offer / 100) + '</small>' : '') + '</div></li>');
+}
+// a carta de um jogador da equipa: as tuas que contam (raridade, set, n.º, conta, ASP e low ask) ou a que compras
+function proSlotSheet(date, id) {
+  const X = proDay(date); if (!X) return; const c = X.cand.get(id); if (!c) return;
+  const col = (S.profile || {}).collection || {}, items = col.items || {};
+  const mine = c.own ? Object.keys(items).filter(f => String(items[f].p) === String(id)).map(f => { const it = items[f], e = cardEd(col, f), t = (e && e.tier) || momentTier(col, f); return { f, it, e, t, u: cardUses(col, f), asp: e && e.asp > 0 ? e.asp : null, ask: e && e.ask ? e.ask : null, offer: e && e.offer ? e.offer : null }; })
+    .filter(x => X.rule.ok(x.it.s, x.t, x.e)).sort((a, b) => (tierRankOf(b.t) - tierRankOf(a.t)) || ((b.asp || 0) - (a.asp || 0))) : [];
+  const pr = c.pr, buy = pr ? '<div class="card"><div class="list-head"><h2>The one you buy</h2><span class="small muted">the cheapest that counts</span></div><ul class="list"><li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[TS_TIER(pr[1])] || 'c') + '">' + esc(TS_TIER(pr[1]) || proTierTxt(pr[1])) + '</span></div><div class="mo-set">' + esc(pr[2] || '') + '</div></div><div class="sell-g"><b class="num">' + usdC(pr[0]) + '</b><small>low ask</small></div></li></ul></div>' : '';
+  const sw = c.own ? null : proSwapOf(id, pr), swHtml = sw ? '<div class="card"><div class="list-head"><h2>Quick swap</h2><span class="small muted">yours of the same rarity</span></div><ul class="list">' + proCardLi({ it: sw.it, t: sw.t, ask: null, offer: sw.offer }) + '</ul>' +
+    '<div class="pad">' + [['Sell yours (highest offer)', usdC(sw.offer)], ['Fee (5%)', '−' + usdC(sw.offer * SELL_FEE)], ['Buy the day\'s one (low ask)', '−' + usdC(pr[0])], ['Difference', '<b class="' + (sw.diff > 0 ? 'c-bad' : 'c-good') + '">' + (sw.diff > 0 ? 'you pay ' + usdC(sw.diff) : 'you gain ' + usdC(-sw.diff)) + '</b>']].map(([k, v]) => '<div class="status-line"><span>' + k + '</span><span>' + v + '</span></div>').join('') + '</div>' +
+    (sw.classic ? '<div class="note pro-away">Careful: you use ' + esc(lastName(id)) + ' in Classic. Check that the card you sell is not the one that plays there.</div>' : '') + '</div>' : '';
+  const away = c.own && !c.own.accs.has('main') ? '<div class="note">Only the main account plays Pro: send this card from ' + esc([...c.own.accs].map(accLabel).join(', ')) + ' to the main one.</div>' : '';
+  openSheet('<h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + esc(X.mw.players[c.pi].team) + ' ' + esc(opp(X.mw.players[c.pi].team, X.md.day)) + ' · Only cards from <b>' + esc(X.rule.name) + '</b></div>' +
+    (mine.length ? '<div class="card"><div class="list-head"><h2>' + (mine.length > 1 ? 'Yours that count' : 'Yours that counts') + '</h2></div><ul class="list">' + mine.map(proCardLi).join('') + '</ul></div>' : '') + away + buy + swHtml +
+    '<div class="small muted">Low ask = the cheapest on sale of that edition' + (X.P ? ' (read ' + esc(ago(X.P.at)) + ')' : '') + '. Check on Top Shot before buying.</div>' +
+    '<div class="btns"><button class="btn quiet" type="button" data-action="close-sheet">Close</button><button class="btn primary" type="button" data-action="pro-pick" data-date="' + date + '" data-out="' + esc(id) + '">Swap</button></div>');
+}
+function proFill(date, out, id) {
+  const X = proDay(date); if (!X) return;
+  const ids = proTeam(X, date).ids.filter(x => x !== out); if (id) ids.push(id);
+  S.proLu[date] = ids.slice(0, X.size); proLuSave(); closeSheet(); renderHoje();
+}
 function renderPro(el) {
   const fams = proOwned(), multi = accounts().length > 1, hasCol = !!(((S.profile || {}).collection || {}).items);
   const today = todayET(), days = S.days.map((d, i) => ({ d, i })).filter(x => x.d.date >= today);
@@ -1951,10 +2052,9 @@ function renderPro(el) {
     const pdo = proRunDay(S.proDay), objs = pdo ? pdo.objs.map(o => o.t + ' ' + (o.a || o.k)).join(' + ') : ((S.days[dn - 1] || {}).objectives || []).filter(o => o && o.stat).map(o => o.target + ' ' + statShort(o.stat)).join(' + ');
     const li = (id, right, sub) => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + sub + '</small></span>' + right + '</li>';
     const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">' + (rule.real ? 'Pro' : 'Pro (rehearsal)') + ' · Day ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Only cards from <b>' + esc(rule.name) + '</b>' + (rule.badges && !edHasBadges() ? ' · to know which cards have the badge, the admin reads the Cards (ASP) again on Top Shot' : '') + '</div>' +
-      (X ? '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">With what you have</span><span class="gb-n">' + pct(X.base.P) + '</span><span class="gb-t">' + plural(X.base.ids.length, 'eligible card', 'eligible cards') + ' playing</span></div></div>' + winRing(X.final.P, tone(X.final.P), pct(X.final.P), X.steps.length ? 'buying' : 'win') + '</div>' : '') + '</div>';
+      (X ? '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">With what you have</span><span class="gb-n">' + pct(X.base.P) + '</span><span class="gb-t">' + plural(X.base.ids.length, 'eligible card', 'eligible cards') + ' playing</span></div></div>' + ((T => winRing(T.P, tone(T.P), pct(T.P), 'team'))(proTeam(X, S.proDay))) + '</div>' : '') + '</div>';
     if (!X) dayHtml = head + '<div class="note">Still working out the plan…</div>';
     else {
-      const baseCard = '<div class="card"><div class="list-head"><h2>Your lineup with what you have</h2><span class="small muted">' + pct(X.base.P) + '</span></div>' + (X.base.ids.length ? '<ul class="list">' + X.base.ids.map(id => { const c = proMyCards(id).find(x => rule.re.test(x.set)); return li(id, '', esc((S.players.get(id) || {}).team || '') + (c ? ' · ' + esc(c.set) + (c.asp ? ' · ASP ' + usdC(c.asp) : '') : '')); }).join('') + '</ul>' : '<div class="pad small muted">You have no ' + esc(rule.name) + ' cards of anyone playing this day.</div>') + (X.base.ids.length && X.base.ids.length < X.size ? '<div class="pad small muted">' + (X.size - X.base.ids.length) + ' short of a full lineup.</div>' : '') + '</div>';
       let buyCard;
       if (!P) buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2></div><div class="pad small muted">Prices missing: ' + (S.role === 'admin' ? '<button class="btn small" type="button" data-action="ranks-go" data-do="pro">Read Pro prices</button>' : 'the admin reads them in Settings → Admin → Read on Top Shot → Pro prices.') + '</div></div>';
       else if (!X.steps.length) buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2></div><div class="pad small muted">' + (X.base.P >= 0.5 ? 'You\'re already fine with what you have.' : 'No card for sale raises the chance of this day.') + '</div></div>';
@@ -1967,7 +2067,7 @@ function renderPro(el) {
         const sumTxt = reach ? 'With <b>' + plural(reach.k, 'card', 'cartas') + ' (' + usdC(reach.tot) + ')</b> you go from ' + pct(X.base.P) + ' to over 50%.' : 'With these ' + plural(X.steps.length, 'card', 'cartas') + ' (' + usdC(tot) + ') you reach ' + pct(X.final.P) + '.';
         buyCard = '<div class="card"><div class="list-head"><h2>To be competitive</h2><span class="small muted">prices from ' + esc(ago(P.at)) + '</span></div><div class="pad small">' + sumTxt + '</div><ul class="list">' + rows + '</ul></div>';
       }
-      dayHtml = head + baseCard + buyCard;
+      dayHtml = head + proTeamCard(X, S.proDay) + (P ? '' : buyCard);
     }
   }
   const famCard = x => {
@@ -5011,7 +5111,7 @@ function sellPlayers() {
   const N = Math.max(1, accounts().length), by = {};
   Object.entries(col.items).forEach(([f, it]) => { if (it && it.p != null) (by[it.p] = by[it.p] || []).push(f); });
   return Object.entries(by).map(([id, fs]) => {
-    const cards = fs.map(f => { const it = col.items[f], e = cardEd(col, f), u = cardUses(col, f), t = (e && e.tier) || momentTier(col, f); return { f, it, e, u, t, ask: e && e.ask ? e.ask : null, asp: e && e.asp > 0 ? e.asp : null }; })
+    const cards = fs.map(f => { const it = col.items[f], e = cardEd(col, f), u = cardUses(col, f), t = (e && e.tier) || momentTier(col, f); return { f, it, e, u, t, ask: e && e.ask ? e.ask : null, asp: e && e.asp > 0 ? e.asp : null, offer: e && e.offer ? e.offer : null }; })
       .sort((a, b) => (b.u - a.u) || ((a.ask == null ? 1e12 : a.ask) - (b.ask == null ? 1e12 : b.ask)));
     const use = S.result ? usageOf(id) : null;
     cards.forEach(c => { c.keep = false; });
@@ -5027,7 +5127,7 @@ function sellPlayers() {
     // raridade); um Rare e um Common não são repetidas (pedido do João)
     cards.forEach((c, i) => { c.dup = !c.keep && cards.some((y, j) => j !== i && y.t === c.t && (y.keep || (!y.dup && j < i))); });
     const extra = cards.filter(c => c.dup);
-    return { id, cards, tc, N, use, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: extra.reduce((t, c) => t + (c.ask || 0), 0), nExtra: extra.length, xRank: extra.reduce((m, c) => Math.max(m, tierRankOf(c.t)), 0), team: pTeam(id) || '' };
+    return { id, cards, tc, N, use, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: extra.reduce((t, c) => t + (c.ask || 0), 0), nExtra: extra.length, offer: cards.reduce((t, c) => t + (c.offer || 0), 0), offerX: extra.reduce((t, c) => t + (c.offer || 0), 0), xRank: extra.reduce((m, c) => Math.max(m, tierRankOf(c.t)), 0), team: pTeam(id) || '' };
   });
 }
 const tcTxt = tc => TIERS.slice().reverse().filter(t => tc[t]).map(t => tc[t] + ' ' + t).join(' · ');
@@ -5079,10 +5179,10 @@ function sellHtml() {
   const tabs = [['naousadas', 'Not used', unused.length], ['repetidas', 'Duplicates', reps.length], ['raras', 'Spare rare', downs.length], ['poupar', 'Save', swaps.length]];
   const tab = tabs.some(x => x[0] === S.sellTab) ? S.sellTab : 'naousadas';
   const keyOf = P => esc(norm(nameOf(P.id)) + ' ' + String(P.team).toLowerCase() + ' ' + Object.keys(P.tc).join(' ').toLowerCase());
-  const prow = (P, sub, rep) => { const v = rep ? P.extra : P.value, lbl = rep ? (P.nExtra > 1 ? 'low ask, extras' : 'low ask') : P.cards.length > 1 ? 'low ask, all' : 'low ask';
+  const prow = (P, sub, rep) => { const v = rep ? P.extra : P.value, of = rep ? P.offerX : P.offer, lbl = rep ? (P.nExtra > 1 ? 'low ask, extras' : 'low ask') : P.cards.length > 1 ? 'low ask, all' : 'low ask';
     return '<li data-n="' + keyOf(P) + '"><button class="row sell-row" type="button" data-action="sell-player" data-id="' + esc(P.id) + '"><span class="who">' + face(P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(P.id)) + '</span></div>' +
     '<div class="ps">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + '</div>' + (sub ? '<div class="ps sell-why">' + sub + '</div>' : '') + '</div></span>' +
-    '<span class="sell-g' + (v ? '' : ' none') + '"><b class="num">' + (v ? usd(v / 100) : '—') + '</b><small>' + (v ? lbl : 'no price') + '</small></span></button></li>'; };
+    '<span class="sell-g' + (v ? '' : ' none') + '"><b class="num">' + (v ? usd(v / 100) : '—') + '</b><small>' + (v ? lbl : 'no price') + '</small>' + (of ? '<small>offer now ' + usd(of / 100) + '</small>' : '') + '</span></button></li>'; };
   const srow = (x, i, act, line) => { const it = x.c.it, [base] = String(it.s || '').split(' · ');
     return '<li data-n="' + keyOf(x.P) + '"><button class="row sell-row" type="button" data-action="' + act + '" data-i="' + i + '"><span class="who">' + face(x.P.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.P.id)) + '</span></div>' +
       '<div class="ps"><span class="tpill t-' + (TIER_CLS[x.c.t] || 'c') + '">' + esc(x.c.t) + '</span> ' + esc(base) + (it.n ? ' #' + f0(it.n) : '') + (groupMode() ? ' · ' + esc(accLabel(it.a)) : '') + '</div>' +
@@ -5092,8 +5192,8 @@ function sellHtml() {
   let list = '', empty = '';
   if (tab === 'naousadas') { list = unused.map(P => prow(P, idleTxt(P))).join(''); empty = S.result ? 'All your players are used this run.' : 'No plan calculated.'; }
   if (tab === 'repetidas') { list = reps.map(P => prow(P, esc(useTxt(P.use)) + ' · ' + plural(P.nExtra, 'extra card', 'extra cards'), true)).join(''); empty = 'No player with more cards than the plan uses.'; }
-  if (tab === 'raras') { list = downs.map((x, i) => srow(x, i, 'sell-down', esc(useTxt(x.P.use)) + ' · enough: ' + (x.need === 1 ? 'a Common' : 'one with ' + usesTxt(x.need)) + ' for <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'No card with more uses than the plan needs that’s worth swapping.' : 'Market prices are missing.'; }
-  if (tab === 'poupar') { list = swaps.map((x, i) => srow(x, i, 'sell-swap', (x.up ? '<b class="c-good">Up to ' + esc(TS_TIER(x.alt[2])) + '</b> · ' : '') + 'Sell for <b class="num">' + usd(x.c.ask / 100) + '</b> · buy ' + (!x.up && TS_TIER(x.alt[2]) && TS_TIER(x.alt[2]) !== x.c.t ? 'a ' + esc(TS_TIER(x.alt[2])) + ' ' : '') + 'for <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'No safe swap that saves at least $3 (and 25% of the price).' : 'Market prices are missing.'; }
+  if (tab === 'raras') { list = downs.map((x, i) => srow(x, i, 'sell-down', esc(useTxt(x.P.use)) + ' · enough: ' + (x.need === 1 ? 'a Common' : 'one with ' + usesTxt(x.need)) + ' for <b class="num">' + usd(x.alt[1] / 100) + '</b>' + (x.c.offer ? ' · yours sells now for <b class="num">' + usd(x.c.offer / 100) + '</b>' : ''))).join(''); empty = hasPx ? 'No card with more uses than the plan needs that’s worth swapping.' : 'Market prices are missing.'; }
+  if (tab === 'poupar') { list = swaps.map((x, i) => srow(x, i, 'sell-swap', (x.up ? '<b class="c-good">Up to ' + esc(TS_TIER(x.alt[2])) + '</b> · ' : '') + 'Sell for <b class="num">' + usd(x.c.ask / 100) + '</b>' + (x.c.offer ? ' (now: <b class="num">' + usd(x.c.offer / 100) + '</b>)' : '') + ' · buy ' + (!x.up && TS_TIER(x.alt[2]) && TS_TIER(x.alt[2]) !== x.c.t ? 'a ' + esc(TS_TIER(x.alt[2])) + ' ' : '') + 'for <b class="num">' + usd(x.alt[1] / 100) + '</b>')).join(''); empty = hasPx ? 'No safe swap that saves at least $3 (and 25% of the price).' : 'Market prices are missing.'; }
   // a leitura de preços mais recente do grupo (a tua ou a de quem leu os preços: um admin lê-os para todos)
   const ed = [S.edMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ed)).filter(d => d && d.at).map(d => d.at).sort().pop() || null;
   return '<div class="card"><div class="list-head"><h2>Sell ' + helpBtn('vender') + '</h2><span class="small muted">prices ' + (ed ? ago(ed) : 'not read yet') + '</span></div>' +
@@ -5117,7 +5217,7 @@ function sellCardLi(c, tag) {
     '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
     // os detalhes em linhas separadas (numa só, o ASP ficava cortado)
     [[it.n ? '#' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).join(' · '), usesTxt(c.u) + ' · ' + (c.asp ? 'ASP ' + usd(c.asp / 100) : 'ASP —')].filter(Boolean).map(x => '<div class="ps sell-d">' + esc(x) + '</div>').join('') + '</div>' +
-    '<div class="sell-g' + (c.ask ? '' : ' none') + '"><b class="num">' + (c.ask ? usd(c.ask / 100) : '—') + '</b><small>' + (c.ask ? 'low ask' : 'no price') + '</small>' + (c.ask ? '<small>you get ' + usd(c.ask * (1 - SELL_FEE) / 100) + '</small>' : '') + '</div></li>';
+    '<div class="sell-g' + (c.ask ? '' : ' none') + '"><b class="num">' + (c.ask ? usd(c.ask / 100) : '—') + '</b><small>' + (c.ask ? 'low ask' : 'no price') + '</small>' + (c.ask ? '<small>you get ' + usd(c.ask * (1 - SELL_FEE) / 100) + '</small>' : '') + (c.offer ? '<small>offer now ' + usd(c.offer / 100) + '</small>' : '') + '</div></li>';
 }
 function sellPlayerSheet(id) {
   const P = ((S.sellData || {}).ps || []).find(x => String(x.id) === String(id)); if (!P) return;
@@ -5135,7 +5235,7 @@ function sellSwapSheet(i, down) {
     (down ? '<div class="note info">The plan uses him at most ' + plural(x.need, 'time', 'times') + ' per account this run: a card with ' + esc(usesTxt(x.need)) + ' is enough. If you want to use him more in the next runs, yours gives ' + esc(usesTxt(x.c.u)) + '.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>Yours</h2></div><ul class="list">' + sellCardLi(x.c, '') + '</ul></div>' +
     '<div class="card"><div class="list-head"><h2>The one you buy</h2></div><ul class="list"><li class="row sell-card"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + (TIER_CLS[TS_TIER(a[2])] || 'c') + '">' + esc(TS_TIER(a[2]) || a[2]) + '</span></div><div class="mo-set">' + esc(a[4]) + (a[5] && !isStd(a[5]) ? ' <span class="muted">· ' + esc(a[5]) + '</span>' : '') + '</div><div class="ps sell-d">' + esc(usesTxt(a[0])) + ' · ' + (a[3] > 0 ? 'ASP ' + usd(a[3] / 100) : 'ASP —') + '</div></div><div class="sell-g"><b class="num">' + usd(a[1] / 100) + '</b><small>low ask</small></div></li></ul></div>' +
-    '<div class="card panel">' + [['Sell yours (low ask)', usd(x.c.ask / 100)], ['Fee (5%)', '−' + usd(x.c.ask * SELL_FEE / 100)], ['Buy the other (low ask)', '−' + usd(a[1] / 100)], ['You save', '<b class="c-good">+' + usd(x.save / 100) + '</b>']].map(([k, v]) => '<div class="status-line"><span>' + k + '</span><span>' + v + '</span></div>').join('') + '</div>' +
+    '<div class="card panel">' + [['Sell yours (low ask)', usd(x.c.ask / 100)], ['Fee (5%)', '−' + usd(x.c.ask * SELL_FEE / 100)], ['Buy the other (low ask)', '−' + usd(a[1] / 100)], ['You save', '<b class="c-good">+' + usd(x.save / 100) + '</b>']].concat(x.c.offer ? [['Highest offer (sell now)', usd(x.c.offer / 100)], ['You save, if you sell now', (v => '<b class="' + (v >= 0 ? 'c-good' : 'c-bad') + '">' + (v >= 0 ? '+' : '−') + usd(Math.abs(v) / 100) + '</b>')(x.c.offer * (1 - SELL_FEE) - a[1])]] : []).map(([k, v]) => '<div class="status-line"><span>' + k + '</span><span>' + v + '</span></div>').join('') + '</div>' +
     (down ? '' : x.less ? '<div class="note">The other one gives ' + esc(usesTxt(x.alt[0])) + ' per run and yours gives ' + esc(usesTxt(x.c.u)) + ' (its ASP is lower).</div>' : '<div class="small muted">Gives the same uses (' + esc(usesTxt(x.c.u)) + ') or more.</div>') +
     '<div class="small muted">Market prices ' + ago(mkOf(x.P.id).at) + ': check on Top Shot before selling.</div>');
 }
@@ -5410,7 +5510,8 @@ function cardEd(col, fid, idx) {
   const asks = c.map(r => r[9]).filter(x => x > 0); // a mais barata à venda desta edição (leituras novas)
   // emblemas: só das leituras novas (v31+); com várias edições possíveis, só os que todas têm
   const bd = c.every(r => Array.isArray(r[10])) ? c.map(r => r[10]).reduce((x, y) => x.filter(z => y.includes(z))) : null;
-  return { tier: tiers.length === 1 ? tiers[0] : null, asp: asps.every(a => a != null) ? Math.min(...asps) : null, ask: asks.length ? Math.min(...asks) : null, n: c.length, at: E.at, bd };
+  const offs = c.map(r => r[11]); // oferta mais alta (leitor v32); com várias edições possíveis, a mais baixa
+  return { tier: tiers.length === 1 ? tiers[0] : null, asp: asps.every(a => a != null) ? Math.min(...asps) : null, ask: asks.length ? Math.min(...asks) : null, n: c.length, at: E.at, bd, offer: offs.every(x => x > 0) ? Math.min(...offs) : null };
 }
 // usos de uma carta: o mínimo do escalão, e o ASP pode subir
 function cardUses(col, f, idx) {
@@ -6525,6 +6626,11 @@ document.addEventListener('click', async e => {
     case 'h-acc': S.hacc = +b.dataset.i || 0; renderHoje(); break;
     case 'pro-day': S.proDay = date; S.hdCenter = true; renderHoje(); break;
     case 'pro-card': proCardSheet(date, b.dataset.i); break;
+    case 'pro-pick': proPickSheet(date, b.dataset.out || ''); break;
+    case 'pro-slot': proSlotSheet(date, id); break;
+    case 'pro-pick-f': S.proPickOwn = b.dataset.v === 'own'; proPickSheet(date, b.dataset.out || ''); break;
+    case 'pro-fill': proFill(date, b.dataset.out || '', id); break;
+    case 'pro-reset': delete S.proLu[date]; proLuSave(); renderHoje(); toast('Back to the suggestion.'); break;
     case 'h-fix': if (b.dataset.close) closeSheet(); hFix(b.dataset.day, id); break;
     case 'h-ban': if (b.dataset.close) closeSheet(); hBan(b.dataset.day, id); break;
     case 'h-reset': S.hsel[b.dataset.day] = { fix: [], ban: [] }; hSave(); renderHoje(); break;

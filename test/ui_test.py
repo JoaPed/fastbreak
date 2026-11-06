@@ -1443,14 +1443,60 @@ with sync_playwright() as pw:
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.wait_for_timeout(1500)
     e1 = pg.locator('#tab-hoje .day-hero').first.inner_text().replace('\n', ' | ')
-    base1 = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='O teu lineup')).inner_text().replace('\n', ' | ')
+    base1 = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Equipa')).inner_text().replace('\n', ' | ')
     pg.screenshot(path=str(shots / 'pro-real.png'), full_page=True)
     pg.click('#tab-hoje button[data-action="pro-day"][data-date="' + run['days'][1]['date'] + '"]'); pg.wait_for_timeout(1200)
     e2 = pg.locator('#tab-hoje .day-hero').first.inner_text().replace('\n', ' | ')
-    base2 = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='O teu lineup')).inner_text().replace('\n', ' | ')
+    base2 = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Equipa')).inner_text().replace('\n', ' | ')
     pg.screenshot(path=str(shots / 'pro-emblema.png'), full_page=True)
     nb7, nc7 = roster['players'][pb7]['name'], roster['players'][pc7]['name']
     print('O7 Pro a sério:', e1[:120], '|', base1[:120], '|', e2[:160], '|', base2[:160], '· ok' if 'Pro · Dia 1 · 80 PTS' in e1 and 'Metallic Gold LE' in e1 and 'ensaio' not in e1 and roster['players'][pid7]['name'].split()[-1] in base1 and '30 AST + 4 STL' in e2 and 'emblema Top Shot Debut' in e2 and 'Cartas (ASP)' not in e2 and nb7 in base2 and nc7 not in base2 else '· ERRO')
+    pg.close()
+
+    # O13: Pro com equipa (como o lineup do Classic): as tuas cartas que contam (uma numa conta extra: "manda para a
+    # principal"), as que podes comprar com o preço desse dia (leitor v32), o total a gastar e o "Quem entra?"
+    d1 = run['days'][0]['date']; teams13 = set(t for g in run['days'][0]['games'] for t in g[:2])
+    on13 = [p for p in roster['players'] if roster['players'][p].get('team') in teams13]
+    pA13, pB13, pC13 = on13[0], on13[1], on13[2]; buy13 = on13[3:9]
+    d13 = seeded(); T13 = d13['tables']; T13['runs'][0]['fictitious'] = False
+    T13['members'].append({'user_id': 'u-eu', 'role': 'admin'})
+    col13 = {'sets': {'Metallic Gold LE': {'tier': 'Rare'}, 'Base Set': {'tier': 'Common'}}, 'items': {'f1': {'p': pA13, 's': 'Metallic Gold LE', 'a': 'main', 'n': 12, 'm': 99}, 'f2': {'p': pB13, 's': 'Metallic Gold LE', 'a': 's1', 'n': 40, 'm': 99}, 'f3': {'p': pC13, 's': 'Base Set', 'a': 'main', 'n': 5, 'm': 9999}, 'f4': {'p': buy13[0], 's': 'Throwdowns', 'a': 'main', 'n': 77, 'm': 99}}, 'players': {}}
+    T13['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'smurfs': [{'id': 's1', 'topshot_username': 'terose'}], 'collection': col13})
+    T13['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T13['chain_results'] = []; T13['injuries'] = []
+    pr13 = {'at': '2026-10-19T10:00:00Z', 'id': 'run-nba-pro-2026-10-20', 'days': [{'id': 'p1', 'date': d1, 'objs': [{'k': 'points', 'a': 'PTS', 't': 120}], 'req': {'sets': [['5', 'Metallic Gold LE', []]], 'badges': [], 'all': False}}]}
+    px13 = {'at': '2026-10-19T12:00:00Z', 'days': [d1], 'p': {pid: {'d' + d1: [600 + 450 * k, 'RARE', 'Metallic Gold LE', 2000 + 300 * k], 'mgle': [9999, 'RARE', 'Metallic Gold LE', 1]} for k, pid in enumerate(buy13)}}
+    # troca rápida: um Rare teu (Throwdowns, não conta) de quem tens de comprar, com oferta de $4,50
+    ed13 = {'at': '2026-10-19T10:00:00Z', 'p': {buy13[0]: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1500, [], 450]]}}
+    pg = new_page(b, d13)
+    pg.add_init_script("try { localStorage.setItem('fb-prorun', " + json.dumps(json.dumps(pr13)) + "); localStorage.setItem('fb-pro', " + json.dumps(json.dumps(px13)) + "); localStorage.setItem('fb-ed', " + json.dumps(json.dumps(ed13)) + "); localStorage.setItem('fb-jmode', 'pro'); localStorage.removeItem('fb-prolu'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.wait_for_timeout(1500)
+    teamc = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Equipa'))
+    t0 = ' '.join(teamc.inner_text().split())
+    pg.screenshot(path=str(shots / 'pro-equipa.png'), full_page=True)
+    pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(300); teamc.screenshot(path=str(shots / 'pro-equipa-escuro.png')); pg.emulate_media(color_scheme='light')
+    nA13, nB13 = roster['players'][pA13]['name'], roster['players'][pB13]['name']
+    # a carta de quem já tens (numa conta extra) e a de quem compras: low ask e ASP; daí, Trocar
+    pg.locator('#tab-hoje button[data-action="pro-slot"][data-id="' + pB13 + '"]').click(); pg.wait_for_timeout(500)
+    cB = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-carta-tua.png')); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.locator('#tab-hoje button[data-action="pro-slot"][data-id="' + buy13[0] + '"]').click(); pg.wait_for_timeout(500)
+    cX = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-carta-compra.png')); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.locator('#tab-hoje button[data-action="pro-slot"]').first.click(); pg.wait_for_timeout(400)
+    pg.locator('#sheetPanel button[data-action="pro-pick"]').click(); pg.wait_for_timeout(500)
+    pk = ' '.join(pg.locator('#sheetPanel').inner_text().split())
+    pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-quem-entra.png'))
+    pg.locator('#sheetPanel button[data-action="pro-pick-f"][data-v="own"]').click(); pg.wait_for_timeout(400)
+    own = [' '.join(t.split()) for t in pg.locator('#sheetPanel #luCand li[data-n]').all_inner_texts()]
+    pg.locator('#sheetPanel button[data-action="pro-pick-f"][data-v="all"]').click(); pg.wait_for_timeout(400)
+    pg.locator('#sheetPanel #luCand button[data-action="pro-fill"]').first.click(); pg.wait_for_timeout(800)
+    t1 = ' '.join(teamc.inner_text().split())
+    ok13 = 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0 and 'com trocas' in t0 and 'A comprar' in t0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'Voltar à sugestão' in t1 and t1 != t0 and \
+        ((nB13 in t0 and 'está em' in t0 and 'Manda para a principal' in t0) or (nB13 not in t0))
+    print('O13 Pro com equipa:', t0[:300], '|', cB[:200], '|', cX[:200], '|', pk[:200], '|', own[:3], '|', t1[:160], '· ok' if ok13 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False
@@ -1503,7 +1549,7 @@ with sync_playwright() as pw:
     T10['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T10['chain_results'] = []; T10['injuries'] = []
     # raridades como o Top Shot as escreve ("MOMENT_TIER_RARE"); o Rare à venda tem ASP baixo ($15): os 2 usos vêm da raridade
-    ed10 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1200]], pB: [['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300]]},
+    ed10 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1200, [], 1000]], pB: [['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300]]},
             'mk': {pA: [[2, 500, 'MOMENT_TIER_RARE', 1500, 'Metallic Gold LE', ''], [2, 150, 'MOMENT_TIER_COMMON', 1200, 'Hustle', ''], [2, 100, 'MOMENT_TIER_COMMON', 2500, 'Clamps', '']], pB: [[4, 250, 'MOMENT_TIER_LEGENDARY', 4000, 'Holo Icon', '']]}}
     pg = new_page(b, d10)
     pg.add_init_script("try { localStorage.setItem('fb-ed', " + json.dumps(json.dumps(ed10)) + "); localStorage.removeItem('fb-sellf'); } catch (e) {}")
@@ -1516,6 +1562,8 @@ with sync_playwright() as pw:
     rd = lambda: [' '.join(t.split()) for t in pg.locator('#sellList .sell-row').all_inner_texts()]
     r0 = rd()
     f0 = pg.locator('#tab-plantel .sell-fbar').inner_text()
+    # a oferta mais alta (vende-se já): na linha e na folha da troca
+    pg.locator('#sellList .sell-row').first.click(); pg.wait_for_timeout(400); sw10 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.click('#tab-plantel button[data-action="sell-fsheet"]'); pg.wait_for_timeout(400)
     pg.locator('#sheetPanel').screenshot(path=str(shots / 'vender-filtros-folha.png'))
     pg.click('#sheetPanel input[data-sellf="down"]'); pg.wait_for_timeout(400); r1 = rd()
@@ -1523,7 +1571,7 @@ with sync_playwright() as pw:
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300); f2 = pg.locator('#tab-plantel .sell-fbar').inner_text()
     pg.locator('#tab-plantel .card').first.screenshot(path=str(shots / 'vender-filtros.png'))
     nA, nB = roster['players'][pA]['name'], roster['players'][pB]['name']
-    ok10 = 'Mesma raridade ou acima' in f0 and 'com subidas' in f2 and len(r0) == 1 and '$5' in r0[0] and len(r1) == 1 and 'Common' in r1[0] and '$1' in r1[0] and len(r2) == 2 and any('Sobe para Legendary' in x for x in r2)
+    ok10 = '(já: $10)' in r0[0] and 'Oferta mais alta (vendes já) $10' in sw10 and 'oferta já $10' in sw10 and 'Mesma raridade ou acima' in f0 and 'com subidas' in f2 and len(r0) == 1 and '$5' in r0[0] and len(r1) == 1 and 'Common' in r1[0] and '$1' in r1[0] and len(r2) == 2 and any('Sobe para Legendary' in x for x in r2)
     print('O10 vender com filtros:', r0, '|', r1, '|', r2, '· ok' if ok10 else '· ERRO')
     pg.close()
 
@@ -1536,7 +1584,7 @@ with sync_playwright() as pw:
     T12['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col12})
     T12['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {'played': {run['days'][0]['date']: {'done': True, 'result': 'win', 'lineup': [pA, pB]}}}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T12['chain_results'] = []; T12['injuries'] = []
-    ed12 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1200, []], ['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300, []]],
+    ed12 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1200, []], ['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300, [], 200]],
             pB: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1500, []], ['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 250, []]]}}
     pg = new_page(b, d12)
     pg.add_init_script("try { localStorage.setItem('fb-ed', " + json.dumps(json.dumps(ed12)) + "); } catch (e) {}")
@@ -1550,7 +1598,7 @@ with sync_playwright() as pw:
     sh12 = ''; tg12 = []
     if len(r12) > 1: pg.locator('#sellList .sell-row').nth(1).click(); pg.wait_for_timeout(400); sh12 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); tg12 = pg.locator('#sheetPanel .sell-card .badge').all_inner_texts()
     nA12, nB12 = roster['players'][pA]['name'], roster['players'][pB]['name']
-    ok12 = len(r12) == 2 and nB12 in r12[0] and nA12 in r12[1] and all('1 carta a mais' in x for x in r12) and tg12 == ['fica', 'a mais']
+    ok12 = 'oferta já $2' in r12[1] and len(r12) == 2 and nB12 in r12[0] and nA12 in r12[1] and all('1 carta a mais' in x for x in r12) and tg12 == ['fica', 'a mais']
     print('O12 repetidas por raridade:', r12, '|', tg12, '· ok' if ok12 else '· ERRO')
     pg.close()
     # O11: na Jornada, a ficha de um jogador do lineup tem "Cartas": as cartas que tens dele, em que noites cada conta o

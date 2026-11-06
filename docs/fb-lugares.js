@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 31; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 32; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -165,7 +165,9 @@ async function editions(cs) {
           if (!x[2].has(setBase(set))) return;
           rows.push([set, String(par || ''), String(e.tier || ''), asp, e.maxMintSize != null ? +e.maxMintSize : null, pick(e.set, /series(number)?$|^flowSeries/i), pick(e, /flow.?set.?id|set.?flow.?id/i), pick(e, /flow.?play.?id|play.?flow.?id/i), isoDay(pick(e, /date.?of.?moment|moment.?date|play.?date|game.?date/i)), ask,
             // emblemas da edição (Rookie Year, Rookie of the Year, Top Shot Debut…): os dias do Pro com emblema precisam deles
-            (Array.isArray(e.badges) ? e.badges : []).map(b => b && (b.slug || b.slugV2)).filter(Boolean)]);
+            (Array.isArray(e.badges) ? e.badges : []).map(b => b && (b.slug || b.slugV2)).filter(Boolean),
+            // a oferta mais alta pela edição (vende-se já, sem esperar por um comprador)
+            +e.highestOfferCents > 0 ? +e.highestOfferCents : null]);
         });
         ed.p[x[0]] = rows;
         const mkl = Object.values(mk).sort((a, b) => a[0] - b[0]); if (mkl.length) (ed.mk = ed.mk || {})[x[0]] = mkl;
@@ -180,8 +182,17 @@ async function editions(cs) {
 }
 // ---- Pro: para cada jogador, a carta mais barata à venda de cada família de sets do Pro (e de qualquer set) ----
 // job.pro = [[id, nome]]; devolve p[id] = {mgle|holo|debut|any: [preço em cêntimos, escalão, set, ASP]}
+// e, com job.prd = [[data, {sets: [[id, nome, [escalões]]], badges: [slug], all}]] (as regras dos dias do Pro que
+// faltam), p[id]['d' + data] = a carta mais barata que conta nesse dia (set certo, com o escalão, ou o emblema)
 const PRO_FAM = [['mgle', /metallic gold/i], ['holo', /holo|top shot 50|cosmic/i], ['debut', /debut/i]];
-async function proMarket(pl) {
+const proFits = (e, q) => {
+  const tier = String(e.tier || '').replace(/^MOMENT_TIER_/, '').toUpperCase(), sid = String(e.setId || (e.set && e.set.id) || '');
+  const bs = (Array.isArray(e.badges) ? e.badges : []).map(b => b && (b.slug || b.slugV2)).filter(Boolean);
+  const setOk = !(q.sets || []).length || q.sets.some(z => String(z[0]) === sid && (!(z[2] || []).length || z[2].map(t => String(t).toUpperCase()).includes(tier)));
+  const bOk = !(q.badges || []).length || (q.all ? q.badges.every(x => bs.includes(x)) : q.badges.some(x => bs.includes(x)));
+  return setOk && bOk;
+};
+async function proMarket(pl, rules) {
   const find = matcher(await tsPlayers()), out = { at: new Date().toISOString(), p: {}, miss: [] }, todo = [];
   pl.forEach(([id, name]) => { const n = find(name); if (n) todo.push([id, n]); else out.miss.push(id); });
   let done = 0, fails = 0;
@@ -195,6 +206,7 @@ async function proMarket(pl) {
           const row = [ask, String(e.tier || '').replace(/^MOMENT_TIER_/, ''), set, asp];
           if (!r.any || ask < r.any[0]) r.any = row;
           PRO_FAM.forEach(([k, rx]) => { if (rx.test(set) && (!r[k] || ask < r[k][0])) r[k] = row; });
+          (rules || []).forEach(([d, q]) => { const k = 'd' + d; if (q && proFits(e, q) && (!r[k] || ask < r[k][0])) r[k] = row; });
         });
         if (Object.keys(r).length) out.p[x[0]] = r;
       } catch (e) { fails++; }
@@ -204,6 +216,7 @@ async function proMarket(pl) {
   };
   await Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map(work));
   if (fails) out.fails = fails;
+  out.days = (rules || []).map(r => r[0]); // dias com preço certo (pela regra do dia)
   return out;
 }
 // ---- picks do dia (PredictionService): os jogos abertos, a % do pessoal em cada opção e o limite de pontos ----
@@ -299,7 +312,7 @@ async function go() {
     // Historic: lendas de hoje e resultados dos dias que passaram (para sugerir a equipa)
     if (want.has('hist')) { try { out.hist = await readHist(); } catch (err) { out.histErr = String(err.message || err).slice(0, 80); } }
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
-    if (want.has('pro') && Array.isArray(job.pro) && job.pro.length) { try { out.pro = await proMarket(job.pro); } catch (err) { out.pro = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
+    if (want.has('pro') && Array.isArray(job.pro) && job.pro.length) { try { out.pro = await proMarket(job.pro, Array.isArray(job.prd) ? job.prd : []); } catch (err) { out.pro = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
     const luN = (out.days || []).reduce((t, d) => t + Object.values(d.accs || {}).filter(a => a.lu && a.lu.length).length, 0);
