@@ -4944,7 +4944,7 @@ const SELL_FEE = 0.05;
 // pode descer: um Common a $10 de ASP comprado por $2 pode voltar a dar só 1 uso). Folga = ASP no dobro do mínimo
 // da faixa que dá esses usos. E só vale a pena com uma poupança a sério: ≥ $3 e ≥ 25% do preço de venda.
 function safeUses(m, need) {
-  const t = TIER_USES[String(m[2] || '').charAt(0).toUpperCase() + String(m[2] || '').slice(1).toLowerCase()] || 1;
+  const t = TIER_USES[TS_TIER(m[2])] || 1; // o Top Shot escreve "MOMENT_TIER_RARE"
   if (t >= need) return true;
   const i = ASP_BANDS.findIndex(b => b[1] >= need), lo = i > 0 ? ASP_BANDS[i - 1][0] : 0;
   return +m[3] > 0 && +m[3] >= 2 * lo;

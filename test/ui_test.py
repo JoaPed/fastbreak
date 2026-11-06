@@ -1492,8 +1492,9 @@ with sync_playwright() as pw:
     T10['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col10})
     T10['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T10['chain_results'] = []; T10['injuries'] = []
-    ed10 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'RARE', 800, None, None, None, None, None, 1200]], pB: [['Base Set', '', 'COMMON', 200, None, None, None, None, None, 300]]},
-            'mk': {pA: [[2, 500, 'RARE', 3000, 'Metallic Gold LE', ''], [2, 150, 'COMMON', 1200, 'Hustle', ''], [2, 100, 'COMMON', 2500, 'Clamps', '']], pB: [[4, 250, 'LEGENDARY', 4000, 'Holo Icon', '']]}}
+    # raridades como o Top Shot as escreve ("MOMENT_TIER_RARE"); o Rare à venda tem ASP baixo ($15): os 2 usos vêm da raridade
+    ed10 = {'at': '2026-10-19T10:00:00Z', 'p': {pA: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1200]], pB: [['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300]]},
+            'mk': {pA: [[2, 500, 'MOMENT_TIER_RARE', 1500, 'Metallic Gold LE', ''], [2, 150, 'MOMENT_TIER_COMMON', 1200, 'Hustle', ''], [2, 100, 'MOMENT_TIER_COMMON', 2500, 'Clamps', '']], pB: [[4, 250, 'MOMENT_TIER_LEGENDARY', 4000, 'Holo Icon', '']]}}
     pg = new_page(b, d10)
     pg.add_init_script("try { localStorage.setItem('fb-ed', " + json.dumps(json.dumps(ed10)) + "); localStorage.removeItem('fb-sellf'); } catch (e) {}")
     pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
