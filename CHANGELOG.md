@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-06
+- **João** — Vender: "preços há …" conta com a leitura de preços de quem a fez no grupo (dizia "por ler" a quem não leu).
 - **João** — Jornada: a ficha de cada jogador tem "Cartas" (as tuas cartas dele, em que noites cada conta o usa, "Ver se compensa um 2.º Moment" e o mercado).
 - **João** — Vender → Poupar com Filtros (botão por cima da lista): aceitar raridade mais baixa (desligado), contar usos pelo ASP com folga (ligado) e mostrar subidas de raridade sem pagar mais (desligado).
 - **João** — Vender → trocas mais seguras: a carta comprada tem de dar os usos pelo escalão, ou pelo ASP com folga (o dobro do mínimo da faixa); só aparecem poupanças de pelo menos $3 e 25% do preço.
