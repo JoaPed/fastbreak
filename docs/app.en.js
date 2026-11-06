@@ -4819,7 +4819,9 @@ function playerSheet(id, date, back) {
       (state === 'jogo' ? '<div class="chips" role="group" aria-label="Quarter">' + [1, 2, 3, 4].map(qn => '<button type="button" data-action="live-q" data-id="' + esc(id) + '" data-q="' + qn + '" aria-pressed="' + (+e.q === qn) + '">' + qn + '.º</button>').join('') + '</div>' : '') + '</div>';
   } else if (live) liveHtml = '<div class="note info">Not in the submitted lineup.</div>';
   // por partes: Resumo (esperado, usos, fixar/tirar, ao vivo, lesão), Porquê (em que se baseia) e Últimos jogos
-  const games = gamesTable(p.avg), PT = [['res', 'Summary'], ['porque', 'Why']].concat(games ? [['jogos', 'Last games']] : []);
+  // as cartas que tens dele (em cada conta), em que noites cada conta o usa e o mercado: para ver se compensa outra
+  const cardsH = momentsBlock(id) + cardsBlock(id), cardsAll = cardsH ? cardsH + mktBlock(id) : '';
+  const games = gamesTable(p.avg), PT = [['res', 'Summary'], ['porque', 'Why']].concat(cardsAll ? [['cartas', 'Cards']] : [], games ? [['jogos', cardsAll ? 'Games' : 'Last games']] : []);
   if (S.pTabId !== id) { S.pTab = 'res'; S.pTabId = id; } // outro jogador abre no Resumo
   const cur = PT.some(x => x[0] === S.pTab) ? S.pTab : 'res', part = (k, h) => '<div class="ptab stack" data-ptab="' + k + '"' + (k === cur ? '' : ' hidden') + '>' + h + '</div>';
   openSheet('<div class="who ph">' + face(id, 'lg') + '<div style="min-width:0"><h3>' + esc(p.name) + '</h3><div class="small muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + ' · Day ' + (day.idx + 1) + ', ' + dShort(date) + '</div></div></div>' +
@@ -4828,7 +4830,7 @@ function playerSheet(id, date, back) {
     '<div class="btns">' + (locked ? '<button class="btn" type="button" data-action="unlock" data-id="' + esc(id) + '" data-date="' + date + '">Unlock</button>' : '<button class="btn primary" type="button" data-action="lock" data-id="' + esc(id) + '" data-date="' + date + '">Lock on this day</button>') +
     '<button class="btn" type="button" data-action="ban" data-id="' + esc(id) + '" data-date="' + date + '">Remove from this day</button></div>' +
     liveHtml + injuryBlock(id, info.injury, date)) +
-    part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (games ? part('jogos', games) : ''), back);
+    part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (cardsAll ? part('cartas', cardsAll) : '') + (games ? part('jogos', games) : ''), back);
 }
 function rosterSheet(id) {
   const e = S.mine.roster[id]; if (!e) return;

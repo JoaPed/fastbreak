@@ -2598,6 +2598,7 @@
  "<h3>Filtros</h3><div class=\"small muted\">Para as trocas em Vender → Poupar. Combinam-se e ficam guardados.</div><div class=\"card panel sell-fs\">": "<h3>Filters</h3><div class=\"small muted\">For the swaps in Sell → Save. They combine and are kept.</div><div class=\"card panel sell-fs\">",
  " checked": null,
  "</span><button class=\"btn small\" type=\"button\" data-action=\"sell-fsheet\">Filtros</button></div>": "</span><button class=\"btn small\" type=\"button\" data-action=\"sell-fsheet\">Filters</button></div>",
+ "Cartas": "Cards",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2746,7 +2747,9 @@
    "const cutTxt = M.cuts.length ? 'Em dias com ' + plural((day.games || []).length, 'jogo', 'jogos') + ', o 40.º lugar (o último com prémio) fez ' + f0(M.cuts[39] ": true,
    "'<div class=\"ps\">' + (x.n ? 'média ' + f0(x.avg) + ' em ' + plural(x.n, 'jogo', 'jogos') : 'ainda sem jogos') + '</div></div></span>' +": true,
    "openSheet('<h3>' + esc(x.name) + '</h3><div class=\"small muted\">' + esc(hTeam(x.team)) + ' · ' + x.rp + ' RP · ' + (x.n ? 'média ' + f1(x.avg) + ' pts em ' + pl": true,
-   "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true
+   "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true,
+   "const games = gamesTable(p.avg), PT = [['res', 'Resumo'], ['porque', 'Porquê']].concat(cardsAll ? [['cartas', 'Cartas']] : [], games ? [['jogos', cardsAll ? 'Jo": false,
+   "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (cardsAll ?": false
   }
  },
  "usos": {

@@ -1515,6 +1515,27 @@ with sync_playwright() as pw:
     ok10 = 'Mesma raridade ou acima' in f0 and 'com subidas' in f2 and len(r0) == 1 and '$5' in r0[0] and len(r1) == 1 and 'Common' in r1[0] and '$1' in r1[0] and len(r2) == 2 and any('Sobe para Legendary' in x for x in r2)
     print('O10 vender com filtros:', r0, '|', r1, '|', r2, '· ok' if ok10 else '· ERRO')
     pg.close()
+    # O11: na Jornada, a ficha de um jogador do lineup tem "Cartas": as cartas que tens dele, em que noites cada conta o
+    # usa e "Ver se compensa um 2.º Moment"
+    d11 = seeded(); T11 = d11['tables']; T11['runs'][0]['fictitious'] = False
+    T11['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    ids11 = list(roster['players'])[:16]
+    col11 = {'sets': {'Metallic Gold LE': {'tier': 'Rare'}}, 'items': {'g%d' % k: {'p': pid, 's': 'Metallic Gold LE', 'a': 'main', 'n': 10 + k, 'm': 99} for k, pid in enumerate(ids11)}, 'players': {pid: {'ids': ['g%d' % k], 'tierUses': 2} for k, pid in enumerate(ids11)}, 'read_at': '2026-10-19T10:00:00Z'}
+    T11['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'collection': col11, 'smurfs': [{'id': 's1', 'topshot_username': 'terose'}]})
+    T11['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in ids11}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T11['chain_results'] = []; T11['injuries'] = []
+    pg = new_page(b, d11)
+    pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(4000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.locator('#tab-hoje [data-action="player"]').first.click(); pg.wait_for_timeout(800)
+    tabs11 = pg.locator('#sheetPanel .ptabs button').all_inner_texts()
+    pg.click('#sheetPanel .ptabs button[data-v="cartas"]'); pg.wait_for_timeout(300)
+    c11 = pg.locator('#sheetPanel [data-ptab="cartas"]').inner_text().replace('\n', ' | ')
+    pg.locator('#sheetPanel').screenshot(path=str(shots / 'ficha-cartas.png'))
+    print('O11 cartas na ficha da Jornada:', tabs11, c11[:200], '· ok' if 'Cartas' in tabs11 and 'Metallic Gold LE' in c11 and 'Moment' in c11 else '· ERRO')
+    pg.close()
     # K3: Classificação do grupo mal os jogos acabam: o Rui não abriu a app, mas partilhou o lineup do dia 2 (principal e
     # smurf): o resultado sai das fichas da ESPN, mais claro (por confirmar); a smurf tem a sua linha
     dbk = k_db(plan2, {pid: 1 for pid in lu1}); Tk = dbk['tables']
