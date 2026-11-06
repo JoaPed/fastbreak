@@ -5,7 +5,7 @@
 // @run-at       document-start
 // @inject-into  page
 // @grant        none
-// @version      32
+// @version      33
 // ==/UserScript==
 window.__fblUS = true;
 (()=>{
@@ -24,7 +24,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 32; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 33; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -311,6 +311,8 @@ async function go() {
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
     if (want.has('ranks') || want.has('lu')) await readRanks(out, want.has('lu'));
+    // a classificação do Pro (só as contas principais jogam o Pro): lugar na run e em cada dia já fechado
+    if (want.has('ranks')) { try { out.proranks = await readProRanks(); } catch (err) { out.proRanksErr = String(err.message || err).slice(0, 80); } }
     // a run (dias, objetivos de cada dia e prémios): para criar/completar a run no site se a blockchain falhar
     if (want.has('run')) { try { out.runs = await readRun(); } catch (err) { out.runErr = String(err.message || err).slice(0, 80); } }
     // o Pro (com a run e com os preços do Pro): cada dia, os objetivos e as cartas que contam (sets e escalões, ou emblemas)
@@ -448,6 +450,39 @@ async function readRun() {
   return out;
 }
 // lugares na run e em cada dia, de cada conta do grupo
+// ---- classificação do Pro: só as contas principais (job.accs com acc 'main'); dias que já fecharam ----
+async function readProRanks() {
+  const accs = (job.accs || []).filter(a => !a.acc || a.acc === 'main'); if (!accs.length) return null;
+  say('A ler a classificação do Pro…');
+  let runs = [];
+  try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {}
+  let run = runs.find(r => r.mode === 'RUN_MODE_PRO' || /nba-pro/.test(String(r.id))) || null;
+  for (let k = 1; k >= -7 && !run; k--) {
+    const id = 'run-nba-pro-' + new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
+    try { const res = await call('GameEngineService/SearchContests', { product: 'nba', runId: id }); if ((res.contests || []).length) run = { id, name: null }; } catch (err) {}
+  }
+  if (!run) return null;
+  const ak = a => String(a.a).replace(/^0x/, '').toLowerCase(), lb = run.leaderboardId || ('run:' + run.id);
+  const out = { at: new Date().toISOString(), run: { id: run.id, name: run.name || null, ends: run.endsAt || null }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], days: [] };
+  for (const a of accs) {
+    try { const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: lb, subjectId: ak(a) }), e = r.entry || {}; if (r.totalCount) out.total = +r.totalCount;
+      out.accs.push({ a: a.a, found: !!r.found, rank: r.found ? +e.rank : null, wins: r.found ? +(e.displayScore != null ? e.displayScore : e.score) : 0 }); } catch (err) { out.accs.push({ a: a.a, err: String(err.message || err).slice(0, 60) }); }
+  }
+  let cs = [], page = null;
+  for (let i = 0; i < 6; i++) { const res = await call('GameEngineService/SearchContests', Object.assign({ product: 'nba', runId: run.id }, page ? { pageToken: page } : {})); cs = cs.concat(res.contests || []); page = res.nextPageToken || null; if (!page) break; }
+  cs = cs.filter(c => c.locksAt && Date.parse(c.locksAt) <= Date.now()).sort((a, b) => String(a.locksAt).localeCompare(String(b.locksAt)));
+  let k = 0;
+  for (const c of cs) {
+    say('A ler a classificação do Pro… dia ' + (++k) + ' de ' + cs.length);
+    const d = { id: c.id, date: (String(c.id).match(/(\d{4}-\d{2}-\d{2})$/) || [])[1] || null, final: /FINAL/.test(c.status || ''), bands: ((c.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), accs: {}, no: [] };
+    for (const a of accs) {
+      try { const r = await call('LeaderboardService/GetSubjectRank', { leaderboardId: c.leaderboardId || ('contest:' + c.id), subjectId: ak(a) }); if (r.totalCount) d.total = +r.totalCount;
+        if (r.found) { const e = r.entry || {}; d.accs[ak(a)] = { rank: +e.rank, score: +e.score, won: +e.score >= 1e6, ds: e.displayScore != null ? +e.displayScore : null }; } else d.no.push(ak(a)); } catch (err) {}
+    }
+    out.days.push(d);
+  }
+  return out;
+}
 async function readRanks(out, withLu) {
   {
     say('A ver a run…');

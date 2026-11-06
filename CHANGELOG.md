@@ -4,6 +4,9 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-06
+- **João** — Pro: o placar do dia segue o teu lineup (quanto custa à esquerda e a vitória no anel). Botão "Sugestões" com três lineups (Barata, Equilibrada e A melhor), com a vitória e o custo total, e "Usar a …".
+- **João** — Classificação: separador Pro (só as contas principais), com o lugar na run e em cada dia e os créditos ganhos. O leitor (v33) lê-a com os lugares.
+- **João** — Vender: filtro "Vendas rápidas" (conta com a oferta mais alta em vez do low ask, mostra quanto recebes e, ao carregar, quanto perdes face a esperar pelo low ask).
 - **João** — Pro: "Mudar o lineup" como no Classic (no placar e no cartão Equipa). A folha tem × para tirar, "Adicionar jogador" com "manter" e "Voltar à sugestão". O «Quem entra?» mostra logo o low ask de cada jogador. A faixa tem a run toda: os dias passados mostram a equipa que escolheste.
 - **João** — Pro: cartão Equipa no dia, como o lineup do Classic. Mostra as tuas cartas que contam e as que podes comprar (com o preço desse dia), o total a gastar e as cartas que estão noutra conta e têm de ir para a principal (só a principal joga o Pro). Tocar num jogador mostra a carta (low ask) e "Trocar" abre o «Quem entra?», com a vitória da equipa com cada um. Também há a troca rápida: vender a tua da mesma raridade pela oferta mais alta e comprar a do dia.
 - **João** — Vender: a oferta mais alta (vendes já) em todas as listas e na folha de cada troca.

@@ -1476,7 +1476,7 @@ with sync_playwright() as pw:
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.wait_for_timeout(1500)
     teamc = pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Equipa'))
-    t0 = ' '.join(teamc.inner_text().split())
+    t0 = ' '.join(teamc.inner_text().split()); h0 = ' '.join(pg.locator('#tab-hoje .day-hero').first.inner_text().split())
     pg.screenshot(path=str(shots / 'pro-equipa.png'), full_page=True)
     pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(300); teamc.screenshot(path=str(shots / 'pro-equipa-escuro.png')); pg.emulate_media(color_scheme='light')
     nA13, nB13 = roster['players'][pA13]['name'], roster['players'][pB13]['name']
@@ -1493,7 +1493,7 @@ with sync_playwright() as pw:
     own = [' '.join(t.split()) for t in pg.locator('#sheetPanel #luCand li[data-n]').all_inner_texts()]
     pg.locator('#sheetPanel button[data-action="pro-pick-f"][data-v="all"]').click(); pg.wait_for_timeout(400)
     pg.locator('#sheetPanel #luCand button[data-action="pro-fill"]').first.click(); pg.wait_for_timeout(800)
-    t1 = ' '.join(teamc.inner_text().split())
+    t1 = ' '.join(teamc.inner_text().split()); h1 = ' '.join(pg.locator('#tab-hoje .day-hero').first.inner_text().split())
     # Mudar o lineup (como no Classic): × tira, "Adicionar jogador" abre o Quem entra? (com o low ask) e volta à folha
     pg.locator('#tab-hoje .day-hero button[data-action="pro-lu"]').click(); pg.wait_for_timeout(500)
     lu0 = ' '.join(pg.locator('#sheetPanel').inner_text().split())
@@ -1504,10 +1504,20 @@ with sync_playwright() as pw:
     pg.locator('#sheetPanel #luCand button[data-action="pro-fill"]').first.click(); pg.wait_for_timeout(600)
     lu2 = ' '.join(pg.locator('#sheetPanel').inner_text().split())
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
-    okLu = 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in lu1 and 'saiu' in lu1 and 'manter' in lu1 and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in lu2 and 'Voltar à sugestão' in lu2
-    ok13 = 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0 and 'com trocas' in t0 and 'A comprar' in t0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'a tua escolha' in t1 and t1 != t0 and \
+    # Sugestões (como no Classic): barata, equilibrada e a melhor, com a vitória e o custo; "Usar esta" muda a equipa
+    pg.locator('#tab-hoje .day-hero button[data-action="pro-opts"]').click(); pg.wait_for_timeout(800)
+    op = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-sugestoes.png'))
+    nOpt = pg.locator('#sheetPanel .pro-tiles .top-tile').count()
+    pg.locator('#sheetPanel button[data-action="pro-opt"][data-k="top"]').click(); pg.wait_for_timeout(500)
+    if pg.locator('#sheetPanel button[data-action="pro-use"][data-k="top"]').count(): pg.locator('#sheetPanel button[data-action="pro-use"][data-k="top"]').click(); pg.wait_for_timeout(600)
+    h2 = ' '.join(pg.locator('#tab-hoje .day-hero').first.inner_text().split())
+    okOpt = nOpt == 3 and 'barata' in op.lower() and 'equilibrada' in op.lower() and 'a melhor' in op.lower() and 'Custa $' in op and 'custa' in h2.lower() and 'Usar a equilibrada' in op
+    print('O13 sugestões:', nOpt, 'Usar a equilibrada' in op, op[-200:], '|', h2[:160], '· ok' if okOpt else '· ERRO')
+    okLu = okOpt and 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in lu1 and 'saiu' in lu1 and 'manter' in lu1 and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in lu2 and 'Voltar à sugestão' in lu2
+    ok13 = 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0.replace('\xa0', ' ') and 'a sugestão custa $36' in h0.lower() and 'com trocas $31,73' in h0 and 'a tua equipa custa $51' in h1.lower() and h1 != h0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'a tua escolha' in t1 and t1 != t0 and \
         ((nB13 in t0 and 'está em' in t0 and 'Manda para a principal' in t0) or (nB13 not in t0)) and okLu
     print('O13 lineup:', lu0[:120], '|', lu1[:160], '|', pk2[:200], '|', lu2[:120])
+    print('O13 placar:', h0[:200], '|', h1[:200])
     print('O13 Pro com equipa:', t0[:300], '|', cB[:200], '|', cX[:200], '|', pk[:200], '|', own[:3], '|', t1[:160], '· ok' if ok13 else '· ERRO')
     pg.close()
     # O13b: os dias do Pro já passados aparecem na faixa e mostram a equipa escolhida no site (sem mudar)
@@ -1523,6 +1533,28 @@ with sync_playwright() as pw:
     pc = ' '.join(pg.locator('#tab-hoje .card').filter(has=pg.locator('h2', has_text='Equipa')).inner_text().split())
     hb = pg.locator('#tab-hoje .day-hero button[data-action="pro-lu"]').count()
     print('O13b Pro dias passados:', npast, pc[:160], '· ok' if npast >= 1 and 'dia fechado' in pc and nA13 in pc and nB13 in pc and hb == 0 else '· ERRO')
+    pg.close()
+    # O14: Grupo → Classificação → Pro: lido com os lugares (só a conta principal); lugar na run e em cada dia, com o prémio
+    d14 = seeded(); T14 = d14['tables']; T14['runs'][0]['fictitious'] = False
+    T14['members'].append({'user_id': 'u-eu', 'role': 'admin'})
+    T14['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})
+    T14['chain_results'] = []; T14['injuries'] = []
+    pk14 = {'at': '2026-10-21T10:00:00Z', 'run': {'id': 'run-nba-pro-2026-10-20', 'name': 'Pro Run 1'}, 'bands': [[1, 1, 50000], [2, 200, 1000]], 'qual': None, 'total': 3100,
+            'accs': [{'a': 'e7fb03955ade55fa', 'found': True, 'rank': 150, 'wins': 2}],
+            'days': [{'id': 'p1', 'date': run['days'][0]['date'], 'final': True, 'total': 900, 'bands': [[1, 1, 15000], [2, 100, 500]], 'accs': {'e7fb03955ade55fa': {'rank': 40, 'score': 1000120, 'won': True}}, 'no': []},
+                     {'id': 'p2', 'date': run['days'][1]['date'], 'final': True, 'total': 880, 'bands': [[1, 1, 15000], [2, 100, 500]], 'accs': {'e7fb03955ade55fa': {'rank': 300, 'score': 90, 'won': False}}, 'no': []}]}
+    pg = new_page(b, d14)
+    pg.add_init_script("try { localStorage.setItem('fb-proranks', " + json.dumps(json.dumps(pk14)) + "); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-21T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-grupo'); pg.wait_for_timeout(800)
+    pg.click('#tab-grupo button[data-action="gc-mode"][data-v="pro"]'); pg.wait_for_timeout(600)
+    g14 = ' '.join(pg.locator('#tab-grupo').inner_text().split())
+    pg.locator('#tab-grupo .card').filter(has=pg.locator('h2', has_text='Classificação do Pro')).screenshot(path=str(shots / 'pro-classificacao.png'))
+    ok14 = 'Classificação do Pro' in g14 and '150.º' in g14 and '$10' in g14 and '40.º' in g14 and '+$5' in g14 and '300.º' in g14 and 'só as contas principais' in g14
+    print('O14 classificação do Pro:', g14[:300], '· ok' if ok14 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False
@@ -1596,6 +1628,18 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel input[data-sellf="up"]'); pg.wait_for_timeout(400); r2 = rd()
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300); f2 = pg.locator('#tab-plantel .sell-fbar').inner_text()
     pg.locator('#tab-plantel .card').first.screenshot(path=str(shots / 'vender-filtros.png'))
+    # Vendas rápidas: conta com a oferta mais alta (vendes já); na folha, o que poupavas se esperasses e quanto custa vender já
+    pg.click('#tab-plantel button[data-action="sell-fsheet"]'); pg.wait_for_timeout(300)
+    pg.click('#sheetPanel input[data-sellf="down"]'); pg.click('#sheetPanel input[data-sellf="up"]'); pg.click('#sheetPanel input[data-sellf="fast"]'); pg.wait_for_timeout(400)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    r3 = rd(); f3 = pg.locator('#tab-plantel .sell-fbar').inner_text()
+    pg.locator('#tab-plantel .card').first.screenshot(path=str(shots / 'vender-rapidas.png'))
+    pg.locator('#sellList .sell-row').first.click(); pg.wait_for_timeout(400); sw3 = ' '.join(pg.locator('#sheetPanel').inner_text().split())
+    pg.locator('#sheetPanel').screenshot(path=str(shots / 'vender-rapidas-folha.png')); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#tab-plantel button[data-action="sell-tab"][data-v="naousadas"]'); pg.wait_for_timeout(400); f4 = pg.locator('#tab-plantel .sell-fbar').inner_text()
+    ok3 = len(r3) == 1 and 'Vendes já por $10' in r3[0] and '+$4,50' in r3[0] and 'Vendas rápidas' in f3 and 'Vendes já a tua (oferta mais alta)' in sw3 and 'Se esperares (low ask) $12' in sw3 and 'Vender já custa-te −$1,90' in sw3 and 'Vendas rápidas' in f4
+    print('O10 vendas rápidas:', r3, '|', sw3[-260:], '· ok' if ok3 else '· ERRO')
+    pg.evaluate("localStorage.removeItem('fb-sellf')")
     nA, nB = roster['players'][pA]['name'], roster['players'][pB]['name']
     ok10 = '(já: $10)' in r0[0] and 'Oferta mais alta (vendes já) $10' in sw10 and 'oferta já $10' in sw10 and 'Mesma raridade ou acima' in f0 and 'com subidas' in f2 and len(r0) == 1 and '$5' in r0[0] and len(r1) == 1 and 'Common' in r1[0] and '$1' in r1[0] and len(r2) == 2 and any('Sobe para Legendary' in x for x in r2)
     print('O10 vender com filtros:', r0, '|', r1, '|', r2, '· ok' if ok10 else '· ERRO')
