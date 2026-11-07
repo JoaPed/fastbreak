@@ -1465,6 +1465,8 @@ with sync_playwright() as pw:
     T13['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     T13['chain_results'] = []; T13['injuries'] = []
     pr13 = {'at': '2026-10-19T10:00:00Z', 'id': 'run-nba-pro-2026-10-20', 'days': [{'id': 'p1', 'date': d1, 'objs': [{'k': 'points', 'a': 'PTS', 't': 120}], 'req': {'sets': [['5', 'Metallic Gold LE', []]], 'badges': [], 'all': False}}]}
+    # uma leitura mais recente do Pro de outra pessoa, mas de outra run (datas que não batem): não pode esconder a boa
+    T13['summaries'] = [x for x in T13['summaries'] if x['user_id'] != 'u-rui'] + [{'user_id': 'u-rui', 'run_id': 'run-1', 'wins': 0, 'losses': 0, 'share': {'prorun': {'at': '2026-10-19T13:00:00Z', 'id': 'run-nba-pro-2025-01-01', 'days': [{'id': 'x1', 'date': '2025-01-02', 'objs': [], 'req': {'sets': [['9', 'Holo Icon', []]], 'badges': [], 'all': False}}]}}}]
     px13 = {'at': '2026-10-19T12:00:00Z', 'days': [d1], 'p': {pid: {'d' + d1: [600 + 450 * k, 'RARE', 'Metallic Gold LE', 2000 + 300 * k], 'mgle': [9999, 'RARE', 'Metallic Gold LE', 1]} for k, pid in enumerate(buy13)}}
     # troca rápida: um Rare teu (Throwdowns, não conta) de quem tens de comprar, com oferta de $4,50
     ed13 = {'at': '2026-10-19T10:00:00Z', 'p': {buy13[0]: [['Throwdowns', '', 'MOMENT_TIER_RARE', 800, None, None, None, None, None, 1500, [], 450]]}}
@@ -1517,7 +1519,7 @@ with sync_playwright() as pw:
     okOwn = 'O que já tens para o dia 1' in own13 and 'Metallic Gold LE' in own13 and ('na sugestão' in own13 or 'útil' in own13) and 'úteis' in own13
     print('O13 o que tens no dia:', okOwn)
     okLu = okOwn and okOpt and 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in lu1 and 'saiu' in lu1 and 'manter' in lu1 and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in lu2 and 'Voltar à sugestão' in lu2
-    ok13 = 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0.replace('\xa0', ' ') and 'a sugestão custa $36' in h0.lower() and 'com trocas $31,73' in h0 and 'a tua equipa custa $51' in h1.lower() and h1 != h0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'a tua escolha' in t1 and t1 != t0 and \
+    ok13 = 'ensaio' not in h0 and 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0.replace('\xa0', ' ') and 'a sugestão custa $36' in h0.lower() and 'com trocas $31,73' in h0 and 'a tua equipa custa $51' in h1.lower() and h1 != h0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'a tua escolha' in t1 and t1 != t0 and \
         ((nB13 in t0 and 'está em' in t0 and 'Manda para a principal' in t0) or (nB13 not in t0)) and okLu
     print('O13 lineup:', lu0[:120], '|', lu1[:160], '|', pk2[:200], '|', lu2[:120])
     print('O13 placar:', h0[:200], '|', h1[:200])

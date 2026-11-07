@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-07
+- **João** — Pro: o site usa a leitura mais recente das regras da Pro que bata com a run; uma leitura de outra run (de qualquer pessoa do grupo) já não faz voltar ao ensaio. As Sugestões avisam quando não há preços para o dia.
+
 ## 2026-11-06
 - **João** — Mudar o lineup: o cadeado de quem não joga nesse dia (lesionado, sem jogo) já não conta para os 5 fixados nem bloqueia as trocas, e sai quando mexes nos cadeados.
 - **João** — Pro: "O que já tens para o dia N" mostra só as tuas cartas que contam nesse dia, com o low ask, a conta, a projeção e se servem (na sugestão, útil, pouco útil, sem jogo).

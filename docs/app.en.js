@@ -1824,10 +1824,11 @@ const proRuleTest = idx => PRO_FAM[idx % PRO_FAM.length];
 // ---- Pro a sério: dias, objetivos e regra de cartas lidos no Top Shot (Run e prémios / Preços do Pro) ----
 try { S.proRunMine = JSON.parse(localStorage.getItem('fb-prorun') || 'null'); } catch (e) { S.proRunMine = null; }
 function groupProRun() {
-  const docs = [S.proRunMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.prorun)).filter(d => d && d.at && Array.isArray(d.days) && d.days.length);
-  const r = docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
-  // só serve se coincidir com a run do site (mesmas datas)
-  return r && S.days.some(d => r.days.some(x => x.date === d.date)) ? r : null;
+  // a leitura mais recente QUE COINCIDA com a run do site (mesmas datas): uma leitura de outra run ou com o leitor antigo
+  // (de qualquer pessoa do grupo) já não esconde as boas e não faz voltar ao ensaio
+  const ok = d => d && d.at && Array.isArray(d.days) && d.days.some(x => x && x.date && S.days.some(z => z.date === x.date));
+  const docs = [S.proRunMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.prorun)).filter(ok);
+  return docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
 }
 const proRunDay = date => { const R = groupProRun(); return R ? R.days.find(d => d.date === date) || null : null; };
 // regra de um dia: a do Top Shot ({sets, badges}) ou, sem ela, a do ensaio (as famílias à vez)
@@ -2016,7 +2017,9 @@ function proOptsSheet(date) {
   // em cima, as três lado a lado (nome, vitória e custo); em baixo, o lineup da escolhida
   const tile = o => '<button type="button" class="top-tile' + (o === sel ? ' on' : '') + '" data-action="pro-opt" data-k="' + o.k + '" data-date="' + date + '" aria-pressed="' + (o === sel) + '"><span class="top-lab">' + esc(o.name) + '</span><span class="top-tot"><b class="num c-' + (o.P >= 0.5 ? 'ok' : 'no') + '">' + pct(o.P) + '</b></span><span class="pro-opt-c num">' + (o.buy.length ? usdC(o.cost) : '$0') + '</span></button>';
   const same = O.filter(o => o !== sel && keyOf(o) === keyOf(sel)).map(o => o.name), using = keyOf(sel) === cur;
+  const nPriced = [...X.cand.values()].filter(c => !c.own).length;
   openSheet('<h3>Suggestions</h3><div class="small muted">Pro · day ' + (X.md.day.idx + 1) + ' · Only cards from <b>' + esc(X.rule.name) + '</b>. Prices: low ask' + (X.P ? ' of ' + esc(ago(X.P.at)) : '') + '.</div>' +
+    (nPriced ? '' : '<div class="note warn">' + (X.P ? 'No prices read for cards that count on this day' : 'No Pro prices yet') + ': the suggestions only use what you have. ' + (S.role === 'admin' ? 'Read the Pro prices (Settings → Admin → Read on Top Shot).' : 'Ask the admin to read the Pro prices.') + '</div>') +
     '<div class="top-tiles pro-tiles" style="--n:3">' + O.map(tile).join('') + '</div>' +
     '<div class="card pro-opt"><div class="pad small">' + (sel.buy.length ? 'Costs <b class="num">' + usdC(sel.cost) + '</b> · ' + plural(sel.buy.length, 'card to buy', 'cards to buy') + (sel.nSwap ? ' · with swaps <b class="num">' + usdC(sel.cost2) + '</b>' : '') : '<b>You buy nothing</b>: only with what you have') +
       (sel.away.length ? ' · ' + plural(sel.away.length, 'card to send', 'cards to send') + ' to the main one' : '') + (same.length ? ' <span class="muted">(same as ' + esc(same.join(' and ')) + ')</span>' : '') + '</div>' +
