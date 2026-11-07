@@ -1209,7 +1209,8 @@ with sync_playwright() as pw:
     print('O smurf:', pg.locator('#tab-hoje .h-accs').inner_text().replace('\n', ' '), '|', pg.locator('#tab-hoje .h-port').inner_text())
     t1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(400)
     t2 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=0'); pg.wait_for_timeout(400)
-    print('O equipas diferentes:', len(set(t2) - set(t1)), 'lendas mudam')
+    print('O equipas diferentes:', len(set(t2) - set(t1)), 'lendas mudam', '· ok' if t2 and set(t2) != set(t1) else '· ERRO')
+    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(500)
     first = pg.locator('#tab-hoje .h-hero .nm').first.inner_text()
     pg.locator('#tab-hoje .h-hero button[data-action="h-card"]').first.click(); pg.wait_for_timeout(300)
     pg.click('#sheetPanel button[data-action="h-ban"]'); pg.wait_for_timeout(600)
@@ -1241,6 +1242,7 @@ with sync_playwright() as pw:
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(500)
     dx0 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text()
     pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(600)
     dx1 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text(); tm1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()
@@ -1602,6 +1604,58 @@ with sync_playwright() as pw:
     print('O15 × com cadeado:', x15, '· solto:', x15 not in lkA, '· manter volta o cadeado:', x15 in lkB, '· fechar tira-o:', x15 in pl15['bans'][d0], x15 not in lineup15, len(lineup15), '· ok' if okX else '· ERRO')
     ok15 = okX and who15 in lk15 and gone15 not in lk15 and off15[0] not in lk15 and len(lk15) == 5 and last15.get('k') == 'mine' and last15.get('g') is not None and 'run ' in hl15
     print('O15 cadeado de quem não joga não bloqueia:', gone15, '→', who15, lk15, '· ok' if ok15 else '· ERRO')
+    pg.close()
+    # O16: Historic → "Vale a pena comprar?": pelos dias jogados, quantos pontos a mais dava o desconto da carta de cada
+    # lenda, em quantos dias punha no top 40 (a pontuação ficou 2 pontos abaixo do 40.º) e o preço da carta (leitor v34)
+    H16 = json.loads(HISTJ); A16 = 'e7fb03955ade55fa'; lg16 = set()
+    for d_ in H16['days']:
+        if not d_.get('lines') or not d_.get('top'): continue
+        cut = d_['top'][min(39, len(d_['top']) - 1)]
+        d_['mine'] = {A16: {'rank': 45, 'score': cut - 2, 'lu': [str(l[0]) for l in d_['lines'][:5]]}}
+        for r_ in d_.get('rp', []): lg16.add(str(r_[0]))
+    H16['px'] = {pid: [150, 800, 4000, None] for pid in list(lg16)}; H16['pxAt'] = '2026-10-29T12:00:00Z'
+    d16 = seeded(); T16 = d16['tables']; T16['runs'][0]['fictitious'] = False
+    T16['members'].append({'user_id': 'u-eu', 'role': 'admin'})
+    T16['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0x' + A16})
+    T16['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T16['chain_results'] = []; T16['injuries'] = []
+    pg = new_page(b, d16)
+    # arquivo com uma run anterior (os mesmos dias com outro id e sem pontuação tua): entram nas contas
+    R16 = {'v': 1, 'run': {'id': 'run-fb-historic-2026-09-01'}, 'rubric': H16.get('rubric'), 'budget': H16.get('budget'), 'keys': H16.get('keys'),
+           'days': [dict({k: v for k, v in d_.items() if k != 'mine'}, id=d_['id'].replace('run-', 'old-')) for d_ in H16['days'] if d_.get('lines') and d_.get('top')]}
+    pg.route('**/data/historic/index.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps({'v': 1, 'runs': [{'id': 'old', 'file': 'old.json'}]})))
+    pg.route('**/data/historic/old.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(R16)))
+    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(json.dumps(H16)) + "); localStorage.setItem('fb-jmode', 'historic'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-29T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.wait_for_timeout(1500)
+    # separadores: Equipa (outras equipas nunca com mais pontos que a sugerida, numa só conta), Lendas, Comprar
+    nt16 = pg.locator('#tab-hoje .h-tabs button[data-action="h-tab"]').count()
+    hero16 = float(pg.locator('#tab-hoje .h-hero .gb-n').inner_text().replace(',', '.') or 0)
+    alt16 = [float(t.split()[0].replace(',', '.')) for t in pg.locator('#tab-hoje .h-alt .pn b').all_inner_texts()]
+    pg.locator('#tab-hoje .h-tabs button[data-v="equipa"]').screenshot(path=str(shots / 'historic-tabs.png')) if nt16 else None
+    pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-equipa.png'))
+    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(800)
+    lend16 = pg.locator('#tab-hoje .card .card-min').count()
+    pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-lendas.png'))
+    pg.click('#tab-hoje .h-tabs button[data-v="comprar"]'); pg.wait_for_timeout(4000)
+    nb16 = pg.locator('#tab-hoje .h-buy-intro').count()
+    hb16 = ' '.join(pg.locator('#tab-hoje').inner_text().split())
+    nm16 = pg.locator('#tab-hoje .card .card-min').count()
+    pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-comprar.png'))
+    # as 3 primeiras lendas abertas, as outras minimizadas; minimizar a primeira: fica só o título; outra vez abre; fica guardado
+    min0 = pg.locator('#tab-hoje .card.min').count()
+    if nm16: pg.locator('#tab-hoje .card .card-min').first.click(); pg.wait_for_timeout(300)
+    min16 = pg.locator('#tab-hoje .card.min').count()
+    pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-minimizado.png'))
+    sv16 = pg.evaluate("localStorage.getItem('fb-cmin') || ''")
+    if nm16: pg.locator('#tab-hoje .card .card-min').first.click(); pg.wait_for_timeout(300)
+    min16b = pg.locator('#tab-hoje .card.min').count()
+    ok16 = nt16 == 3 and all(x <= hero16 + 0.5 for x in alt16) and lend16 >= 1 and nb16 == 1 and 'dias jogados' in hb16 and ' de runs anteriores' in hb16 and ('pts em' in hb16 or 'Nenhuma carta mudava' in hb16) and min0 == max(0, nm16 - 3) and min16 == min0 + 1 and 'hb-' in sv16 and min16b == min0
+    hb16 = str([nt16, hero16, alt16, lend16, nm16, min0, min16, min16b]) + ' ' + hb16[hb16.find('Pelos'):][:300]
+    print('O16 Historic vale a pena comprar:', nb16, hb16[:400], '· ok' if ok16 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False

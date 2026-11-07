@@ -1267,3 +1267,14 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .sf-row:last-child { border-bottom: 0; }
 .sf-row > span { display: flex; flex-direction: column; gap: 2px; }
 .sf-row input { flex: none; width: 22px; height: 22px; accent-color: var(--ink); }
+/* Historic: vale a pena comprar? */
+.hb-opt { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; } .hb-t { font-size: 13px; color: var(--muted); } .hb-p { font-weight: 800; }
+/* Historic: separadores e minimizar listas */
+.h-tabs { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 0 12px; }
+.h-buy-intro { margin: 0 4px 12px; line-height: 1.45; }
+.card-min { margin-left: auto; flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.card-min svg { width: 16px; height: 16px; transition: transform .15s ease; }
+.card.min .card-min svg { transform: rotate(-90deg); }
+.card.min > :not(.list-head) { display: none !important; }
+.card.min > .list-head { padding-bottom: 14px; }
+@media (prefers-reduced-motion: reduce) { .card-min svg { transition: none; } }

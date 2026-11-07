@@ -2340,6 +2340,74 @@ function histPastHtml(H, day) {
   const bestCard = '<div class="card"><div class="list-head"><h2>Top-scoring legends</h2></div><ul class="list">' + best.map(x => line(x.id)).join('') + '</ul></div>';
   return accBar + hero + sugCard + idealCard + bestCard;
 }
+// Historic: vale a pena comprar a carta de uma lenda? Ter a carta dá desconto no custo da lenda (Common 5%, Rare 10%,
+// Legendary 15%, Ultimate 20%) em todos os dias em que joga. Pelos dias já jogados (conta principal): com as médias das
+// lendas, quantos pontos a mais faria a melhor equipa de cada dia com esse desconto; onde terias ficado com esses pontos a
+// mais (pelos 40 primeiros do dia) e o prémio a mais; e o preço da carta (leitor v34). É uma estimativa
+const H_TIER_DISC = [['Common', 5], ['Rare', 10], ['Legendary', 15], ['Ultimate', 20]];
+try { S.htab = localStorage.getItem('fb-htab') || 'equipa'; } catch (e) { S.htab = 'equipa'; }
+// os dias desta run (com a tua pontuação) e os das runs anteriores do arquivo (sem pontuação tua: conta a que a
+// equipa sugerida pela app fez nesse dia)
+function histBuyCalc(H0) {
+  const H = histData(H0), days = (H.days || []).filter(d => d.lines && d.lines.length && d.rp && d.rp.length && d.top && d.top.length);
+  const ak = addrKey(accAddr(S.session.user.id, 'main')), sum = new Map(), names = new Map();
+  days.forEach(d => d.lines.forEach(l => { const id = String(l[0]), x = sum.get(id) || [0, 0]; x[0] += hFbp(H, l); x[1]++; sum.set(id, x); names.set(id, l[1]); }));
+  const mu = id => { const x = sum.get(id); return x ? x[0] / x[1] : null; };
+  const dsc = hDiscs('main', [...names].map(([id, name]) => ({ id, name }))), budget = +((H.budget || {}).limit) || 350, res = new Map();
+  let nDays = 0, nMine = 0;
+  days.forEach(d => {
+    const me0 = (d.mine || {})[ak] || (S.role === 'admin' ? (d.mine || {})._me : null), mine = !!(me0 && me0.score != null);
+    const rows = d.rp.map(r => ({ id: String(r[0]), rp: +r[1], mu: mu(String(r[0])) })).filter(x => x.mu != null).map(x => Object.assign(x, { cost: x.rp * (1 - (+dsc[x.id] || 0) / 100) })).sort((a, b) => b.mu - a.mu);
+    if (rows.length < 5) return;
+    const top1 = rs => (FB.histBest({ rows: rs, budget }, 1) || [])[0] || null, best = rs => (top1(rs) || {}).ev || 0, b0 = top1(rows), base = b0 ? b0.ev : 0, paid = hLastPaid(d);
+    // sem a tua pontuação: o que a equipa sugerida fez mesmo nesse dia
+    const act = new Map(d.lines.map(l => [String(l[0]), hFbp(H, l)]));
+    const me = mine ? me0 : b0 ? { score: b0.ids.reduce((t, id) => t + (act.get(id) || 0), 0) } : null; if (!me) return;
+    nDays++; if (mine) nMine++;
+    const rankOf = v => { let k = 0; while (k < d.top.length && d.top[k] > v + 1e-9) k++; return k < d.top.length ? k + 1 : null; };
+    const r0 = me.rank || rankOf(me.score), p0 = hPrize(d, r0);
+    rows.filter(x => x.rp >= 45).forEach(x => {
+      for (let k = H_TIER_DISC.length - 1; k >= 0; k--) { // da que dá mais desconto para a que dá menos: sem ganho com mais, não há com menos
+        const pc = H_TIER_DISC[k][1]; if (pc <= (+dsc[x.id] || 0)) break;
+        const g = best(rows.map(y => y.id === x.id ? Object.assign({}, y, { cost: y.rp * (1 - pc / 100) }) : y)) - base; if (g < 0.05) break;
+        const r1 = rankOf(me.score + g), key = x.id + '|' + k, a = res.get(key) || { id: x.id, k, g: 0, n: 0, top: 0, prize: 0 };
+        a.g += g; a.n++; if ((!r0 || r0 > paid) && r1 && r1 <= paid) a.top++; a.prize += Math.max(0, hPrize(d, r1) - p0); res.set(key, a);
+      }
+    });
+  });
+  return { nDays, nMine, rows: [...res.values()], names, dsc };
+}
+const histBuyBtn = () => '<div class="card"><div class="list-head"><h2>Worth buying?</h2></div><div class="pad small muted">Which legend cards would have given you more points (and prizes) through the discount, on the days already played.</div><div class="btns" style="padding:0 16px 14px;margin:0"><button class="btn" type="button" data-action="h-buy">See the numbers</button></div></div>';
+function histBuySheet() {
+  const H = groupHist(); if (!H) return;
+  openSheet('<h3>Worth buying?</h3><div class="small muted" id="hbBody">Calculating…</div>');
+  setTimeout(() => { const b = $('hbBody'); if (b) b.outerHTML = histBuyHtml(H); }, 30);
+}
+// as contas guardam-se por leitura do Historic (não se refazem a cada desenho da página)
+function histBuyHtml(H) {
+  const nArch = S.histArch && S.histArch.runs ? S.histArch.runs.reduce((t, r) => t + (r.days || []).length, 0) : 0;
+  const key = H.at + '|' + (H.pxAt || '') + '|' + JSON.stringify(S.hdisc || {}) + '|' + [...S.cardMin].join() + '|' + nArch;
+  if (S.hbuyMemo && S.hbuyMemo.k === key) return S.hbuyMemo.h;
+  const h = (() => {
+    const X = histBuyCalc(H), px = H.px || {}, by = new Map();
+    X.rows.forEach(a => { const L = by.get(a.id) || []; L.push(a); by.set(a.id, L); });
+    const money = gcMoney, list = [...by.entries()].map(([id, L]) => ({ id, L: L.sort((p, q) => p.k - q.k), prize: Math.max(...L.map(a => a.prize)), g: Math.max(...L.map(a => a.g)) })).sort((p, q) => (q.prize - p.prize) || (q.g - p.g)).slice(0, 20);
+    const opt = (id, a) => { const pr = (px[id] || [])[a.k], [tn, pc] = H_TIER_DISC[a.k];
+      return '<li class="row hb-opt"><span class="pill">' + tn + ' · −' + pc + '%</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts in ' + plural(a.n, 'day', 'days') + (a.top ? ' · <b class="c-good">top 40 on ' + plural(a.top, 'day', 'days') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + (pr ? usdC(pr) : '—') + '</span></li>'; };
+    const card = (x, i) => cardMin('<div class="card"><div class="list-head"><h2>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</h2><span class="small muted">' + (X.dsc[x.id] ? 'you already have −' + X.dsc[x.id] + '%' : 'you don\'t have one') + '</span></div><ul class="list">' + x.L.map(a => opt(x.id, a)).join('') + '</ul></div>', 'hb-' + x.id, i >= 3);
+    return '<div class="small muted h-buy-intro">Over the ' + plural(X.nDays, 'day played', 'days played') + (X.nDays > X.nMine ? ': ' + X.nMine + ' from this run, with your score (main account), and ' + (X.nDays - X.nMine) + ' from earlier runs, with what the suggested team scored' : ' with your score (main account)') + '. For each legend: how many more points the best team of the day would score with the card\'s discount, on how many days that would put you in the top 40, and the extra prize. On the right, the price of the cheapest card' + (H.pxAt ? ' (' + esc(ago(H.pxAt)) + ')' : '') + '. It is an estimate: it uses the legends’ averages, not what you will pick.</div>' +
+      (!X.nDays ? '<div class="note">No days played yet. The admin reads the Historic in Settings → Admin → Read on Top Shot.</div>' : list.length ? list.map(card).join('') : '<div class="note info">No card would change the best team on the played days: the discount is not enough to swap anyone.</div>') +
+      (H.px ? '' : '<div class="note">No legend card prices yet: the admin reads the Historic again with reader v34.</div>');
+  })();
+  S.hbuyMemo = { k: key, h }; return h;
+}
+// minimizar uma lista (botão no cabeçalho do cartão); fica guardado neste aparelho
+try { S.cardMin = new Set(JSON.parse(localStorage.getItem('fb-cmin') || '[]')); } catch (e) { S.cardMin = new Set(); }
+// fechada = começa minimizada (guarda-se '!' + chave quando se abre)
+function cardMin(html, key, fechada) {
+  const on = fechada ? !S.cardMin.has('!' + key) : S.cardMin.has(key), btn = '<button class="card-min" type="button" data-action="card-min" data-k="' + key + '"' + (fechada ? ' data-d="1"' : '') + ' aria-expanded="' + !on + '" aria-label="' + (on ? 'Show' : 'Minimise') + '" title="' + (on ? 'Show' : 'Minimise') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>';
+  return html.replace(/^<div class="card/, '<div class="card' + (on ? ' min' : '')).replace(/(<div class="list-head">[\s\S]*?)(<\/div>)/, '$1' + btn + '$2');
+}
 const nameOfLegend = (H, id) => { for (const d of H.days) { const l = (d.lines || []).find(z => String(z[0]) === String(id)) || (d.players || []).find(z => String(z[0]) === String(id)); if (l) return l[1]; } return String(id); };
 function renderHistoric(el) {
   if (typingField('tab-hoje')) return; // a escrever na procura das lendas: não redesenha
@@ -2350,7 +2418,7 @@ function renderHistoric(el) {
   const head = '';
   // um dia que já acabou: o que fizemos, o que a app sugeria, a melhor equipa possível
   const pd = past.find(d => d.id === S.hday);
-  if (pd || (!open.length && past.length)) { el.innerHTML = head + histStrip(H, open, pd || past[past.length - 1], null) + histPastHtml(H, pd || past[past.length - 1]); return; }
+  if (pd || (!open.length && past.length)) { el.innerHTML = head + histStrip(H, open, pd || past[past.length - 1], null) + histPastHtml(H, pd || past[past.length - 1]) + histBuyBtn(); return; }
   if (!open.length) {
     el.innerHTML = head + empty('Historic', H ? 'The Top Shot data has no days left to play. The admin reads it again in Settings → Admin → Read on Top Shot → Historic.' : 'No Historic data yet. The admin reads it in Settings → Admin → Read on Top Shot → Historic.',
       S.role === 'admin' ? '<button class="btn primary" type="button" data-action="ranks-go" data-do="hist">Read Historic</button>' : '');
@@ -2385,9 +2453,16 @@ function renderHistoric(el) {
     '<div class="small muted h-odds">Top 10 <b>' + pct(best.p10) + '</b> · 1.º <b>' + pct(best.p1) + '</b>' + (cut40 != null ? ' · 40.º ≈ <b>' + f0(cut40) + '</b> pts' : '') + '</div>' +
     '<ul class="list jc-list">' + best.ids.map(row).join('') + '</ul>' +
     (sel.fix.length || sel.ban.length ? '<div class="jc-btns"><button class="btn hero-btn" type="button" data-action="h-reset" data-day="' + esc(day.id) + '">Back to the suggestion</button></div>' : '') + '</div>';
-  const alts = C.ev.filter(r => !(port || [best]).some(p => p.ids.join() === r.ids.join()) && (!C.fits || C.fits(r, ai))).slice(0, 3).map(r => Object.assign({}, r, { cost: C.costIn ? C.costIn(r.ids, ai) : r.cost })).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
+  const one = accounts().length === 1;
+  const alts = C.ev.filter(r => !(port || [best]).some(p => p.ids.join() === r.ids.join()) && (!C.fits || C.fits(r, ai)) && (!one || r.mean <= best.mean + 1e-9)).slice(0, 3).map(r => Object.assign({}, r, { cost: C.costIn ? C.costIn(r.ids, ai) : r.cost })).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
   const H0 = groupHist(), src = '<div class="small muted h-src">Top Shot data from ' + esc(ago(H0.at)) + ' · learns from ' + plural(M.dayIds.length, 'day played', 'days played') + (nRuns > 1 ? ' of ' + nRuns + ' runs' : '') + '. ' + esc(cutTxt) + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">read again</button>' : '') + '</div>';
-  el.innerHTML = head + strip + accBar + hero + (alts ? '<div class="card"><div class="list-head"><h2>Other teams</h2><span class="small muted">by the same math</span></div><ul class="list">' + alts + '</ul></div>' : '') + histLegendsCard(C, day) + src;
+  const tab = ['equipa', 'lendas', 'comprar'].includes(S.htab) ? S.htab : 'equipa';
+  const seg = '<div class="seg h-tabs" role="tablist" aria-label="Historic">' + [['equipa', 'Team'], ['legends', 'Legends'], ['comprar', 'Buy']].map(([k, t]) => '<button type="button" role="tab" data-action="h-tab" data-v="' + k + '" aria-selected="' + (k === tab) + '" aria-pressed="' + (k === tab) + '">' + t + '</button>').join('') + '</div>';
+  const body = tab === 'lendas' ? cardMin(histLegendsCard(C, day), 'h-lendas')
+    : tab === 'comprar' ? histBuyHtml(H)
+    : alts ? cardMin('<div class="card"><div class="list-head"><h2>Other teams</h2><span class="small muted">' + (one ? 'with fewer expected points' : 'for the same account') + '</span></div><ul class="list">' + alts + '</ul></div>', 'h-outras')
+    : '<div class="note info">No other team worth showing: the suggested one has the most expected points.</div>';
+  el.innerHTML = head + strip + accBar + hero + seg + body + src;
   hFilter();
 }
 // todas as lendas do dia: pontos esperados, custo, quem escolhe; + fixa, × tira, tocar no nome = a tua carta (desconto)
@@ -6774,6 +6849,9 @@ document.addEventListener('click', async e => {
     case 'pro-pick': if (!(b.closest && b.closest('#sheetPanel'))) S.proLuOpen = null; proPickSheet(date, b.dataset.out || ''); break;
     case 'pro-slot': if (!$('proLuKv') && !(b.closest && b.closest('#sheetPanel'))) S.proLuOpen = null; proSlotSheet(date, id); break;
     case 'pro-lu': proLuSheet(date); break;
+    case 'h-buy': histBuySheet(); break;
+    case 'h-tab': S.htab = b.dataset.v; try { localStorage.setItem('fb-htab', S.htab); } catch (e) {} renderHoje(); break;
+    case 'card-min': { const k = (b.dataset.d ? '!' : '') + b.dataset.k; S.cardMin.has(k) ? S.cardMin.delete(k) : S.cardMin.add(k); try { localStorage.setItem('fb-cmin', JSON.stringify([...S.cardMin])); } catch (e) {} const c = b.closest('.card'); if (c) { const on = b.dataset.d ? !S.cardMin.has(k) : S.cardMin.has(k); c.classList.toggle('min', on); b.setAttribute('aria-expanded', !on); b.setAttribute('aria-label', on ? 'Show' : 'Minimise'); b.title = on ? 'Show' : 'Minimise'; } break; }
     case 'pro-opts': S.proLuOpen = null; proOptsSheet(date); break;
     case 'pro-opt': S.proOptK = b.dataset.k; proOptsSheet(date); break;
     case 'pro-use': { const X = proDay(date), o = X && proOptions(X).find(z => z.k === b.dataset.k); if (o) { S.proLu[date] = o.ids.slice(); proLuSave(); S.proOut = null; closeSheet(); renderHoje(); toast(o.name + ': ' + pct(o.P) + (o.buy.length ? ', costs ' + usdC(o.cost) : ', no buys') + '.'); } break; }

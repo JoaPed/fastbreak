@@ -137,7 +137,8 @@
  " min": {
   "en": " min ago",
   "at": {
-   "const ago = iso => { if (!iso) return 'nunca'; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); if (m < 2) return 'agora'; if (m < 60) return 'há '": " min ago"
+   "const ago = iso => { if (!iso) return 'nunca'; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); if (m < 2) return 'agora'; if (m < 60) return 'há '": " min ago",
+   "return html.replace(/^<div class=\"card/, '<div class=\"card' + (on ? ' min' : '')).replace(/(<div class=\"list-head\">[\\s\\S]*?)(<\\/div>)/, '$1' + btn + '$2');": false
   }
  },
  " h": {
@@ -2314,7 +2315,6 @@
  " RP</span></div><div class=\"ps\">": null,
  "<div class=\"small muted h-src\">Dados do Top Shot de ": "<div class=\"small muted h-src\">Top Shot data from ",
  " · <button class=\"btn link small\" type=\"button\" data-action=\"ranks-go\" data-do=\"hist\">ler outra vez</button>": " · <button class=\"btn link small\" type=\"button\" data-action=\"ranks-go\" data-do=\"hist\">read again</button>",
- "<div class=\"card\"><div class=\"list-head\"><h2>Outras equipas</h2><span class=\"small muted\">pela mesma conta</span></div><ul class=\"list\">": "<div class=\"card\"><div class=\"list-head\"><h2>Other teams</h2><span class=\"small muted\">by the same math</span></div><ul class=\"list\">",
  "<b class=\"c-good\">na equipa</b> · ": "<b class=\"c-good\">in the team</b> · ",
  " RP": null,
  " · média ": " · avg ",
@@ -2624,6 +2624,7 @@
  ". Confirma no Top Shot antes de comprar.</div>": ". Check on Top Shot before buying.</div>",
  "<div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Fechar</button><button class=\"btn primary\" type=\"button\" data-action=\"pro-pick\" data-date=\"": "<div class=\"btns\"><button class=\"btn quiet\" type=\"button\" data-action=\"close-sheet\">Close</button><button class=\"btn primary\" type=\"button\" data-action=\"pro-pick\" data-date=\"",
  "\">Trocar</button></div>": "\">Swap</button></div>",
+ "equipa": null,
  "De volta à sugestão.": "Back to the suggestion.",
  " · ou troca a tua ": " · or swap your ",
  " · com trocas ": " · with swaps ",
@@ -2733,6 +2734,31 @@
  "\">run ": "\">run ",
  " fora deste dia: o plano põe o melhor a seguir.": " out of this day: the plan puts in the next best.",
  ". Se fechares sem escolher, quem saiu fica fora deste dia e o plano põe o melhor a seguir. Até lá, os números são os do lineup antes da troca.</div>": ". If you close without choosing, who left stays out of this day and the plan puts in the next best. Until then, the numbers are the lineup’s before the swap.</div>",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Vale a pena comprar?</h2></div><div class=\"pad small muted\">Que cartas de lendas te davam mais pontos (e prémios) pelo desconto, nos dias já jogados.</div><div class=\"btns\" style=\"padding:0 16px 14px;margin:0\"><button class=\"btn\" type=\"button\" data-action=\"h-buy\">Ver as contas</button></div></div>": "<div class=\"card\"><div class=\"list-head\"><h2>Worth buying?</h2></div><div class=\"pad small muted\">Which legend cards would have given you more points (and prizes) through the discount, on the days already played.</div><div class=\"btns\" style=\"padding:0 16px 14px;margin:0\"><button class=\"btn\" type=\"button\" data-action=\"h-buy\">See the numbers</button></div></div>",
+ "<h3>Vale a pena comprar?</h3><div class=\"small muted\" id=\"hbBody\">A calcular…</div>": "<h3>Worth buying?</h3><div class=\"small muted\" id=\"hbBody\">Calculating…</div>",
+ " · <b class=\"c-good\">top 40 em ": " · <b class=\"c-good\">top 40 on ",
+ "já tens −": "you already have −",
+ ". É uma estimativa: usa as médias das lendas, não o que vais escolher.</div>": ". It is an estimate: it uses the legends’ averages, not what you will pick.</div>",
+ "<div class=\"note info\">Nenhuma carta mudava a melhor equipa nos dias jogados: o desconto não chega para trocar ninguém.</div>": "<div class=\"note info\">No card would change the best team on the played days: the discount is not enough to swap anyone.</div>",
+ "<div class=\"note\">Ainda sem preços das cartas das lendas: o admin lê o Historic outra vez com o leitor v34.</div>": "<div class=\"note\">No legend card prices yet: the admin reads the Historic again with reader v34.</div>",
+ "hb-": null,
+ "h-lendas": null,
+ "h-outras": null,
+ "<div class=\"small muted h-buy-intro\">Pelos ": "<div class=\"small muted h-buy-intro\">Over the ",
+ "<div class=\"seg h-tabs\" role=\"tablist\" aria-label=\"Historic\">": null,
+ "Equipa": "Team",
+ "Lendas": "Legends",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Outras equipas</h2><span class=\"small muted\">": "<div class=\"card\"><div class=\"list-head\"><h2>Other teams</h2><span class=\"small muted\">",
+ "com menos pontos esperados": "with fewer expected points",
+ "pela mesma conta": "for the same account",
+ "<div class=\"note info\">Não há outra equipa que valha a pena mostrar: a sugerida é a que tem mais pontos esperados.</div>": "<div class=\"note info\">No other team worth showing: the suggested one has the most expected points.</div>",
+ "Mostrar": "Show",
+ "Minimizar": "Minimise",
+ " desta run, com a tua pontuação (conta principal), e ": " from this run, with your score (main account), and ",
+ " de runs anteriores, com o que a equipa sugerida fez": " from earlier runs, with what the suggested team scored",
+ " com a tua pontuação (conta principal)": " with your score (main account)",
+ ". Para cada lenda: quantos pontos a mais fazia a melhor equipa do dia com o desconto da carta, em quantos dias isso te punha no top 40 e o prémio a mais. À direita, o preço da carta mais barata": ". For each legend: how many more points the best team of the day would score with the card's discount, on how many days that would put you in the top 40, and the extra prize. On the right, the price of the cheapest card",
+ "<div class=\"note\">Ainda não há dias jogados. O admin lê o Historic em Ajustes → Admin → Ler no Top Shot.</div>": "<div class=\"note\">No days played yet. The admin reads the Historic in Settings → Admin → Read on Top Shot.</div>",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2800,7 +2826,8 @@
    "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
    "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "days",
    "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "days",
-   "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "days"
+   "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "days",
+   "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "days"
   }
  },
  "dia": {
@@ -2816,7 +2843,8 @@
    "openSheet('<h3>' + esc(nameOf(P.id)) + '</h3><div class=\"small muted\">' + esc(P.team) + ' · ' + esc(tcTxt(P.tc)) + (P.days != null ? ' · ' + plural(P.days, 'dia": true,
    "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "day",
    "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "day",
-   "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "day"
+   "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "day",
+   "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "day"
   }
  },
  "jogo": {

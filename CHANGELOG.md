@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-07
+- **João** — Historic: separadores Equipa / Lendas / Comprar. Em **Comprar** ("Vale a pena comprar?"), para a conta principal: que carta de cada lenda (Common −5%, Rare −10%, Legendary −15%, Ultimate −20%) te dava mais pontos, quantos dias no top 40 e o prémio a mais, com o preço da carta; conta os dias desta run e os das runs anteriores. Quem tem uma só conta não vê "outras equipas" com mais pontos que a sugerida. Cada lista tem um botão para minimizar. Leitor v34: lê os preços das cartas das lendas.
 - **João** — Mudar o lineup: o × solta logo o cadeado ("manter" volta a pô-lo); se fechares sem escolher quem entra, quem saiu fica fora do dia e o plano põe o melhor a seguir; a contagem de fixados só conta quem está no lineup e joga nesse dia.
 - **João** — Histórico do lineup: as mudanças feitas por ti e as trocas de quem fica de fora mostram o efeito na run (run +X% / −X% nas vitórias esperadas), como as trocas que o site propõe.
 - **João** — Pro: o site usa a leitura mais recente das regras da Pro que bata com a run; uma leitura de outra run (de qualquer pessoa do grupo) já não faz voltar ao ensaio. As Sugestões avisam quando não há preços para o dia.

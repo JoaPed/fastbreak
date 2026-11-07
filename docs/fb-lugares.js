@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 33; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 34; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -287,6 +287,15 @@ async function readHist() {
     }
     out.days.push(d);
   }
+  // preço das cartas das lendas (a mais barata à venda de cada raridade): ter a carta dá desconto no custo da lenda
+  // (Common 5%, Rare 10%, Legendary 15%, Ultimate 20%); só as que custam 45 ou mais, onde o desconto conta
+  try {
+    const ids = new Set(); out.days.forEach(d => { (d.rp || []).forEach(r => { if (+r[1] >= 45) ids.add(String(r[0])); }); (d.players || []).forEach(r => { if (+r[3] >= 45) ids.add(String(r[0])); }); });
+    const todo = [...ids], px = {}; let n = 0;
+    const work = async () => { for (let id; (id = todo.shift());) { const row = []; for (const t of [['COMMON', 'FANDOM'], ['RARE'], ['LEGENDARY'], ['ULTIMATE']]) { try { row.push(await cheapest(id, t)); } catch (e) { row.push(null); } } if (row.some(v => v)) px[id] = row; if (++n % 5 === 0) say('A ler os preços das lendas… ' + n + ' de ' + ids.size); } };
+    await Promise.all([1, 2, 3, 4, 5, 6].map(work));
+    out.px = px; out.pxAt = new Date().toISOString();
+  } catch (e) { out.pxErr = String(e.message || e).slice(0, 60); }
   return out;
 }
 let started = false;
