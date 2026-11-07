@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-07
+- **João** — Histórico do lineup: as mudanças feitas por ti e as trocas de quem fica de fora mostram o efeito na run (run +X% / −X% nas vitórias esperadas), como as trocas que o site propõe.
 - **João** — Pro: o site usa a leitura mais recente das regras da Pro que bata com a run; uma leitura de outra run (de qualquer pessoa do grupo) já não faz voltar ao ensaio. As Sugestões avisam quando não há preços para o dia.
 
 ## 2026-11-06

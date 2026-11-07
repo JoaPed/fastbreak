@@ -1582,7 +1582,13 @@ with sync_playwright() as pw:
     who15 = pg.locator('#sheetPanel button[data-action="lu-fill"]:not([disabled])').first.get_attribute('data-id')
     pg.locator('#sheetPanel button[data-action="lu-fill"]:not([disabled])').first.click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(1200)
     lk15 = pg.evaluate('__FAKE_DB.tables.user_runs[0].plan.locks')[d0]
-    ok15 = who15 in lk15 and gone15 not in lk15 and off15[0] not in lk15 and len(lk15) == 5
+    # a mudança fica no histórico do dia com o efeito na run (como nas trocas que o site propõe)
+    ev15 = (pg.evaluate('__FAKE_DB.tables.user_runs[0].plan.lhist') or {}).get(d0, [])
+    last15 = ev15[-1] if ev15 else {}
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(400)
+    hl15 = pg.locator('#tab-hoje .hold-line').inner_text() if pg.locator('#tab-hoje .hold-line').count() else ''
+    print('O15 histórico:', last15.get('k'), last15.get('g'), '|', hl15.replace('\n', ' '))
+    ok15 = who15 in lk15 and gone15 not in lk15 and off15[0] not in lk15 and len(lk15) == 5 and last15.get('k') == 'mine' and last15.get('g') is not None and 'run ' in hl15
     print('O15 cadeado de quem não joga não bloqueia:', gone15, '→', who15, lk15, '· ok' if ok15 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha

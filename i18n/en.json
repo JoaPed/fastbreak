@@ -2730,6 +2730,8 @@
  ": as sugestões só usam o que tens. ": ": the suggestions only use what you have. ",
  "Lê os Preços do Pro (Ajustes → Admin → Ler no Top Shot).": "Read the Pro prices (Settings → Admin → Read on Top Shot).",
  "Pede ao admin para ler os Preços do Pro.": "Ask the admin to read the Pro prices.",
+ ": run ": ": run ",
+ "\">run ": "\">run ",
  "normal": null,
  "sem": null,
  "odds": null,
