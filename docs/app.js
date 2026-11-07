@@ -2353,7 +2353,7 @@ function histBuyCalc(H0) {
   days.forEach(d => d.lines.forEach(l => { const id = String(l[0]), x = sum.get(id) || [0, 0]; x[0] += hFbp(H, l); x[1]++; sum.set(id, x); names.set(id, l[1]); }));
   const mu = id => { const x = sum.get(id); return x ? x[0] / x[1] : null; };
   const dsc = hDiscs('main', [...names].map(([id, name]) => ({ id, name }))), budget = +((H.budget || {}).limit) || 350, res = new Map();
-  let nDays = 0, nMine = 0;
+  let nDays = 0, nMine = 0, nIn = 0, near = null;
   days.forEach(d => {
     const me0 = (d.mine || {})[ak] || (S.role === 'admin' ? (d.mine || {})._me : null), mine = !!(me0 && me0.score != null);
     const rows = d.rp.map(r => ({ id: String(r[0]), rp: +r[1], mu: mu(String(r[0])) })).filter(x => x.mu != null).map(x => Object.assign(x, { cost: x.rp * (1 - (+dsc[x.id] || 0) / 100) })).sort((a, b) => b.mu - a.mu);
@@ -2365,16 +2365,21 @@ function histBuyCalc(H0) {
     nDays++; if (mine) nMine++;
     const rankOf = v => { let k = 0; while (k < d.top.length && d.top[k] > v + 1e-9) k++; return k < d.top.length ? k + 1 : null; };
     const r0 = me.rank || rankOf(me.score), p0 = hPrize(d, r0);
+    // para explicar quando não há verdes: dias em que já estavas no top 40 e quanto faltou nos outros
+    const inTop = r0 && r0 <= paid, short = d.top.length >= paid ? d.top[paid - 1] - me.score : null; let gDay = 0;
+    if (inTop) nIn++;
     rows.filter(x => x.rp >= 45).forEach(x => {
       for (let k = H_TIER_DISC.length - 1; k >= 0; k--) { // da que dá mais desconto para a que dá menos: sem ganho com mais, não há com menos
         const pc = H_TIER_DISC[k][1]; if (pc <= (+dsc[x.id] || 0)) break;
         const g = best(rows.map(y => y.id === x.id ? Object.assign({}, y, { cost: y.rp * (1 - pc / 100) }) : y)) - base; if (g < 0.05) break;
+        gDay = Math.max(gDay, g);
         const r1 = rankOf(me.score + g), key = x.id + '|' + k, a = res.get(key) || { id: x.id, k, g: 0, n: 0, top: 0, prize: 0 };
         a.g += g; a.n++; if ((!r0 || r0 > paid) && r1 && r1 <= paid) a.top++; a.prize += Math.max(0, hPrize(d, r1) - p0); res.set(key, a);
       }
     });
+    if (!inTop && short != null && (!near || short - gDay < near.s - near.g)) near = { s: short, g: gDay };
   });
-  return { nDays, nMine, rows: [...res.values()], names, dsc };
+  return { nDays, nMine, nIn, near, rows: [...res.values()], names, dsc };
 }
 const histBuyBtn = () => '<div class="card"><div class="list-head"><h2>Vale a pena comprar?</h2></div><div class="pad small muted">Que cartas de lendas te davam mais pontos (e prémios) pelo desconto, nos dias já jogados.</div><div class="btns" style="padding:0 16px 14px;margin:0"><button class="btn" type="button" data-action="h-buy">Ver as contas</button></div></div>';
 function histBuySheet() {
@@ -2391,10 +2396,12 @@ function histBuyHtml(H) {
     const X = histBuyCalc(H), px = H.px || {}, by = new Map();
     X.rows.forEach(a => { const L = by.get(a.id) || []; L.push(a); by.set(a.id, L); });
     const money = gcMoney, list = [...by.entries()].map(([id, L]) => ({ id, L: L.sort((p, q) => p.k - q.k), prize: Math.max(...L.map(a => a.prize)), g: Math.max(...L.map(a => a.g)) })).sort((p, q) => (q.prize - p.prize) || (q.g - p.g)).slice(0, 20);
+    // sem nenhum verde: diz porquê (já estavas no top 40, ou faltava mais do que o desconto dá)
+    const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class="note info h-buy-why">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(X.nIn, 'dia', 'dias') + ' de ' + X.nDays + ' já estavas no top 40' : '') + (X.near ? (X.nIn ? '; ' : ': ') + 'o dia mais perto de entrar ficou a ' + f1(X.near.s) + ' pts do 40.º e o desconto dava +' + f1(X.near.g) : '') + '.</div>' : '';
     const opt = (id, a) => { const pr = (px[id] || [])[a.k], [tn, pc] = H_TIER_DISC[a.k];
       return '<li class="row hb-opt"><span class="pill">' + tn + ' · −' + pc + '%</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias') + (a.top ? ' · <b class="c-good">top 40 em ' + plural(a.top, 'dia', 'dias') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + (pr ? usdC(pr) : '—') + '</span></li>'; };
     const card = (x, i) => cardMin('<div class="card"><div class="list-head"><h2>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</h2><span class="small muted">' + (X.dsc[x.id] ? 'já tens −' + X.dsc[x.id] + '%' : 'não tens') + '</span></div><ul class="list">' + x.L.map(a => opt(x.id, a)).join('') + '</ul></div>', 'hb-' + x.id, i >= 3);
-    return '<div class="small muted h-buy-intro">Pelos ' + plural(X.nDays, 'dia jogado', 'dias jogados') + (X.nDays > X.nMine ? ': ' + X.nMine + ' desta run, com a tua pontuação (conta principal), e ' + (X.nDays - X.nMine) + ' de runs anteriores, com o que a equipa sugerida fez' : ' com a tua pontuação (conta principal)') + '. Para cada lenda: quantos pontos a mais fazia a melhor equipa do dia com o desconto da carta, em quantos dias isso te punha no top 40 e o prémio a mais. À direita, o preço da carta mais barata' + (H.pxAt ? ' (' + esc(ago(H.pxAt)) + ')' : '') + '. É uma estimativa: usa as médias das lendas, não o que vais escolher.</div>' +
+    return '<div class="small muted h-buy-intro">Pelos ' + plural(X.nDays, 'dia jogado', 'dias jogados') + (X.nDays > X.nMine ? ': ' + X.nMine + ' desta run, com a tua pontuação (conta principal), e ' + (X.nDays - X.nMine) + ' de runs anteriores, com o que a equipa sugerida fez' : ' com a tua pontuação (conta principal)') + '. Para cada lenda: quantos pontos a mais fazia a melhor equipa do dia com o desconto da carta, em quantos dias isso te punha no top 40 e o prémio a mais. À direita, o preço da carta mais barata' + (H.pxAt ? ' (' + esc(ago(H.pxAt)) + ')' : '') + '. É uma estimativa: usa as médias das lendas, não o que vais escolher.</div>' + why +
       (!X.nDays ? '<div class="note">Ainda não há dias jogados. O admin lê o Historic em Ajustes → Admin → Ler no Top Shot.</div>' : list.length ? list.map(card).join('') : '<div class="note info">Nenhuma carta mudava a melhor equipa nos dias jogados: o desconto não chega para trocar ninguém.</div>') +
       (H.px ? '' : '<div class="note">Ainda sem preços das cartas das lendas: o admin lê o Historic outra vez com o leitor v34.</div>');
   })();

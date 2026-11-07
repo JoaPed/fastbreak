@@ -2759,6 +2759,11 @@
  " com a tua pontuação (conta principal)": " with your score (main account)",
  ". Para cada lenda: quantos pontos a mais fazia a melhor equipa do dia com o desconto da carta, em quantos dias isso te punha no top 40 e o prémio a mais. À direita, o preço da carta mais barata": ". For each legend: how many more points the best team of the day would score with the card's discount, on how many days that would put you in the top 40, and the extra prize. On the right, the price of the cheapest card",
  "<div class=\"note\">Ainda não há dias jogados. O admin lê o Historic em Ajustes → Admin → Ler no Top Shot.</div>": "<div class=\"note\">No days played yet. The admin reads the Historic in Settings → Admin → Read on Top Shot.</div>",
+ "<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio": "<div class=\"note info h-buy-why\">No discount would change your prize",
+ ": em ": ": on ",
+ " já estavas no top 40": " you were already in the top 40",
+ "o dia mais perto de entrar ficou a ": "the closest day was ",
+ " pts do 40.º e o desconto dava +": " pts short of 40th and the discount gave +",
  "normal": null,
  "sem": null,
  "odds": null,
@@ -2827,7 +2832,8 @@
    "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "days",
    "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "days",
    "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "days",
-   "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "days"
+   "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "days",
+   "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "days"
   }
  },
  "dia": {
@@ -2844,7 +2850,8 @@
    "if (!nextDay()) html.push('<div class=\"note info run-end\">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias": "day",
    "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "day",
    "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "day",
-   "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "day"
+   "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "day",
+   "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "day"
   }
  },
  "jogo": {

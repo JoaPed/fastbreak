@@ -1657,6 +1657,24 @@ with sync_playwright() as pw:
     hb16 = str([nt16, hero16, alt16, lend16, nm16, min0, min16, min16b]) + ' ' + hb16[hb16.find('Pelos'):][:300]
     print('O16 Historic vale a pena comprar:', nb16, hb16[:400], '· ok' if ok16 else '· ERRO')
     pg.close()
+    # O16b: longe do top 40 (60 pts abaixo do 40.º em todos os dias): sem verdes, e a nota diz porquê
+    H16b = json.loads(HISTJ)
+    for d_ in H16b['days']:
+        if not d_.get('lines') or not d_.get('top'): continue
+        cut = d_['top'][min(39, len(d_['top']) - 1)]
+        d_['mine'] = {A16: {'rank': 300, 'score': cut - 60, 'lu': [str(l[0]) for l in d_['lines'][:5]]}}
+    H16b['px'] = H16['px']; H16b['pxAt'] = H16['pxAt']
+    pg = new_page(b, d16)
+    pg.route('**/data/historic/index.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps({'v': 1, 'runs': []})))
+    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(json.dumps(H16b)) + "); localStorage.setItem('fb-jmode', 'historic'); localStorage.setItem('fb-htab', 'comprar'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-29T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.wait_for_timeout(3000)
+    why16 = ' '.join(pg.locator('#tab-hoje .h-buy-why').all_inner_texts()); ng16 = pg.locator('#tab-hoje .hb-opt .c-good').count()
+    print('O16b sem verdes, a nota diz porquê:', ng16, why16, '· ok' if ng16 == 0 and 'ficou a 6' in why16 and 'o desconto dava +' in why16 else '· ERRO')
+    pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False
     T8['members'].append({'user_id': 'u-eu', 'role': 'admin'}); T8['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})
