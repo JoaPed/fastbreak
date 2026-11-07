@@ -1588,7 +1588,19 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(400)
     hl15 = pg.locator('#tab-hoje .hold-line').inner_text() if pg.locator('#tab-hoje .hold-line').count() else ''
     print('O15 histórico:', last15.get('k'), last15.get('g'), '|', hl15.replace('\n', ' '))
-    ok15 = who15 in lk15 and gone15 not in lk15 and off15[0] not in lk15 and len(lk15) == 5 and last15.get('k') == 'mine' and last15.get('g') is not None and 'run ' in hl15
+    # × num jogador com cadeado: o cadeado sai logo; "manter" volta a pô-lo; fechar sem escolher tira-o do dia (o plano põe outro)
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(300)
+    x15 = [i for i in pg.evaluate('__FAKE_DB.tables.user_runs[0].plan.locks')[d0] if pg.locator('#luBody .lu-row button[data-action="lu-ban"][data-id="' + i + '"]').count()][0]
+    pg.locator('#luBody .lu-row button[data-action="lu-ban"][data-id="' + x15 + '"]').click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(800)
+    lkA = pg.evaluate('__FAKE_DB.tables.user_runs[0].plan.locks')[d0]
+    pg.locator('#luBody button[data-action="lu-undo"][data-id="' + x15 + '"]').first.click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(800)
+    lkB = pg.evaluate('__FAKE_DB.tables.user_runs[0].plan.locks')[d0]
+    pg.locator('#luBody .lu-row button[data-action="lu-ban"][data-id="' + x15 + '"]').click(); pg.wait_for_timeout(200); pg.wait_for_function(lu_idle, timeout=60000); pg.wait_for_timeout(800)
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(2500)
+    pl15 = pg.evaluate('__FAKE_DB.tables.user_runs[0].plan'); lineup15 = lineup_card(pg).locator('button[data-action="player"]').evaluate_all('els => els.map(e => e.dataset.id)')
+    okX = x15 not in lkA and x15 in lkB and x15 not in pl15['locks'][d0] and x15 in pl15['bans'][d0] and x15 not in lineup15 and len(lineup15) == 5
+    print('O15 × com cadeado:', x15, '· solto:', x15 not in lkA, '· manter volta o cadeado:', x15 in lkB, '· fechar tira-o:', x15 in pl15['bans'][d0], x15 not in lineup15, len(lineup15), '· ok' if okX else '· ERRO')
+    ok15 = okX and who15 in lk15 and gone15 not in lk15 and off15[0] not in lk15 and len(lk15) == 5 and last15.get('k') == 'mine' and last15.get('g') is not None and 'run ' in hl15
     print('O15 cadeado de quem não joga não bloqueia:', gone15, '→', who15, lk15, '· ok' if ok15 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha

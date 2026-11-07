@@ -4932,10 +4932,19 @@ function openSheet(html, back) {
   sheetGuard();
 }
 function closeSheet(fromBack) {
+  const pend = S.lu && (S.lu.out || []).length ? { date: S.lu.date, ids: S.lu.out.slice() } : null;
   $('sheet').hidden = true; $('sheetPanel').innerHTML = ''; S.sheetBack = null; S.sheetPl = null; S.lu = null; $('app').inert = false; sheetFit();
   const f = S.sheetFrom; S.sheetFrom = null;
   if (f && f.isConnected && typeof f.focus === 'function') f.focus({ preventScroll: true });
   if (!fromBack) sheetUnguard();
+  if (pend) luOutOnClose(pend);
+}
+// tiraste alguém (×) e fechaste sem escolher quem entra: sai deste dia (sem cadeado) e o plano escolhe quem entra
+function luOutOnClose(pend) {
+  const { d } = dayInfo(pend.date) || {}, ids = pend.ids.filter(id => d && d.lineup.includes(id)); if (!ids.length) return;
+  const P = curPlan(), bans = [...new Set((((P.bans || {})[pend.date]) || []).concat(ids))], locks = (((P.locks || {})[pend.date]) || []).filter(x => !ids.includes(x));
+  planPatch({ bans: { [pend.date]: bans }, locks: { [pend.date]: locks }, keep: { [pend.date]: null } });
+  toast(ids.map(lastName).join(', ') + ' out of this day: the plan puts in the next best.');
 }
 // botão/gesto de voltar do telemóvel: com uma folha aberta, volta à folha anterior ou fecha-a (em vez de sair da app).
 // Enquanto há uma folha aberta fica uma entrada a mais no histórico; ao fechar de outra maneira (×, fundo, Esc) sai.
@@ -6057,7 +6066,7 @@ function dayLocks(date) {
   const bad = new Set((((dayInfo(date) || {}).md || {}).badLocks) || []);
   return new Set((((curPlan().locks || {})[date]) || []).filter(id => !bad.has(id)));
 }
-function lockToggle(id, date, on) {
+function lockToggle(id, date, on, quiet) {
   const cur = dayLocks(date);
   if (on) {
     const lim = (S.days.find(d => d.date === date) || {}).numPlayers || 5;
@@ -6067,12 +6076,12 @@ function lockToggle(id, date, on) {
     // falta faz nesse dia
     const keep = keepWith(date, id);
     const dr = planPatch(Object.assign({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } }, keep ? { keep: { [date]: keep } } : {}), !!keep);
-    toast(lastName(id) + ' locked.' + (keep ? ' The rest of the lineup stays.' : ' Plan redone.') + capMsg(dr));
+    if (!quiet) toast(lastName(id) + ' locked.' + (keep ? ' The rest of the lineup stays.' : ' Plan redone.') + capMsg(dr));
   } else {
     // tirar o cadeado não muda o lineup desse dia: fica como está (o plano só volta a escolher se mudares outra coisa)
     const v = view(), dd = v && v.days.find(x => x.date === date);
     cur.delete(id); planPatch({ locks: { [date]: [...cur] }, keep: { [date]: dd ? dd.lineup.slice() : null } }, true);
-    toast(lastName(id) + ' unlocked. The lineup stays the same.');
+    if (!quiet) toast(lastName(id) + ' unlocked. The lineup stays the same.');
   }
   return true;
 }
@@ -6132,7 +6141,7 @@ function luRender() {
   const p0 = $('sheetPanel'), keep = L.toTop ? 0 : $('luBody') ? p0.scrollTop : L.y || 0; L.toTop = false; L.y = 0;
   const tip = firstTipOf(day);
   if (!md || !d || (tip != null && Date.now() >= tip)) { openSheet('<h3>Lineup for day ' + dn + '</h3><div class="note info" id="luBody">This day’s games have already started: changes are made in Suggestions for today.</div>'); return; }
-  const locks = new Set(((curPlan().locks || {})[date]) || []), bans = ((curPlan().bans || {})[date]) || [], size = md.size;
+  const locks = new Set([...dayLocks(date)].filter(id => !(L.out || []).includes(id))), bans = ((curPlan().bans || {})[date]) || [], size = md.size;
   const B = L.base, pp = x => Math.round(x * 100), ew = r.wins + v.expected, mine = locks.size + bans.length > 0;
   const sgn = (n, s) => (n > 0 ? '+' : '−') + s;
   // em cima: hoje e a run, face à sugestão
@@ -6205,7 +6214,7 @@ function luRender() {
   }).join('');
   const bad = (d.badLocks || []).map(id => esc(nameOf(id)) + ' <button class="btn link small" type="button" data-action="lu-lock" data-id="' + esc(id) + '" data-date="' + date + '">unlock</button>').join(' · ');
   const html = '<h3>Lineup for day ' + dn + ' ' + helpBtn('mudar') + '</h3><div class="small muted">' + dWeek(date) + ', ' + dShort(date) + ' · ' + esc(objsText(day)) + '</div><div id="luBody" class="stack">' + head +
-    (gaps.length ? '<div class="note info">Tap + to choose who comes in' + (gaps.length > 1 ? ' for each empty spot' : '') + ', or the × of who left (in Add to lineup) to take him out of this day: the plan puts in the next best right away. Until then, the numbers are the lineup’s before the swap.</div>' : '') +
+    (gaps.length ? '<div class="note info">Tap + to choose who comes in' + (gaps.length > 1 ? ' for each empty spot' : '') + '. If you close without choosing, who left stays out of this day and the plan puts in the next best. Until then, the numbers are the lineup’s before the swap.</div>' : '') +
     '<div class="card"><div class="list-head"><h2>In the lineup</h2><span class="small muted">' + d.lineup.length + ' of ' + size + (locks.size ? ' · ' + plural(locks.size, 'locked', 'locked') : '') + '</span></div>' +
       (d.lineup.length ? (d.lineup.every(id => locks.has(id)) ? '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="0" data-date="' + date + '">' + icoLockBtn + ' Unlock all</button></div>' : '<div class="lu-all"><button class="btn small" type="button" data-action="lu-lockall" data-on="1" data-date="' + date + '">' + icoLockBtn + ' Lock all</button></div>') : '') + (inRows ? '<ul class="list">' + inRows + '</ul>' : '<div class="row small muted">Nobody in the lineup: the plan saves the uses for other days.</div>') + '</div>' +
     (bad ? '<div class="note">Locked but can’t play this day: ' + bad + '</div>' : '') + chHtml +
@@ -6812,8 +6821,10 @@ document.addEventListener('click', async e => {
     case 'odds-see': closeSheet(); S.hd = date; setSub('hoje', 'lineup'); setTab('hoje'); render(); break;
     case 'lu-lock': { const on = !(((curPlan().locks || {})[date]) || []).includes(id); luBusy(); if (!lockToggle(id, date, on)) luRender(); break; }
     case 'lu-add': luBusy(true); if (!lockToggle(id, date, true)) luRender(); break;
-    case 'lu-ban': if (S.lu) { S.lu.out = (S.lu.out || []).concat([id]); luRender(); } break; // fica um lugar livre: nada muda até escolheres
-    case 'lu-undo': if (S.lu) { S.lu.out = (S.lu.out || []).filter(x => x !== id); if (b.dataset.back) lineupSheet(date); else luRender(); } break;
+    case 'lu-ban': if (S.lu) { S.lu.out = (S.lu.out || []).concat([id]); // fica um lugar livre e, se tinha cadeado, fica logo solto
+      if (dayLocks(date).has(id)) { S.lu.relock = (S.lu.relock || []).concat([id]); luBusy(); lockToggle(id, date, false, true); } else luRender(); } break;
+    case 'lu-undo': if (S.lu) { S.lu.out = (S.lu.out || []).filter(x => x !== id); const rl = (S.lu.relock || []).includes(id); S.lu.relock = (S.lu.relock || []).filter(x => x !== id);
+      if (rl) { luBusy(); lockToggle(id, date, true, true); } if (b.dataset.back) lineupSheet(date); else if (!rl) luRender(); } break; // manter: volta o cadeado que tinha
     case 'lu-pick': luPickSheet(date, id); break;
     case 'lu-fill': luFill(date, b.dataset.out, id); break;
     case 'lu-auto': if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== id); lineupSheet(date); luBusy(); banToggle(id, date, true); break;
