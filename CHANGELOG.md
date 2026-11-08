@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-08
+- **João** — Lineup com várias contas: já dá para pôr quem a carta põe a jogar noutra conta nessa noite (ex.: o Gobert na principal quando estava na Terose); a outra conta larga-o, o plano dá-lhe outro e o aviso lembra de mudar lá no Top Shot. Quem ainda não jogou esta época, não está nas lesões e não tem odds (ex.: Westbrook, retirado mas ainda num plantel da ESPN) fica fora do plano.
+
 ## 2026-11-07
 - **João** — Historic → Comprar: quando nenhuma carta muda o prémio, uma nota diz porquê (em quantos dias já estavas no top 40 e quanto faltou no dia mais perto de entrar, contra o que o desconto dava).
 - **João** — Historic: separadores Equipa / Lendas / Comprar. Em **Comprar** ("Vale a pena comprar?"), para a conta principal: que carta de cada lenda (Common −5%, Rare −10%, Legendary −15%, Ultimate −20%) te dava mais pontos, quantos dias no top 40 e o prémio a mais, com o preço da carta; conta os dias desta run e os das runs anteriores. Quem tem uma só conta não vê "outras equipas" com mais pontos que a sugerida. Cada lista tem um botão para minimizar. Leitor v34: lê os preços das cartas das lendas.

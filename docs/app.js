@@ -1426,7 +1426,17 @@ function planForEngine(acc, raw) {
 }
 // já não está em nenhuma equipa da NBA (retirado, sem contrato): o catálogo (plantéis da ESPN e quem jogou esta
 // época) não o tem. Jogadores postos à mão (x-…) não contam.
-const gone = id => S.players.size > 200 && !/^x-/.test(String(id)) && !S.players.get(String(canon(id)));
+const gone = id => S.players.size > 200 && !/^x-/.test(String(id)) && (!S.players.get(String(canon(id))) || idle(id));
+// não jogou esta época: a época já vai a meio (a maioria do catálogo já tem jogos), ele não fez nenhum, não está no
+// relatório de lesões e nenhuma casa de apostas lhe dá linhas (ex.: retirado mas ainda num plantel da ESPN)
+let idleMemo = null;
+function idle(id) {
+  const cid = String(canon(id)), c = S.players.get(cid);
+  if (!c || !c.avg || c.avg.form) return false;
+  if (!idleMemo || idleMemo.p !== S.players) { let n = 0; S.players.forEach(x => { if (x.avg && x.avg.form) n++; }); idleMemo = { p: S.players, on: n >= 300 }; }
+  if (!idleMemo.on || (S.injuries || {})[cid]) return false;
+  return !Object.values(S.odds || {}).some(o => (o.players || {})[cid]);
+}
 function engineInputs(acc, raw) {
   acc = acc || 'main';
   const run = S.runs.find(r => r.id === S.runId) || {};
@@ -5156,7 +5166,7 @@ function rosterSheet(id) {
   S.sheetPl = id;
   const c = S.players.get(String(id)) || {}, v = view();
   const inPlan = v ? v.days.filter(x => x.lineup.includes(id)).map(x => x.idx + 1) : [];
-  const team = e.team || c.team || '', goneNote = gone(id) ? '<div class="note">Já não está em nenhuma equipa da NBA (retirado ou sem contrato): o plano não o usa.</div>' : '';
+  const team = e.team || c.team || '', goneNote = gone(id) ? '<div class="note">' + (S.players.get(String(canon(id))) ? 'Ainda não jogou esta época, não está no relatório de lesões e as casas de apostas não lhe dão linhas (retirado ou sem contrato?): o plano não o usa até jogar.' : 'Já não está em nenhuma equipa da NBA (retirado ou sem contrato): o plano não o usa.') + '</div>' : '';
   // usos de cada conta: usados nesta run, restantes (editáveis) e quantos o plano usa
   const planOfAcc = k => { const r = S.multi ? S.multi.byKey[k] : S.result; return r ? r.normal.days.filter(x => x.lineup.includes(id)).length : 0; };
   const usesRows = accounts().map(a => {
@@ -6147,17 +6157,24 @@ function dayLocks(date) {
   const bad = new Set((((dayInfo(date) || {}).md || {}).badLocks) || []);
   return new Set((((curPlan().locks || {})[date]) || []).filter(id => !bad.has(id)));
 }
+// com várias contas: pôr nesta conta quem a carta já punha a jogar noutra nessa noite. A outra conta larga-o (sai do
+// cadeado e do lineup mantido dela) e o plano põe-lhe outro; devolve o aviso para o toast
+function takeFromOthers(id, date) {
+  const tb = tierBlocked(id, S.acc, date); if (!tb || !tb.others.length) return '';
+  tb.others.forEach(k => { const pa = planOf(k); ['locks', 'keep'].forEach(f => { if (pa[f] && pa[f][date]) pa[f][date] = pa[f][date].filter(x => x !== id); }); });
+  return ' ' + tb.others.map(accLabel).join(' e ') + (tb.others.length > 1 ? ' jogam' : ' joga') + ' com outro no lugar dele: vê o lineup e muda-o também no Top Shot.';
+}
 function lockToggle(id, date, on, quiet) {
   const cur = dayLocks(date);
   if (on) {
     const lim = (S.days.find(d => d.date === date) || {}).numPlayers || 5;
     if (cur.size >= lim) { toast('Já tens ' + lim + ' jogadores fixados neste dia.'); return false; }
-    cur.add(id);
+    cur.add(id); const tk = takeFromOthers(id, date);
     // o resto do lineup desse dia fica (só tu é que trocas); se ele não estava e o lineup está cheio, sai quem menos
     // falta faz nesse dia
     const keep = keepWith(date, id);
     const dr = planPatch(Object.assign({ locks: { [date]: [...cur] }, bans: { [date]: (((curPlan().bans || {})[date]) || []).filter(x => x !== id) } }, keep ? { keep: { [date]: keep } } : {}), !!keep);
-    if (!quiet) toast(lastName(id) + ' fixado.' + (keep ? ' O resto do lineup fica.' : ' Plano refeito.') + capMsg(dr));
+    if (!quiet || tk) toast(lastName(id) + ' fixado.' + (keep ? ' O resto do lineup fica.' : ' Plano refeito.') + tk + capMsg(dr));
   } else {
     // tirar o cadeado não muda o lineup desse dia: fica como está (o plano só volta a escolher se mudares outra coisa)
     const v = view(), dd = v && v.days.find(x => x.date === date);
@@ -6211,7 +6228,7 @@ function candLine(r, pi, tb, ds, tir, date) {
   const nd = nextDay(), dn = S.days.findIndex(x => x.date === date) + 1;
   // ninguém mais o usa nessa noite: é esta conta que já gastou o que as cartas dão
   if (tb && !tb.others.length) return '<span class="lu-l2 lu-warn">⚠ Sem usos nesta conta: a melhor carta dá ' + esc(usesTxt(tb.top)) + ', já gastos ou no plano de outros dias</span>';
-  if (tb) return '<span class="lu-l2 lu-warn">⚠ O Moment necessário já joga na ' + esc(tb.others.map(accLabel).join(' e na ')) + (nd && nd.date === date ? '' : ' no dia ' + dn) + '</span>';
+  if (tb) return '<span class="lu-l2 lu-warn">⚠ O Moment necessário joga na ' + esc(tb.others.map(accLabel).join(' e na ')) + (nd && nd.date === date ? '' : ' no dia ' + dn) + ': se o puseres aqui, ' + (tb.others.length > 1 ? 'essas contas jogam' : 'essa conta joga') + ' com outro</span>';
   const u = r.model.uses[pi] || 0;
   if (!u) return '<span class="lu-l2">sem usos</span>';
   return '<span class="lu-l2"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') + ds.join(', ') : 'fora do plano') + '</span>';
@@ -6284,7 +6301,7 @@ function luRender() {
   const full = locks.size >= size, banSet = new Set(bans);
   // todos na lista (para a procura encontrar qualquer um); sem procura, só os 8 primeiros até "Ver todos"
   const candRows = cand.map((pi, k) => {
-    const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
+    const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb && !tb.others.length ? 0 : r.model.uses[pi] || 0, ds = later(id), tir = banSet.has(id);
     if (gaps.includes(id)) return '<li class="lu-row" data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '">' + nameBtn(id, p, pi, esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">acabou de sair · + volta a pô-lo · × tira-o deste dia</span>') + pvHtml(objVals(md, pi, false)) +
       '<button class="lu-ic add" type="button" data-action="lu-undo" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Voltar a pôr ' + esc(p.name) + ' no lineup" title="Voltar a pôr">' + icoPlus + '</button>' +
       '<button class="lu-ic" type="button" data-action="lu-auto" data-id="' + esc(id) + '" data-date="' + date + '" aria-label="Tirar ' + esc(p.name) + ' deste dia (o plano põe o melhor a seguir)" title="Tirar deste dia">' + icoX + '</button></li>';
@@ -6339,7 +6356,7 @@ function luPickSheet(date, out) {
   const cand = md.elig.filter(pi => { const id = r.model.players[pi].id; return !d.lineup.includes(id); }).sort((a, b) => weight(b) - weight(a)).concat(banPis);
   const back = outPi == null ? '' : (p => '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row" type="button" data-action="lu-undo" data-back="1" data-id="' + esc(out) + '" data-date="' + date + '"><span class="who">' + face(out, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span></div><div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '<span class="lu-l2">acabou de sair · toca para o manter</span></div></div></span>' + pvHtml(objVals(md, outPi, false)) + '</button></li>')(r.model.players[outPi]);
   const rows = back + cand.map(pi => {
-    const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb ? 0 : r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
+    const p = r.model.players[pi], id = p.id, tb = tierBlocked(id, S.acc, date), uses = tb && !tb.others.length ? 0 : r.model.uses[pi] || 0, ds = later(id), st = (md.info[pi][0] || {}).status;
     return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row" type="button" data-action="lu-fill" data-out="' + esc(out) + '" data-id="' + esc(id) + '" data-date="' + date + '"' + (uses ? '' : ' disabled') + '><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (st && st !== 'ok' ? '<span class="pill ' + st + '">' + esc(STATUS[st].label) + '</span>' : '') + '</div>' +
       '<div class="ps">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + candLine(r, pi, tb, ds, bans.has(id), date) + '</div></div></span>' + pvHtml(objVals(md, pi, false)) + '</button></li>';
   }).join('');
@@ -6353,6 +6370,7 @@ function luFill(date, out, pick) {
   const P = curPlan(), size = ((dayInfo(date).md) || {}).size || 5;
   const locks = dayLocks(date); locks.delete(out); locks.add(pick);
   if (locks.size > size) { toast('Já tens ' + size + ' jogadores fixados neste dia: solta um primeiro.'); return; }
+  const tk = takeFromOthers(pick, date); if (tk) toast(lastName(pick) + ' entra.' + tk);
   const keep = keepWith(date, pick, out);
   // com o lineup mantido (keep) quem sai não fica "tirado": continua na lista para voltar a entrar com um toque
   const bans = [...new Set((((P.bans || {})[date]) || []).concat(keep ? [] : [out]))].filter(x => x !== pick);

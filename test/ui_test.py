@@ -1675,6 +1675,45 @@ with sync_playwright() as pw:
     why16 = ' '.join(pg.locator('#tab-hoje .h-buy-why').all_inner_texts()); ng16 = pg.locator('#tab-hoje .hb-opt .c-good').count()
     print('O16b sem verdes, a nota diz porquê:', ng16, why16, '· ok' if ng16 == 0 and 'ficou a 6' in why16 and 'o desconto dava +' in why16 else '· ERRO')
     pg.close()
+    # O17: com smurf, pôr na principal quem a carta já põe a jogar na terose nessa noite: dá (aviso amarelo), a terose
+    # larga-o e o plano põe-lhe outro; e quem não jogou esta época (sem lesão nem odds) fica fora do plano
+    d17 = seeded(); T17 = d17['tables']; T17['runs'][0]['fictitious'] = False
+    T17['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    ids17 = list(roster['players'])
+    col17 = {'sets': {'Metallic Gold LE': {'tier': 'Rare'}}, 'items': {'c%d' % k: {'p': pid, 's': 'Metallic Gold LE', 'a': 'main' if k % 2 else 's1', 'n': 5 + k, 'm': 9999} for k, pid in enumerate(ids17)}, 'players': {pid: {'owners': {'main' if k % 2 else 's1': 1}} for k, pid in enumerate(ids17)}}
+    T17['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'smurfs': [{'id': 's1', 'topshot_username': 'terose'}], 'collection': col17})
+    T17['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in ids17}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T17['chain_results'] = []; T17['injuries'] = []
+    # catálogo grande, com a época a meio: 320 jogadores com jogos; o 1.º do plantel sem jogos, sem lesão nem odds
+    T17['nba_players'] += [{'id': 'f%d' % k, 'name': 'Filler %d' % k, 'team': 'BOS', 'avg': {'pts': 1, 'reb': 1, 'ast': 1, 'fg3': 0, 'stl': 0, 'blk': 0, 'min': 5, 'form': {'n10': 1, 'n5': 1, 'l10': {}, 'l5': {}, 'last': '2026-10-14', 'games': []}}, 'gp': 1, 'updated_at': '2026-10-15T09:20:00Z'} for k in range(320)]
+    ret17 = ids17[0]
+    for p_ in T17['nba_players']:
+        if p_['id'] == ret17: p_['avg'] = {k: v for k, v in p_['avg'].items() if k != 'form'}
+    for r_ in T17['odds_days']: r_['players'].pop(ret17, None)
+    pg = new_page(b, d17)
+    pg.clock.set_fixed_time('2026-10-20T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(15000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    lu_idle17 = "() => { const b = document.getElementById('luBody'); return b && !b.classList.contains('busy') && !document.getElementById('luProg'); }"
+    pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle17, timeout=90000); pg.wait_for_timeout(500)
+    inLu17 = pg.locator('#luBody .lu-row button[data-action="lu-ban"]').evaluate_all('bs => bs.map(b => b.dataset.id)')
+    rowX = pg.locator('#luBody .lu-row').filter(has_text='se o puseres aqui')
+    nX = rowX.count()
+    who17 = rowX.first.locator('button[data-action="lu-add"]').get_attribute('data-id') if nX else None
+    dis17 = rowX.first.locator('button[data-action="lu-add"]').is_disabled() if nX else None
+    pg.screenshot(path=str(shots / 'lineup-outra-conta.png'))
+    if nX and not dis17:
+        # solta um para haver lugar (com 5 fixados não dá) e põe-no
+        rowX.first.locator('button[data-action="lu-add"]').click(); pg.wait_for_timeout(300); pg.wait_for_function(lu_idle17, timeout=90000); pg.wait_for_timeout(2500)
+    toast17 = ' '.join(pg.locator('.toast').all_inner_texts())
+    lk17 = json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.locks') or 'null') or {}
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(4000)
+    sm17 = json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.smurfs') or 'null') or {}
+    ts17 = ((sm17.get('s1') or {}).get('hold') or {}).get('ids') or []
+    ok17 = nX >= 1 and dis17 is False and who17 in (lk17.get(run['days'][0]['date']) or []) and who17 not in ts17 and len(ts17) >= 3 and 'terose joga com outro' in toast17 and ret17 not in inLu17
+    print('O17 pôr quem joga na outra conta:', nX, who17, dis17, lk17, ts17, toast17[:160], '· retirado fora:', ret17 not in inLu17, '· ok' if ok17 else '· ERRO')
+    pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False
     T8['members'].append({'user_id': 'u-eu', 'role': 'admin'}); T8['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})
