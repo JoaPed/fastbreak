@@ -1308,7 +1308,8 @@ function holdHistSheet(date) {
     const btn = u ? '<button class="btn small hh-btn" type="button" data-action="hold-undo" data-acc="' + esc(acc) + '" data-date="' + date + '" data-i="' + i + '">' + (u.back ? 'Undo' : 'Make this swap') + '</button>' : '';
     return '<li class="hh-ev"><span class="hh-t num">' + hm(e.t) + '</span><div style="min-width:0"><div>' + head + '</div>' + (sub ? '<div class="small muted">' + sub + '</div>' : '') + body + btn + '</div></li>';
   };
-  const cards = accounts().map(a => { const H = ((planOf(a.id).lhist || {})[date]) || []; if (!H.length) return '';
+  // só as trocas da conta em que estás (pedido do João)
+  const cards = accounts().filter(a => a.id === S.acc).map(a => { const H = ((planOf(a.id).lhist || {})[date]) || []; if (!H.length) return '';
     return '<div class="card">' + (multi ? '<div class="list-head"><h2>' + esc(accLabel(a.id)) + '</h2></div>' : '') + '<ul class="list hh-list">' + H.map((e, i) => [e, i]).reverse().map(([e, i]) => ev(a.id, e, i)).join('') + '</ul></div>'; }).join('');
   openSheet('<h3>Lineup history</h3><div class="small muted">Day ' + dayNo(date) + ' · ' + dWeek(date) + ', ' + dShort(date) + '. The lineup of the day only changes by itself if someone can’t play or there’s a clearly better one (at least +' + gainTxt(HOLD_MIN) + ' expected wins in the run).</div>' +
     (cards || '<div class="small muted">Nothing yet for this day.</div>'));

@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-08
+- **João** — Histórico do lineup: só mostra as trocas da conta em que estás.
 - **João** — Lineup com várias contas: já dá para pôr quem a carta põe a jogar noutra conta nessa noite (ex.: o Gobert na principal quando estava na Terose); a outra conta larga-o, o plano dá-lhe outro e o aviso lembra de mudar lá no Top Shot. Quem ainda não jogou esta época, não está nas lesões e não tem odds (ex.: Westbrook, retirado mas ainda num plantel da ESPN) fica fora do plano.
 
 ## 2026-11-07

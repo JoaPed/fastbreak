@@ -1711,6 +1711,11 @@ with sync_playwright() as pw:
     pg.keyboard.press('Escape'); pg.wait_for_timeout(4000)
     sm17 = json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.smurfs') or 'null') or {}
     ts17 = ((sm17.get('s1') or {}).get('hold') or {}).get('ids') or []
+    # o histórico do lineup só mostra as trocas da conta em que estás
+    hh17 = []
+    if pg.locator('#tab-hoje .hold-line').count():
+        pg.click('#tab-hoje .hold-line'); pg.wait_for_timeout(500); hh17 = pg.locator('#sheetPanel .card .list-head h2').all_inner_texts(); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    print('O17 histórico só desta conta:', hh17, '· ok' if hh17 and all('terose' not in x.lower() for x in hh17) else '· ERRO')
     ok17 = nX >= 1 and dis17 is False and who17 in (lk17.get(run['days'][0]['date']) or []) and who17 not in ts17 and len(ts17) >= 3 and 'terose joga com outro' in toast17 and ret17 not in inLu17
     print('O17 pôr quem joga na outra conta:', nX, who17, dis17, lk17, ts17, toast17[:160], '· retirado fora:', ret17 not in inLu17, '· ok' if ok17 else '· ERRO')
     pg.close()
