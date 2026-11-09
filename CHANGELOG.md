@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-09
+- **João** — Lineup: quando um jogador já não tem usos nesta conta, o aviso diz quantas vezes já jogou e em que dias o plano o usa (antes falava da outra conta, o que confundia).
 - **João** — As estatísticas e médias da NBA passam a atualizar três vezes por manhã (07:13, 09:17 e 12:13 UTC): o GitHub andava a atrasar a tarefa das 09:17 até à tarde, e os jogos da noite só entravam ao fim do dia.
 
 ## 2026-11-08

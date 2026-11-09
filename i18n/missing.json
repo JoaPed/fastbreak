@@ -1,0 +1,14 @@
+[
+ {
+  "file": "docs/app.js",
+  "text": "vez",
+  "line": "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +",
+  "ambiguous": true
+ },
+ {
+  "file": "docs/app.js",
+  "text": "vezes",
+  "line": "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +",
+  "ambiguous": true
+ }
+]

@@ -3028,7 +3028,8 @@
   "at": {
    "(miss.length ? '<li class=\"row\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">Não jogaram</span></div><div class=\"ps\">' + plural(miss.length, 'vez',": "time",
    "const useTxt = u => !u || !u.total ? 'não usado nesta run' : 'usado ' + plural(u.total, 'vez', 'vezes') + ' nesta run' + (u.accs > 1 ? ' (até ' + u.max + ' por ": true,
-   "(down ? '<div class=\"note info\">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' ch": true
+   "(down ? '<div class=\"note info\">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' ch": true,
+   "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +": true
   }
  },
  "vezes": {
@@ -3036,7 +3037,8 @@
   "at": {
    "(miss.length ? '<li class=\"row\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">Não jogaram</span></div><div class=\"ps\">' + plural(miss.length, 'vez',": "times",
    "const useTxt = u => !u || !u.total ? 'não usado nesta run' : 'usado ' + plural(u.total, 'vez', 'vezes') + ' nesta run' + (u.accs > 1 ? ' (até ' + u.max + ' por ": true,
-   "(down ? '<div class=\"note info\">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' ch": true
+   "(down ? '<div class=\"note info\">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' ch": true,
+   "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +": true
   }
  },
  "m": {
@@ -3142,5 +3144,9 @@
    "openSheet('<h3>Ler carteira' + (accs.length > 1 ? 's' : '') + '</h3><div class=\"small muted\" id=\"wProg\">A ler os teus Moments na blockchain…</div>');": true,
    "const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": true
   }
- }
+ },
+ "já jogou ": "already played ",
+ " nesta conta": " on this account",
+ "o plano usa-o ": "the plan uses him on ",
+ ", já gastos noutros dias": ", already used on other days"
 }
