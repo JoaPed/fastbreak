@@ -1745,6 +1745,38 @@ with sync_playwright() as pw:
     t17b = ' '.join(pg.locator('#luBody .lu-row').filter(has_text='LeBron').all_inner_texts()).replace('\n', ' ')
     ok17b = 'já jogou 2 vezes nesta conta' in t17b and 'se o puseres aqui' not in t17b
     print('O17b sem usos, a mensagem diz porquê:', t17b[:220], '· ok' if ok17b else '· ERRO')
+    # tirar dois deste dia (×) e repô-los de uma vez no fim da lista
+    for _ in range(2):
+        pg.locator('#luBody .lu-row button[data-action="lu-excl"]').first.click(); pg.wait_for_timeout(300); pg.wait_for_function(lu_idle17, timeout=90000); pg.wait_for_timeout(600)
+    nb17 = len((json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans') or 'null') or {}).get(run['days'][0]['date']) or [])
+    lbl17 = pg.locator('#luBody button[data-action="lu-unban-all"]').inner_text() if pg.locator('#luBody button[data-action="lu-unban-all"]').count() else ''
+    pg.locator('#luBody button[data-action="lu-unban-all"]').scroll_into_view_if_needed(); pg.screenshot(path=str(shots / 'repor-todos.png'))
+    pg.click('#luBody button[data-action="lu-unban-all"]'); pg.wait_for_timeout(300); pg.wait_for_function(lu_idle17, timeout=90000); pg.wait_for_timeout(1500)
+    na17 = len((json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.bans') or 'null') or {}).get(run['days'][0]['date']) or [])
+    print('O17b repor todos:', nb17, lbl17, '→', na17, '· ok' if nb17 == 2 and 'Repor todos (2)' in lbl17 and na17 == 0 else '· ERRO')
+    pg.close()
+    # O18: sobem com as baixas — o SGA está fora hoje; o Chet faz bem mais pontos nos jogos sem ele
+    d18 = seeded(); T18 = d18['tables']; T18['runs'][0]['fictitious'] = False
+    T18['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T18['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    T18['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T18['chain_results'] = []
+    T18['injuries'] = [{'id': 'sga', 'name': 'Shai Gilgeous-Alexander', 'team': 'OKC', 'status': 'out', 'label': 'Out', 'detail': 'Knee', 'comment': '', 'return_date': None, 'updated_at': '2026-10-20T14:30:00Z'}]
+    for p_ in T18['nba_players']:
+        if p_['id'] == 'chet':
+            a_ = p_['avg']; p_['avg'] = dict(a_, sem={'sga': [5, 34, round(a_['pts'] + 7, 1), a_.get('reb', 8), a_.get('ast', 2), 1, 1, 2, 9, 18, 2]})
+    pg = new_page(b, d18)
+    pg.clock.set_fixed_time('2026-10-20T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(6000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    fs18 = ' '.join(pg.locator('#tab-hoje .fold-s').all_inner_texts())
+    if pg.locator('#tab-hoje .fold.shut button[data-k="lesoes"]').count(): pg.click('#tab-hoje button[data-k="lesoes"]'); pg.wait_for_timeout(400)
+    sec18 = pg.locator('#tab-hoje .inj-sec').filter(has_text='Sobem com as baixas')
+    t18 = ' '.join(sec18.all_inner_texts()).replace('\n', ' ')
+    if sec18.count(): sec18.first.scroll_into_view_if_needed(); sec18.first.screenshot(path=str(shots / 'sobem-baixas.png'))
+    ok18 = 'sobe com baixas' in fs18 and 'Holmgren' in t18 and 'sem o Gilgeous-Alexander' in t18 and '+7,0 PTS' in t18 and 'tens · 2 usos' in t18
+    print('O18 sobem com as baixas:', fs18[:120], '|', t18[:200], '· ok' if ok18 else '· ERRO')
     pg.close()
     # O8: link especial #ler (automatização dos Atalhos às 7:00): o admin abre o site e a leitura de todos os dias começa sozinha
     d8 = seeded(); T8 = d8['tables']; T8['runs'][0]['fictitious'] = False

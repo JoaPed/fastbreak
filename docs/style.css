@@ -1278,3 +1278,5 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .card.min > :not(.list-head) { display: none !important; }
 .card.min > .list-head { padding-bottom: 14px; }
 @media (prefers-reduced-motion: reduce) { .card-min svg { transition: none; } }
+/* Fora deste dia: repor todos no fim da lista */
+.lu-unban-all { display: flex; justify-content: flex-end; padding: 10px 16px 14px; border-top: 1px solid var(--line); }

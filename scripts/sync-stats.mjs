@@ -5,7 +5,7 @@
 //   4) ressaltos ofensivos e defensivos, que só vêm na ficha de cada jogador (uma vez por época e quando joga mais jogos);
 //   5) forma: as estatísticas de cada jogo terminado (últimos 10 jogos de cada jogador);
 //   6) jogos da época passada de cada jogador (uma vez por época, aos bocados): regularidade e jogos seguidos.
-import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, parseEspnBox, addBoxForm, formOf, teamRows, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate, addDays, parseEspnGamelog, histFromGames } from './lib.mjs';
+import { supa, must, fetchJson, addEspnSeason, addEspnCurrent, addEspnRoster, addEspnCore, parseEspnCoreStats, parseEspnBox, addBoxForm, addSplits, splitsOf, formOf, teamRows, espnTeam, blendedAverages, teamOf, getState, setState, pool, upsertChunks, etDate, addDays, parseEspnGamelog, histFromGames } from './lib.mjs';
 
 const ESPN_TEAMS = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams';
 const ESPN_ROSTER = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/' + id + '/roster';
@@ -25,7 +25,7 @@ const y = +today.slice(0, 4), m = +today.slice(5, 7);
 const curYear = m >= 9 ? y + 1 : y;
 const fmt = year => (year - 1) + '-' + String(year).slice(2);
 // época nova: as médias "desta época" da anterior deixam de contar como atuais
-if (state.curSeason && state.curSeason !== fmt(curYear)) { for (const p of Object.values(state.players)) { delete p.curAvg; delete p.cur; delete p.log; } delete state.boxDate; delete state.teams; }
+if (state.curSeason && state.curSeason !== fmt(curYear)) { for (const p of Object.values(state.players)) { delete p.curAvg; delete p.cur; delete p.log; delete p.off; } delete state.boxDate; delete state.teams; delete state.splitSeen; delete state.splitBack; }
 state.curSeason = fmt(curYear);
 
 async function season(year, add) {
@@ -103,13 +103,29 @@ if (jobs.length) {
       return ev.season && [2, 3].includes(+ev.season.type) && st.type && st.type.completed; // época regular e playoffs
     });
     const got = await pool(done, 4, async ev => {
-      try { const { json: sj } = await fetchJson(ESPN_SUMMARY(ev.id)); return sj ? addBoxForm(state, parseEspnBox(sj), d) : -1; } catch (e) { return -1; }
+      try { const { json: sj } = await fetchJson(ESPN_SUMMARY(ev.id)); if (!sj) return -1; const bx = parseEspnBox(sj); addSplits(state, bx, d); return addBoxForm(state, bx, d); } catch (e) { return -1; }
     });
     if (got.some(x => x < 0)) { stopped = d; break; }
     games += done.length; lines += got.reduce((a, b) => a + b, 0);
     state.boxDate = d;
   }
   console.log('Forma: ' + games + ' jogos terminados lidos (' + lines + ' linhas de jogadores)' + (stopped ? ' · parei em ' + stopped + ', a ESPN não respondeu (continua amanhã)' : ''));
+}
+
+// 5b) baixas desde o início da época: os jogos antes da primeira leitura da forma, aos bocados (até 60 jogos por dia)
+if (state.boxDate) {
+  let d = state.splitBack || (curYear - 1) + '-10-15', games = 0, stopped = false;
+  while (d <= state.boxDate && games < +(process.env.SPLIT_MAX || 60)) {
+    let json = null;
+    try { ({ json } = await fetchJson(ESPN_BOARD(d))); } catch (e) { /* sem resposta */ }
+    if (!json) { stopped = true; break; }
+    const done = (json.events || []).filter(ev => { const st = ev.status || ((ev.competitions || [])[0] || {}).status || {}; return ev.season && +ev.season.type === 2 && st.type && st.type.completed; });
+    const got = await pool(done, 4, async ev => { try { const { json: sj } = await fetchJson(ESPN_SUMMARY(ev.id)); if (!sj) return -1; addSplits(state, parseEspnBox(sj), d); return 1; } catch (e) { return -1; } });
+    if (got.some(x => x < 0)) { stopped = true; break; }
+    games += done.length; d = addDays(d, 1); state.splitBack = d;
+  }
+  const nOff = Object.values(state.players).filter(p => p.off && p.off.n).length;
+  console.log('Baixas (quem sobe quando um habitual falta): ' + games + ' jogos antigos lidos · ' + nOff + ' habituais com jogos falhados' + (state.splitBack <= state.boxDate ? ' · faltam jogos desde ' + state.splitBack + (stopped ? ' (a ESPN não respondeu)' : '') + ', continua amanhã' : ''));
 }
 
 // 6) jogos da época passada (até 300 jogadores por dia; os que faltam ficam para o dia seguinte)
@@ -130,13 +146,14 @@ if (jobs.length) {
 }
 
 // catálogo
-const rows = [];
+const rows = [], sem = splitsOf(state);
 for (const [id, p] of Object.entries(state.players)) {
   if (!inCatalog(p)) continue;
   const b = blendedAverages(p), f = formOf(p);
   const avg = b ? Object.assign({}, b.avg) : (f ? {} : null);
   if (avg && f) avg.form = f; // últimos 5 e 10 jogos
   if (avg && p.hist && p.hist.n >= 5) avg.hist = { n: p.hist.n, d: p.hist.d, b2b: p.hist.b2b }; // época passada: regularidade e jogos seguidos
+  if (avg && sem[id]) avg.sem = sem[id]; // sem cada colega habitual: [jogos, ...médias de SPLIT_KEYS]
   if (avg && p.espnId) avg.espn = p.espnId; // foto do jogador no site (a.espncdn.com/i/headshots/nba/players/full/<id>.png)
   rows.push({ id, name: p.name, team: teamOf(p), avg, gp: b ? b.gp : 0, updated_at: new Date().toISOString() });
 }

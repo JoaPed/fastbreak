@@ -349,7 +349,7 @@ const HELP = {
   aovivo: ['Live', 'When the first game starts, the app locks in who has already played, reads the points from ESPN every 2 minutes and redoes the rest of the run. When the lineup’s games end, the day closes by itself. If the lineup you submitted on Top Shot is different, fix it in Suggestions for today. Tap a lineup player to see his game’s stats. If ESPN fails during the game, the values come in when the game ends.'],
   opcoes: ['Suggestions for today', '<b>Before the games</b>: compares the plan with going all in today or saving a player for another day (to pick player by player yourself, use Change on the lineup).<br><b>During the games</b>: with the points already in, compares keeping, removing or saving whoever hasn’t played yet.<br>Each option redoes the whole run with the uses left; “the best” is the one that raises your prize chances the most. Removing a player before his game starts doesn’t spend the use.'],
   jogosdia: ['Games that day', 'Local time. Under each game, your players (the lineup in bold). During the games: live score and the numbers of the players in the lineup.'],
-  lesoesforma: ['Injuries and form', '<b>Injuries</b>: ESPN report for who plays this day, with the chance the plan counts on. The report for the whole run is in Players → Injuries. <b>Form</b>: average of the last 5 games against the season’s, in the day’s stat.'],
+  lesoesforma: ['Injuries and form', '<b>Injuries</b>: ESPN report for who plays on this day, with the chance the plan counts on. The report for the whole run is in Players → Injuries. <b>Form</b>: average of the last 5 games against the season\'s, in the day\'s stat. <b>Rise with absences</b>: who does much better than usual in games where a regular teammate who is out today was missing (this season, at least 2 games).'],
   porque: ['What it’s based on', 'Bookmaker odds when there are any; otherwise season averages with form and opponent. Each player’s number (pp) is how much he adds to the day’s win: without him, the best one left would come in. “Saves others”: he’s here so someone better can be kept for another day. The ones left out are saved for other days or are worth less.'],
   comparar: ['Compare', 'All your players with a game this day. Big numbers: last 5 games; small: season. Opp.: how much the opponent allows of this stat. Tap a header to sort and a player to open his card.'],
   transf: ['Transfers', 'A Moment only plays for one account each night. Before the night shown, gift the Moment to the other account on Top Shot, then read the wallets again (Players → Collection).'],
@@ -2862,6 +2862,44 @@ function todoCard(r, v, d, md, nd, live, tips) {
   if (!n) return '<div class="card todo all-done"><div class="list-head"><h2>To do</h2><span class="small muted">all done ✓</span></div><ul class="list">' + open.join('') + doneRow + '</ul></div>';
   return '<div class="card todo"><div class="list-head"><h2>To do</h2><span class="small muted">' + n + '</span></div><ul class="list">' + open.join('') + doneRow + '</ul></div>';
 }
+// Sobem com as baixas: quem está fora neste dia (relatório de lesões: fora ou pouco provável, antes do regresso) e, na
+// mesma equipa, quem faz bem mais nos jogos em que ele faltou (avg.sem, da tarefa das estatísticas: [jogos, ...médias])
+const SPLIT_KEYS = ['min', 'pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'fgm', 'fga', 'tov'];
+function baixaTips(r, nd) {
+  const objs = (nd.objectives || []).filter(o => o && o.stat && +o.target > 0); if (!objs.length || !(nd.games || []).length) return [];
+  const playing = new Set(); (nd.games || []).forEach(g => { if (g[0]) playing.add(g[0]); if (g[1]) playing.add(g[1]); });
+  const outs = Object.entries(S.injuries || {}).filter(([id, rec]) => rec && ['out', 'ofs', 'doubtful'].includes(rec.status) && !(rec.return_date && rec.return_date <= nd.date))
+    .map(([id]) => ({ id, c: S.players.get(String(id)) })).filter(x => x.c && playing.has(x.c.team));
+  if (!outs.length) return [];
+  const best = new Map();
+  S.players.forEach((c, bid) => {
+    const sem = c && c.avg && c.avg.sem; if (!sem || !playing.has(c.team)) return;
+    if (['out', 'ofs', 'doubtful'].includes((injRec(bid) || {}).status)) return;
+    outs.forEach(a => {
+      const e = sem[a.id]; if (!e || a.c.team !== c.team || e[0] < 2) return;
+      const off = {}; SPLIT_KEYS.forEach((k, i) => { off[k] = e[i + 1]; });
+      const st = objs.map(o => { const b0 = +FB.statValue(c.avg, o.stat, c.avg) || 0, b1 = +FB.statValue(off, o.stat, c.avg) || 0; return { o, b0, b1, g: b1 - b0, rel: (b1 - b0) / Math.max(1, b0) }; });
+      const top = st.filter(z => z.g >= 1 && z.rel >= 0.15).sort((x, y) => y.g / +y.o.target - x.g / +x.o.target)[0]; if (!top) return;
+      const score = st.reduce((t, z) => t + Math.max(0, z.g) / +z.o.target, 0);
+      const cur = best.get(bid); if (!cur || score > cur.score) best.set(bid, { id: bid, a: a.id, n: e[0], top, score });
+    });
+  });
+  return [...best.values()].sort((x, y) => y.score - x.score).slice(0, 6);
+}
+// a dica de um jogador nesse dia (guardada por dia e por leitura das lesões, para a lista do lineup)
+let bxMemo = null;
+function baixaOf(r, date, id) {
+  if (!bxMemo || bxMemo.date !== date || bxMemo.at !== S.injAt || bxMemo.p !== S.players) { const nd = S.days.find(d => d.date === date); bxMemo = { date, at: S.injAt, p: S.players, m: new Map((nd ? baixaTips(r, nd) : []).map(x => [x.id, x])) }; }
+  return bxMemo.m.get(id) || null;
+}
+function baixaRow(r, x, nd) {
+  const pi = r.model.pIndex.get(x.id), u = pi != null ? r.model.uses[pi] || 0 : 0, mine = !!((S.mine || {}).roster || {})[x.id];
+  const t = x.top, d = '+' + f1(t.g) + ' ' + esc(statShort(t.o.stat));
+  return '<li><button class="inj-row" type="button" data-action="player" data-id="' + esc(x.id) + '" data-date="' + nd.date + '">' + face(x.id, 'sm') +
+    '<span class="inj-n"><span class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class="badge">yours · ' + esc(u >= UNL ? 'unlimited' : plural(u, 'use', 'uses')) + '</span>' : '<span class="badge">no uses</span>') : '') + '</span>' +
+    '<span class="ps">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · without ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'game', 'games') + '): ' + f1(t.b1) + ' instead of ' + f1(t.b0) + '</span></span>' +
+    '<span class="inj-p num up">▲ ' + Math.round(t.rel * 100) + '%<small>' + d + '</small></span></button></li>';
+}
 // Lesões e forma de quem joga neste dia, e as lesões do plantel na run toda (o resto em Jogadores)
 function todayPlayersCard(r, md, nd, isCur) {
   const o = (nd.objectives || [])[0]; if (!o || !md.teams.size) return '';
@@ -2889,9 +2927,11 @@ function todayPlayersCard(r, md, nd, isCur) {
   let body = '<div class="small muted fold-sub">' + plural(mine.length, 'of your players plays', 'of your players play') + '</div>';
   body += sec('Today', inj.length || null, !S.injOk ? '<div class="small muted inj-empty">The injury report isn’t connected yet.</div>' : inj.length ? '<ul class="list inj-list">' + injToday.map(rowT).join('') + '</ul>' : '<div class="small muted inj-empty">None of your players who play is on the report. ✓</div>');
   if (hot.length || cold.length) body += sec('Form', null, '<div class="f-chips">' + formChips(hot, 'hot') + formChips(cold, 'cold') + '</div>');
+  const ups = baixaTips(r, nd);
+  if (ups.length) body += sec('Rise with absences', ups.length, '<ul class="list inj-list">' + ups.map(x => baixaRow(r, x, nd)).join('') + '</ul>');
   // o relatório todo (a run inteira) fica em Jogadores → Lesões
   if (S.injOk) body += '<button class="btn link small inj-all" type="button" data-action="goto" data-tab="plantel" data-sub="lesoes">' + (runRows.length ? 'Injuries across the run (' + runRows.length + ') ›' : 'Injury report ›') + '</button>';
-  const sum = [inj.length ? plural(inj.length, 'injury', 'injuries') : 'no injuries', (hot.length ? hot.length + ' ▲' : '') + (hot.length && cold.length ? ' ' : '') + (cold.length ? cold.length + ' ▼' : '')].filter(Boolean).join(' · ');
+  const sum = [inj.length ? plural(inj.length, 'injury', 'injuries') : 'no injuries', (hot.length ? hot.length + ' ▲' : '') + (hot.length && cold.length ? ' ' : '') + (cold.length ? cold.length + ' ▼' : ''), ups.length ? plural(ups.length, 'rises with absences', 'rise with absences') : ''].filter(Boolean).join(' · ');
   return foldCard('lesoes', 'Injuries and form', helpBtn('lesoesforma'), sum, body);
 }
 // lesões do plantel na run toda: para cada jogador no relatório, os dias que faltam em que conta (fora ou com X% de jogar)
@@ -6238,7 +6278,9 @@ function candLine(r, pi, tb, ds, tir, date) {
   if (tb) return '<span class="lu-l2 lu-warn">⚠ The Moment needed plays on ' + esc(tb.others.map(accLabel).join(' and on ')) + (nd && nd.date === date ? '' : ' on day ' + dn) + ': if you put him here, ' + (tb.others.length > 1 ? 'those accounts play' : 'that account plays') + ' someone else</span>';
   const u = u0;
   if (!u) return '<span class="lu-l2">no uses left</span>';
-  return '<span class="lu-l2"><b>' + (u >= UNL ? 'unlimited uses' : plural(u, 'use', 'uses')) + '</b> · ' + (ds.length ? 'plays ' + (ds.length > 1 ? 'on days ' : 'on day ') + ds.join(', ') : 'not in the plan') + '</span>';
+  // sobe com uma baixa de hoje (ver baixaTips)
+  const bx = baixaOf(r, date, id), bxT = bx ? ' · <span class="up">▲ without ' + esc(lastName(bx.a)) + ': +' + f1(bx.top.g) + ' ' + esc(statShort(bx.top.o.stat)) + '</span>' : '';
+  return '<span class="lu-l2"><b>' + (u >= UNL ? 'unlimited uses' : plural(u, 'use', 'uses')) + '</b> · ' + (ds.length ? 'plays ' + (ds.length > 1 ? 'on days ' : 'on day ') + ds.join(', ') : 'not in the plan') + bxT + '</span>';
 }
 function luRender() {
   const L = S.lu, r = S.result, v = view(); if (!L || !r || !v) return;
@@ -6327,7 +6369,8 @@ function luRender() {
       '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player" value="' + esc(L.q || '') + '"></div>' + luSortChips(md, 'data-date="' + date + '"') +
       '<ul class="list" id="luCand">' + candRows + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>' + (cand.length > 8 && !L.all ? '<button class="btn quiet" type="button" id="luAllBtn" data-action="lu-all" data-date="' + date + '" style="margin:4px 16px 14px">See all (' + cand.length + ')</button>' : '') + '</div>' : '') +
     (bans.length ? '<div class="card"><div class="list-head"><h2>Out of this day</h2><span class="small muted">the plan doesn’t use them on day ' + dn + '</span></div><ul class="list">' + bans.map(id => '<li class="lu-row"><div class="lu-main">' + face(id, 'sm') + '<span class="lu-t"><span class="pn"><span class="nm">' + esc(nameOf(id)) + '</span></span><span class="ps">' + esc(pTeam(id)) + ' ' + esc(opp(pTeam(id), day)) + '</span></span></div>' +
-      '<button class="btn small" type="button" data-action="lu-unban" data-id="' + esc(id) + '" data-date="' + date + '">Restore</button></li>').join('') + '</ul></div>' : '') +
+      '<button class="btn small" type="button" data-action="lu-unban" data-id="' + esc(id) + '" data-date="' + date + '">Restore</button></li>').join('') + '</ul>' +
+      (bans.length > 1 ? '<div class="lu-unban-all"><button class="btn small" type="button" data-action="lu-unban-all" data-date="' + date + '">Restore all (' + bans.length + ')</button></div>' : '') + '</div>' : '') +
     (mine ? '<button class="btn" type="button" data-action="lu-reset" data-date="' + date + '">Back to the plan’s suggestion</button>' : '') + '</div>';
   openSheet(html);
   luFilter();
@@ -6939,6 +6982,7 @@ document.addEventListener('click', async e => {
     case 'lu-auto': if (S.lu) S.lu.out = (S.lu.out || []).filter(x => x !== id); lineupSheet(date); luBusy(); banToggle(id, date, true); break;
     case 'lu-unban': luBusy(); banToggle(id, date, false); toast(lastName(id) + ' is back: the plan can use him this day.'); break;
     case 'lu-excl': luBusy(); banToggle(id, date, true); break;
+    case 'lu-unban-all': { const n = (((curPlan().bans || {})[date]) || []).length; luBusy(); planPatch({ bans: { [date]: [] } }); toast(plural(n, 'player', 'players') + ' back: the plan can use them on this day.'); break; }
     case 'lu-reset': luBusy(true); { const h = planOf(S.acc).hold; if (h && h.d === date) planOf(S.acc).hold = null; } /* volta a sugestão inteira, sem o lineup mantido */ planPatch({ locks: { [date]: [] }, bans: { [date]: [] } }); toast('Back to the plan’s suggestion.'); break;
     case 'ptab': { S.pTab = b.dataset.v; document.querySelectorAll('#sheetPanel .ptab').forEach(x => { x.hidden = x.dataset.ptab !== S.pTab; }); document.querySelectorAll('#sheetPanel .ptabs button').forEach(x => { const on = x.dataset.v === S.pTab; x.setAttribute('aria-selected', on); x.setAttribute('aria-pressed', on); }); break; }
     case 'buy-more': buyMore(); break;

@@ -229,6 +229,38 @@ export function parseEspnBox(json) {
   return out;
 }
 
+// ---------- baixas: quem sobe quando um habitual falta ----------
+// Para cada jogo de cada equipa: os habituais do plantel (≥ 20 min de média nesta época em ≥ 3 jogos, ou ≥ 26 min
+// na passada) que não jogaram ficam com os números dos colegas que jogaram nesse jogo. Daí sai, para cada jogador,
+// quanto faz quando falta cada colega (p.off = { n: jogos que falhou, m: { colega: [jogos, ...SPLIT_KEYS somados] } }).
+export const SPLIT_KEYS = ['min', 'pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'fgm', 'fga', 'tov'];
+const isRegular = p => (p.curAvg && p.curAvg.gp >= 3 && p.curAvg.min >= 20) || (p.prevAvg && p.prevAvg.min >= 26);
+export function addSplits(state, box, date) {
+  state.splitSeen = state.splitSeen || {};
+  const byTeam = {};
+  for (const [nm, v] of Object.entries(box || {})) if (v.team && v.min > 0) (byTeam[v.team] = byTeam[v.team] || []).push([nm.replace(/ /g, '-'), v]);
+  let n = 0;
+  for (const [t, list] of Object.entries(byTeam)) {
+    const seen = t + '|' + date; if (state.splitSeen[seen]) continue; state.splitSeen[seen] = 1;
+    const played = new Set(list.map(([k]) => k));
+    for (const [ka, a] of Object.entries(state.players)) {
+      if (played.has(ka) || teamOf(a) !== t || !isRegular(a)) continue;
+      const off = (a.off = a.off || { n: 0, m: {} }); off.n++; n++;
+      for (const [kb, v] of list) { const e = (off.m[kb] = off.m[kb] || Array(SPLIT_KEYS.length + 1).fill(0)); e[0]++; SPLIT_KEYS.forEach((k, i) => { e[i + 1] += isNum(v[k]) ? +v[k] : 0; }); }
+    }
+  }
+  return n;
+}
+// Para o catálogo: o que cada jogador faz sem cada colega (pelo menos 2 jogos): { idDoColega: [jogos, ...médias] }
+export function splitsOf(state) {
+  const out = {};
+  for (const [ka, a] of Object.entries(state.players)) for (const [kb, e] of Object.entries((a.off || {}).m || {})) {
+    if (e[0] < 2 || !state.players[kb]) continue;
+    (out[kb] = out[kb] || {})[ka] = [e[0]].concat(e.slice(1).map(x => Math.round(x / e[0] * 10) / 10));
+  }
+  return out;
+}
+
 // ---------- forma: últimos 10 jogos de cada jogador ----------
 // Junta as estatísticas de um jogo (parseEspnBox) ao registo de cada jogador; guarda só os últimos 10 jogos
 export function addBoxForm(state, box, date) {

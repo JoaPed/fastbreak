@@ -1481,7 +1481,8 @@
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(x.f.name) + '</h2><span class=\"small muted\">' + plural(list.length, 'jogador', 'jogadores') + '</sp": true,
    "saveMine(); toast('Plantel da ' + runShort(prev) + ' copiado: ' + plural(ids.length, 'jogador', 'jogadores') + ', com os usos todos.');": "player",
    "return '<h2 class=\"sec-h\">O que já tens para o dia ' + (idx + 1) + '</h2><div class=\"card\"><div class=\"list-head\"><h2>' + esc(rule.name) + '</h2><span class=\"sm": "player",
-   "return '<h2 class=\"sec-h\">O que já tens para o dia ' + (idx + 1) + '</h2><div class=\"card\"><div class=\"list-head\"><h2>' + esc(rule.name) + '</h2></div><div clas": "player"
+   "return '<h2 class=\"sec-h\">O que já tens para o dia ' + (idx + 1) + '</h2><div class=\"card\"><div class=\"list-head\"><h2>' + esc(rule.name) + '</h2></div><div clas": "player",
+   "case 'lu-unban-all': { const n = (((curPlan().bans || {})[date]) || []).length; luBusy(); planPatch({ bans: { [date]: [] } }); toast(plural(n, 'jogador', 'jogad": true
   }
  },
  "jogadores": {
@@ -1493,7 +1494,8 @@
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + esc(x.f.name) + '</h2><span class=\"small muted\">' + plural(list.length, 'jogador', 'jogadores') + '</sp": true,
    "saveMine(); toast('Plantel da ' + runShort(prev) + ' copiado: ' + plural(ids.length, 'jogador', 'jogadores') + ', com os usos todos.');": "players",
    "return '<h2 class=\"sec-h\">O que já tens para o dia ' + (idx + 1) + '</h2><div class=\"card\"><div class=\"list-head\"><h2>' + esc(rule.name) + '</h2><span class=\"sm": "players",
-   "return '<h2 class=\"sec-h\">O que já tens para o dia ' + (idx + 1) + '</h2><div class=\"card\"><div class=\"list-head\"><h2>' + esc(rule.name) + '</h2></div><div clas": "players"
+   "return '<h2 class=\"sec-h\">O que já tens para o dia ' + (idx + 1) + '</h2><div class=\"card\"><div class=\"list-head\"><h2>' + esc(rule.name) + '</h2></div><div clas": "players",
+   "case 'lu-unban-all': { const n = (((curPlan().bans || {})[date]) || []).length; luBusy(); planPatch({ bans: { [date]: [] } }); toast(plural(n, 'jogador', 'jogad": true
   }
  },
  "\" style=\"margin:4px 16px 14px\">Ver todos (": "\" style=\"margin:4px 16px 14px\">See all (",
@@ -2893,7 +2895,8 @@
    "const cutTxt = M.cuts.length ? 'Em dias com ' + plural((day.games || []).length, 'jogo', 'jogos') + ', o 40.º lugar (o último com prémio) fez ' + f0(M.cuts[39] ": true,
    "'<div class=\"ps\">' + (x.n ? 'média ' + f0(x.avg) + ' em ' + plural(x.n, 'jogo', 'jogos') : 'ainda sem jogos') + '</div></div></span>' +": true,
    "openSheet('<h3>' + esc(x.name) + '</h3><div class=\"small muted\">' + esc(hTeam(x.team)) + ' · ' + x.rp + ' RP · ' + (x.n ? 'média ' + f1(x.avg) + ' pts em ' + pl": true,
-   "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true
+   "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true,
+   "'<span class=\"ps\">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · sem o ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'jogo', 'jogos') + '): ' + f1(t.": true
   }
  },
  "jogos": {
@@ -2928,7 +2931,8 @@
    "openSheet('<h3>' + esc(x.name) + '</h3><div class=\"small muted\">' + esc(hTeam(x.team)) + ' · ' + x.rp + ' RP · ' + (x.n ? 'média ' + f1(x.avg) + ' pts em ' + pl": true,
    "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true,
    "const games = gamesTable(p.avg), PT = [['res', 'Resumo'], ['porque', 'Porquê']].concat(cardsAll ? [['cartas', 'Cartas']] : [], games ? [['jogos', cardsAll ? 'Jo": false,
-   "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (cardsAll ?": false
+   "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (cardsAll ?": false,
+   "'<span class=\"ps\">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · sem o ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'jogo', 'jogos') + '): ' + f1(t.": true
   }
  },
  "usos": {
@@ -2962,7 +2966,8 @@
    "'<div class=\"pv mo-u' + (cu === u ? ' top' : '') + '\"><div class=\"v num\">' + usesN(cu) + '</div><div class=\"u\">' + (cu === 1 ? 'uso' : 'usos') + '</div></div></": "uses",
    "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "uses",
    "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "uses",
-   "const PL_SORTS = [['plano', 'No plano'], ['proximo', 'Próximo dia'], ['forma', 'Forma'], ['usos', 'Usos'], ['jogos', 'Jogos'], ['nome', 'Nome']];": false
+   "const PL_SORTS = [['plano', 'No plano'], ['proximo', 'Próximo dia'], ['forma', 'Forma'], ['usos', 'Usos'], ['jogos', 'Jogos'], ['nome', 'Nome']];": false,
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true
   }
  },
  "uso": {
@@ -2994,7 +2999,8 @@
    "'<div class=\"pl-uses' + (none ? ' none' : full ? ' full' : '') + '\"><b class=\"num\">' + (f.uses >= UNL - 30 ? '∞' : f.uses) + '</b><span>' + (f.uses === 1 ? 'uso": "use",
    "'<div class=\"pv mo-u' + (cu === u ? ' top' : '') + '\"><div class=\"v num\">' + usesN(cu) + '</div><div class=\"u\">' + (cu === 1 ? 'uso' : 'usos') + '</div></div></": "use",
    "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "use",
-   "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "use"
+   "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "use",
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true
   }
  },
  "derrota": {
@@ -3148,5 +3154,17 @@
  "já jogou ": "already played ",
  " nesta conta": " on this account",
  "o plano usa-o ": "the plan uses him on ",
- ", já gastos noutros dias": ", already used on other days"
+ ", já gastos noutros dias": ", already used on other days",
+ "<b>Lesões</b>: relatório da ESPN para quem joga neste dia, com a probabilidade com que o plano conta. O relatório para a run toda está em Jogadores → Lesões. <b>Forma</b>: média dos últimos 5 jogos face à da época, na estatística do dia. <b>Sobem com as baixas</b>: quem faz bem mais do que o costume nos jogos em que falta um colega habitual que hoje está fora (desta época, com pelo menos 2 jogos).": "<b>Injuries</b>: ESPN report for who plays on this day, with the chance the plan counts on. The report for the whole run is in Players → Injuries. <b>Form</b>: average of the last 5 games against the season's, in the day's stat. <b>Rise with absences</b>: who does much better than usual in games where a regular teammate who is out today was missing (this season, at least 2 games).",
+ "<span class=\"badge\">tens · ": "<span class=\"badge\">yours · ",
+ "ilimitados": "unlimited",
+ "<span class=\"badge\">sem usos</span>": "<span class=\"badge\">no uses</span>",
+ " · sem o ": " · without ",
+ " em vez de ": " instead of ",
+ "Sobem com as baixas": "Rise with absences",
+ "sobe com baixas": "rises with absences",
+ "sobem com baixas": "rise with absences",
+ " · <span class=\"up\">▲ sem o ": " · <span class=\"up\">▲ without ",
+ "\">Repor todos (": "\">Restore all (",
+ " de volta: o plano pode usá-los neste dia.": " back: the plan can use them on this day."
 }

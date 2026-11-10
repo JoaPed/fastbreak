@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf, teamRows, GAME_KEYS, parseEspnInjuries, injuryStatus, buildAlerts, alertText, parseEspnGamelog, histFromGames } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, addSplits, splitsOf, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf, teamRows, GAME_KEYS, parseEspnInjuries, injuryStatus, buildAlerts, alertText, parseEspnGamelog, histFromGames } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -109,6 +109,16 @@ addBoxForm(fst, parseEspnBox(summary), '2026-11-12'); // o mesmo jogo lido duas 
 const fm = formOf(fst.players['domantas-sabonis']);
 ok('forma: últimos 10 e últimos 5 jogos', fm.n10 === 10 && fm.n5 === 5 && fm.l5.pts === (18 + 19 + 20 + 21 + 12) / 5 && fm.l10.reb === 7 && fm.last === '2026-11-12', fm);
 ok('forma: quem não jogou não entra e jogador desconhecido é ignorado', addBoxForm(fst, { 'ninguem conhecido': { min: 30, pts: 10 }, 'domantas sabonis': { min: 0, pts: 0 } }, '2026-11-13') === 0 && formOf({}) === null);
+// baixas: o Sabonis (habitual) falha 2 jogos; o Achiuwa faz mais ressaltos nesses; quem não é habitual não conta
+{
+  const st = { players: { 'domantas-sabonis': { name: 'Domantas Sabonis', rosterTeam: 'SAC', curAvg: { gp: 10, min: 34 } }, 'precious-achiuwa': { name: 'Precious Achiuwa', rosterTeam: 'SAC', curAvg: { gp: 10, min: 22 } }, 'zeca-banco': { name: 'Zeca', rosterTeam: 'SAC', curAvg: { gp: 2, min: 5 } } } };
+  addSplits(st, { 'precious achiuwa': { team: 'SAC', min: 30, reb: 11, pts: 10 } }, '2026-11-01');
+  addSplits(st, { 'precious achiuwa': { team: 'SAC', min: 32, reb: 13, pts: 12 } }, '2026-11-03');
+  addSplits(st, { 'precious achiuwa': { team: 'SAC', min: 32, reb: 13, pts: 12 } }, '2026-11-03'); // o mesmo jogo duas vezes não conta a dobrar
+  addSplits(st, { 'precious achiuwa': { team: 'SAC', min: 20, reb: 6 }, 'domantas sabonis': { team: 'SAC', min: 35, reb: 12 } }, '2026-11-05');
+  const sp = splitsOf(st), e = (sp['precious-achiuwa'] || {})['domantas-sabonis'];
+  ok('baixas: sem o Sabonis (2 jogos) o Achiuwa faz 12 ressaltos', e && e[0] === 2 && e[1 + 2] === 12 && e[1 + 1] === 11 && st.players['domantas-sabonis'].off.n === 2 && !st.players['zeca-banco'].off, sp);
+}
 // jogos e equipas: com as duas equipas no box score
 const two = JSON.parse(JSON.stringify(summary));
 two.boxscore.players.push({ team: { abbreviation: 'GS' }, statistics: [{ keys: summary.boxscore.players[0].statistics[0].keys, labels: summary.boxscore.players[0].statistics[0].labels, athletes: [{ athlete: { displayName: 'Stephen Curry' }, stats: ['33', '30', '10-20', '6-12', '4-4', '5', '6', '3', '1', '0', '0', '5', '2', '+9'] }] }] });
