@@ -1499,7 +1499,8 @@ function riskOf(md, id) { const pi = S.result.model.pIndex.get(id), inf = pi != 
 function riskSub(md, day, lineup, id) {
   const r = S.result, team = x => (r.model.players[r.model.pIndex.get(x)] || {}).team, t0 = FB.tipTime(day, team(id)) || 0;
   let best = null;
-  md.elig.forEach(pi => { const pid = r.model.players[pi].id; if (lineup.includes(pid) || riskOf(md, pid) || !(r.model.uses[pi] > 0)) return;
+  // com várias contas: não sugere quem a carta já põe a jogar noutra conta nessa noite (essa conta ficava sem ele)
+  md.elig.forEach(pi => { const pid = r.model.players[pi].id; if (lineup.includes(pid) || riskOf(md, pid) || !(r.model.uses[pi] > 0) || tierBlocked(pid, S.acc, day.date)) return;
     if ((FB.tipTime(day, r.model.players[pi].team) || 0) < t0) return;
     const P = lineupP(md, lineup.filter(x => x !== id).concat([pid])); if (!best || P > best.P) best = { id: pid, P }; });
   return best;
@@ -2893,10 +2894,10 @@ function baixaOf(r, date, id) {
   return bxMemo.m.get(id) || null;
 }
 function baixaRow(r, x, nd) {
-  const pi = r.model.pIndex.get(x.id), u = pi != null ? r.model.uses[pi] || 0 : 0, mine = !!((S.mine || {}).roster || {})[x.id];
+  const pi = r.model.pIndex.get(x.id), tb = tierBlocked(x.id, S.acc, nd.date), u = pi != null && !tb ? r.model.uses[pi] || 0 : 0, mine = !!((S.mine || {}).roster || {})[x.id];
   const t = x.top, d = '+' + f1(t.g) + ' ' + esc(statShort(t.o.stat));
   return '<li><button class="inj-row" type="button" data-action="player" data-id="' + esc(x.id) + '" data-date="' + nd.date + '">' + face(x.id, 'sm') +
-    '<span class="inj-n"><span class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class="badge">yours · ' + esc(u >= UNL ? 'unlimited' : plural(u, 'use', 'uses')) + '</span>' : '<span class="badge">no uses</span>') : '') + '</span>' +
+    '<span class="inj-n"><span class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class="badge">plays on ' + esc(tb.others.map(accLabel).join(' and on ')) + '</span>' : u > 0 ? '<span class="badge">yours · ' + esc(u >= UNL ? 'unlimited' : plural(u, 'use', 'uses')) + '</span>' : '<span class="badge">no uses</span>') : '') + '</span>' +
     '<span class="ps">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · without ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'game', 'games') + '): ' + f1(t.b1) + ' instead of ' + f1(t.b0) + '</span></span>' +
     '<span class="inj-p num up">▲ ' + Math.round(t.rel * 100) + '%<small>' + d + '</small></span></button></li>';
 }

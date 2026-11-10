@@ -2967,7 +2967,8 @@
    "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "uses",
    "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "uses",
    "const PL_SORTS = [['plano', 'No plano'], ['proximo', 'Próximo dia'], ['forma', 'Forma'], ['usos', 'Usos'], ['jogos', 'Jogos'], ['nome', 'Nome']];": false,
-   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true,
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true
   }
  },
  "uso": {
@@ -3000,7 +3001,8 @@
    "'<div class=\"pv mo-u' + (cu === u ? ' top' : '') + '\"><div class=\"v num\">' + usesN(cu) + '</div><div class=\"u\">' + (cu === 1 ? 'uso' : 'usos') + '</div></div></": "use",
    "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "use",
    "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "use",
-   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true,
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true
   }
  },
  "derrota": {
@@ -3166,5 +3168,6 @@
  "sobem com baixas": "rise with absences",
  " · <span class=\"up\">▲ sem o ": " · <span class=\"up\">▲ without ",
  "\">Repor todos (": "\">Restore all (",
- " de volta: o plano pode usá-los neste dia.": " back: the plan can use them on this day."
+ " de volta: o plano pode usá-los neste dia.": " back: the plan can use them on this day.",
+ "<span class=\"badge\">joga na ": "<span class=\"badge\">plays on "
 }

@@ -1,1 +1,19 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": "<span class=\"badge\">joga na ",
+  "line": "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "uso",
+  "line": "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es",
+  "ambiguous": true
+ },
+ {
+  "file": "docs/app.js",
+  "text": "usos",
+  "line": "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es",
+  "ambiguous": true
+ }
+]
