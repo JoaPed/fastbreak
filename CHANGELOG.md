@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-12
+- **João** — Nova tarefa manual "Dados para medir o motor": junta jogos reais, odds já lidas e os dias das runs para testar as estimativas do site contra o que aconteceu (não muda nada no site nem gasta créditos).
+
 ## 2026-11-10
 - **João** — "Se não jogar: …" e as dicas de baixas já não sugerem quem a carta põe a jogar noutra conta nessa noite (ex.: o Booker, que joga na JPolas).
 - **João** — Lesões e forma: nova secção **Sobem com as baixas** — quem faz bem mais do que o costume nos jogos em que falta um colega habitual que hoje está fora (ex.: sem o Sabonis, os ressaltos do Achiuwa), com os usos que tens; a dica aparece também na lista do "Mudar lineup". A tarefa das estatísticas passa a juntar estes números desde o início da época. "Fora deste dia" tem um botão **Repor todos** no fim.

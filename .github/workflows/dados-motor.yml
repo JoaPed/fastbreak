@@ -1,0 +1,26 @@
+name: Dados para medir o motor
+# Só à mão. Junta jogos da ESPN (duas épocas), as odds já lidas e os dias das runs num ficheiro, e põe-no no ramo
+# "dados-motor" (fora do site), para testar as estimativas do motor contra o que aconteceu. Não gasta créditos das odds.
+on:
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --omit=dev
+      - run: node scripts/backtest-data.mjs /tmp/bt
+      - name: Guardar no ramo dados-motor
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          cd /tmp/bt && git init -q && git checkout -q -b dados-motor
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dados.json.gz && git commit -q -m "Dados para medir o motor"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dados-motor
