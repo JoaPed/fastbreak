@@ -78,6 +78,13 @@ const bl = blendedAverages(luka).avg;
 ok('médias novas passam para o catálogo', bl.oreb === 0.64 && bl.fga === 22.77 && bl.tov === 3.98 && bl.pts === 33.5, bl);
 const half = blendedAverages({ prevAvg: { gp: 60, pts: 20, oreb: 2 }, curAvg: { gp: 4, pts: 30 } }).avg;
 ok('estatística que só a época passada tem não é puxada para zero', half.oreb === 2 && half.pts > 20 && half.pts < 30, half);
+{
+  // a meio da época a época passada ainda conta: pouco nos pontos (5 jogos), muito nos roubos de bola (20 jogos)
+  const mid = blendedAverages({ prevAvg: { gp: 70, pts: 20, stl: 1 }, curAvg: { gp: 30, pts: 30, stl: 2 } }).avg;
+  ok('época passada: a meio da época pesa pouco nos pontos e muito nos roubos de bola', Math.abs(mid.pts - (30 * 30 + 5 * 20) / 35) < 0.01 && Math.abs(mid.stl - (30 * 2 + 20 * 1) / 50) < 0.01, mid);
+  const short = blendedAverages({ prevAvg: { gp: 10, pts: 20, stl: 1 }, curAvg: { gp: 30, pts: 30, stl: 2 } }).avg;
+  ok('época passada com poucos jogos pesa metade', Math.abs(short.stl - (30 * 2 + 10 * 1) / 40) < 0.01, short);
+}
 ok('ficha sem jogos é ignorada', parseEspnCoreStats({ splits: { categories: [] } }) === null);
 const sbd = { events: [
   { id: '401909090', date: '2026-10-21T01:30Z', season: { type: 2 }, competitions: [{ competitors: [{ homeAway: 'home', team: { abbreviation: 'SA' } }, { homeAway: 'away', team: { abbreviation: 'OKC' } }] }] },

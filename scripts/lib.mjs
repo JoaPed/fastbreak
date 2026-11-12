@@ -172,16 +172,23 @@ export function addEspnCurrent(state, json) {
 // Equipa atual: plantel ESPN > equipa nos jogos desta época > último jogo da NBA > pré-época > época passada
 export function teamOf(p) { return p.rosterTeam || p.curTeam || p.boxTeam || p.preTeam || p.prevTeam || null; }
 // Média desta época puxada para a da época passada enquanto há poucos jogos
+// Quanto pesa a época passada na média de cada estatística, em jogos (medido: variação de jogo para jogo ÷ o que um
+// jogador muda mesmo de uma época para a outra). Pontos e lançamentos mudam depressa com o papel do jogador (5 jogos);
+// roubos e desarmes são tão irregulares que 12 jogos dizem pouco e a época passada vale por ~20.
+export const PRIOR_K = { pts: 5, fgm: 5, fga: 3, fg3a: 3, min: 3, ast: 6, reb: 9, oreb: 9, dreb: 9, fg3: 7, ftm: 9, fta: 9, stl: 20, blk: 19, tov: 11 };
 export function blendedAverages(p, prior = 10) {
   let cur = p.curAvg && p.curAvg.gp > 0 ? p.curAvg : null;
   if (!cur && p.cur && p.cur.gp > 0) { const t = p.cur; cur = { gp: t.gp }; for (const s of AVG_KEYS) if (isNum(t[s])) cur[s] = t[s] / t.gp; }
   const prev = p.prevAvg && p.prevAvg.gp >= 5 ? p.prevAvg : null;
   if (!cur && !prev) return null;
-  const gp = cur ? cur.gp : 0, k = prev ? Math.max(0, prior - gp) : 0;
+  // no arranque a época passada vale pelo menos (10 − jogos); depois fica o peso de cada estatística (PRIOR_K), menor
+  // se a época passada teve poucos jogos
+  const gp = cur ? cur.gp : 0, k0 = prev ? Math.max(0, prior - gp) : 0, few = prev ? Math.min(1, prev.gp / 20) : 0;
   const avg = {};
   const r = x => Math.round(x * 100) / 100;
   for (const s of AVG_KEYS) {
     const c = cur && isNum(cur[s]) ? +cur[s] : null, pa = prev && isNum(prev[s]) ? +prev[s] : null;
+    const k = prev ? Math.max(k0, few * (PRIOR_K[s] != null ? PRIOR_K[s] : 6)) : 0;
     const wc = c != null ? gp : 0, wp = pa != null ? k : 0;
     // uma estatística que só uma das épocas tem (p. ex. ressaltos ofensivos ainda por ler) vem só dessa
     if (wc + wp > 0) avg[s] = r((wc * c + wp * pa) / (wc + wp));

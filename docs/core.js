@@ -10,34 +10,40 @@
     return Math.max(0.55, Math.min(0.97, 0.97 - 0.55 * r));
   }
   const num = x => x != null && x !== '' && isFinite(+x) ? +x : null;
-  // k = dispersão (variância ≈ k × média); kind = modelo para converter linhas em médias
+  // Os números de cada estatística foram medidos em ~30 mil jogos de jogadores (época 2025-26 e o arranque da
+  // 2026-27, ver notas/motor-medido.md):
+  // k = dispersão (variância ≈ k × média) de um jogo à volta da previsão; kind = modelo para converter linhas em médias
+  // fw = quanto pesam os últimos 10 e os últimos 5 jogos na média (o resto é a época): nas estatísticas raras
+  //      (roubos, desarmes, triplos) uma boa fase é quase só sorte e pesa pouco
+  // opp = quanto do desvio do adversário (o que concede ÷ média da liga) passa para o jogador
+  // ctx = quanto sobe com a produção dos colegas que faltam: [quem joga 34+ min, a mais por cada 20 min a menos]
   // proxy = estatísticas com odds que servem para esta (média da proxy nas odds × proporção nas médias do jogador)
   // est = estimativa a partir de outras médias, quando falta a média desta
   const STATS = {
-    pts: { label: 'Pontos', short: 'PTS', k: 2.0, kind: 'normal' },
-    reb: { label: 'Ressaltos', short: 'REB', k: 1.3, kind: 'normal' },
-    ast: { label: 'Assistências', short: 'AST', k: 1.3, kind: 'normal' },
-    fg3: { label: 'Triplos', short: '3PM', k: 1.15, kind: 'poisson' },
-    stl: { label: 'Roubos de bola', short: 'STL', k: 1.0, kind: 'poisson' },
-    blk: { label: 'Desarmes', short: 'BLK', k: 1.1, kind: 'poisson' },
-    tov: { label: 'Perdas de bola', short: 'TOV', k: 1.0, kind: 'poisson',
+    pts: { label: 'Pontos', short: 'PTS', k: 3.0, kind: 'normal', fw: [0.25, 0.12], opp: 0.65, ctx: [0.33, 0.94] },
+    reb: { label: 'Ressaltos', short: 'REB', k: 1.4, kind: 'normal', fw: [0.08, 0.12], opp: 0.5, ctx: [0.11, 1.1] },
+    ast: { label: 'Assistências', short: 'AST', k: 1.3, kind: 'normal', fw: [0.2, 0.15], opp: 0.5, ctx: [0.19, 1.3] },
+    fg3: { label: 'Triplos', short: '3PM', k: 1.2, kind: 'poisson', fw: [0.15, 0.05], opp: 0.3, ctx: [0.11, 1.0] },
+    stl: { label: 'Roubos de bola', short: 'STL', k: 1.1, kind: 'poisson', fw: [0.04, 0.03], opp: 0.4, ctx: [0.1, 0.5] },
+    blk: { label: 'Desarmes', short: 'BLK', k: 1.1, kind: 'poisson', fw: [0.05, 0.04], opp: 0.3, ctx: [0.15, 0.5] },
+    tov: { label: 'Perdas de bola', short: 'TOV', k: 1.05, kind: 'poisson', fw: [0.07, 0.05], opp: 0.4, ctx: [0.2, 0.8],
       est: a => num(a.pts) != null ? 0.4 + 0.05 * a.pts + 0.15 * (num(a.ast) || 0) : null },
-    oreb: { label: 'Ressaltos ofensivos', short: 'OREB', k: 1.2, kind: 'poisson', proxy: ['reb'],
+    oreb: { label: 'Ressaltos ofensivos', short: 'OREB', k: 1.2, kind: 'poisson', fw: [0.08, 0.08], opp: 0.4, ctx: [0.1, 1.0], proxy: ['reb'],
       est: a => num(a.reb) == null ? null : num(a.dreb) != null ? Math.max(0, a.reb - a.dreb) : 0.25 * a.reb },
-    dreb: { label: 'Ressaltos defensivos', short: 'DREB', k: 1.2, kind: 'normal', proxy: ['reb'],
+    dreb: { label: 'Ressaltos defensivos', short: 'DREB', k: 1.3, kind: 'normal', fw: [0.08, 0.12], opp: 0.5, ctx: [0.11, 1.1], proxy: ['reb'],
       est: a => num(a.reb) == null ? null : num(a.oreb) != null ? Math.max(0, a.reb - a.oreb) : 0.75 * a.reb },
-    fgm: { label: 'Lançamentos de campo marcados', short: 'FGM', k: 1.0, kind: 'normal', proxy: ['pts'],
+    fgm: { label: 'Lançamentos de campo marcados', short: 'FGM', k: 1.25, kind: 'normal', fw: [0.2, 0.1], opp: 0.65, ctx: [0.33, 0.9], proxy: ['pts'],
       est: a => num(a.pts) != null ? 0.37 * a.pts : null },
-    fga: { label: 'Lançamentos de campo tentados', short: 'FGA', k: 1.1, kind: 'normal', proxy: ['fgm', 'pts'],
+    fga: { label: 'Lançamentos de campo tentados', short: 'FGA', k: 1.45, kind: 'normal', fw: [0.25, 0.2], opp: 0.5, ctx: [0.35, 1.15], proxy: ['fgm', 'pts'],
       est: a => num(a.fgm) != null ? a.fgm / 0.46 : num(a.pts) != null ? 0.8 * a.pts : null },
-    fg3a: { label: 'Triplos tentados', short: '3PA', k: 1.2, kind: 'normal', proxy: ['fg3'],
+    fg3a: { label: 'Triplos tentados', short: '3PA', k: 1.2, kind: 'normal', fw: [0.25, 0.2], opp: 0.4, ctx: [0.25, 1.0], proxy: ['fg3'],
       est: a => num(a.fg3) != null ? a.fg3 / 0.36 : null },
-    ftm: { label: 'Lances livres marcados', short: 'FTM', k: 1.3, kind: 'poisson', proxy: ['fta', 'pts'],
+    ftm: { label: 'Lances livres marcados', short: 'FTM', k: 2.0, kind: 'poisson', fw: [0.15, 0.1], opp: 0.5, ctx: [0.3, 0.9], proxy: ['fta', 'pts'],
       est: a => num(a.fta) != null ? 0.78 * a.fta : num(a.pts) != null ? 0.15 * a.pts : null },
-    fta: { label: 'Lances livres tentados', short: 'FTA', k: 1.3, kind: 'poisson', proxy: ['ftm', 'pts'],
+    fta: { label: 'Lances livres tentados', short: 'FTA', k: 2.2, kind: 'poisson', fw: [0.15, 0.1], opp: 0.5, ctx: [0.3, 0.9], proxy: ['ftm', 'pts'],
       est: a => num(a.ftm) != null ? a.ftm / 0.78 : num(a.pts) != null ? 0.19 * a.pts : null },
     // a ESPN não dá pontos na área por jogador: estimam-se a partir dos lançamentos de 2 marcados
-    pip: { label: 'Pontos na área', short: 'PIP', k: 2.4, kind: 'normal', proxy: ['pts'],
+    pip: { label: 'Pontos na área', short: 'PIP', k: 2.6, kind: 'normal', fw: [0.2, 0.1], opp: 0.6, ctx: [0.33, 0.9], proxy: ['pts'],
       est: a => num(a.fgm) != null ? 2 * Math.max(0, a.fgm - (num(a.fg3) || 0)) * paintShare(a) : num(a.pts) != null ? 0.42 * a.pts : null },
   };
   // "ast-tov" → [{s:'ast', sign:1}, {s:'tov', sign:-1}]; "pts+reb" → dois termos positivos
@@ -60,35 +66,46 @@
     return t;
   }
   // Forma: as médias da época misturadas com as dos últimos 10 e 5 jogos (avg.form = {n10, n5, l10, l5}).
-  // Peso normal: época 50%, últimos 10 30%, últimos 5 20% (com menos jogos, a forma pesa menos). 0 = só a época.
+  // O peso é o de cada estatística (STATS.fw; ex.: pontos 25% e 12%, roubos 4% e 3%); com menos jogos, a forma pesa
+  // menos. FORM_K multiplica esses pesos (0 = só a época).
+  const FW_DEF = [0.2, 0.1];
   let FORM_K = 1;
   function setForm(k) { FORM_K = Math.max(0, Math.min(1.6, +k || 0)); formCache = new WeakMap(); }
   let formCache = new WeakMap();
   function formAvg(a) {
     if (!a || !a.form || !FORM_K) return a;
     if (formCache.has(a)) return formCache.get(a);
-    const f = a.form, w10 = 0.3 * FORM_K * Math.min(1, (f.n10 || 0) / 10), w5 = 0.2 * FORM_K * Math.min(1, (f.n5 || 0) / 5);
+    const f = a.form, n10 = FORM_K * Math.min(1, (f.n10 || 0) / 10), n5 = FORM_K * Math.min(1, (f.n5 || 0) / 5);
     const out = {};
     Object.keys(a).forEach(k => { if (k !== 'form') out[k] = a[k]; });
     const keys = new Set(Object.keys(f.l10 || {}).concat(Object.keys(f.l5 || {})));
     keys.forEach(k => {
       const se = num(a[k]), t = num((f.l10 || {})[k]), c = num((f.l5 || {})[k]);
       if (se == null) { if (t != null || c != null) out[k] = t != null && c != null ? 0.6 * t + 0.4 * c : (t != null ? t : c); return; } // sem média da época: só a forma
+      const fw = (STATS[k] && STATS[k].fw) || FW_DEF;
       let v = se;
-      if (t != null) { v += w10 * (t - se); }
-      if (c != null) { v += w5 * (c - se); }
+      if (t != null) { v += fw[0] * n10 * (t - se); }
+      if (c != null) { v += fw[1] * n5 * (c - se); }
       out[k] = Math.max(0, v);
     });
     formCache.set(a, out);
     return out;
   }
+  // Quem joga muitos minutos fica um pouco abaixo da sua média (descansa nos jogos resolvidos, minutos geridos):
+  // medido, −2% aos 33-36 min e −3,5% acima de 36. Sem isto, os lineups só de estrelas ficavam sobrestimados.
+  function minutesDisc(a) { const m = a && num(a.min); return m != null && m > 30 ? 1 - 0.035 * Math.min(1, (m - 30) / 6) : 1; }
   // Média do jogador para uma estatística (já com a forma); se faltar, estimativa a partir das outras médias
-  function avgOf(player, s) {
+  // Nas estatísticas raras, quem aparece no topo está lá em parte por sorte: os 8 melhores de cada dia ficaram 10 a 15%
+  // abaixo do previsto em desarmes e roubos (e ~7% em triplos). Corta-se uma parte do que passa de um jogador normal.
+  const TOP_SHRINK = { blk: [0.6, 0.15], stl: [1, 0.15], fg3: [2, 0.1], tov: [2, 0.06], oreb: [1.5, 0.08], ftm: [3, 0.05], fta: [4, 0.05] };
+  function topShrink(s, v) { const t = TOP_SHRINK[s]; return t && v > t[0] ? v - t[1] * (v - t[0]) : v; }
+  function avgOf(player, s, raw) { // raw: sem o corte do topo (para proporções entre duas estatísticas)
     const a = formAvg(player && player.avg); if (!a) return null;
-    if (num(a[s]) != null) return { v: +a[s], est: false };
+    const md = s === 'min' ? 1 : minutesDisc(a);
+    if (num(a[s]) != null) return { v: raw ? +a[s] * md : topShrink(s, +a[s] * md), est: false };
     const st = STATS[s] || {};
     const e = st.est ? st.est(a) : null;
-    return e != null && isFinite(e) ? { v: Math.max(0, e), est: true } : null;
+    return e != null && isFinite(e) ? { v: Math.max(0, e) * md, est: true } : null;
   }
   // Para mostrar: época, últimos 10, últimos 5 e o valor usado (estatística simples ou combinada)
   function formInfo(player, statKey) {
@@ -130,7 +147,19 @@
   const worse = (a, b) => ((STATUS[b] || STATUS.ok).play < (STATUS[a] || STATUS.ok).play ? b : a);
   // fração do jogo que ainda falta quando o jogador está a meio de cada período
   const QREM = { 1: 0.82, 2: 0.57, 3: 0.32, 4: 0.08 };
-  const COMBO_RHO = 0.3;   // correlação entre stats do mesmo jogador (minutos)
+  // Correlação entre duas estatísticas do MESMO jogador no mesmo jogo (medida nos desvios à previsão). Entre jogadores
+  // diferentes (colegas ou adversários) a correlação medida é praticamente nula (< 0,03) e não entra nas contas.
+  const RHO = {
+    'pts|reb': 0.24, 'pts|ast': 0.14, 'pts|fg3': 0.66, 'pts|fg3a': 0.53, 'pts|fgm': 0.93, 'pts|fga': 0.73, 'pts|ftm': 0.46, 'pts|fta': 0.45, 'pts|stl': 0.12, 'pts|blk': 0.07, 'pts|tov': 0.09, 'pts|pip': 0.6,
+    'reb|ast': 0.19, 'reb|fg3': 0.08, 'reb|fg3a': 0.14, 'reb|fgm': 0.23, 'reb|fga': 0.31, 'reb|ftm': 0.15, 'reb|fta': 0.16, 'reb|stl': 0.07, 'reb|blk': 0.12, 'reb|tov': 0.12, 'reb|oreb': 0.6, 'reb|dreb': 0.9,
+    'ast|fg3': 0.07, 'ast|fg3a': 0.1, 'ast|fgm': 0.14, 'ast|fga': 0.15, 'ast|ftm': 0.06, 'ast|fta': 0.07, 'ast|stl': 0.09, 'ast|blk': 0.05, 'ast|tov': 0.07,
+    'fg3|fg3a': 0.7, 'fg3|fgm': 0.57, 'fg3|fga': 0.42, 'fg3a|fgm': 0.46, 'fg3a|fga': 0.65, 'fgm|fga': 0.77, 'fgm|ftm': 0.16, 'fgm|fta': 0.17, 'fgm|pip': 0.7, 'fga|ftm': 0.18, 'fga|fta': 0.19, 'fga|pip': 0.5,
+    'ftm|fta': 0.94, 'oreb|dreb': 0.15, 'oreb|blk': 0.1, 'dreb|blk': 0.1,
+  };
+  const RHO_DEF = 0.07;
+  // o que uma equipa faz por jogo, em média (quando não há o total da própria equipa)
+  const LEAGUE_TOT = { pts: 115, reb: 44, ast: 26.5, fg3: 13.5, fg3a: 37.5, fgm: 42, fga: 89, ftm: 17.5, fta: 22.5, stl: 8.2, blk: 5, tov: 14.5, oreb: 11, dreb: 33, pip: 50 };
+  function rhoOf(a, b) { if (a === b) return 1; const x = RHO[a + '|' + b]; if (x != null) return x; const y = RHO[b + '|' + a]; return y != null ? y : RHO_DEF; }
   const EPS_TOTAL = 0.002; // peso do total esperado (desempate / ranking diário)
   const EPS_WINS = 0.01;   // com prémios, peso das vitórias esperadas (desempate)
   const Z90 = 1.2816;      // percentil 90 para o modo "tudo pelo dia"
@@ -213,9 +242,12 @@
     const k = (h.n * +h.d[s] + 20 * st.k) / (h.n + 20);
     return clamp(k, 0.6 * st.k, 2 * st.k);
   }
-  // Jogos seguidos (back-to-back): no 2.º jogo rende-se um pouco menos (−3%). Com 6+ jogos assim na época passada,
-  // conta o que esse jogador fez (puxado para os −3%). Só mexe nas médias: as odds já contam com isto.
-  const B2B_DEFAULT = 0.97;
+  // com a linha das odds a previsão é melhor do que com as médias: a dispersão medida é ~5% menor
+  const K_ODDS = 0.95;
+  // Jogos seguidos (back-to-back): medido em 1 800 jogos, quem joga o 2.º jogo rende o mesmo (pontos +1%, ressaltos
+  // −1%, minutos iguais); o risco é descansar (87% jogam, contra 93% num dia normal), e isso vem no relatório de lesões.
+  // Com 6+ jogos assim na época passada, conta o que esse jogador fez (puxado para 1). Só mexe nas médias.
+  const B2B_DEFAULT = 1;
   function b2bFactor(player, statKey) {
     const h = player && player.avg && player.avg.hist, b = h && h.b2b;
     let t = 0, base = 0;
@@ -227,9 +259,15 @@
     }
     return base > 0 ? clamp(t / base, 0.85, 1.08) : B2B_DEFAULT;
   }
+  // Linhas das casas: em 2 200 linhas lidas (out–nov 2026) o "mais" saiu 45,5% das vezes quando as odds diziam 49,3%
+  // (as casas carregam no "mais" e há saídas a meio do jogo). Nas estatísticas grandes (pontos, ressaltos,
+  // assistências) a média real bate com a que a linha dá (0,997 em novembro); nas pequenas (triplos, roubos,
+  // desarmes) ficou ~7% abaixo, e por isso a probabilidade do "mais" desce um pouco antes de fazer a conta.
+  const ODDS_SHADE = 1, ODDS_PSHIFT = 0.025;
   function oddsMean(st, o, k) {
     const line = +o.line, pOver = devig(o.over, o.under);
-    return { mu: st.kind === 'normal' ? solveNormal(line, pOver, k != null ? k : st.k) : solvePoisson(line, pOver), line, pOver };
+    const mu = st.kind === 'normal' ? ODDS_SHADE * solveNormal(line, pOver, k != null ? k : st.k) : solvePoisson(line, clamp(pOver - ODDS_PSHIFT, 0.02, 0.98));
+    return { mu, line, pOver };
   }
   // Adversário: o que concede por jogo (últimos 10) a dividir pela média da liga. teams = {BOS: {n, allowed}, NBA: {allowed}}
   function matchup(teams, opp, statKey) {
@@ -239,7 +277,11 @@
     for (const { s, sign } of statTerms(statKey)) { const x = num(t.allowed[s]), y = num(lg.allowed[s]); if (x == null || y == null) return null; a += sign * x; b += sign * y; }
     if (!(b > 0)) return null;
     const f = a / b;
-    return { f, used: Math.max(0.9, Math.min(1.1, 1 + 0.5 * (f - 1))) }; // nas médias conta metade, no máximo ±10%
+    // nas médias conta a parte medida para cada estatística (pontos 65%, ressaltos 50%, triplos 30%…), no máximo ±12%
+    let w = 0, wn = 0;
+    for (const { s } of statTerms(statKey)) { const y = Math.abs(num(lg.allowed[s]) || 0); w += y * ((STATS[s] && STATS[s].opp) || 0.5); wn += y; }
+    const slope = wn > 0 ? w / wn : 0.5;
+    return { f, used: Math.max(0.88, Math.min(1.12, 1 + slope * (f - 1))) };
   }
   // src: 'odds' (linha desta estatística), 'proxy' (linha de outra × proporção nas médias), 'media', 'estimativa', 'sem'
   function rawStat(player, s, oddsP, mf) {
@@ -248,19 +290,19 @@
     const o = oddsP && oddsP[s];
     let mu = 0, src = 'sem', line = null, pOver = null, via = null;
     const kp = kOf(player, s);
-    if (hasLine(o)) { ({ mu, line, pOver } = oddsMean(st, o, kp)); src = 'odds'; }
+    if (hasLine(o)) { ({ mu, line, pOver } = oddsMean(st, o, kp * K_ODDS)); src = 'odds'; }
     else {
       const a = avgOf(player, s);
       for (const q of st.proxy || []) {
-        const oq = oddsP && oddsP[q], aq = avgOf(player, q);
-        if (!hasLine(oq) || !a || !aq || !(aq.v > 0)) continue;
-        const m = oddsMean(STATS[q], oq, kOf(player, q));
-        mu = m.mu * a.v / aq.v; line = m.line; pOver = m.pOver; via = q; src = 'proxy';
+        const oq = oddsP && oddsP[q], aq = avgOf(player, q, true), ar = avgOf(player, s, true);
+        if (!hasLine(oq) || !a || !ar || !aq || !(aq.v > 0)) continue;
+        const m = oddsMean(STATS[q], oq, kOf(player, q) * K_ODDS);
+        mu = m.mu * ar.v / aq.v; line = m.line; pOver = m.pOver; via = q; src = 'proxy';
         break;
       }
       if (src === 'sem' && a) { mu = a.v * (mf ? mf(s) : 1); src = a.est ? 'estimativa' : 'media'; } // sem odds: ajusta ao adversário
     }
-    const k = kp * (src === 'proxy' || src === 'estimativa' ? 1.15 : 1); // menos certeza
+    const k = kp * (src === 'odds' ? K_ODDS : src === 'estimativa' ? 1.15 : 1); // com a linha há mais certeza; por estimativa, menos
     return { mu, v: Math.max(k * mu, mu > 0 ? 0.05 : 0), src, line, pOver, via };
   }
   function statusFor(player, oddsP) { return (oddsP && oddsP.status) || player.status || 'ok'; }
@@ -270,7 +312,7 @@
     const raws = terms.map(t => rawStat(player, t.s, oddsP, mf));
     let mu = 0, v = 0;
     raws.forEach((r, i) => { mu += terms[i].sign * r.mu; v += r.v; });
-    for (let i = 0; i < raws.length; i++) for (let j = i + 1; j < raws.length; j++) v += 2 * COMBO_RHO * terms[i].sign * terms[j].sign * Math.sqrt(raws[i].v * raws[j].v);
+    for (let i = 0; i < raws.length; i++) for (let j = i + 1; j < raws.length; j++) v += 2 * rhoOf(terms[i].s, terms[j].s) * terms[i].sign * terms[j].sign * Math.sqrt(raws[i].v * raws[j].v);
     v = Math.max(v, raws.some(r => r.v > 0) ? 0.05 : 0);
     const srcs = raws.map(r => r.src);
     const src = srcs.length === 1 ? srcs[0] : srcs.every(x => x === 'odds') ? 'odds' : srcs.some(x => x === 'odds' || x === 'proxy') ? 'misto'
@@ -280,12 +322,52 @@
     const mu2 = pp * mu;
     const v2 = Math.max(0, pp * (v + mu * mu) - mu2 * mu2);
     const one = raws.length === 1 ? raws[0] : {};
-    return { mu: mu2, v: v2, muIf: mu, vIf: v, src, status, pPlay: pp, line: one.line != null ? one.line : null, pOver: one.pOver != null ? one.pOver : null, via: one.via || null, parts: raws.map((r, i) => ({ stat: terms[i].s, sign: terms[i].sign, mu: r.mu, src: r.src, line: r.line, via: r.via })) };
+    return { mu: mu2, v: v2, muIf: mu, vIf: v, src, status, pPlay: pp, line: one.line != null ? one.line : null, pOver: one.pOver != null ? one.pOver : null, via: one.via || null, parts: raws.map((r, i) => ({ stat: terms[i].s, sign: terms[i].sign, mu: r.mu, v: r.v, src: r.src, line: r.line, via: r.via })) };
   }
 
   function probAtLeast(S, V, T) {
     if (V <= 1e-9) return S >= T - 0.5 ? 1 : 0;
     return 1 - normCdf((T - 0.5 - S) / Math.sqrt(V));
+  }
+  // Covariância entre dois objetivos do mesmo jogador (ex.: FGM e FGA andam juntos: correlação 0,77). Com isto o
+  // dia deixa de ser o produto das probabilidades de cada objetivo, como se não tivessem nada a ver um com o outro.
+  function distCov(a, b) {
+    // nos lineups reais a ligação entre objetivos ficou um pouco abaixo da correlação medida jogador a jogador:
+    // conta 85% do que passa de 0,05 (afinado em 14 mil lineups de teste; as ligações fracas quase não contam)
+    let c = 0;
+    for (const x of a.parts) for (const y of b.parts) { const r = x.stat === y.stat ? 1 : 0.85 * Math.max(0, rhoOf(x.stat, y.stat) - 0.05); c += x.sign * y.sign * r * Math.sqrt(Math.max(0, x.v) * Math.max(0, y.v)); }
+    const pp = a.pPlay != null ? a.pPlay : 1;
+    return pp * (c + a.muIf * b.muIf) - a.mu * b.mu; // com a hipótese de não jogar (falha os dois ao mesmo tempo)
+  }
+  // P(X > h e Y > k) para duas normais padrão com correlação r (Drezner–Wesolowsky, com a quadratura de Genz)
+  const GL = [
+    [[0.1713244923791705, 0.3607615730481384, 0.4679139345726904], [0.9324695142031522, 0.6612093864662647, 0.2386191860831970]],
+    [[0.04717533638651177, 0.1069393259953183, 0.1600783285433464, 0.2031674267230659, 0.2334925365383547, 0.2491470458134029], [0.9815606342467191, 0.9041172563704750, 0.7699026741943050, 0.5873179542866171, 0.3678314989981802, 0.1252334085114692]],
+    [[0.01761400713915212, 0.04060142980038694, 0.06267204833410906, 0.08327674157670475, 0.1019301198172404, 0.1181945319615184, 0.1316886384491766, 0.1420961093183821, 0.1491729864726037, 0.1527533871307259],
+      [0.9931285991850949, 0.9639719272779138, 0.9122344282513259, 0.8391169718222188, 0.7463319064601508, 0.6360536807265150, 0.5108670019508271, 0.3737060887154196, 0.2277858511416451, 0.07652652113349733]],
+  ];
+  function bvnUpper(h, k, r) {
+    const ph = 1 - normCdf(h), pk = 1 - normCdf(k);
+    if (Math.abs(r) < 1e-4) return ph * pk;
+    r = clamp(r, -0.92, 0.92);
+    const [w, x] = GL[Math.abs(r) < 0.3 ? 0 : Math.abs(r) < 0.75 ? 1 : 2];
+    const hk = h * k, hs = (h * h + k * k) / 2, asr = Math.asin(r) / 2;
+    let t = 0;
+    for (let i = 0; i < w.length; i++) for (let sg = -1; sg <= 1; sg += 2) { const sn = Math.sin(asr * (1 + sg * x[i])); t += w[i] * Math.exp((sn * hk - hs) / (1 - sn * sn)); }
+    return clamp(t * asr / (2 * Math.PI) + ph * pk, 0, Math.min(ph, pk));
+  }
+  // P(todas acima do limiar) para 3 ou mais normais com correlações (condicionamento sucessivo, Mendell–Elston)
+  function mvnUpper(h, Rm) {
+    const n = h.length, a = h.slice(), Rc = Rm.map(r => r.slice());
+    let P = 1;
+    for (let i = 0; i < n; i++) {
+      const pi = 1 - normCdf(a[i]); if (pi <= 1e-12) return 0;
+      P *= pi; if (i === n - 1) break;
+      const m = Math.exp(-a[i] * a[i] / 2) / Math.sqrt(2 * Math.PI) / pi, d = m * (m - a[i]), sj = [];
+      for (let j = i + 1; j < n; j++) { const r = Rc[i][j]; sj[j] = Math.sqrt(Math.max(1e-9, 1 - r * r * d)); a[j] = (a[j] - r * m) / sj[j]; }
+      for (let j = i + 1; j < n; j++) for (let l = j + 1; l < n; l++) Rc[j][l] = Rc[l][j] = clamp((Rc[j][l] - Rc[i][j] * Rc[i][l] * d) / (sj[j] * sj[l]), -0.99, 0.99);
+    }
+    return P;
   }
 
   // ---------- jogos ----------
@@ -319,17 +401,77 @@
     // lesões: para cada jogador com aviso, que jogo dele (0 = o próximo) é cada dia que falta
     const injuries = opts.injuries || null;
     const todayEt = new Date(now - 5 * 3600e3).toISOString().slice(0, 10);
-    const injK = injuries ? players.map(p => {
-      if (!injuries[p.id] || p.injIgnore) return null;
+    // que jogo da equipa (0 = o próximo) é cada dia que falta
+    const teamKs = new Map();
+    const teamK = team => {
+      if (teamKs.has(team)) return teamKs.get(team);
       const ks = new Array(open.length).fill(null); let k = 0;
       open.forEach((day, di) => {
-        if (!teamsOn(day).has(p.team)) return;
-        const tt = tipTime(day, p.team);
+        if (!teamsOn(day).has(team)) return;
+        const tt = tipTime(day, team);
         if (tt != null ? tt <= now : day.date < todayEt) return; // jogo que já começou ou já passou
         ks[di] = k++;
       });
-      return ks;
-    }) : null;
+      teamKs.set(team, ks); return ks;
+    };
+    const injK = injuries ? players.map(p => (!injuries[p.id] || p.injIgnore ? null : teamK(p.team))) : null;
+
+    // Colegas que faltam (opts.mates = {equipa: [{id, avg}]}, os habituais de cada equipa): a produção de quem está
+    // fora reparte-se pelos que jogam. Conta a diferença entre o dia (probabilidade de o colega faltar, pelo relatório
+    // de lesões) e os jogos em que as médias do jogador foram feitas (avg.sem[colega][0] jogos sem ele em avg.gp):
+    // se o colega já faltou a época toda, as médias já contam com isso; se voltou, descem. Medido: quem joga 34+ min
+    // absorve ~⅓ da sua parte em pontos, os suplentes mais do que a sua parte (ganham minutos).
+    const mates = opts.mates || null;
+    // parado: sem jogos nesta época, ou mais de 10 dias atrás do último jogo da equipa (ex.: lesão longa que já saiu do
+    // relatório, ou retirado que a ESPN ainda tem no plantel): conta como fora enquanto o relatório não disser outra coisa
+    const idleMate = (A, team) => {
+      const tl = ((opts.teams || {})[team] || {}).last, al = A.avg && A.avg.form && A.avg.form.last;
+      return !!tl && (!al || Date.parse(tl + 'T12:00:00Z') - Date.parse(al + 'T12:00:00Z') > 10 * 864e5);
+    };
+    const mateOut = (A, team, di) => {
+      const rec = injuries && injuries[A.id], k = teamK(team)[di]; if (k == null) return 0;
+      const st = rec ? injuryOn(rec, open[di].date, k, now) : null;
+      if (st) return 1 - (STATUS[st] || STATUS.ok).play;
+      return idleMate(A, team) ? 1 : 0;
+    };
+    function ctxOf(p, di) {
+      const list = mates && mates[p.team], gp = p.avg && num(p.avg.gp);
+      if (!list || !list.length || gp == null || gp < 3) return null;
+      const sem = (p.avg && p.avg.sem) || {}, ds = [];
+      for (const A of list) {
+        if (A.id === p.id) continue;
+        const out = mateOut(A, p.team, di), frac = sem[A.id] ? Math.min(1, (+sem[A.id][0] || 0) / gp) : 0;
+        if (Math.abs(out - frac) >= 0.05) ds.push({ A, d: out - frac, out, frac });
+      }
+      if (!ds.length) return null;
+      const fa = formAvg(p.avg), tier = clamp((34 - (num(fa && fa.min) != null ? fa.min : 30)) / 20, 0, 1.1);
+      const tot = ((opts.teams || {})[p.team] || {}).scored || {}, cache = {};
+      const f = s => {
+        if (cache[s] != null) return cache[s];
+        const c = (STATS[s] && STATS[s].ctx) || [0.2, 0.8], T = num(tot[s]) > 0 ? +tot[s] : LEAGUE_TOT[s];
+        let D = 0;
+        if (T > 0) for (const x of ds) { const a = avgOf(x.A, s); if (a) D += x.d * a.v / T; }
+        return (cache[s] = clamp(1 + D * (c[0] + c[1] * tier), 0.75, 1.6));
+      };
+      return { f, mates: ds.map(x => ({ id: x.A.id, out: x.out, frac: x.frac })) };
+    }
+    // Regresso: quem falhou os últimos jogos da equipa volta com menos minutos. Medido: −5% depois de falhar 1 jogo,
+    // −8% depois de 2 ou 3, −14% depois de 4 ou mais; no segundo jogo, metade disso.
+    function backOf(p, pi) {
+      const tl = ((opts.teams || {})[p.team] || {}).last, pl = p.avg && p.avg.form && p.avg.form.last;
+      if (!tl || !pl || !(pl < tl)) return null;
+      const gap = Math.round((Date.parse(tl + 'T12:00:00Z') - Date.parse(pl + 'T12:00:00Z')) / 864e5);
+      if (!(gap >= 1) || gap > 200) return null;
+      const f0 = gap <= 2 ? 0.95 : gap <= 7 ? 0.92 : 0.86, ks = teamK(p.team), rec = injuries && !p.injIgnore ? injuries[p.id] : null;
+      // o primeiro jogo em que não está dado como fora
+      let first = null, second = null;
+      for (let di = 0; di < open.length; di++) {
+        if (ks[di] == null) continue;
+        if (first == null) { if (rec && injuryOn(rec, open[di].date, ks[di], now) === 'fora') continue; first = di; } else { second = di; break; }
+      }
+      return { gap, f0, first, second };
+    }
+    const backs = players.map((p, pi) => backOf(p, pi));
 
     // equipas que jogaram na véspera de cada dia (dias da run e, fora deles, opts.prevGames = {data: [equipas]})
     const playedOn = new Map();
@@ -344,6 +486,9 @@
       const objs = (day.objectives || []).filter(o => o && o.stat && +o.target > 0);
       const K = objs.length;
       const offset = new Array(K).fill(0);
+      // pares de objetivos (para a covariância entre eles): a do par q fica na posição K + q de v[jogador]
+      const pairs = [], pairIx = new Int16Array(K * K).fill(-1);
+      for (let a = 0; a < K; a++) for (let b = a + 1; b < K; b++) { pairIx[a * K + b] = pairIx[b * K + a] = pairs.length; pairs.push([a, b]); }
 
       // dia em curso: jogadores do lineup submetido cujo jogo já começou ficam presos
       const liveDoc = di === 0 && plan.live && plan.live[day.date];
@@ -368,7 +513,8 @@
         // jogo seguido: a equipa jogou na véspera e ele também (quem ficou de fora/descansou ontem não conta)
         const b2b = !!g && yday.has(p.team) && !((opts.rested || {})[prevDate(day.date)] || []).includes(p.id);
         const mf0 = opts.teams && opp ? (s => { const m = matchup(opts.teams, opp, s); return m ? m.used : 1; }) : null;
-        const mf = b2b ? (s => (mf0 ? mf0(s) : 1) * b2bFactor(p, s)) : mf0;
+        const ctx = g ? ctxOf(p, di) : null, bk = backs[pi], backF = bk ? (bk.first === di ? bk.f0 : bk.second === di ? 1 - (1 - bk.f0) / 2 : 1) : 1;
+        const mf = b2b || ctx || backF !== 1 ? (s => (mf0 ? mf0(s) : 1) * (b2b ? b2bFactor(p, s) : 1) * (ctx ? ctx.f(s) : 1) * backF) : mf0;
         const injReal = injK && injK[pi] ? injuryOn(injuries[p.id], day.date, injK[pi][di], now) : null;
         // dúvida no próximo jogo (dia a dia, questionable): entra no plano como se jogasse, porque dá para o trocar
         // até ao jogo dele se ficar de fora (risk: o aviso no lineup e a alternativa sem riscos)
@@ -378,8 +524,13 @@
         const dists = objs.map(o => playerDist(p, o.stat, oddsP, mf, status));
         if (injuries && injuries[p.id]) { const inj = { rec: injuries[p.id], status: injReal, risk, k: injK && injK[pi] ? injK[pi][di] : null, ignored: !!p.injIgnore }; dists.forEach(x => { x.injury = inj; if (risk) x.pReal = STATUS.duv.play; }); }
         if (b2b) dists.forEach((x, k) => { x.b2b = { f: b2bFactor(p, objs[k].stat) }; });
+        // para mostrar: o efeito dos colegas e do regresso na estatística do objetivo (só quando a média é que manda)
+        const termF = (stat, f) => { let t = 0, b = 0; for (const { s, sign } of statTerms(stat)) { const a = avgOf(p, s), w = a ? a.v : 1; t += sign * w * f(s); b += sign * w; } return b > 0 ? t / b : 1; };
+        if (ctx) dists.forEach((x, k) => { if (x.src === 'media' || x.src === 'estimativa') x.ctx = { f: termF(objs[k].stat, ctx.f), mates: ctx.mates }; });
+        if (backF !== 1) dists.forEach(x => { if (x.src === 'media' || x.src === 'estimativa') x.back = { f: backF, gap: bk.gap }; });
         mu[pi] = dists.map(x => x.mu);
         v[pi] = dists.map(x => x.v);
+        pairs.forEach(([a, b]) => v[pi].push(distCov(dists[a], dists[b])));
         info[pi] = dists;
         const plays = teams.has(p.team);
         const avail = (STATUS[status] || STATUS.ok).play > 0;
@@ -397,6 +548,8 @@
             if (state === 'fim') { offset[k] += known; mu[pi][k] = 0; v[pi][k] = 0; }
             else if (state === 'jogo') { const r = QREM[e.q] != null ? QREM[e.q] : 0.5; offset[k] += known; mu[pi][k] *= r; v[pi][k] *= r; }
           });
+          // as covariâncias entre objetivos acompanham o que falta jogar
+          if (state === 'fim') v[pi].fill(0, K); else if (state === 'jogo') { const r = QREM[e.q] != null ? QREM[e.q] : 0.5; for (let q = K; q < v[pi].length; q++) v[pi][q] *= r; }
           info[pi] = dists.map((x, k) => Object.assign({}, x, { liveState: state, known: state === 'jogo?' ? 0 : knownK[k], q: e.q || null, muLeft: mu[pi][k] }));
           elig.push(pi); liveLocks.push(pi);
           return;
@@ -414,6 +567,7 @@
       const badLocks = lockAll.filter(i => !eligSet.has(i)).map(i => players[i].id);
       return {
         day, objs, T: objs.map(o => +o.target), size, mu, v, info, elig, eligSet, locks: lockIdx, kept, badLocks, teams, oddsDay, offset,
+        pairs, pairIx, nv: K + pairs.length, // pares de objetivos e onde está a covariância de cada um em v e em V
         perPlayer: objs.some(o => o.each), // objetivo que cada jogador tem de cumprir sozinho (o plano trata-o como total)
         live: live ? { submitted, startedTeams: [...startedTeams], liveLocks: liveLocks.map(i => players[i].id) } : null,
       };
@@ -478,16 +632,30 @@
   // ---------- avaliação ----------
   function lineupStats(md, set) {
     const K = md.objs.length;
-    const S = md.offset.slice(), V = new Array(K).fill(0);
-    set.forEach(p => { for (let k = 0; k < K; k++) { S[k] += md.mu[p][k]; V[k] += md.v[p][k]; } });
+    const NV = md.nv || K, S = md.offset.slice(), V = new Array(NV).fill(0);
+    set.forEach(p => { const vp = md.v[p]; for (let k = 0; k < K; k++) S[k] += md.mu[p][k]; for (let k = 0; k < NV; k++) V[k] += vp[k] || 0; });
     return { S, V };
   }
+  // Probabilidade de cumprir todos os objetivos do dia. V traz as variâncias dos K objetivos e, a seguir, as
+  // covariâncias entre cada par (md.pairs); sem elas (modelos antigos) faz o produto simples.
   function winProb(md, S, V) {
-    if (!md.objs.length) return 0;
-    let P = 1;
-    for (let k = 0; k < md.objs.length; k++) P *= probAtLeast(S[k], V[k], md.T[k]);
-    return P;
+    const K = md.objs.length;
+    if (!K) return 0;
+    if (K === 1) return probAtLeast(S[0], V[0], md.T[0]);
+    const h = [], ks = [];
+    for (let k = 0; k < K; k++) {
+      if (V[k] <= 1e-9) { if (S[k] < md.T[k] - 0.5) return 0; continue; } // objetivo já decidido
+      h.push((md.T[k] - 0.5 - S[k]) / Math.sqrt(V[k])); ks.push(k);
+    }
+    if (!ks.length) return 1;
+    if (ks.length === 1) return 1 - normCdf(h[0]);
+    const px = md.pairIx, cor = (a, b) => { const q = px ? px[a * K + b] : -1; const c = q >= 0 && V.length > K + q ? V[K + q] : 0; return clamp(c / Math.sqrt(V[a] * V[b]), -0.95, 0.95); };
+    if (ks.length === 2) return bvnUpper(h[0], h[1], cor(ks[0], ks[1]));
+    const Rm = ks.map((a, i) => ks.map((b, j) => (i === j ? 1 : cor(Math.min(a, b), Math.max(a, b)))));
+    return mvnUpper(h, Rm);
   }
+  // A mesma conta para um lineup qualquer (índices dos jogadores): é a única fonte da probabilidade de um dia
+  function lineupProb(md, idx) { const { S, V } = lineupStats(md, idx); return winProb(md, S, V); }
   function auxOf(md, S) {
     const K = md.objs.length; if (!K) return 0;
     let t = 0; for (let k = 0; k < K; k++) t += Math.min(S[k] / md.T[k], 1.5);
@@ -565,6 +733,10 @@
       for (let k = 0; k < K; k++) {
         if (a >= 0) { S[k] -= md.mu[a][k]; V[k] -= md.v[a][k]; }
         if (b >= 0) { S[k] += md.mu[b][k]; V[k] += md.v[b][k]; }
+      }
+      for (let k = K; k < V.length; k++) { // covariâncias entre objetivos
+        if (a >= 0) V[k] -= md.v[a][k] || 0;
+        if (b >= 0) V[k] += md.v[b][k] || 0;
       }
       return { d, S, V, p: winProb(md, S, V), x: auxOf(md, S) };
     }
@@ -708,14 +880,16 @@
     };
   }
 
-  // Melhor lineup para um só dia, a maximizar o teto (percentil 90) do total
+  // Melhor lineup para um só dia: o que tem mais probabilidade de cumprir os objetivos desse dia (antes escolhia pelo
+  // teto do total, o que com o dia já bem encaminhado trocava jogadores certos por jogadores irregulares). Só quando
+  // a probabilidade é praticamente igual (objetivo impossível ou garantido) é que desempata pelo total esperado.
   function bestSingleDay(model, d) {
     const md = model.days[d];
     const locks = md.locks.filter(p => md.eligSet.has(p));
     const pool = md.elig.filter(p => model.uses[p] > 0 && !locks.includes(p));
     const need = Math.max(0, Math.min(md.size, locks.length + pool.length) - locks.length);
     let best = null, bestScore = -Infinity;
-    const score = set => { const { S, V } = lineupStats(md, set); return ceilingOf(md, S, V) + 0.05 * winProb(md, S, V); };
+    const score = set => { const { S, V } = lineupStats(md, set); return winProb(md, S, V) + auxOf(md, S) + 1e-7 * ceilingOf(md, S, V); };
     const n = pool.length;
     if (choose(n, need) <= 400000) {
       const idx = [];
@@ -956,6 +1130,7 @@
     function tryReplace(i, x, y) {
       const s = slots[i], md = s.md, K = md.objs.length, S = st[i].S.slice(), V = st[i].V.slice();
       for (let k = 0; k < K; k++) { if (x >= 0) { S[k] -= md.mu[x][k]; V[k] -= md.v[x][k]; } if (y >= 0) { S[k] += md.mu[y][k]; V[k] += md.v[y][k]; } }
+      for (let k = K; k < V.length; k++) { if (x >= 0) V[k] -= md.v[x][k] || 0; if (y >= 0) V[k] += md.v[y][k] || 0; }
       return { i, S, V, p: winProb(md, S, V), x: AUX * auxOf(md, S) };
     }
     const tmp = models.map(m => new Float64Array(m.days.length));
@@ -1402,7 +1577,7 @@
     return out;
   }
 
-  const api = { histModel, histBest, histEval, histPortfolio, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  const api = { histModel, histBest, histEval, histPortfolio, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, lineupProb, bvnUpper, mvnUpper, rhoOf, minutesDisc, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

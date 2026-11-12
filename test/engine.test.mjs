@@ -50,7 +50,7 @@ ok('plantel vazio não rebenta', empty.normal.days.every(d => d.lineup.length ==
 const luka = { name: 'Luka', team: 'LAL', uses: 3, avg: { pts: 33.5, reb: 7.7, ast: 8.3, fg3: 4.0, fgm: 10.8, fga: 22.8, fg3a: 10.8, tov: 4.0, oreb: 0.64, dreb: 7.1 } };
 ok('termos de uma estatística', JSON.stringify(FB.statTerms('ast-tov')) === JSON.stringify([{ s: 'ast', sign: 1 }, { s: 'tov', sign: -1 }]) && FB.statTerms('pts+reb').length === 2);
 const at = FB.playerDist(luka, 'ast-tov');
-ok('assistências menos perdas de bola: média é a diferença', Math.abs(at.mu - 4.3) < 1e-9 && at.v > 0 && at.v < FB.playerDist(luka, 'ast').v + FB.playerDist(luka, 'tov').v, at);
+ok('assistências menos perdas de bola: média é a diferença', Math.abs(at.mu - (8.3 - (4 - 0.06 * 2))) < 1e-9 && at.v > 0 && at.v < FB.playerDist(luka, 'ast').v + FB.playerDist(luka, 'tov').v, at);
 ok('valor ao vivo de uma diferença', FB.statValue({ ast: 9, tov: 5 }, 'ast-tov') === 4 && FB.statValue({ 'ast-tov': 2, ast: 9, tov: 5 }, 'ast-tov') === 2);
 const pipD = FB.playerDist(luka, 'pip');
 ok('pontos na área estimados a partir dos lançamentos de 2', pipD.src === 'estimativa' && pipD.mu > 7 && pipD.mu < 13, pipD);
@@ -88,7 +88,17 @@ ok('objetivo por jogador fica assinalado', FB.planRun({ name: 't', prizes: [], d
 // forma: últimos 10 e 5 jogos misturados com a época
 const hot = { name: 'Quente', team: 'BOS', uses: 2, avg: { pts: 20, reb: 6, form: { n10: 10, n5: 5, l10: { pts: 24, reb: 6 }, l5: { pts: 30, reb: 6 } } } };
 FB.setForm(1);
-ok('forma normal: época 50%, últimos 10 30%, últimos 5 20%', Math.abs(FB.avgOf(hot, 'pts').v - (0.5 * 20 + 0.3 * 24 + 0.2 * 30)) < 1e-9, FB.avgOf(hot, 'pts'));
+ok('forma: nos pontos os últimos 10 pesam 25% e os últimos 5 12% (o resto é a época)', Math.abs(FB.avgOf(hot, 'pts').v - (20 + 0.25 * (24 - 20) + 0.12 * (30 - 20))) < 1e-9, FB.avgOf(hot, 'pts'));
+{
+  // nas estatísticas raras uma boa fase é quase só sorte: pesa muito menos do que nos pontos
+  const st = { name: 'Ladrão', avg: { pts: 20, stl: 1, form: { n10: 10, n5: 5, l10: { pts: 30, stl: 1.5 }, l5: { pts: 30, stl: 1.5 } } } };
+  const up = k => FB.avgOf(st, k).v / st.avg[k] - 1;
+  ok('forma: nos roubos de bola pesa muito menos do que nos pontos', up('stl') < up('pts') / 4 && up('stl') > 0, [up('pts'), up('stl')]);
+  // minutos altos: −3,5% a partir dos 36 min; e o topo das estatísticas raras é cortado
+  const star = { name: 'Estrela', avg: { pts: 30, blk: 2.6, min: 37 } }, norm = { name: 'Normal', avg: { pts: 30, blk: 2.6, min: 29 } };
+  ok('minutos altos: quem joga 36+ min fica 3,5% abaixo da média; até 30 min não mexe', Math.abs(FB.avgOf(star, 'pts').v - 30 * 0.965) < 1e-9 && FB.avgOf(norm, 'pts').v === 30 && FB.minutesDisc({ min: 33 }) === 1 - 0.035 / 2, [FB.avgOf(star, 'pts'), FB.avgOf(norm, 'pts')]);
+  ok('estatísticas raras: o que passa de um jogador normal é cortado (desarmes: 15% acima de 0,6)', Math.abs(FB.avgOf(norm, 'blk').v - (2.6 - 0.15 * 2)) < 1e-9 && Math.abs(FB.avgOf(norm, 'blk', true).v - 2.6) < 1e-9 && FB.avgOf({ avg: { blk: 0.5 } }, 'blk').v === 0.5, FB.avgOf(norm, 'blk'));
+}
 FB.setForm(0);
 ok('sem forma: só a época', FB.avgOf(hot, 'pts').v === 20);
 FB.setForm(1);
@@ -100,12 +110,12 @@ ok('informação de forma para mostrar', fi.season === 20 && fi.l5 === 30 && fi.
 // adversário: o que concede (últimos 10 jogos) mexe nas médias, não nas odds
 const teams = { SAC: { n: 10, allowed: { pts: 126, reb: 46 } }, BOS: { n: 10, allowed: { pts: 104, reb: 42 } }, NBA: { n: 30, allowed: { pts: 115, reb: 44 } } };
 const mSac = FB.matchup(teams, 'SAC', 'pts'), mBos = FB.matchup(teams, 'BOS', 'pts+reb');
-ok('adversário: fator e meio-ajuste com limite', Math.abs(mSac.f - 126 / 115) < 1e-9 && Math.abs(mSac.used - (1 + 0.5 * (126 / 115 - 1))) < 1e-9 && mBos.used < 1 && FB.matchup(teams, 'XXX', 'pts') === null && FB.matchup({ SAC: { n: 3, allowed: { pts: 140 } }, NBA: { allowed: { pts: 115 } } }, 'SAC', 'pts') === null);
+ok('adversário: fator e meio-ajuste com limite', Math.abs(mSac.f - 126 / 115) < 1e-9 && Math.abs(mSac.used - (1 + 0.65 * (126 / 115 - 1))) < 1e-9 && mBos.used < 1 && Math.abs(FB.matchup(teams, 'SAC', 'reb').used - (1 + 0.5 * (46 / 44 - 1))) < 1e-9 && FB.matchup(teams, 'XXX', 'pts') === null && FB.matchup({ SAC: { n: 3, allowed: { pts: 140 } }, NBA: { allowed: { pts: 115 } } }, 'SAC', 'pts') === null);
 const mrun = { name: 't', prizes: [], days: [{ date: '2026-11-03', objectives: [{ stat: 'pts', target: 100 }], games: [['BOS', 'SAC', '2026-11-04T00:00:00Z', 'x']] }] };
 const mro = { players: { a: { name: 'A', team: 'BOS', uses: 1, avg: { pts: 20 } }, b: { name: 'B', team: 'SAC', uses: 1, avg: { pts: 20 } } } };
 const mm = FB.buildModel(mrun, mro, { days: {} }, {}, { now: NOW, teams });
 const muA = mm.days[0].mu[mm.pIndex.get('a')][0], muB = mm.days[0].mu[mm.pIndex.get('b')][0];
-ok('contra quem concede mais, a média sobe; contra quem concede menos, desce', muA > 20 && muB < 20 && Math.abs(muA - 20 * (1 + 0.5 * (126 / 115 - 1))) < 1e-9, [muA, muB]);
+ok('contra quem concede mais, a média sobe; contra quem concede menos, desce', muA > 20 && muB < 20 && Math.abs(muA - 20 * (1 + 0.65 * (126 / 115 - 1))) < 1e-9, [muA, muB]);
 const mmO = FB.buildModel(mrun, mro, { days: { '2026-11-03': { players: { a: { pts: { line: 21.5, over: -110, under: -110 } } } } } }, {}, { now: NOW, teams });
 ok('com odds o adversário não mexe (já está na linha)', Math.abs(mmO.days[0].mu[mmO.pIndex.get('a')][0] - FB.playerDist(mro.players.a, 'pts', { pts: { line: 21.5, over: -110, under: -110 } }).mu) < 1e-9);
 
@@ -320,11 +330,11 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
     const on = FB.buildModel(run, roster, odds, {}, { now: NOW }), off = FB.buildModel(run, roster, odds, {}, { now: NOW, b2b: false });
     const pi = on.pIndex.get(pick.id), d = on.days.findIndex(md => md.day.date === dates[pick.i]);
     const a = on.days[d].info[pi][0], b = off.days[d].info[pi][0];
-    ok('back-to-back: 2.º jogo seguido rende 3% menos (sem odds)', a.b2b && Math.abs(a.mu / b.mu - 0.97) < 1e-6 && !b.b2b, [a.mu, b.mu, a.src]);
+    ok('back-to-back: quem joga o 2.º jogo seguido rende o mesmo (medido); fica só assinalado', a.b2b && a.b2b.f === 1 && Math.abs(a.mu / b.mu - 1) < 1e-6 && !b.b2b, [a.mu, b.mu, a.src]);
     const r2 = JSON.parse(JSON.stringify(roster)); r2.players[pick.id].avg.hist = { n: 70, d: { pts: 4 }, b2b: { n: 20, r: { pts: 0.85, reb: 0.85, ast: 0.85, fg3: 0.85, stl: 0.85, blk: 0.85 } } };
     const m2 = FB.buildModel(run, r2, odds, {}, { now: NOW }), c = m2.days[d].info[m2.pIndex.get(pick.id)][0];
-    ok('back-to-back: quem rendeu menos nos jogos seguidos da época passada desce mais', Math.abs(c.b2b.f - (0.97 + 20 / 30 * (0.85 - 0.97))) < 1e-6 && c.mu < a.mu, [c.b2b, c.mu, a.mu]);
-    ok('regularidade: jogador irregular (dispersão 4 em vez de 2) tem mais variância', Math.abs(FB.kOf(r2.players[pick.id], 'pts') - (70 * 4 + 20 * 2) / 90) < 1e-9 && FB.kOf(roster.players[pick.id], 'pts') === FB.STATS.pts.k);
+    ok('back-to-back: quem rendeu menos nos jogos seguidos da época passada desce mais', Math.abs(c.b2b.f - (1 + 20 / 30 * (0.85 - 1))) < 1e-6 && c.mu < a.mu, [c.b2b, c.mu, a.mu]);
+    ok('regularidade: jogador irregular (dispersão 4 em vez de 2) tem mais variância', Math.abs(FB.kOf(r2.players[pick.id], 'pts') - (70 * 4 + 20 * FB.STATS.pts.k) / 90) < 1e-9 && FB.kOf(roster.players[pick.id], 'pts') === FB.STATS.pts.k);
     ok('back-to-back: quem não jogou na véspera (descansou) não conta como jogo seguido (opts.rested)', (() => { const t = [...teamsOf(run.days[0])][0], pid = Object.keys(roster.players).find(k => roster.players[k].team === t); if (!pid) return true; const prev = '2026-10-19'; const m = FB.buildModel(run, roster, {}, {}, { now: NOW, prevGames: { [prev]: [t] }, rested: { [prev]: [pid] } }); return !m.days[0].info[m.pIndex.get(pid)][0].b2b; })());
     ok('back-to-back: a véspera fora da run também conta (opts.prevGames)', (() => { const t = [...teamsOf(run.days[0])][0], pid = Object.keys(roster.players).find(k => roster.players[k].team === t); if (!pid) return true; const prev = '2026-10-19'; const m = FB.buildModel(run, roster, {}, {}, { now: NOW, prevGames: { [prev]: [t] } }); return !!m.days[0].info[m.pIndex.get(pid)][0].b2b; })());
   }
@@ -431,6 +441,81 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
     const n = k => { const e = g.byKey ? g.byKey[k] : null; return e ? (e.normal || e.plan || []).filter(x => x && (x.lineup || x.ids || []).length).length : -1; };
     ok('jogar para diferente em cada conta: o plano conjunto corre', !!g && (g.byKey ? Object.keys(g.byKey).length === 2 : true), Object.keys(g || {}));
   } catch (e) { ok('jogar para diferente em cada conta: o plano conjunto corre', false, String(e && e.message)); }
+}
+// ---------- motor medido (nov 2026): objetivos ligados, colegas que faltam, regressos, odds ----------
+{
+  // P(X > h e Y > k) com correlação: valores de referência (scipy)
+  const near = (a, b, e) => Math.abs(a - b) < (e || 1e-5);
+  ok('probabilidade conjunta de duas normais (referência)', near(FB.bvnUpper(0, 0, 0.5), 1 / 3) && near(FB.bvnUpper(0.5, -0.3, 0.77), 0.292147) && near(FB.bvnUpper(1.2, 0.4, -0.4), 0.014292) && near(FB.bvnUpper(-1, -1, 0.9), 0.79818) && near(FB.bvnUpper(0.3, 1.1, 0), (1 - FB.normCdf(0.3)) * (1 - FB.normCdf(1.1))), [FB.bvnUpper(0.5, -0.3, 0.77), FB.bvnUpper(1.2, 0.4, -0.4)]);
+  ok('três objetivos ligados: perto do valor exato', near(FB.mvnUpper([0, 0, 0], [[1, 0.5, 0.5], [0.5, 1, 0.5], [0.5, 0.5, 1]]), 0.25, 0.005) && near(FB.mvnUpper([-0.3, 0.2, -0.5], [[1, 0.6, 0.2], [0.6, 1, 0.3], [0.2, 0.3, 1]]), 0.28074, 0.006));
+  ok('correlações medidas: FGM com FGA 0,77, triplos com tentados 0,70, a mesma estatística 1, desconhecidas 0,07', FB.rhoOf('fgm', 'fga') === 0.77 && FB.rhoOf('fga', 'fgm') === 0.77 && FB.rhoOf('fg3', 'fg3a') === 0.7 && FB.rhoOf('pts', 'pts') === 1 && FB.rhoOf('stl', 'blk') === 0.07);
+  // um dia com FGM + FGA: quem marca muito também tenta muito, por isso cumprir os dois é mais provável do que o
+  // produto das duas probabilidades (como se não tivessem nada a ver)
+  const mk = n => { const o = {}; for (let i = 0; i < n; i++) o['p' + i] = { name: 'P' + i, team: i % 2 ? 'BOS' : 'SAC', uses: 2, avg: { pts: 22, fgm: 8.2, fga: 17.4, reb: 6, ast: 5, stl: 1, blk: 0.5, min: 29 } }; return { players: o }; };
+  const day = (objs) => ({ name: 't', prizes: [], days: [{ date: '2026-11-03', objectives: objs, games: [['BOS', 'SAC', '2026-11-04T00:00:00Z', 'x']] }] });
+  const m2 = FB.buildModel(day([{ stat: 'fgm', target: 41 }, { stat: 'fga', target: 87 }]), mk(6), { days: {} }, {}, { now: NOW });
+  const md = m2.days[0], L = [0, 1, 2, 3, 4];
+  const marg = k => { let S = 0, V = 0; L.forEach(i => { S += md.mu[i][k]; V += md.v[i][k]; }); return FB.probAtLeast(S, V, md.T[k]); };
+  const joint = FB.lineupProb(md, L), prod = marg(0) * marg(1);
+  ok('objetivos ligados (FGM + FGA): a probabilidade do dia é maior do que o produto das duas', joint > prod + 0.03 && joint <= Math.min(marg(0), marg(1)) + 1e-9 && md.nv === 3 && md.pairs.length === 1, [joint, prod, marg(0), marg(1)]);
+  const m1 = FB.buildModel(day([{ stat: 'fgm', target: 41 }]), mk(6), { days: {} }, {}, { now: NOW });
+  ok('com um só objetivo nada muda', near(FB.lineupProb(m1.days[0], L), marg(0), 1e-12) && m1.days[0].nv === 1);
+  const m3 = FB.buildModel(day([{ stat: 'stl', target: 5 }, { stat: 'blk', target: 2 }]), mk(6), { days: {} }, {}, { now: NOW }), md3 = m3.days[0];
+  const mg3 = k => { let S = 0, V = 0; L.forEach(i => { S += md3.mu[i][k]; V += md3.v[i][k]; }); return FB.probAtLeast(S, V, md3.T[k]); };
+  ok('objetivos sem ligação (roubos + desarmes): fica praticamente o produto', Math.abs(FB.lineupProb(md3, L) - mg3(0) * mg3(1)) < 0.01, [FB.lineupProb(md3, L), mg3(0) * mg3(1)]);
+  const r2 = FB.planRun(day([{ stat: 'fgm', target: 41 }, { stat: 'fga', target: 87 }]), mk(7), { days: {} }, {}, { now: NOW });
+  ok('o plano usa a probabilidade conjunta', near(r2.normal.days[0].P, FB.lineupProb(md, r2.normal.days[0].lineupIdx), 1e-9), r2.normal.days[0].P);
+  // quem não joga falha os dois objetivos ao mesmo tempo: com um jogador em dúvida, a ligação aumenta
+  const rq = mk(6); rq.players.p0.status = 'duv';
+  const mq = FB.buildModel(day([{ stat: 'reb', target: 28 }, { stat: 'ast', target: 23 }]), rq, { days: {} }, {}, { now: NOW }), mok = FB.buildModel(day([{ stat: 'reb', target: 28 }, { stat: 'ast', target: 23 }]), mk(6), { days: {} }, {}, { now: NOW });
+  ok('jogador em dúvida: a covariância entre os objetivos dele sobe (falha os dois de uma vez)', mq.days[0].v[0][2] > mok.days[0].v[0][2] && mok.days[0].v[0][2] > 0, [mq.days[0].v[0][2], mok.days[0].v[0][2]]);
+
+  // colegas que faltam: a produção de quem está fora reparte-se pelos que jogam (mais para quem joga menos minutos)
+  const teams = { BOS: { n: 10, allowed: { pts: 115 }, scored: { pts: 115, reb: 44 }, last: '2026-11-02' }, SAC: { n: 10, allowed: { pts: 115 }, scored: { pts: 115, reb: 44 }, last: '2026-11-02' }, NBA: { n: 30, allowed: { pts: 115 } } };
+  const star = { id: 'star', team: 'BOS', avg: { pts: 28, reb: 8, min: 35, form: { n10: 10, n5: 5, l10: { pts: 28, reb: 8, min: 35 }, l5: { pts: 28, reb: 8, min: 35 }, last: '2026-11-02' } } };
+  const ro = { players: { tit: { name: 'Titular', team: 'BOS', uses: 2, avg: { pts: 20, reb: 6, min: 34, gp: 12 } }, sup: { name: 'Suplente', team: 'BOS', uses: 2, avg: { pts: 9, reb: 4, min: 16, gp: 12 } }, out: { name: 'Outro', team: 'SAC', uses: 2, avg: { pts: 20, reb: 6, min: 34, gp: 12 } } } };
+  const rn = day([{ stat: 'pts', target: 60 }]);
+  const base = FB.buildModel(rn, ro, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [star] } });
+  const inj = { star: { status: 'out', return_date: null, updated_at: new Date(NOW).toISOString() } };
+  const outM = FB.buildModel(rn, ro, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [star] }, injuries: inj });
+  const mu = (m, id) => m.days[0].mu[m.pIndex.get(id)][0], fT = mu(outM, 'tit') / mu(base, 'tit'), fS = mu(outM, 'sup') / mu(base, 'sup');
+  const share = 28 * FB.minutesDisc({ min: 35 }) / 115;
+  ok('colega habitual fora: o titular sobe pouco, o suplente sobe mais, a outra equipa não mexe', near(fT, 1 + share * 0.33, 1e-6) && fS > fT + 0.1 && near(fS, 1 + share * (0.33 + 0.94 * (34 - 16) / 20), 1e-6) && near(mu(outM, 'out') / mu(base, 'out'), 1, 1e-9), [fT, fS]);
+  const info = outM.days[0].info[outM.pIndex.get('sup')][0];
+  ok('o efeito dos colegas fica à vista (para o "Porquê")', info.ctx && near(info.ctx.f, fS, 1e-6) && info.ctx.mates[0].id === 'star' && info.ctx.mates[0].out === 1 && !base.days[0].info[base.pIndex.get('sup')][0].ctx, info.ctx);
+  // se as médias já foram feitas sem o colega (faltou a época toda), não há nada a acrescentar
+  const ro2 = JSON.parse(JSON.stringify(ro)); ro2.players.sup.avg.sem = { star: [12] };
+  const outAll = FB.buildModel(rn, ro2, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [star] }, injuries: inj });
+  ok('colega fora a época toda: as médias já contam com isso', near(mu(outAll, 'sup') / mu(base, 'sup'), 1, 1e-9));
+  // e se o colega volta (as médias foram feitas sem ele em metade dos jogos), o jogador desce
+  const ro3 = JSON.parse(JSON.stringify(ro)); ro3.players.sup.avg.sem = { star: [6] };
+  const back = FB.buildModel(rn, ro3, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [star] } });
+  ok('colega que volta: quem cresceu sem ele desce', mu(back, 'sup') < mu(base, 'sup') * 0.95, [mu(back, 'sup'), mu(base, 'sup')]);
+  // colega parado há muito e fora do relatório (ex.: retirado ainda no plantel): conta como fora, e como as médias já
+  // foram todas feitas sem ele, não mexe em nada (não "volta" só por não estar no relatório)
+  const ghost = { id: 'ghost', team: 'BOS', avg: { pts: 25, min: 33, form: { last: '2026-06-01' } } };
+  const ro5 = JSON.parse(JSON.stringify(ro)); ro5.players.sup.avg.sem = { ghost: [12] };
+  ok('colega parado há muito e fora do relatório: não conta como regresso', near(mu(FB.buildModel(rn, ro5, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [ghost] } }), 'sup'), mu(base, 'sup'), 1e-9));
+  // com a linha das odds os colegas não mexem (a linha já sabe quem falta)
+  const od = { days: { '2026-11-03': { players: { sup: { pts: { line: 9.5, over: -110, under: -110 } } } } } };
+  const a1 = FB.buildModel(rn, ro, od, {}, { now: NOW, teams, mates: { BOS: [star] }, injuries: inj }), a0 = FB.buildModel(rn, ro, od, {}, { now: NOW, teams });
+  ok('com a linha das odds os colegas não mexem', near(mu(a1, 'sup'), mu(a0, 'sup'), 1e-9) && !a1.days[0].info[a1.pIndex.get('sup')][0].ctx);
+  // sem o número de jogos (catálogo antigo) não se inventa nada
+  const ro4 = JSON.parse(JSON.stringify(ro)); delete ro4.players.sup.avg.gp;
+  ok('sem o número de jogos do jogador, o efeito dos colegas não se aplica', near(mu(FB.buildModel(rn, ro4, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [star] }, injuries: inj }), 'sup'), mu(base, 'sup'), 1e-9));
+
+  // regresso: falhou o último jogo da equipa → o primeiro jogo vale menos (−5% / −8% / −14%), o segundo metade
+  const two = { name: 't', prizes: [], days: [{ date: '2026-11-03', objectives: [{ stat: 'pts', target: 60 }], games: [['BOS', 'SAC', '2026-11-04T00:00:00Z', 'x']] }, { date: '2026-11-05', objectives: [{ stat: 'pts', target: 60 }], games: [['BOS', 'SAC', '2026-11-06T00:00:00Z', 'y']] }, { date: '2026-11-07', objectives: [{ stat: 'pts', target: 60 }], games: [['BOS', 'SAC', '2026-11-08T00:00:00Z', 'z']] }] };
+  const rb = { players: { a: { name: 'A', team: 'BOS', uses: 3, avg: { pts: 20, form: { n10: 10, n5: 5, l10: { pts: 20 }, l5: { pts: 20 }, last: '2026-10-28' } } }, b: { name: 'B', team: 'BOS', uses: 3, avg: { pts: 20, form: { n10: 10, n5: 5, l10: { pts: 20 }, l5: { pts: 20 }, last: '2026-11-02' } } } } };
+  const mb = FB.buildModel(two, rb, { days: {} }, {}, { now: NOW, teams });
+  const ma = d => mb.days[d].mu[mb.pIndex.get('a')][0], mbb = d => mb.days[d].mu[mb.pIndex.get('b')][0];
+  ok('regresso depois de falhar jogos: 1.º jogo −8% (5 dias parado), 2.º −4%, depois normal; quem jogou o último não mexe', near(ma(0) / mbb(0), 0.92, 1e-9) && near(ma(1) / mbb(1), 0.96, 1e-9) && near(ma(2) / mbb(2), 1, 1e-9) && mb.days[0].info[mb.pIndex.get('a')][0].back.gap === 5, [ma(0), ma(1), ma(2), mbb(0)]);
+
+  // odds: nas estatísticas pequenas (triplos, roubos, desarmes) a média fica um pouco abaixo da que a linha dá
+  const pl = { name: 'X', team: 'BOS', avg: { fg3: 2.5, pts: 20 } };
+  const d3 = FB.playerDist(pl, 'fg3', { fg3: { line: 2.5, over: -110, under: -110 } }), dp = FB.playerDist(pl, 'pts', { pts: { line: 20.5, over: -110, under: -110 } });
+  ok('odds: triplos ficam ~4% abaixo da conta direta da linha; pontos ficam na linha', d3.mu > 2.4 && d3.mu < 2.67 * 0.985 && near(dp.mu, 20.5, 1e-6), [d3.mu, dp.mu]);
+  ok('odds: com a linha a dispersão é 5% menor do que pelas médias', near(dp.v / dp.mu, FB.STATS.pts.k * 0.95, 1e-9));
 }
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);

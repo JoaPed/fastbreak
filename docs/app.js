@@ -90,7 +90,16 @@ function applyTheme(t) {
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', t === 'auto' ? (/dark/.test(m.getAttribute('media') || '') ? '#0B1018' : '#EEF1F5') : dark ? '#0B1018' : '#EEF1F5'); });
 }
 // hint: o plano melhor que a procura em segundo plano encontrou (ponto de partida do cálculo; só fica se for melhor)
-const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint, pr = prioAcc(); return Object.assign({ teams: S.teams, injuries: S.injuries, prevGames: S.prevGames || {}, b2b: b2bOn, rested: restedMap() }, h && h.acc && h.run === S.runId ? { hint: h.acc } : {}, pr ? { accWeights: { [pr]: PRIO_W } } : {}); };
+// habituais de cada equipa (≥ 24 min de média), para o motor repartir a produção de quem falta pelos colegas
+let matesMemo = null;
+function matesMap() {
+  if (matesMemo && matesMemo.p === S.players) return matesMemo.m;
+  const m = {};
+  S.players.forEach((c, id) => { const a = c && c.avg; if (!a || !c.team || !(+a.min >= 24)) return; const f = a.form;
+    (m[c.team] = m[c.team] || []).push({ id: String(id), team: c.team, avg: Object.assign({}, a, { hist: undefined, sem: undefined, espn: undefined, form: f ? { n10: f.n10, n5: f.n5, l10: f.l10, l5: f.l5, last: f.last } : undefined }) }); });
+  matesMemo = { p: S.players, m }; return m;
+}
+const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint, pr = prioAcc(); return Object.assign({ teams: S.teams, injuries: S.injuries, mates: matesMap(), prevGames: S.prevGames || {}, b2b: b2bOn, rested: restedMap() }, h && h.acc && h.run === S.runId ? { hint: h.acc } : {}, pr ? { accWeights: { [pr]: PRIO_W } } : {}); };
 // prioridade entre contas (com smurfs): a conta escolhida, ou a mais bem classificada na Geral (Automática); cada
 // vitória esperada dela vale PRIO_W no plano conjunto. 'eq' = iguais
 const PRIO_W = 1.2;
@@ -305,7 +314,7 @@ function partBasis(p, part, md, id, opp) {
     return '<b>Odds</b> de ' + u + ': linha ' + f1(+o.line) + ' · odd do mais <b class="num">' + esc(fmtOdd(o.over)) + '</b> / do menos <b class="num">' + esc(fmtOdd(o.under)) + '</b>' + (o.books ? ' (consenso de ' + o.books + ' casa' + (o.books > 1 ? 's' : '') + ')' : '') + ' → ' + pct(FB.devig(o.over, o.under)) + ' de passar a linha, já sem a margem da casa → média <b class="num">' + f1(part.mu) + '</b>. As odds já contam com a forma, o adversário e os minutos.';
   }
   if (part.src === 'proxy') {
-    const o = raw[part.via] || {}, vs = esc((STATS[part.via] || {}).short || part.via), a = FB.avgOf(p, part.stat), aq = FB.avgOf(p, part.via);
+    const o = raw[part.via] || {}, vs = esc((STATS[part.via] || {}).short || part.via), a = FB.avgOf(p, part.stat, true), aq = FB.avgOf(p, part.via, true);
     return '<b>Sem odds de ' + u + '</b>: usa a linha de ' + vs + ' ' + f1(+o.line) + ' (' + pct(FB.devig(o.over, o.under)) + ' de passar) e a proporção ' + u + '/' + vs + ' nas médias dele (' + (a && aq && aq.v > 0 ? (a.v / aq.v).toLocaleString('pt-PT', { maximumFractionDigits: 2 }) : '–') + ') → <b class="num">' + f1(part.mu) + '</b>.';
   }
   if (part.src === 'media' || part.src === 'estimativa') {
@@ -333,6 +342,11 @@ function basisHtml(p, info, o, md, id, many) {
   if (parts.length > 1) steps.push('<b>Soma</b>: ' + parts.map((x, i) => (x.sign < 0 ? '− ' : i ? '+ ' : '') + f1(x.mu) + ' ' + esc((STATS[x.stat] || {}).short || x.stat)).join(' ') + ' = ' + f1(info.muIf != null ? info.muIf : info.mu) + ' ' + u + '.');
   if (info.b2b) { const h = (p.avg || {}).hist, b = h && h.b2b, pc = Math.round((1 - info.b2b.f) * 100);
     steps.push('<b>Jogos seguidos</b>: jogou ontem. ' + (info.src === 'odds' ? 'As odds já contam com isso.' : 'Sem odds, conta ' + (pc > 0 ? pc + '% menos' : pc < 0 ? Math.abs(pc) + '% mais' : 'o mesmo') + (b && b.n >= 6 ? ' (na época passada fez ' + plural(b.n, 'jogo seguido', 'jogos seguidos') + ' e rendeu ' + Math.round(((b.r || {})[FB.statTerms(o.stat)[0].s] || 1) * 100) + '% do normal)' : ' (o normal nestes jogos)') + '.')); }
+  if (info.ctx && Math.abs(info.ctx.f - 1) >= 0.005) {
+    const out = info.ctx.mates.filter(x => x.out - x.frac >= 0.25), back = info.ctx.mates.filter(x => x.frac - x.out >= 0.25), nm = l => l.map(x => esc(lastName(x.id))).join(', ');
+    steps.push('<b>Colegas</b>: ' + [out.length ? nm(out) + (out.length > 1 ? ' devem faltar' : ' deve faltar') + ' (relatório de lesões)' : '', back.length ? nm(back) + (back.length > 1 ? ' estão' : ' está') + ' de volta e as médias dele foram feitas em boa parte sem ' + (back.length > 1 ? 'eles' : 'ele') : ''].filter(Boolean).join('; ') + ' → ' + (info.ctx.f >= 1 ? '+' : '−') + f1(Math.abs(info.ctx.f - 1) * 100) + '% (a produção de quem falta reparte-se pelos que jogam; quem joga menos minutos ganha mais).');
+  }
+  if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem volta costuma jogar menos minutos: ' + (info.back.f - 1 < 0 ? '−' : '+') + Math.round(Math.abs(info.back.f - 1) * 100) + '% neste jogo.');
   steps.push(playBasis(info));
   { const t0 = FB.statTerms(o.stat)[0].s, k = FB.kOf(p, t0), k0 = (STATS[t0] || {}).k, h = (p.avg || {}).hist;
     if (h && h.n >= 15 && k0) steps.push('<b>Regularidade</b> (' + h.n + ' jogos da época passada): ' + (k / k0 >= 1.2 ? 'varia muito de jogo para jogo' : k / k0 <= 0.85 ? 'é regular, costuma andar perto da média' : 'normal para esta estatística') + '.'); }
@@ -376,7 +390,7 @@ const HELP = {
   partilha: ['Partilhar', 'O grupo vê o lineup que o teu plano sugere e os usos dos teus jogadores, e pode pedir-te Moments nos dias em que não os usas. O plantel e o plano continuam só teus.'],
   smurf: ['Contas smurf', 'Até 2 contas extra tuas. O plano junta as coleções e diz que Moments mandar para que conta antes de cada noite (um Moment só joga por uma conta em cada noite).'],
   flow: ['Endereço Flow', 'O endereço da tua carteira Dapper: 0x e 16 letras ou números (está na Dapper e no perfil do Top Shot). Serve para ler os teus Moments e os teus resultados da blockchain.'],
-  avancado: ['Cálculo', '<b>Jogos seguidos</b>: no 2.º de dois jogos em dias seguidos, sem odds, o plano tira ~3% (ou o que esse jogador fez nesses jogos na época passada). <b>Forma</b>: sem odds, mistura a época com os últimos 10 e 5 jogos (normal: 50/30/20%). As odds já contam com as duas coisas.'],
+  avancado: ['Cálculo', '<b>Jogos seguidos</b>: medimos em 1 800 jogos e quem joga o 2.º de dois dias seguidos rende o mesmo; o plano só mexe em quem rendeu diferente nesses jogos na época passada. <b>Forma</b>: sem odds, a época mistura-se com os últimos 10 e 5 jogos, com um peso próprio de cada estatística (pontos 25% e 12%; roubos e desarmes quase nada, porque uma boa fase aí é quase só sorte). As odds já contam com as duas coisas.'],
   dados: ['Dados', 'Atualizados sozinhos: calendário e médias de manhã, odds à tarde e ao início da noite (hora de Lisboa), blockchain e lesões de 30 em 30 minutos.'],
 };
 const helpBtn = k => '<button class="help-btn" type="button" data-action="help" data-k="' + k + '" aria-label="' + esc('Ajuda: ' + (HELP[k] || ['?'])[0]) + '">?</button>';
@@ -567,6 +581,7 @@ async function loadShared() {
   S.teams = {}; (teams || []).forEach(t => { S.teams[t.id] = t.stats || {}; });
   S.runs = runs || [];
   S.players = new Map((players || []).map(p => [String(p.id), p]));
+  S.players.forEach(p => { if (p.avg && p.avg.gp == null && p.gp != null) p.avg.gp = p.gp; }); // jogos desta época (catálogo antigo: vem na coluna)
   S.chainRuns = chainRuns || [];
   dedupeCatalog();
 }
@@ -1269,9 +1284,8 @@ const HOLD_WHY = { fora: 'fora no relatório', semjogo: 'sem jogo', semusos: 'se
 const holdWhyTxt = why => (why || []).map(w => w === 'odds' ? 'odds novas' : w === 'inj' ? 'relatório de lesões' : '').filter(Boolean).join(' e ');
 // vitória de hoje com um lineup (o modelo de uma conta)
 function luP(R, md, ids) {
-  const idx = (ids || []).map(id => R.model.pIndex.get(id)).filter(i => i != null); let P = 1;
-  md.objs.forEach((o, k) => { let sm = md.offset[k], v = 0; idx.forEach(i => { sm += md.mu[i][k]; v += md.v[i][k]; }); P *= FB.probAtLeast(sm, v, md.T[k]); });
-  return md.objs.length ? P : 0;
+  const idx = (ids || []).map(id => R.model.pIndex.get(id)).filter(i => i != null);
+  return md.objs.length ? FB.lineupProb(md, idx) : 0;
 }
 const gainTxt = g => String(Math.round(Math.max(0, g) * 1000) / 10).replace('.', ',') + '%';
 const runDelta = g => (Math.abs(g) < 0.0005 ? '=' : (g > 0 ? '+' : '−') + gainTxt(Math.abs(g))); // diferença na run, com sinal
@@ -1506,9 +1520,7 @@ function riskSub(md, day, lineup, id) {
 }
 function lineupP(md, ids) {
   const idx = ids.map(id => S.result.model.pIndex.get(id)).filter(i => i != null);
-  let P = 1;
-  md.objs.forEach((o, k) => { let s = md.offset[k], v = 0; idx.forEach(i => { s += md.mu[i][k]; v += md.v[i][k]; }); P *= FB.probAtLeast(s, v, md.T[k]); });
-  return md.objs.length ? P : 0;
+  return md.objs.length ? FB.lineupProb(md, idx) : 0;
 }
 
 // ---------- render ----------
@@ -1901,9 +1913,7 @@ function proModel(P) {
 }
 // P(vitória) de um lineup (índices do modelo) num dia
 function proP(md, set) {
-  if (!md.objs.length) return 0; let P = 1;
-  md.objs.forEach((o, k) => { let s0 = md.offset[k], v = 0; set.forEach(i => { s0 += md.mu[i][k]; v += md.v[i][k]; }); P *= FB.probAtLeast(s0, v, md.T[k]); });
-  return P;
+  return md.objs.length ? FB.lineupProb(md, [...set]) : 0;
 }
 // o melhor lineup com um conjunto de jogadores (os 16 que mais contam, todas as combinações)
 function proBest(md, pool) {
@@ -2957,6 +2967,9 @@ function basisDayCard(r, v, d, md, nd) {
     ['Seguidos', bb.length ? bb.map(x => '<b>' + esc(lastName(x.id)) + '</b>').join(', ') + ' jogou ontem' + (!b2bOn ? ' (sem ajuste)' : '') : 'ninguém jogou ontem'],
     ['Run', r.prizes.length ? r.prizes.map((p, i) => p.wins + 'V ' + pct(v.prizeProbs[i])).join(' · ') : 'o máximo de vitórias na run toda'],
   ];
+  // colegas que faltam (ou voltam) e mexem nas médias de alguém do lineup
+  const cx = rows.filter(x => x.info.ctx && Math.abs(x.info.ctx.f - 1) >= 0.02);
+  if (cx.length) lines.splice(3, 0, ['Colegas', cx.map(x => '<b>' + esc(lastName(x.id)) + '</b> ' + (x.info.ctx.f >= 1 ? '+' : '−') + Math.round(Math.abs(x.info.ctx.f - 1) * 100) + '%').join(' · ') + ' pelas baixas na equipa']);
   // sem cada jogador do lineup, quanto cai a vitória do dia (entra o melhor que sobra com usos)
   const inSet = new Set(d.lineup), bench = md.elig.filter(pi => !inSet.has(r.model.players[pi].id));
   const withUses = bench.filter(pi => (r.model.uses[pi] || 0) > 0), P = d.P;

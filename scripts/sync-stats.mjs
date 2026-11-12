@@ -151,6 +151,7 @@ for (const [id, p] of Object.entries(state.players)) {
   if (!inCatalog(p)) continue;
   const b = blendedAverages(p), f = formOf(p);
   const avg = b ? Object.assign({}, b.avg) : (f ? {} : null);
+  if (avg) avg.gp = b ? b.gp : 0; // jogos desta época (o motor precisa para saber em quantos faltou cada colega)
   if (avg && f) avg.form = f; // últimos 5 e 10 jogos
   if (avg && p.hist && p.hist.n >= 5) avg.hist = { n: p.hist.n, d: p.hist.d, b2b: p.hist.b2b }; // época passada: regularidade e jogos seguidos
   if (avg && sem[id]) avg.sem = sem[id]; // sem cada colega habitual: [jogos, ...médias de SPLIT_KEYS]
