@@ -2845,7 +2845,8 @@
    "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "days",
    "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "days",
    "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "days",
-   "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "days"
+   "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "days",
+   "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true
   }
  },
  "dia": {
@@ -2863,7 +2864,8 @@
    "if (!nextDay()) html.push('<div class=\"note info run-end\">' + esc(runShort(run)) + ' terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.pl": "day",
    "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "day",
    "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "day",
-   "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "day"
+   "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "day",
+   "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true
   }
  },
  "jogo": {
@@ -2896,7 +2898,8 @@
    "'<div class=\"ps\">' + (x.n ? 'média ' + f0(x.avg) + ' em ' + plural(x.n, 'jogo', 'jogos') : 'ainda sem jogos') + '</div></div></span>' +": true,
    "openSheet('<h3>' + esc(x.name) + '</h3><div class=\"small muted\">' + esc(hTeam(x.team)) + ' · ' + x.rp + ' RP · ' + (x.n ? 'média ' + f1(x.avg) + ' pts em ' + pl": true,
    "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true,
-   "'<span class=\"ps\">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · sem o ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'jogo', 'jogos') + '): ' + f1(t.": true
+   "'<span class=\"ps\">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · sem o ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'jogo', 'jogos') + '): ' + f1(t.": true,
+   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim</div>' + (nextTxt ? '<div class=\"ps\">' + nextTxt + '</div>'": true
   }
  },
  "jogos": {
@@ -2932,7 +2935,8 @@
    "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true,
    "const games = gamesTable(p.avg), PT = [['res', 'Resumo'], ['porque', 'Porquê']].concat(cardsAll ? [['cartas', 'Cartas']] : [], games ? [['jogos', cardsAll ? 'Jo": false,
    "part('porque', md.objs.length > 1 ? md.objs.map((x, k) => basisHtml(p, md.info[pi][k], x, md, id, true)).join('') : basisHtml(p, info, o, md, id)) + (cardsAll ?": false,
-   "'<span class=\"ps\">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · sem o ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'jogo', 'jogos') + '): ' + f1(t.": true
+   "'<span class=\"ps\">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · sem o ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'jogo', 'jogos') + '): ' + f1(t.": true,
+   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim</div>' + (nextTxt ? '<div class=\"ps\">' + nextTxt + '</div>'": true
   }
  },
  "usos": {
@@ -2968,7 +2972,10 @@
    "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "uses",
    "const PL_SORTS = [['plano', 'No plano'], ['proximo', 'Próximo dia'], ['forma', 'Forma'], ['usos', 'Usos'], ['jogos', 'Jogos'], ['nome', 'Nome']];": false,
    "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true,
-   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true,
+   "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + (pxReady() ? '<butt": true,
+   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true
   }
  },
  "uso": {
@@ -3002,7 +3009,10 @@
    "const usesTxt = u => u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos');": "use",
    "return '<span class=\"lu-l2\"><b>' + (u >= UNL ? 'usos ilimitados' : plural(u, 'uso', 'usos')) + '</b> · ' + (ds.length ? 'joga ' + (ds.length > 1 ? 'nos dias ' :": "use",
    "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (u > 0 ? '<span class=\"badge\">tens · ' + esc(u >= UNL ? 'ilim": true,
-   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true
+   "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true,
+   "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + (pxReady() ? '<butt": true,
+   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true
   }
  },
  "derrota": {
@@ -3053,7 +3063,8 @@
   "en": "",
   "at": {
    "(!b2bOn ? ' (ajuste desligado nas Preferências).' : !noOdds.length ? ': as odds já contam com o cansaço.' : ': ' + (noOdds.length < bb.length ? noOdds.map(x => ": "",
-   "lines.push(['Dia ' + dn, 'vitória ' + arrow(d0.P, d1.P, pct) + diff(d0.P, d1.P) + (outs.length || ins.length ? '<br><span class=\"muted\">' + (ins.length ? 'Entra": ""
+   "lines.push(['Dia ' + dn, 'vitória ' + arrow(d0.P, d1.P, pct) + diff(d0.P, d1.P) + (outs.length || ins.length ? '<br><span class=\"muted\">' + (ins.length ? 'Entra": "",
+   "if (dv > bestDv) { bestDv = dv; best = ['m', d1, d2, a, v.b, c, v.r, r2]; }": false
   }
  },
  "em": {
@@ -3169,5 +3180,62 @@
  " · <span class=\"up\">▲ sem o ": " · <span class=\"up\">▲ without ",
  "\">Repor todos (": "\">Restore all (",
  " de volta: o plano pode usá-los neste dia.": " back: the plan can use them on this day.",
- "<span class=\"badge\">joga na ": "<span class=\"badge\">plays on "
+ "<span class=\"badge\">joga na ": "<span class=\"badge\">plays on ",
+ "value": null,
+ "<b>Colegas</b>: ": "<b>Teammates</b>: ",
+ " devem faltar": " are expected to miss the game",
+ " deve faltar": " is expected to miss the game",
+ " (relatório de lesões)": " (injury report)",
+ " estão": " are",
+ " está": " is",
+ " de volta e as médias dele foram feitas em boa parte sem ": " back and his averages were built largely without ",
+ "eles": "them",
+ "ele": "him",
+ "% (a produção de quem falta reparte-se pelos que jogam; quem joga menos minutos ganha mais).": "% (the production of whoever is out is shared among those who play; players with fewer minutes gain the most).",
+ "<b>Regresso</b>: não jogou o último jogo da equipa (parado há ": "<b>Return</b>: he missed the team’s last game (out for ",
+ " a contar desse jogo). Quem volta costuma jogar menos minutos: ": " counting from that game). Players coming back usually get fewer minutes: ",
+ "% neste jogo.": "% in this game.",
+ "A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. <b>Qualquer</b> escalão: para cada jogador fica o que mais compensa. <b>Mais por dólar</b> ordena pelo que a run sobe por cada dólar do Moment mais barato à venda (preços lidos no Top Shot); <b>Mais ganho</b> ordena só pelo que a run sobe. Com <b>Tenho para gastar</b>, a app monta o conjunto de compras que cabe nesse valor e refaz a run com todas juntas (dois jogadores para o mesmo dia não somam).": "The run is re-planned with each candidate: you see how much the prizes go up and on which days he would play. Uses per run: Common 1 (2 if the ASP is above $10), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. For a player you already have, it only helps if the new Moment is a tier above. <b>Any</b> tier: each player gets the tier that pays off most. <b>Most per dollar</b> sorts by how much the run goes up for each dollar of the cheapest Moment listed (prices read on Top Shot); <b>Biggest gain</b> sorts only by how much the run goes up. With <b>I have to spend</b>, the app builds the set of purchases that fits that amount and re-plans the run with all of them together (two players for the same day don’t add up).",
+ "<b>Jogos seguidos</b>: medimos em 1 800 jogos e quem joga o 2.º de dois dias seguidos rende o mesmo; o plano só mexe em quem rendeu diferente nesses jogos na época passada. <b>Forma</b>: sem odds, a época mistura-se com os últimos 10 e 5 jogos, com um peso próprio de cada estatística (pontos 25% e 12%; roubos e desarmes quase nada, porque uma boa fase aí é quase só sorte). As odds já contam com as duas coisas.": "<b>Back-to-backs</b>: we measured 1,800 games and players on the 2nd night of a back-to-back produce the same; the plan only adjusts those who did differently in those games last season. <b>Form</b>: without odds, the season average is blended with the last 10 and 5 games, with a weight specific to each stat (points 25% and 12%; steals and blocks almost nothing, because a hot streak there is nearly all luck). The odds already account for both.",
+ "<button class=\"btn hero-btn\" type=\"button\" data-action=\"opcoes\">Sugestões</button>": "<button class=\"btn hero-btn\" type=\"button\" data-action=\"opcoes\">Suggestions</button>",
+ "Colegas": "Teammates",
+ " pelas baixas na equipa": " because of absences on the team",
+ "conta o que cada um rendeu nesses jogos": "uses what each player did in those games",
+ " até ao fim</div>": " left</div>",
+ "<span class=\"ps\">últimos 5: <b class=\"num\">": "<span class=\"ps\">last 5: <b class=\"num\">",
+ "\">Qualquer</button>": "\">Any</button>",
+ "<div><div class=\"label\" style=\"margin-bottom:6px\">Ordenar por</div><div class=\"seg acc-seg\" role=\"group\" aria-label=\"Ordenar as compras\"><button type=\"button\" data-action=\"buy-sort\" data-v=\"value\" aria-pressed=\"": "<div><div class=\"label\" style=\"margin-bottom:6px\">Sort by</div><div class=\"seg acc-seg\" role=\"group\" aria-label=\"Sort purchases\"><button type=\"button\" data-action=\"buy-sort\" data-v=\"value\" aria-pressed=\"",
+ "\">Mais por dólar</button><button type=\"button\" data-action=\"buy-sort\" data-v=\"gain\" aria-pressed=\"": "\">Most per dollar</button><button type=\"button\" data-action=\"buy-sort\" data-v=\"gain\" aria-pressed=\"",
+ "\">Mais ganho</button></div></div>": "\">Biggest gain</button></div></div>",
+ "<div class=\"small muted\">Sem preços lidos no Top Shot (Ajustes → Admin → Ler no Top Shot → Preços): as compras ficam por ganho, sem contar o preço.</div>": "<div class=\"small muted\">No prices read from Top Shot (Settings → Admin → Read on Top Shot → Prices): purchases are sorted by gain, ignoring price.</div>",
+ "Máximo por Moment ($)": "Max per Moment ($)",
+ "Preço máximo por Moment (opcional, em $)": "Max price per Moment (optional, in $)",
+ "<input class=\"field\" id=\"buyMax\" name=\"buyMax\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"ex.: 6\" value=\"": "<input class=\"field\" id=\"buyMax\" name=\"buyMax\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"e.g. 6\" value=\"",
+ "<label class=\"small muted\">Tenho para gastar ($)<input class=\"field\" id=\"buyBudget\" name=\"buyBudget\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"ex.: 20\" value=\"": "<label class=\"small muted\">I have to spend ($)<input class=\"field\" id=\"buyBudget\" name=\"buyBudget\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"e.g. 20\" value=\"",
+ "gain": null,
+ "A montar o carrinho… ": "Building the cart… ",
+ "buyMax": null,
+ "buyBudget": null,
+ ". Sobe o ": ". Raise the ",
+ "valor que tens para gastar": "amount you have to spend",
+ "preço máximo": "max price",
+ "% por dólar": "% per dollar",
+ " vitórias por dólar": " wins per dollar",
+ "o que mais rende por dólar": "best value per dollar",
+ "<div class=\"row small muted\" style=\"display:block\">A testar cada compra na tua run…</div></div>": "<div class=\"row small muted\" style=\"display:block\">Testing each purchase in your run…</div></div>",
+ "Nenhuma compra muda a tua run.": "No purchase changes your run.",
+ "<div class=\"list-head\"><h2>Com ": "<div class=\"list-head\"><h2>With ",
+ "gastas <b class=\"num\">": "you spend <b class=\"num\">",
+ "<div class=\"row small muted\" style=\"display:block\">Nenhuma destas compras cabe nesse valor (ou não muda a run).</div></div>": "<div class=\"row small muted\" style=\"display:block\">None of these purchases fits that amount (or changes the run).</div></div>",
+ "Com as ": "With all ",
+ " juntas (a run foi refeita com todas).": " together (the run was re-planned with all of them).",
+ "É a compra que mais rende nesse valor.": "The best-value purchase for that amount.",
+ " mais prometedores": " most promising",
+ ", cada um no escalão que ": ", each in the tier that ",
+ "mais rende por dólar": "gives the most per dollar",
+ "mais sobe a run": "raises the run the most",
+ " Por ordem do que rende cada dólar.": " Sorted by what each dollar gives.",
+ "<span class=\"mk-pre\">à venda </span>desde <b class=\"num\">": "<span class=\"mk-pre\">listed </span>from <b class=\"num\">",
+ "budget": null,
+ " <span style=\"white-space:nowrap\">(época ": " <span style=\"white-space:nowrap\">(season "
 }

@@ -350,7 +350,7 @@ with sync_playwright() as pw:
         n1 = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count(); seen = pg.locator('#tab-hoje .todo button[data-action="todo-show"]').inner_text()
         saved = pg.evaluate("Object.keys(JSON.parse(localStorage.getItem('fb-todo') || '{}')).length")
         pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#t-hoje'); pg.wait_for_timeout(400)
-        n2 = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count() if saved == 1 else -1
+        n2 = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count() if saved >= 1 else -1  # (o "mandado" de cima também conta)
         pg.click('#tab-hoje .todo button[data-action="todo-show"]'); pg.wait_for_timeout(200)
         pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="true"]').first.click(); pg.wait_for_timeout(300)
         n3 = pg.locator('#tab-hoje .todo .todo-ck[aria-pressed="false"]').count()
@@ -1957,6 +1957,30 @@ with sync_playwright() as pw:
     pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
     pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-row, #buyOut .note', timeout=30000); pg.wait_for_timeout(300)
     print('K3 compras com preços:', pg.locator('#buyOut').inner_text().replace('\n', ' | ')[:420])
+    # compras por valor: cada linha com escalão, preço e o que rende por dólar; a ordem é a desses números
+    import re as _re
+    _num = lambda t: float(_re.search(r'(\d+(?:,\d+)?)', t).group(1).replace(',', '.')) if t and _re.search(r'\d', t) else None
+    buy_rows = lambda: pg.evaluate('''() => [...document.querySelectorAll('#buyOut .card:not(.buy-cart) .buy-row')].map(r => ({ nm: (r.querySelector('.nm') || {}).textContent, tier: (r.querySelector('.tpill') || {}).textContent, ask: (r.querySelector('.mkt b') || {}).textContent || '', per: (r.querySelector('.buy-per') || {}).textContent || '', up: ((r.querySelector('.bg') || {}).textContent.match(/▲\s*([\d,]+)/) || [])[1] || '' }))''')
+    R1 = buy_rows(); pers = [_num(x['per']) for x in R1 if x['per']]
+    print('K3 compras por valor:', [(x['nm'], x['tier'], x['ask'], x['per']) for x in R1][:3], '| ok:', len(R1) >= 3 and all(x['tier'] in ('Common', 'Rare', 'Legendary') and x['ask'].startswith('$') for x in R1) and len(pers) >= 2 and pers == sorted(pers, reverse=True) and 'Qualquer' in pg.locator('#plSub button[data-action="buy-uses"][aria-pressed="true"]').inner_text() or ('ERRO', R1))
+    # "Mais ganho": a lista pede-se outra vez e vem por ordem do que a run sobe
+    pg.click('#plSub button[data-action="buy-sort"][data-v="gain"]'); pg.wait_for_timeout(300)
+    cleared = pg.locator('#buyOut .buy-row').count() == 0
+    pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-row, #buyOut .note', timeout=30000); pg.wait_for_timeout(300)
+    R2 = buy_rows(); ups = [_num(x['up']) for x in R2 if x['up']]
+    print('K3 compras por ganho:', [(x['nm'], x['tier'], x['up']) for x in R2][:3], '| ok:', cleared and len(ups) >= 2 and ups == sorted(ups, reverse=True) and 'por dólar' not in pg.locator('#buyOut .buy-intro').inner_text() or ('ERRO', cleared, R2))
+    # carrinho: com um valor para gastar, o conjunto que cabe nele e o que a run ganha com todos juntos
+    pg.click('#plSub button[data-action="buy-sort"][data-v="value"]'); pg.wait_for_timeout(200)
+    pg.fill('#buyBudget', '5'); pg.click('#tab-plantel button[data-action="buy-run"]'); pg.wait_for_selector('#buyOut .buy-cart', timeout=60000); pg.wait_for_timeout(300)
+    cart = pg.evaluate('''() => { const c = document.querySelector('#buyOut .buy-cart'); return { head: c.querySelector('.list-head').textContent, gain: (c.querySelector('.cart-gain') || {}).textContent || '', items: [...c.querySelectorAll('.cart-row')].map(r => [r.querySelector('.nm').textContent, r.querySelector('.tpill').textContent, r.querySelector('b.num').textContent]) }; }''')
+    spent = sum(_num(x[2]) for x in cart['items'])
+    rest = [_num(x['ask']) for x in buy_rows()]
+    print('K3 carrinho com $5:', cart['head'], '|', cart['items'], '|', cart['gain'][:90], '| ok:', 'Com $5' in cart['head'] and 1 <= len(cart['items']) <= 4 and spent <= 5.001 and len(set(x[0] for x in cart['items'])) == len(cart['items']) and '→' in cart['gain'] and all(a is not None and a <= 5.001 for a in rest) or ('ERRO', spent, rest))
+    pg.locator('#buyOut .cart-row').first.click(); pg.wait_for_timeout(500)
+    print('K3 carrinho → ficha da compra:', pg.locator('#sheetTitle').inner_text(), '| ok:', pg.locator('#sheetPanel button[data-action="buy-player"]').count() == 1 and cart['items'][0][0] in pg.locator('#sheetPanel').inner_text() or 'ERRO')
+    pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
+    pg.screenshot(path=str(shots / 'compras-carrinho.png'), full_page=True)
+    pg.fill('#buyBudget', ''); pg.wait_for_timeout(100)
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
     pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(400); pg.click('#tab-ajustes button[data-action="ranks-go"][data-do^="px"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
     job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())

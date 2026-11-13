@@ -38,6 +38,27 @@ negativa para totais pequenos (a normal com correção de continuidade calibra i
 - **Com odds** (o dia de jogo): iguais dentro do erro (36,6% contra 36,2%). Com odds o motor já estava calibrado.
 - **Lineups do grupo** (205): previsto 57,2% e real 52,7%, contra 57,6% do motor antigo.
 
+## A pesquisa do plano (13 de novembro)
+Ao ver as Sugestões para hoje, uma alternativa ("guardar o Şengün") dava mais vitórias do que o plano: a pesquisa
+só sabia trocar um jogador por um livre no mesmo dia, ou trocar dois jogadores entre dois dias. Com todos os usos
+gastos (o normal em rosters curtos) não conseguia **mudar** um jogador para um lugar vazio de outro dia.
+
+- Novo passo "mudar de dia" (uma conta e várias): o jogador sai de um dia (entra o melhor livre, ou o lugar fica
+  vazio) e entra noutro (lugar vazio ou no de outro). Só corre quando já não há melhorias simples, por isso o caminho
+  até aí é o de sempre e o resultado só pode subir.
+- Medido em cenários ao acaso a partir do fixture (o mesmo modelo, só muda a pesquisa):
+
+| Cenário | Antes | Agora |
+|---|---|---|
+| Uma conta, poucos usos (80) | 1,95 vitórias esperadas | 2,25 · melhor em 70, pior em 0 |
+| Uma conta, usos de sobra (40) | 5,145 | 5,146 · melhor em 3, pior em 0 |
+| Duas contas, poucos usos (50) | 2,23 | 2,38 · melhor em 42, pior em 0 |
+| Duas contas, usos de sobra (16) | 8,28 | 8,34 · melhor em 13, pior em 1 (−0,3%) |
+
+- Tempo: uma conta igual; duas contas +12% a +15%.
+- Uma pesquisa 5 vezes mais longa só encontra planos ~0,7% melhores: daqui para a frente o ganho está no modelo, não
+  na pesquisa.
+
 ## Como repetir
 1. Correr a tarefa "Dados para medir o motor" no GitHub (Actions) e ir buscar `dados.json.gz` ao ramo `dados-motor`.
 2. As contas desta medição foram feitas fora do repositório (Python e Node sobre esse ficheiro, com o `core.js`

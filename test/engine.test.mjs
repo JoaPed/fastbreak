@@ -517,5 +517,39 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   ok('odds: triplos ficam ~4% abaixo da conta direta da linha; pontos ficam na linha', d3.mu > 2.4 && d3.mu < 2.67 * 0.985 && near(dp.mu, 20.5, 1e-6), [d3.mu, dp.mu]);
   ok('odds: com a linha a dispersão é 5% menor do que pelas médias', near(dp.v / dp.mu, FB.STATS.pts.k * 0.95, 1e-9));
 }
+// ---------- pesquisa do plano: mudar um jogador de dia (um uso que hoje pesa pouco e fecha outro lineup) ----------
+{
+  // caso real (nov 2026): com poucos usos, o plano punha o Şengün (1 uso) hoje e deixava o dia 10 com 4; guardá-lo
+  // dava mais vitórias, mas a pesquisa não chegava lá (só trocava dentro do dia ou entre dias, nunca "mudava")
+  const uses = { sga: 3, jokic: 2, giannis: 1, luka: 2, wemby: 1, ant: 4, mitchell: 1, brunson: 1, cade: 0, maxey: 1, lebron: 4, jbrown: 1, sabonis: 1, kat: 2, sengun: 1, curry: 4 };
+  const players = Object.fromEntries(Object.entries(uses).map(([pid, u]) => [pid, Object.assign({}, roster.players[pid], { uses: u, status: 'ok' })]));
+  ok('pesquisa: o fixture tem os 16 jogadores do caso', Object.values(players).every(p => p.team), Object.keys(uses).filter(pid => !roster.players[pid]));
+  const d1 = run.days[0].date, d2 = run.days[1].date;
+  const base = { played: { [d1]: { done: true, result: 'win', lineup: ['sga', 'cade', 'maxey', 'jbrown', 'brunson'] } } };
+  const o = { now: Date.parse(d2 + 'T15:00:00Z'), injuries: { maxey: { id: 'maxey', status: 'out' }, sga: { id: 'sga', status: 'dtd' } } };
+  const r = FB.planRun(run, { players }, odds, base, o), today = r.normal.days[0];
+  const alts = today.lineup.map(pid => [pid, FB.planRun(run, { players }, odds, Object.assign({}, base, { bans: { [d2]: [pid] } }), o).normal.objective]);
+  ok('pesquisa: guardar um jogador de hoje nunca dá um plano melhor do que o plano', alts.every(x => x[1] <= r.normal.objective + 1e-9), [r.normal.objective, alts]);
+  // antes: 3 lineups completos e 1,4 vitórias esperadas (usos espalhados por dias perdidos); agora 5 e 2,4
+  ok('pesquisa: com poucos usos junta-os em lineups completos (5 ou mais dias cheios, 2,2+ vitórias esperadas)', r.normal.days.filter(d => d.lineup.length === 5).length >= 5 && r.normal.expected >= 2.2, [r.normal.days.map(d => d.lineup.length).join(''), r.normal.expected]);
+  ok('pesquisa: nenhum dia fica com lugares vazios havendo quem tenha usos e jogo nesse dia', r.normal.days.every((d, i) => { const md = r.model.days[i]; return d.lineup.length >= md.size || !md.elig.some(p => !d.lineupIdx.includes(p) && (r.normal.usage[r.model.players[p].id] || 0) < r.model.uses[p]); }));
+
+  // cenários ao acaso (semente fixa): o plano respeita sempre usos, jogos e tamanho do lineup; com duas contas, também
+  // os usos de cada conta e um Moment por noite
+  let a = 12345; const rnd = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const all = Object.keys(roster.players), bad = [];
+  for (let s = 0; s < 6; s++) {
+    const ids = all.slice().sort(() => rnd() - 0.5).slice(0, 10 + Math.floor(rnd() * 10));
+    const mk = k => ({ players: Object.fromEntries(ids.map((pid, i) => [pid, Object.assign({}, roster.players[pid], { uses: 1 + Math.floor(rnd() * 3), status: 'ok', copies: i % 4 === 0 ? 2 : 1, owner: i % 4 === 0 ? null : (i % 2 ? 'main' : 's1') })])) });
+    const ro = mk('main'), single = FB.planRun(run, ro, odds, {}, { now: NOW });
+    const cnt = {};
+    single.normal.days.forEach((d, i) => { const md = single.model.days[i]; if (d.lineup.length > md.size || new Set(d.lineup).size !== d.lineup.length) bad.push(['tamanho', s, d.date]); d.lineupIdx.forEach(p => { if (!md.eligSet.has(p)) bad.push(['sem jogo', s, d.date, p]); cnt[p] = (cnt[p] || 0) + 1; }); });
+    Object.entries(cnt).forEach(([p, c]) => { if (c > single.model.uses[p]) bad.push(['usos', s, p, c]); });
+    const list = [{ key: 'main', roster: ro, plan: {} }, { key: 's1', roster: mk('s1'), plan: {} }], g = FB.planGroup(run, list, odds, { now: NOW }), night = {};
+    g.keys.forEach((k, ai) => { const c2 = {}; g.byKey[k].normal.days.forEach((d, i) => { const md = g.byKey[k].model.days[i]; if (d.lineup.length > md.size) bad.push(['tamanho', s, k, d.date]); d.lineup.forEach(pid => { c2[pid] = (c2[pid] || 0) + 1; const nk = d.date + '|' + pid; night[nk] = (night[nk] || 0) + 1; if (!md.eligSet.has(g.byKey[k].model.pIndex.get(pid))) bad.push(['sem jogo', s, k, d.date, pid]); }); }); Object.entries(c2).forEach(([pid, c]) => { if (c > list[ai].roster.players[pid].uses) bad.push(['usos da conta', s, k, pid, c]); }); });
+    Object.entries(night).forEach(([nk, c]) => { const pid = nk.split('|')[1]; if (c > (ro.players[pid].copies || 1)) bad.push(['mesma noite', s, nk, c]); });
+  }
+  ok('pesquisa: em cenários ao acaso (1 e 2 contas) o plano respeita usos, jogos, tamanho e um Moment por noite', bad.length === 0, bad.slice(0, 5));
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);

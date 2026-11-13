@@ -1,19 +1,7 @@
 [
  {
   "file": "docs/app.js",
-  "text": "<span class=\"badge\">joga na ",
-  "line": "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es"
- },
- {
-  "file": "docs/app.js",
-  "text": "uso",
-  "line": "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es",
-  "ambiguous": true
- },
- {
-  "file": "docs/app.js",
-  "text": "usos",
-  "line": "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es",
-  "ambiguous": true
+  "text": " <span style=\"white-space:nowrap\">(época ",
+  "line": "'<span class=\"ps\">' + teamTag(p.team) + ' ' + esc(opp(p.team, day)) + '</span>' + (f ? '<span class=\"ps\">últimos 5: <b class=\"num\">' + f1(f.l5) + '</b> ' + u + "
  }
 ]

@@ -900,6 +900,7 @@ p, .note { text-wrap: pretty; }
 .jcompact .win-ring { zoom: .6; margin: -6px -4px -6px 0; }
 .jc-list { margin: 2px -14px 0; position: relative; }
 .jc-list > li + li { border-top: 1px solid rgba(255, 255, 255, .08); }
+.jc-list > li + li::before { display: none; }
 .jc-list .row { background: transparent; color: var(--board-ink); padding-block: 8px; }
 .jc-list .row .ps, .jc-list .pv .u, .jc-list .risk-sub { color: var(--board-muted); }
 .jc-list .row .nm, .jc-list .pv .v { color: var(--board-ink); }
@@ -907,7 +908,7 @@ p, .note { text-wrap: pretty; }
 .jc-empty { color: var(--board-muted); position: relative; }
 .jcompact > .row { position: relative; color: var(--board-muted); }
 .jc-btns { display: flex; gap: 8px; position: relative; margin-top: 2px; }
-.jc-btns .hero-btn { flex: 1; padding-block: 9px; font-size: 13.5px; }
+.jc-btns .hero-btn { flex: 1; padding-block: 9px; padding-inline: 10px; font-size: 13.5px; white-space: nowrap; min-width: 0; }
 .day-hero.jcompact .win-ring { zoom: .62; margin: -4px -2px -4px 0; }
 .j-links .btn[aria-pressed="true"] { color: var(--ink); text-decoration: none; font-weight: 700; }
 .col-row .who { min-width: 0; flex: 1; align-items: center; }

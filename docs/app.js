@@ -378,7 +378,7 @@ const HELP = {
   plantel: ['Plantel', 'Os teus jogadores nesta run. Usos: quantos dias ainda podem jogar (os da melhor carta: Common 1, Rare 2, Legendary 4; mais cartas do mesmo jogador não somam). A faixa são os dias da run: usado, no plano, na outra conta, tem jogo. Toca num jogador para mudar os usos, as cartas ou o estado.'],
   cartas: ['As tuas cartas', 'Cada Moment com a raridade e o ASP lidos no Top Shot. A raridade dá o mínimo de usos (Common 1, Rare 2, Legendary 4, Ultimate ilimitados) e o ASP só sobe: até $10 Draft Pick (1), até $50 Starter (2), até $300 All-Star (3), até $1000 MVP (4), acima Hall of Fame (ilimitados). O jogador fica com os usos da melhor carta. Cartas sem dados do Top Shot: o site adivinha a raridade pelo set e pela tiragem, e podes escolher a certa.'],
   colecao: ['Coleção', 'Os teus Moments lidos da blockchain (todas as contas), guardados no perfil para todas as runs. Usos por run de cada jogador: os da melhor carta. Moments de jogadores fora da NBA desta época não contam.'],
-  comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. <b>Qualquer</b> escalão: para cada jogador fica o que mais compensa. <b>Melhor preço</b> ordena pelo que a run sobe por cada dólar do Moment mais barato à venda (preços lidos no Top Shot); <b>Mais ganho</b> ordena só pelo que a run sobe.'],
+  comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. <b>Qualquer</b> escalão: para cada jogador fica o que mais compensa. <b>Mais por dólar</b> ordena pelo que a run sobe por cada dólar do Moment mais barato à venda (preços lidos no Top Shot); <b>Mais ganho</b> ordena só pelo que a run sobe. Com <b>Tenho para gastar</b>, a app monta o conjunto de compras que cabe nesse valor e refaz a run com todas juntas (dois jogadores para o mesmo dia não somam).'],
   especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
   forma: ['Forma da run', 'Escolhe um dos próximos dias. Quentes: os teus que jogam nesse dia com a média dos últimos 5 jogos acima da época (≥ 8%) nas estatísticas do objetivo. Frios: os do plano desse dia abaixo da época. Minutos: quem joga mais ou menos 3 minutos do que a média da época. Pode jogar menos: jogos em que o favorito ganha em 85% ou mais (odds da ESPN, só perto do jogo) — se ficar decidido cedo, as estrelas descansam ou são poupadas. As barras são os últimos jogos (o mais recente à direita); a linha é a média da época.'],
   historic: ['Historic', 'Jogos simulados entre lendas (médias de carreira, 36 minutos). Escolhes 5 dentro de 350 Roster Points; ganha quem soma mais Fast Break Points (PTS 1, REB 1, AST 2, STL 3, BLK 3, perda −1, triplo +0,5, duplo-duplo +5, triplo-duplo +10). Os pontos esperados de cada lenda vêm dos jogos simulados até agora, puxados para o que o custo prevê quando há poucos jogos, e do adversário. A sugestão é a equipa que mais vezes chega aos 40 primeiros quando o dia é simulado 3000 vezes, comparada com os pontos que deram prémio em dias parecidos. + fixa uma lenda, × tira-a do dia, tocar no nome guarda a tua carta (o desconto baixa o custo).'],
@@ -2696,7 +2696,7 @@ function renderJornada(el) {
     const perStat = t ? d.totals.map(x => '<span>' + esc(statShort(x.stat)) + ' ' + (live ? '<b class="num">' + f0(x.known) + '</b>/' + x.target + ' · fim ≈ ' + f1(x.mu) : '<b class="num">' + f1(x.mu) + '</b>/' + x.target) + ' · ' + pct(FB.probAtLeast(x.mu, x.sd * x.sd, x.target)) + '</span>').join('<span aria-hidden="true"> · </span>') : '';
     const LD = S.liveDiag, liveDiag = live ? '<div class="live-diag">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' de ' + LD.sub + ' com estatísticas' + ((LD.miss || []).length ? ' (sem: ' + LD.miss.map(esc).join(', ') + ')' : '') + (LD.err ? ' · erro: ' + esc(LD.err) : '') + ' · ' : '') + '<button class="btn link small" type="button" data-action="live-refresh">Atualizar</button></div>' : '';
     const finalLine = allFinal && t ? '<div class="row small jc-final" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '';
-    const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões para hoje</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar o lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Mudar o lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Partilhar o lineup" title="Partilhar o lineup">' + icoShare + '</button>' : ''].filter(Boolean);
+    const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar o lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Mudar o lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Partilhar o lineup" title="Partilhar o lineup">' + icoShare + '</button>' : ''].filter(Boolean);
     html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Hoje' : 'Dia ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Ao vivo</span>' : '') + '</span>' +
       (live ? (d.totals.length === 1 && t ? liveBoard(d, 'top') : '') : '<div class="jc-sub">' + (d.noObjective ? 'Sem objetivo' : d.lineup.length ? perStat : '') + '</div>') + (live ? '' : '<div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1.º jogo ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
       (live && t ? liveBoard(d, 'bar') : '') + liveDiag + (d.lineup.length ? '<ul class="list jc-list' + (live ? ' lv-list' : '') + '">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
@@ -2989,7 +2989,7 @@ function basisDayCard(r, v, d, md, nd) {
     return { id, info, reason, swapP, swapOut };
   });
   const pp = x => Math.round(x * 100), signed = n => (n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0');
-  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div></span><div class="pv"><div class="v num">' + val + '</div><div class="u">pp</div></div></button></li>';
+  const row = (id, name, sub, val) => '<li><button class="row" type="button" data-action="player" data-id="' + esc(id) + '" data-date="' + date + '"><span class="who">' + face(id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + name + '</span></div><div class="ps">' + sub + '</div></div></span><div class="pv"><div class="v num">' + val + '%</div></div></button></li>';
   return '<div class="card basis-day"><div class="list-head"><h2>Em que se baseia ' + helpBtn('porque') + '</h2><span class="small muted">' + dWeek(date) + ', ' + dShort(date) + '</span></div>' +
     lines.map(([a, b]) => '<div class="status-line basis-line"><span class="bl">' + a + '</span><span>' + b + '</span></div>').join('') +
     '<div class="list-head sub-head"><h3>Quanto vale cada um</h3></div><ul class="list">' +
@@ -3415,7 +3415,7 @@ function analiseHtml() {
     const miss = obs.filter(x => x.act == null), missQ = miss.length ? miss.reduce((s, x) => s + x.q, 0) / miss.length : null;
     const line = (l, R, note) => R ? '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">' + l + '</span></div><div class="ps">' + plural(R.n, 'jogo', 'jogos') + ' · erro médio ' + Math.round(R.err * 100) + '%' + (note ? ' · ' + note : '') + '</div></div><div class="pv"><div class="v num">' + Math.round(R.r * 100) + '%</div><div class="u">do previsto</div></div></li>' : '';
     html.push('<div class="card"><div class="list-head"><h2>De onde veio a previsão</h2><span class="small muted">' + plural(obs.length, 'jogo', 'jogos') + '</span></div><ul class="list">' +
-      line('Com odds', odds, 'linhas das casas de apostas') + line('Só com médias', avgs, 'sem linha para esse jogador') + line('Jogos seguidos (2.º dia)', b2b, b2bOn ? 'o plano tira ~3% sem odds' : 'ajuste desligado') + line('Com descanso', rest) +
+      line('Com odds', odds, 'linhas das casas de apostas') + line('Só com médias', avgs, 'sem linha para esse jogador') + line('Jogos seguidos (2.º dia)', b2b, b2bOn ? 'conta o que cada um rendeu nesses jogos' : 'ajuste desligado') + line('Com descanso', rest) +
       (miss.length ? '<li class="row"><div style="min-width:0"><div class="pn"><span class="nm">Não jogaram</span></div><div class="ps">' + plural(miss.length, 'vez', 'vezes') + ' · o plano dava-lhes em média ' + pct(missQ) + ' de jogar</div></div></li>' : '') +
       '</ul></div>');
   }
@@ -3737,7 +3737,7 @@ function plListHtml(ctx) {
     const full = f.uses > 0 && f.plan >= f.uses, none = f.uses <= 0;
     return '<li><button class="row pl-card" type="button" data-action="pl-sheet" data-id="' + esc(p.id) + '">' + face(p.id, 'md') +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(p.name) + '</span>' + (f.tier ? '<span class="tpill t-' + TIER_CLS[f.tier] + '">' + f.tier + '</span>' : '') + st + '</div>' +
-      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div>' + (f.sh != null ? fxHtml(p.id, nd, f.fStats.length ? f.fStats : ['pts']) : '') + '</div>' +
+      '<div class="ps">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim</div>' + (nextTxt ? '<div class="ps">' + nextTxt + '</div>' : '') + (f.sh != null ? fxHtml(p.id, nd, f.fStats.length ? f.fStats : ['pts']) : '') + '</div>' +
       '<div class="pl-uses' + (none ? ' none' : full ? ' full' : '') + '"><b class="num">' + (f.uses >= UNL - 30 ? '∞' : f.uses) + '</b><span>' + (f.uses === 1 ? 'uso' : 'usos') + '</span><small>' + (f.plan ? 'plano ' + f.plan : 'fora do plano') + (f.usedN ? ' · usado ' + f.usedN : '') + '</small></div>' +
       plDays(ctx, p) + (avgs ? '<div class="pl-avgs">' + avgs + '</div>' : '') + '</button></li>';
   }).join('');
@@ -3835,7 +3835,7 @@ function formaHtml() {
   const rowOf = (id, extra) => {
     const p = playerObj(id), f = formPct(id, st0), fd = formDay(id, stats), pc = fd == null ? null : Math.round(fd * 100);
     return '<li><button class="frow" type="button" data-action="pform" data-id="' + esc(id) + '"><span class="who">' + face(id, 'sm') + '<span style="min-width:0"><span class="pn"><span class="nm">' + esc(p.name) + '</span>' + (lu.has(id) ? '<span class="pill prov">no plano</span>' : '') + '</span>' +
-      '<span class="ps">' + teamTag(p.team) + ' ' + esc(opp(p.team, day)) + (f ? ' · últimos 5: <b class="num">' + f1(f.l5) + '</b> ' + u + ' · época ' + f1(f.season) : '') + '</span>' + (extra || '') + '</span></span>' +
+      '<span class="ps">' + teamTag(p.team) + ' ' + esc(opp(p.team, day)) + '</span>' + (f ? '<span class="ps">últimos 5: <b class="num">' + f1(f.l5) + '</b> ' + u + ' <span style="white-space:nowrap">(época ' + f1(f.season) + ')</span></span>' : '') + (extra || '') + '</span></span>' +
       sparkSvg(((p.avg || {}).form || {}).games, st0, p.avg, f ? f.season : null) +
       '<span class="delta ' + (pc >= 8 ? 'up' : pc <= -8 ? 'down' : '') + ' num">' + (pc == null ? '—' : (pc > 0 ? '+' : pc < 0 ? '−' : '') + Math.abs(pc) + '%') + '<small>vs época</small></span></button></li>';
   };
@@ -3913,7 +3913,7 @@ function buyHtml() {
   return buyTipsCard(6) + '<div class="card panel"><h2>Procurar compras ' + helpBtn('comprar') + '</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="O que comprar"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">Todos</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Reforçar os teus</button></div>' +
     '<div><div class="label" style="margin-bottom:6px">Escalão do Moment</div><div class="chips" role="group" aria-label="Escalão do Moment">' + (pxReady() ? '<button type="button" data-action="buy-uses" data-n="0" aria-pressed="' + (!B.uses) + '">Qualquer</button>' : '') + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + ((B.uses || (pxReady() ? 0 : 2)) === n) + '">' + tierName(n) + ' · ' + plural(n, 'uso', 'usos') + '</button>').join('') + '</div></div>' +
-    (pxReady() ? '<div><div class="label" style="margin-bottom:6px">Ordenar por</div><div class="seg acc-seg" role="group" aria-label="Ordenar as compras"><button type="button" data-action="buy-sort" data-v="value" aria-pressed="' + (B.sort !== 'gain') + '">Melhor preço</button><button type="button" data-action="buy-sort" data-v="gain" aria-pressed="' + (B.sort === 'gain') + '">Mais ganho</button></div></div>'
+    (pxReady() ? '<div><div class="label" style="margin-bottom:6px">Ordenar por</div><div class="seg acc-seg" role="group" aria-label="Ordenar as compras"><button type="button" data-action="buy-sort" data-v="value" aria-pressed="' + (B.sort !== 'gain') + '">Mais por dólar</button><button type="button" data-action="buy-sort" data-v="gain" aria-pressed="' + (B.sort === 'gain') + '">Mais ganho</button></div></div>'
       : '<div class="small muted">Sem preços lidos no Top Shot (Ajustes → Admin → Ler no Top Shot → Preços): as compras ficam por ganho, sem contar o preço.</div>') +
     (B.mode !== 'more' ? '<div class="buy-money"><label class="small muted">' + (pxReady() ? 'Máximo por Moment ($)' : 'Preço máximo por Moment (opcional, em $)') + '<input class="field" id="buyMax" name="buyMax" type="number" inputmode="decimal" min="0" step="1" placeholder="ex.: 6" value="' + (B.max || '') + '" autocomplete="off"></label>' +
       (pxReady() ? '<label class="small muted">Tenho para gastar ($)<input class="field" id="buyBudget" name="buyBudget" type="number" inputmode="decimal" min="0" step="1" placeholder="ex.: 20" value="' + (B.budget || '') + '" autocomplete="off"></label>' : '') + '</div>' : '') +
@@ -4095,15 +4095,15 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
 }
 // vitórias esperadas da run (todas as contas) num plano de ensaio
 const buyExp = ev => (ev.group ? ev.group.keys.reduce((t, k) => t + ev.group.byKey[k].normal.expected, 0) : ev.res.expected);
-// Ganho de uma compra, na medida que a lista mostra: se alguma compra mexe num prémio (1% ou mais), conta o valor dos
-// prémios como o plano o mede (R.unit '%'); se nenhuma mexe, contam as vitórias esperadas (R.unit 'V'). Assim a ordem
-// e o "por dólar" de cada linha batem certo.
-const buyGain = (x, R) => (!R.base ? x.ev.total : R.unit === 'V' ? buyExp(x.ev) - buyExp(R.base) : x.ev.total - R.base.total);
+// Ganho de uma compra, na medida que a lista mostra: se alguma compra mexe num prémio (1% ou mais), conta o prémio que
+// mais sobe (R.unit '%'); se nenhuma mexe, contam as vitórias esperadas (R.unit 'V'). Assim a ordem e o "por dólar"
+// de cada linha batem certo com os números que lá estão.
+const buyPz = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res).prizeProbs;
+const buyPzUp = (R, x, round) => { let m = 0; (R.base.group ? R.base.group.keys : ['main']).forEach(k => realPrizes(R, k, (p, i) => { const a = buyPz(x.ev, k)[i], b = buyPz(R.base, k)[i]; m = Math.max(m, round ? Math.round(a * 100) - Math.round(b * 100) : a - b); })); return m; };
+const buyGain = (x, R) => (!R.base ? x.ev.total : R.unit === 'V' ? buyExp(x.ev) - buyExp(R.base) : buyPzUp(R, x));
 function buySort(R) {
   if (!R.base || !R.list.length) return R;
-  const pz = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res).prizeProbs;
-  const moves = x => (R.base.group ? R.base.group.keys : ['main']).some(k => { let hit = false; realPrizes(R, k, (p, i) => { if (Math.round(pz(x.ev, k)[i] * 100) - Math.round(pz(R.base, k)[i] * 100) >= 1) hit = true; }); return hit; });
-  R.unit = R.list.some(moves) ? '%' : 'V';
+  R.unit = R.list.some(x => buyPzUp(R, x, true) >= 1) ? '%' : 'V';
   const byValue = R.sort === 'value';
   const w = x => { const g = Math.max(0, buyGain(x, R)); return byValue ? (x.ask != null && x.ask > 0 ? g / Math.max(x.ask, 0.5) : 0) : g; };
   R.list.sort((a, b) => w(b) - w(a) || b.ev.total - a.ev.total);
@@ -4114,17 +4114,19 @@ function buySort(R) {
 // Experimenta também começar pela compra de maior ganho que cabe: um carrinho de trocos pode perder para uma boa.
 async function buyCart(R, budget, alive, prog) {
   if (!(budget > 0) || !R || !R.base) return null;
-  const cands = R.list.filter(x => x.ask != null && x.ask > 0 && buyGain(x, R) > 0);
+  // o carrinho mede o conjunto pelo valor da run como o plano o mede (todos os prémios); sem prémios a mexer, pelas
+  // vitórias esperadas
+  const tot = ev => (R.unit === 'V' ? buyExp(ev) : ev.total), g0 = x => tot(x.ev) - tot(R.base);
+  const cands = R.list.filter(x => x.ask != null && x.ask > 0 && g0(x) > 0);
   if (!cands.length) return { items: [], cost: 0, ev: R.base, budget };
-  const eps = Math.max(1e-7, 0.03 * Math.max(...cands.map(x => buyGain(x, R)))); // abaixo disto não vale o dinheiro
-  const tot = ev => (R.unit === 'V' ? buyExp(ev) : ev.total);
+  const eps = Math.max(1e-7, 0.03 * Math.max(...cands.map(g0))); // abaixo disto não vale o dinheiro
   let n = 0;
   const grow = async first => {
     const items = []; let left = budget, cur = R.base;
     for (let step = 0; step < 4; step++) {
       const fit = cands.filter(x => x.ask <= left + 1e-9 && !items.some(z => z.id === x.id)); if (!fit.length) break;
       let pick = null;
-      if (step === 0 && first) pick = { x: first, ev: first.ev, g: buyGain(first, R) };
+      if (step === 0 && first) pick = { x: first, ev: first.ev, g: g0(first) };
       else for (const x of fit) {
         if (alive && !alive()) return null;
         let ev = x.ev;
@@ -4138,7 +4140,7 @@ async function buyCart(R, budget, alive, prog) {
     return { items, cost: items.reduce((t, z) => t + z.ask, 0), ev: cur, budget };
   };
   const a = await grow(null); if (!a) return null;
-  const top = cands.filter(x => x.ask <= budget + 1e-9).sort((p, q) => buyGain(q, R) - buyGain(p, R))[0];
+  const top = cands.filter(x => x.ask <= budget + 1e-9).sort((p, q) => g0(q) - g0(p))[0];
   if (top && a.items.length && a.items[0].id !== String(top.id)) { const b = await grow(top); if (!b) return null; if (tot(b.ev) > tot(a.ev) + 1e-9) return b; }
   return a;
 }
