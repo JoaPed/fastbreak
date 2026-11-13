@@ -751,6 +751,7 @@
     function hillClimb() {
       for (let round = 0; round < 300; round++) {
         let best = null, bestDv = 1e-10;
+        const vac = new Map(); // d * P + a → o melhor substituto livre de a nesse dia (para "mudar de dia")
         for (const d of openDays) {
           const md = days[d];
           const members = [...plan[d]].filter(p => !isLocked(d, p));
@@ -760,6 +761,7 @@
             const r = tryReplace(d, a, b);
             const dv = evalChanges([[d, r.p, r.x]]) - cur;
             if (dv > bestDv) { bestDv = dv; best = ['r', d, a, b, r]; }
+            if (a >= 0) { const v = vac.get(d * P + a); if (!v || dv > v.dv) vac.set(d * P + a, { b, r, dv }); }
           }
         }
         for (let i = 0; i < openDays.length; i++) for (let j = i + 1; j < openDays.length; j++) {
@@ -774,11 +776,35 @@
             }
           }
         }
+        // mudar um jogador de dia: sai de d1 (entra o melhor livre, ou o lugar fica vazio) e entra em d2 (num lugar
+        // vazio ou no de outro, que fica com o uso livre). Cada metade sozinha piora a run; as duas juntas podem
+        // melhorá-la (ex.: quem tem 1 uso e hoje pesa pouco, mas fecha o lineup de outro dia). Só quando já não há
+        // melhorias simples: o caminho até aí é o de sempre, e daí só pode subir
+        if (!best) for (const d1 of openDays) for (const a of plan[d1]) {
+          if (isLocked(d1, a)) continue;
+          let v = vac.get(d1 * P + a);
+          if (!v) v = { b: -1, r: tryReplace(d1, a, -1) };
+          for (const d2 of openDays) {
+            if (d2 === d1 || !days[d2].eligSet.has(a) || plan[d2].has(a)) continue;
+            const full = plan[d2].size >= days[d2].size;
+            for (const c of full ? plan[d2] : [-1]) {
+              if (c >= 0 && (c === v.b || isLocked(d2, c))) continue; // c === v.b é a troca simples (já vista acima)
+              const r2 = tryReplace(d2, c, a);
+              const dv = evalChanges([[d1, v.r.p, v.r.x], [d2, r2.p, r2.x]]) - cur;
+              if (dv > bestDv) { bestDv = dv; best = ['m', d1, d2, a, v.b, c, v.r, r2]; }
+            }
+          }
+        }
         if (!best) return;
         if (best[0] === 'r') {
           const [, d, a, b, r] = best;
           if (a >= 0) { plan[d].delete(a); used[a]--; }
           plan[d].add(b); used[b]++; commit(r);
+        } else if (best[0] === 'm') {
+          const [, d1, d2, a, b, c, r1, r2] = best;
+          plan[d1].delete(a); if (b >= 0) { plan[d1].add(b); used[b]++; }
+          if (c >= 0) { plan[d2].delete(c); used[c]--; }
+          plan[d2].add(a); commit(r1); commit(r2);
         } else {
           const [, d1, d2, a, b, r1, r2] = best;
           plan[d1].delete(a); plan[d1].add(b); plan[d2].delete(b); plan[d2].add(a); commit(r1); commit(r2);
@@ -1180,7 +1206,7 @@
     const restore = sn => { plan = sn.plan.map(x => new Set(x)); used = sn.used.map(x => x.slice()); sn.night.forEach((v, k) => night.get(k).set(v)); st = sn.st.map(x => ({ S: x.S.slice(), V: x.V.slice() })); sn.dayP.forEach((v, a) => dayP[a].set(v)); aux.set(sn.aux); auxSum.set(sn.auxSum); assign = sn.assign.slice(); T = sn.T; refreshVals(); };
 
     // subida: aplica a primeira melhoria que encontra e continua, até uma volta inteira sem melhorias
-    function hillClimb() {
+    function hillClimb(simple) { // simple: sem "mudar de lugar" (mais rápido; para os ensaios da pesquisa repetida)
       const EPSV = 1e-10;
       for (let round = 0; round < 60; round++) {
         let improved = false;
@@ -1211,12 +1237,42 @@
             if (gain(rs) - TC * dT > EPSV) { where.forEach((i, k) => applyReplace(i, p, -1, rs[k], 0)); T += dT; refreshVals(); improved = true; }
           }));
         }
+        if (improved) continue;
+        if (simple) return;
+        // só quando já não há melhorias simples: mudar um jogador de lugar (outro dia da mesma conta, ou a outra conta
+        // na mesma noite): sai de i (entra o melhor livre, ou o lugar fica vazio) e entra em j (num lugar vazio ou no
+        // de outro). Cada metade sozinha piora; juntas podem melhorar (quem tem 1 uso e hoje pesa pouco, mas fecha o
+        // lineup de outro dia)
+        for (const i of open) for (const x of [...plan[i]]) {
+          if (!plan[i].has(x) || isLocked(i, x)) continue;
+          const si = slots[i];
+          let fill = null; // o melhor substituto de x em i (só se calcula se houver para onde o mudar)
+          for (const j of open) {
+            const sj = slots[j];
+            if (j === i || !(si.a === sj.a || si.date === sj.date) || !sj.md.eligSet.has(x) || plan[j].has(x)) continue;
+            if (si.a !== sj.a && used[sj.a][x] >= uses[sj.a][x]) continue;
+            if (si.date !== sj.date && night.get(sj.date)[x] >= cap(x)) continue;
+            if (mixed(x) && !tierOk(x, [j], [i])) continue;
+            if (!fill) {
+              fill = { y: -1, r: tryReplace(i, x, -1) }; fill.g = gain([fill.r]) - TC * tDelta(replCh(i, x, -1));
+              for (const y of si.md.elig) { if (cantEnter(i, y)) continue; const r = tryReplace(i, x, y), g = gain([r]) - TC * tDelta(replCh(i, x, y)); if (g > fill.g) fill = { y, r, g }; }
+            }
+            let done = false;
+            for (const z of plan[j].size < sj.md.size ? [-1] : [...plan[j]]) {
+              if (z >= 0 && (z === fill.y || isLocked(j, z))) continue; // z === fill.y é a troca simples (já vista)
+              const rj = tryReplace(j, z, x);
+              const dT = tDelta(replCh(i, x, fill.y).concat(z >= 0 ? [[z, sj.di, -1]] : [], [[x, sj.di, sj.a]]));
+              if (gain([fill.r, rj]) - TC * dT > EPSV) { applyReplace(i, x, fill.y, fill.r, 0); applyReplace(j, z, x, rj, 0); T += dT; refreshVals(); improved = true; done = true; break; }
+            }
+            if (done) break;
+          }
+        }
         if (!improved) return;
       }
     }
 
     if (open.length) {
-      if (opts.init) hillClimb(); // o ponto de partida dado também fica sem melhorias simples por fazer
+      if (opts.init) hillClimb(true); // o ponto de partida dado também fica sem melhorias simples por fazer
       const start = snapshot();
       let best = opts.init ? start : null; // com ponto de partida, nunca fica pior do que ele
       const iters = opts.iters || Math.min(30000, 4000 + open.length * 1500);
@@ -1267,9 +1323,10 @@
           }
           if (bestR) { applyReplace(i, x, bestY, bestR, bestT); refreshVals(); }
         }
-        hillClimb();
+        hillClimb(true);
         if (cur < before.cur - 1e-12) restore(before);
       }
+      if (kicks) hillClimb();
     }
     const results = models.map((m, a) => {
       const planA = m.days.map((_, d) => plan[bySlot[a][d]]);

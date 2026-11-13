@@ -1280,3 +1280,15 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 @media (prefers-reduced-motion: reduce) { .card-min svg { transition: none; } }
 /* Fora deste dia: repor todos no fim da lista */
 .lu-unban-all { display: flex; justify-content: flex-end; padding: 10px 16px 14px; border-top: 1px solid var(--line); }
+/* Compras: quanto rende por dólar */
+.buy-tags { flex-wrap: wrap; }
+.buy-row .buy-tags .mkt { margin-top: 0; font-size: 11.5px; padding: 1px 8px; }
+.buy-tags .mk-pre { display: none; } /* ao lado do escalão: só "desde $1" */
+.buy-row .buy-per { color: var(--accent); font-weight: 600; font-size: 12.5px; }
+.buy-money { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; }
+.buy-money label { display: grid; gap: 4px; }
+.buy-cart { border-color: color-mix(in srgb, var(--accent) 35%, var(--card-border)); }
+.cart-gain { padding: 0 16px 10px; display: grid; gap: 2px; }
+.cart-row { grid-template-columns: minmax(0, 1fr) auto; padding-block: 8px; }
+.cart-row .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cart-row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
