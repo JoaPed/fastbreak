@@ -1113,6 +1113,31 @@ with sync_playwright() as pw:
     lbs = [bd.get('leaderboardId') for m, bd in rcalls if m == 'LeaderboardService/GetSubjectRank']
     print('T2 run acabada:', (rback.get('run') or {}).get('id'), rback.get('accs'), lbs, '· ok' if lbs == ['run:run-nba-classic-2026-10-20'] and rback['accs'][0]['rank'] == 7 else '· ERRO')
     pg.close()
+    # T2b: preços com a oferta mais alta (leitor v35): por jogador, [3 preços, 3 ofertas] da edição mais barata de cada
+    # escalão; uma oferta que não seja abaixo do preço fica de fora
+    pcalls = []
+    def papi(r):
+        m = r.request.url.split('atlas.v1.')[1]; bd = json.loads(r.request.post_data or '{}'); pcalls.append((m, bd)); H = {'access-control-allow-origin': '*'}
+        if m == 'PlayerService/GetAllPlayers': return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'players': [{'id': str(9000 + i), 'fullName': 'Jogador %d' % i} for i in range(60)] + [{'id': '203999', 'fullName': 'Nikola Jokić'}, {'id': '1629029', 'fullName': 'Luka Dončić'}]}))
+        if m == 'EditionService/SearchEditions':
+            t = (bd.get('tier') or [''])[0]; pid = (bd.get('playerId') or [''])[0]
+            ed = {('203999', 'COMMON'): {'lowAskCents': '300', 'highestOfferCents': '200'}, ('203999', 'RARE'): {'lowAskCents': '2000', 'highestOfferCents': '1700'}, ('203999', 'LEGENDARY'): {'lowAskCents': '90000', 'highestOfferCents': '95000'},
+                  ('1629029', 'COMMON'): {'lowAskCents': '500'}, ('1629029', 'RARE'): None}.get((pid, t), {'lowAskCents': '100'})
+            return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'editions': [ed] if ed else []}))
+        return r.fulfill(status=200, content_type='application/json', headers=H, body='{}')
+    pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
+    pg.route('https://api.production.atlas.dapperlabs.com/**', papi)
+    pjob = {'do': ['px'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}], 'pl': [['jokic', 'Nikola Jokić'], ['luka', 'Luka Dončić'], ['zz', 'Ninguém Assim']]}
+    pg.goto('https://nbatopshot.com/fastbreak#fbsync=' + base64.urlsafe_b64encode(json.dumps(pjob).encode()).decode().rstrip('='))
+    pg.evaluate((docs / 'fb-lugares.js').read_text()); pg.evaluate("new Headers().set('authorization', 'Bearer x')")
+    pg.wait_for_url('https://site.test/**', timeout=30000)
+    pback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))['px']
+    print('T2b preços com ofertas:', pback.get('p'), 'sem:', pback.get('miss'), '· ok' if pback['p'].get('jokic') == [300, 2000, 90000, 200, 1700, None] and pback['p'].get('luka') == [500, None, 100, None, None, None] and pback.get('miss') == ['zz'] else '· ERRO')
+    us = (docs / 'fb-lugares.user.js').read_text()
+    print('T2b userscript: versão 35 e o mesmo código:', '· ok' if '// @version      35' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
+    pg.close()
     # T3: com a run 2 já a decorrer, o leitor lê a run do site (pelo 1.º dia), mesmo que o site tenha guardado a outra
     # run por engano; e com folga de dias quando o 1.º dia do site não é o mesmo do Top Shot
     R2 = {'id': 'run-nba-classic-2026-11-03', 'league': 'nba', 'mode': 'RUN_MODE_CLASSIC', 'leaderboardId': 'run:run-nba-classic-2026-11-03'}
@@ -1981,6 +2006,7 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     pg.screenshot(path=str(shots / 'compras-carrinho.png'), full_page=True)
     pg.fill('#buyBudget', ''); pg.wait_for_timeout(100)
+    hint0 = 'leitor para a v35' in pg.locator('#plSub').inner_text()  # preços sem ofertas: pede o leitor novo
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
     pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(400); pg.click('#tab-ajustes button[data-action="ranks-go"][data-do^="px"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
     job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
@@ -2013,6 +2039,26 @@ with sync_playwright() as pw:
         h1 = lh(); hold1 = store(pg4, '(__FAKE_DB.tables.user_runs[0].plan.hold || {}).ids'); pg4.wait_for_timeout(6000); h2 = lh(); hold2 = store(pg4, '(__FAKE_DB.tables.user_runs[0].plan.hold || {}).ids')
         print('K3 lineup mantido sem voltas' + (' (chega com voltas)' if seedLoop else '') + ': à chegada', len(pl4['hold']['ids']), 'jogador(es) · histórico', h1, '→', h2, '· mantido', hold1, '· ok' if len(h2) <= 4 and h1 == h2 and hold1 == hold2 else '· ERRO')
         pg4.close()
+    # custo real: com as ofertas lidas (leitor v35), um Rare que se revende quase ao preço custa pouco e passa à frente
+    # dos Common sem oferta; a linha mostra o custo real e a ordem é a do "por dólar" desse custo
+    db3 = dict(dbk); db3['tables'] = json.loads(tables_k3)
+    P3 = next(x for x in db3['tables']['summaries'] if x['user_id'] == 'u-eu')['share']['px']['p']
+    for pid_ in list(P3): c_ = P3[pid_][:3]; P3[pid_] = c_ + [None, round(c_[1] * 0.97) if c_[1] else None, None]
+    pg3 = new_page(b, db3); pg3.route('https://site.api.espn.com/**', lambda r: r.fulfill(status=404, body='')); pg3.clock.set_fixed_time('2026-10-22T08:40:00Z')
+    pg3.goto('https://site.test/'); pg3.wait_for_timeout(500)
+    pg3.fill('#auEmail', 'eu@x.pt'); pg3.fill('#auPass', 'segredo1'); pg3.click('#auSubmit'); pg3.wait_for_timeout(4000)
+    pg3.click('#t-plantel'); pg3.wait_for_timeout(300); pg3.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg3.wait_for_timeout(300)
+    hint1 = 'leitor para a v35' in pg3.locator('#plSub').inner_text()
+    pg3.click('#tab-plantel button[data-action="buy-run"]'); pg3.wait_for_selector('#buyOut .buy-row, #buyOut .note', timeout=40000); pg3.wait_for_timeout(300)
+    R3 = pg3.evaluate('''() => [...document.querySelectorAll('#buyOut .card:not(.buy-cart) .buy-row')].map(r => ({ nm: (r.querySelector('.nm') || {}).textContent, tier: (r.querySelector('.tpill') || {}).textContent, ask: (r.querySelector('.mkt b') || {}).textContent || '', real: (r.querySelector('.buy-real b') || {}).textContent || '', per: ((r.querySelector('.buy-per') || {}).textContent || '').replace(/^.*· /, '') }))''')
+    pers3 = [_num(x['per']) for x in R3 if x['per']]
+    rares = [x for x in R3 if x['tier'] == 'Rare' and x['real']]
+    print('K3 custo real:', [(x['nm'], x['tier'], x['ask'], x['real'], x['per']) for x in R3][:3], '| aviso do leitor antes/depois:', hint0, hint1, '| ok:', hint0 and not hint1 and len(rares) >= 1 and all(_num(x['real']) < _num(x['ask']) for x in rares) and len(pers3) >= 2 and pers3 == sorted(pers3, reverse=True) and 'custo real' in pg3.locator('#buyOut .buy-intro').inner_text() or ('ERRO', R3))
+    pg3.locator('#buyOut .card:not(.buy-cart) .buy-row').first.click(); pg3.wait_for_timeout(500)
+    print('K3 custo real na ficha da compra:', pg3.locator('#sheetPanel .bd-tiles').inner_text().replace('\n', ' | ')[-90:], '| ok:', ('custo real' in pg3.locator('#sheetPanel .bd-tiles').inner_text()) == bool(R3 and R3[0]['real']) or 'ERRO')
+    pg3.click('#sheetPanel button[data-action="close-sheet"]'); pg3.wait_for_timeout(200)
+    pg3.screenshot(path=str(shots / 'compras-custo-real.png'), full_page=True)
+    pg3.close()
     pg.close()
 
     # ---------- L: Mudar o lineup antes dos jogos (fixar, tirar e pôr um a um, com o que muda face à sugestão) ----------

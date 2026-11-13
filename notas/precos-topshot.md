@@ -16,3 +16,15 @@
   - O filtro de preço máximo nas compras também funciona só com estes preços.
 - Os campos do edition (vistos na sonda 5) incluem `lowAskCents`, `averageSalePriceCents` (o utilizador não quer o ASP), `tier`, `parallel`, `set.name`, `maxMintSize` e `editionTemplate.metadata.PlayerId/FullName`.
 - **Por confirmar no primeiro uso real:** o corpo do pedido do GetAllPlayers e se aceita vários escalões numa só chamada (os dois casos já têm alternativa no código).
+
+## Oferta mais alta e custo real (13 nov 2026, leitor v35)
+- A mesma chamada que dá o mais barato à venda (`SearchEditions`, `limit: 1`, por `LOW_ASK`) traz `highestOfferCents` dessa
+  edição. O leitor passa a devolver, por jogador, `[3 preços, 3 ofertas]` (Common, Rare, Legendary). Uma oferta igual ou
+  acima do preço fica de fora. Quem ainda tem o site antigo lê só as 3 primeiras colunas.
+- **Custo real** (`costOf` no `docs/app.js`): preço − oferta × (1 − 5% de comissão), com mínimo de 5% do preço. Sem
+  oferta lida (ou linha antiga, de 3 colunas), o custo é o preço todo.
+- Onde entra: a escolha do escalão ("Qualquer"), a ordem "Mais por dólar", o "por dólar" de cada linha e a escolha do
+  carrinho. O **orçamento** ("Tenho para gastar") e o "Máximo por Moment" continuam a contar o preço que se paga.
+- É uma estimativa: a oferta é a dessa edição no momento da leitura e pode sair antes de se vender.
+- Com preços lidos mas sem ofertas (leitor antigo), o formulário das compras pede a v35.
+

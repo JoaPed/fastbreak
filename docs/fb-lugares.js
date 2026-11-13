@@ -72,6 +72,7 @@ function matcher(m) {
   return name => { const n = norm(name); if (m[n]) return m[n]; const w = n.split(' '); if (w.length < 2) return null; const L = byLast[w.slice(1).join(' ') + '|' + w[0][0]]; return L && L.length === 1 ? L[0] : null; };
 }
 // [Common/Fandom, Rare, Legendary/Ultimate]: o Moment mais barato à venda de cada um (em cêntimos; null = nenhum à venda)
+// e a oferta mais alta por essa mesma edição (o que se recebe ao revendê-lo já: dá o custo real de o comprar para a run)
 const PX_TIERS = [['COMMON', 'FANDOM'], ['RARE'], ['LEGENDARY', 'ULTIMATE']];
 let edOwner = false, oneTier = false;
 async function cheapest(nba, tiers) {
@@ -85,8 +86,9 @@ async function cheapest(nba, tiers) {
     if (tiers.length > 1) { oneTier = true; return cheapest(nba, tiers.slice(0, 1)); }
     throw e;
   }
-  const e = (r.editions || [])[0];
-  return e && e.lowAskCents != null && +e.lowAskCents > 0 ? +e.lowAskCents : null;
+  const e = (r.editions || [])[0], ask = e && e.lowAskCents != null && +e.lowAskCents > 0 ? +e.lowAskCents : null;
+  const off = ask && +e.highestOfferCents > 0 ? +e.highestOfferCents : null;
+  return [ask, off && off < ask ? off : null]; // uma oferta igual ou acima do preço não é a dessa edição: fica de fora
 }
 async function prices(pl) {
   say('A ler a lista de jogadores do Top Shot…');
@@ -95,9 +97,10 @@ async function prices(pl) {
   let done = 0, fails = 0;
   const work = async () => {
     for (let x; (x = todo.shift());) {
-      const row = [];
-      for (const t of PX_TIERS) { try { row.push(await cheapest(x[1], t)); } catch (e) { row.push(undefined); fails++; } }
-      if (row.some(v => v !== undefined)) px.p[x[0]] = row.map(v => v === undefined ? null : v);
+      const row = [], off = [];
+      for (const t of PX_TIERS) { try { const c = await cheapest(x[1], t); row.push(c[0]); off.push(c[1]); } catch (e) { row.push(undefined); off.push(null); fails++; } }
+      // [3 preços, 3 ofertas]: quem ainda tem o site antigo lê só os 3 primeiros
+      if (row.some(v => v !== undefined)) px.p[x[0]] = row.map(v => v === undefined ? null : v).concat(off);
       done++; if (done % 5 === 0) say('A ler os preços… ' + done + ' de ' + (done + todo.length) + ' jogadores');
       if (fails > 30 && Object.keys(px.p).length < 3) throw new Error('o mercado não respondeu');
     }

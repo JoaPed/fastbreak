@@ -379,7 +379,7 @@ const HELP = {
   plantel: ['Roster', 'Your players in this run. Uses: how many days they can still play (those of the best card: Common 1, Rare 2, Legendary 4; more cards of the same player don’t add up). The strip is the run’s days: used, in the plan, on the other account, has a game. Tap a player to change his uses, cards or status.'],
   cartas: ['Your cards', 'Each Moment with the rarity and ASP read on Top Shot. Rarity gives the minimum uses (Common 1, Rare 2, Legendary 4, Ultimate unlimited) and ASP can only raise them: up to $10 Draft Pick (1), up to $50 Starter (2), up to $300 All-Star (3), up to $1000 MVP (4), above that Hall of Fame (unlimited). The player gets the uses of his best card. Cards without Top Shot data: the site guesses the rarity from the set and the mint size, and you can pick the right one.'],
   colecao: ['Collection', 'Your Moments read from the blockchain (all accounts), saved in your profile for every run. Uses per run of each player: those of the best card. Moments of players outside this NBA season don’t count.'],
-  comprar: ['Buy', 'The run is re-planned with each candidate: you see how much the prizes go up and on which days he would play. Uses per run: Common 1 (2 if the ASP is above $10), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. For a player you already have, it only helps if the new Moment is a tier above. <b>Any</b> tier: each player gets the tier that pays off most. <b>Most per dollar</b> sorts by how much the run goes up for each dollar of the cheapest Moment listed (prices read on Top Shot); <b>Biggest gain</b> sorts only by how much the run goes up. With <b>I have to spend</b>, the app builds the set of purchases that fits that amount and re-plans the run with all of them together (two players for the same day don’t add up).'],
+  comprar: ['Buy', 'The run is re-planned with each candidate: you see how much the prizes go up and on which days he would play. Uses per run: Common 1 (2 if the ASP is above $10), Rare 2, Legendary 4. “All” includes new players and a higher-tier Moment of players you already have (a Rare of someone you only have as a Common gives +1 use); “Upgrade yours” looks only at those. For a player you already have, it only helps if the new Moment is a tier above. <b>Any</b> tier: each player gets the tier that pays off most. <b>Most per dollar</b> sorts by how much the run goes up for each dollar of <b>real cost</b>: the price of the cheapest Moment listed minus what you get if you resell it to the highest offer on that edition (after the 5% fee). A $20 Rare with a $17 offer costs you about $4. With no offer, the full price counts. It is an estimate: the offer may be gone before you sell. <b>Biggest gain</b> sorts only by how much the run goes up. With <b>I have to spend</b>, the app builds the set of purchases that fits that amount (it counts the price you pay, not the real cost) and re-plans the run with all of them together (two players for the same day don’t add up).'],
   especialistas: ['Specialists', 'The NBA’s best in each stat (this season mixed with last). Stats are ordered by how often they come up on Fast Break days; ● = it comes up in the rest of this run. <b>Specialist</b>: top of this stat but outside the top 75 scorers. <b>Steady/streaky</b>: how much he varies from game to game.'],
   forma: ['Run form', 'Pick one of the next days. Hot: your players who play that day with their last-5 average above the season (≥ 8%) in the goal’s stats. Cold: those in that day’s plan below the season. Minutes: who plays 3+ minutes more or less than his season average. Might play less: games the favourite wins 85%+ of the time (ESPN odds, only near the game) — if it’s decided early, stars rest or are spared. The bars are the last games (most recent on the right); the line is the season average.'],
   historic: ['Historic', 'Simulated games between legends (career averages, 36 minutes). You pick 5 within 350 Roster Points; whoever adds up the most Fast Break Points wins (PTS 1, REB 1, AST 2, STL 3, BLK 3, turnover −1, three +0.5, double-double +5, triple-double +10). Each legend’s expected points come from the simulated games so far, pulled towards what the cost predicts when there are few games, and from the opponent. The suggestion is the team that most often reaches the top 40 when the day is simulated 3000 times, compared with the scores that won prizes on similar days. + locks a legend, × takes him out of the day, tapping the name saves your card (the discount lowers the cost).'],
@@ -843,7 +843,8 @@ async function loadGroupCards() {
 }
 // ---------- preços do mercado lidos no próprio Top Shot (o script "FB lugares" lê-os com os lugares) ----------
 // S.pxMine = {at, p: {id: [Common, Rare, Legendary] em cêntimos ou null}}; fica no resumo publicado (share.px) e o grupo
-// usa, jogador a jogador, o preço mais recente que alguém leu
+// usa, jogador a jogador, o preço mais recente que alguém leu. A partir do leitor v35 cada linha traz mais 3 colunas:
+// a oferta mais alta pela edição mais barata de cada escalão (o que se recebe ao revender já)
 try { S.pxMine = JSON.parse(localStorage.getItem('fb-px') || 'null'); } catch (e) { S.pxMine = null; }
 function pxTake(px) {
   const old = S.pxMine && S.pxMine.p ? S.pxMine : { p: {}, t: {} }, t = Object.assign({}, old.t || {});
@@ -868,6 +869,8 @@ const pxOf = id => { const x = pxIndex().get(String(canon(id))) || pxIndex().get
 const pxMiss = id => !!(S.pxMine && S.pxMine.miss && Date.now() - Date.parse(S.pxMine.at) < 3 * 864e5 && S.pxMine.miss.includes(String(canon(id))) && !pxOf(id));
 // com preços lidos: só se sugere quem tem um Moment desse escalão à venda
 const pxReady = () => pxIndex().size >= 50;
+// as ofertas já foram lidas (leitor v35)? Sem elas o custo de uma compra é o preço todo
+const pxOffers = () => { let n = 0; for (const x of pxIndex().values()) if (x.c.length >= 6 && ++n >= 20) return true; return false; };
 const buyable = (id, U) => { const p = mktOf(id, U); return !!(p && p.ask != null); };
 const pxCol = uses => (uses >= 4 ? 2 : uses >= 2 ? 1 : 0);
 // os jogadores a ler: sempre todos os que podem aparecer nas compras (os da NBA com médias), primeiro o teu plantel
@@ -3933,7 +3936,7 @@ function buyHtml() {
   return buyTipsCard(6) + '<div class="card panel"><h2>Look for buys ' + helpBtn('comprar') + '</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="What to buy"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">All</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Upgrade yours</button></div>' +
     '<div><div class="label" style="margin-bottom:6px">Moment tier</div><div class="chips" role="group" aria-label="Moment tier">' + (pxReady() ? '<button type="button" data-action="buy-uses" data-n="0" aria-pressed="' + (!B.uses) + '">Any</button>' : '') + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + ((B.uses || (pxReady() ? 0 : 2)) === n) + '">' + tierName(n) + ' · ' + plural(n, 'use', 'uses') + '</button>').join('') + '</div></div>' +
-    (pxReady() ? '<div><div class="label" style="margin-bottom:6px">Sort by</div><div class="seg acc-seg" role="group" aria-label="Sort purchases"><button type="button" data-action="buy-sort" data-v="value" aria-pressed="' + (B.sort !== 'gain') + '">Most per dollar</button><button type="button" data-action="buy-sort" data-v="gain" aria-pressed="' + (B.sort === 'gain') + '">Biggest gain</button></div></div>'
+    (pxReady() ? '<div><div class="label" style="margin-bottom:6px">Sort by</div><div class="seg acc-seg" role="group" aria-label="Sort purchases"><button type="button" data-action="buy-sort" data-v="value" aria-pressed="' + (B.sort !== 'gain') + '">Most per dollar</button><button type="button" data-action="buy-sort" data-v="gain" aria-pressed="' + (B.sort === 'gain') + '">Biggest gain</button></div>' + (pxOffers() ? '' : '<div class="small muted" style="margin-top:6px">To count the real cost (price minus resale), update the reader to v35 and read the prices again.</div>') + '</div>'
       : '<div class="small muted">No prices read from Top Shot (Settings → Admin → Read on Top Shot → Prices): purchases are sorted by gain, ignoring price.</div>') +
     (B.mode !== 'more' ? '<div class="buy-money"><label class="small muted">' + (pxReady() ? 'Max per Moment ($)' : 'Max price per Moment (optional, in $)') + '<input class="field" id="buyMax" name="buyMax" type="number" inputmode="decimal" min="0" step="1" placeholder="e.g. 6" value="' + (B.max || '') + '" autocomplete="off"></label>' +
       (pxReady() ? '<label class="small muted">I have to spend ($)<input class="field" id="buyBudget" name="buyBudget" type="number" inputmode="decimal" min="0" step="1" placeholder="e.g. 20" value="' + (B.budget || '') + '" autocomplete="off"></label>' : '') + '</div>' : '') +
@@ -4021,6 +4024,9 @@ const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id))
 // sort: 'value' = ganho na run por dólar (o que mais rende por cada dólar gasto) · 'gain' = o que mais sobe a run
 const BUY_TIERS = [1, 2, 4];
 const askOf = (id, u) => { const p = mktOf(id, u); return p && p.ask != null ? +p.ask : null; };
+// Custo real de comprar para a run: paga-se o mais barato à venda e, no fim, revende-se à oferta mais alta dessa
+// edição (menos a comissão de venda). Sem oferta lida conta o preço todo. É uma estimativa: a oferta pode sair.
+const costOf = (id, u) => { const p = mktOf(id, u); if (!p || p.ask == null) return null; return p.offer != null ? Math.max(p.ask - p.offer * (1 - SELL_FEE), p.ask * SELL_FEE) : +p.ask; };
 // a compra de um Moment de u usos num plantel de ensaio: jogador novo (fica na conta principal), ou mais usos (e mais
 // um Moment) para quem já tens
 const buyAdd = (id, u) => pl => {
@@ -4054,7 +4060,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
   if (!pool.length) return { list: [], U, any, mode, base: null, single: !!onlyId, noPool: true, priced, maxPrice, unsold };
   const add = id => buyAdd(id, uOf(id));
   // ganho por dólar (com preços) ou só o ganho
-  const worth = (id, g) => { if (!byValue) return g; const a = askOf(id, uOf(id)); return a != null && a > 0 ? g / Math.max(a, 0.5) : 0; };
+  const worth = (id, g) => { if (!byValue) return g; const a = costOf(id, uOf(id)); return a != null && a > 0 ? g / Math.max(a, 0.5) : 0; };
   const accs = S.multi ? accounts().map(a => a.id) : ['main'];
   let shortlist = pool, rank = null;
   if (!ids && pool.length > 1) {
@@ -4073,7 +4079,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
         const ts = tiersFor(id); if (!ts.length) return;
         const best = Math.max(...ts.map(u => (scU[u] || {})[id] || 0)); if (!(best > 1e-5)) return;
         const ok = ts.filter(u => ((scU[u] || {})[id] || 0) >= 0.15 * best);
-        const m = u => { const g = (scU[u] || {})[id] || 0; return byValue ? g / Math.max(askOf(id, u), 0.5) : g; };
+        const m = u => { const g = (scU[u] || {})[id] || 0; return byValue ? g / Math.max(costOf(id, u), 0.5) : g; };
         const u = ok.sort((a, b) => m(b) - m(a) || a - b)[0];
         Uof[id] = u; score[id] = (scU[u] || {})[id] || 0;
       });
@@ -4108,7 +4114,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
       if (prog) prog('Redoing the run with ' + nameOf(id) + '… ' + (k + 1) + ' of ' + shortlist.length);
       await tick();
       if (alive && !alive()) return null;
-      try { list.push({ id, U: uOf(id), ask: askOf(id, uOf(id)), ev: await planWithAsync(add(id), kicks, 'nohold') }); } catch (e) { console.warn(e); }
+      try { list.push({ id, U: uOf(id), ask: askOf(id, uOf(id)), cost: costOf(id, uOf(id)), ev: await planWithAsync(add(id), kicks, 'nohold') }); } catch (e) { console.warn(e); }
     }
   }
   return buySort({ list, U: U || 2, any, Uof, sort: byValue ? 'value' : 'gain', mode, base, single: !!onlyId, rank, pool: pool.length, unsold, maxPrice: priced != null ? maxPrice : null });
@@ -4125,8 +4131,10 @@ function buySort(R) {
   if (!R.base || !R.list.length) return R;
   R.unit = R.list.some(x => buyPzUp(R, x, true) >= 1) ? '%' : 'W';
   const byValue = R.sort === 'value';
-  const w = x => { const g = Math.max(0, buyGain(x, R)); return byValue ? (x.ask != null && x.ask > 0 ? g / Math.max(x.ask, 0.5) : 0) : g; };
+  // por dólar = por dólar de custo real (preço menos o que se recebe ao revender); sem ofertas lidas, o preço
+  const w = x => { const g = Math.max(0, buyGain(x, R)), c = x.cost != null ? x.cost : x.ask; return byValue ? (c != null && c > 0 ? g / Math.max(c, 0.5) : 0) : g; };
   R.list.sort((a, b) => w(b) - w(a) || b.ev.total - a.ev.total);
+  R.real = R.list.some(x => x.cost != null && x.ask != null && x.cost < x.ask - 0.005);
   return R;
 }
 // Carrinho: com um orçamento total, o conjunto de compras que mais sobe a run. Entra uma de cada vez (a que mais rende
@@ -4151,13 +4159,13 @@ async function buyCart(R, budget, alive, prog) {
         if (alive && !alive()) return null;
         let ev = x.ev;
         if (items.length) { if (prog) prog('Building the cart… ' + (++n)); await tick(); const set = items.concat([x]); ev = await planWithAsync(pl => set.forEach(z => buyAdd(z.id, z.U)(pl)), undefined, 'nohold'); }
-        const g = tot(ev) - tot(cur), w = g / Math.max(x.ask, 0.5);
+        const g = tot(ev) - tot(cur), w = g / Math.max(x.cost != null ? x.cost : x.ask, 0.5);
         if (g > eps && (!pick || w > pick.w)) pick = { x, ev, g, w };
       }
       if (!pick) break;
-      items.push({ id: String(pick.x.id), U: pick.x.U, ask: pick.x.ask }); left -= pick.x.ask; cur = pick.ev;
+      items.push({ id: String(pick.x.id), U: pick.x.U, ask: pick.x.ask, cost: pick.x.cost != null ? pick.x.cost : pick.x.ask }); left -= pick.x.ask; cur = pick.ev;
     }
-    return { items, cost: items.reduce((t, z) => t + z.ask, 0), ev: cur, budget };
+    return { items, cost: items.reduce((t, z) => t + z.ask, 0), real: items.reduce((t, z) => t + z.cost, 0), ev: cur, budget };
   };
   const a = await grow(null); if (!a) return null;
   const top = cands.filter(x => x.ask <= budget + 1e-9).sort((p, q) => g0(q) - g0(p))[0];
@@ -4347,9 +4355,9 @@ function buySummary(R, x) {
   keys.forEach(k => { const bd = new Map(resOf(R.base, k).days.map(d => [d.date, d])); resOf(x.ev, k).days.forEach(d => { const b0 = bd.get(d.date); if (d.lineup.includes(id) && !(b0 && b0.lineup.includes(id))) days.add(d.idx + 1); }); });
   const byPrize = !!best && Math.round(best.to * 100) - Math.round(best.from * 100) >= 1;
   // escalão e preço desta compra, e quanto rende por dólar (o prémio que mais sobe, ou as vitórias esperadas)
-  const U = x.U || R.U, ask = x.ask != null ? x.ask : askOf(id, U);
-  const per = !(ask != null && ask > 0) ? null : R.unit === 'V' ? (e1 - e0 > 0.005 ? { v: (e1 - e0) / ask, unit: 'W' } : null) : byPrize ? { v: (best.to - best.from) * 100 / ask, unit: '%' } : null;
-  return { id, U, ask, per, best, e0, e1, byPrize, worth: byPrize || e1 - e0 >= 0.15, days: [...days].sort((a, b) => a - b), multi: keys.length > 1 };
+  const U = x.U || R.U, ask = x.ask != null ? x.ask : askOf(id, U), cost = x.cost != null ? x.cost : id ? costOf(id, U) : ask, cd = cost != null ? Math.max(cost, 0.5) : null;
+  const per = !(cd > 0) ? null : R.unit === 'V' ? (e1 - e0 > 0.005 ? { v: (e1 - e0) / cd, unit: 'W' } : null) : byPrize ? { v: (best.to - best.from) * 100 / cd, unit: '%' } : null;
+  return { id, U, ask, cost, real: cost != null && ask != null && cost < ask - 0.005, per, best, e0, e1, byPrize, worth: byPrize || e1 - e0 >= 0.15, days: [...days].sort((a, b) => a - b), multi: keys.length > 1 };
 }
 // "rende +0,8% por dólar": quanto sobe (o prémio ou as vitórias esperadas) por cada dólar do preço mais baixo
 function perUsdTxt(t) {
@@ -4366,7 +4374,7 @@ function buyRow(R, t, i, src) {
   const right = t.byPrize
     ? '<span class="bg-top">' + t.best.p.wins + ' wins' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · was ' + pct(t.best.from) + '</span>'
     : '<span class="bg-top">expected</span><span class="bg-big' + (t.worth ? ' up' : ' muted') + '">' + f1(t.e1) + '</span><span class="bg-was">' + (t.worth ? '<b class="up">▲ ' + f1(t.e1 - t.e0) + '</b> · ' : '') + 'was ' + f1(t.e0) + '</span>';
-  return '<li><button class="row buy-row" type="button" data-action="buy-detail" data-id="' + esc(t.id) + '" data-src="' + src + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || nameOf(t.id)) + '</span></div><div class="ps buy-tags">' + badge + '</div><div class="ps">' + sub + '</div>' + (pu ? '<div class="ps buy-per">' + pu + '</div>' : '') + '</div></span><span class="bg">' + right + '</span></button></li>';
+  return '<li><button class="row buy-row" type="button" data-action="buy-detail" data-id="' + esc(t.id) + '" data-src="' + src + '"><span class="who">' + face(t.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + (i + 1) + '. ' + esc(c.name || nameOf(t.id)) + '</span></div><div class="ps buy-tags">' + badge + '</div><div class="ps">' + sub + '</div>' + (t.real ? '<div class="ps buy-real">real cost <b class="num">' + usd(t.cost) + '</b></div>' : '') + (pu ? '<div class="ps buy-per">' + pu + '</div>' : '') + '</div></span><span class="bg">' + right + '</span></button></li>';
 }
 // detalhes de uma compra (folha): o que muda na run, dia a dia e nos prémios, e o preço
 function buyDetailSheet(src, id) {
@@ -4391,11 +4399,12 @@ function buyCartHtml(R) {
   const C = R.cart; if (!C) return '';
   const head = '<div class="list-head"><h2>With ' + usd(C.budget) + '</h2><span class="small muted">' + (C.items.length ? 'you spend <b class="num">' + usd(C.cost) + '</b>' : '') + '</span></div>';
   if (!C.items.length) return '<div class="card buy-cart">' + head + '<div class="row small muted" style="display:block">None of these purchases fits that amount (or changes the run).</div></div>';
-  const t = buySummary(R, { id: '', ev: C.ev, U: 2, ask: C.cost });
+  const t = buySummary(R, { id: '', ev: C.ev, U: 2, ask: C.cost, cost: C.cost });
+  const realTxt = C.real != null && C.real < C.cost - 0.005 ? ' Real cost ' + usd(C.real) + ' if you resell them at the end.' : '';
   const gain = t.byPrize ? '<div class="buy-gain">' + t.best.p.wins + ' wins' + (t.multi ? ' (' + esc(accLabel(t.best.k)) + ')' : '') + ': ' + pct(t.best.from) + ' → <span class="up">' + pct(t.best.to) + '</span></div>'
     : '<div class="buy-gain">Expected wins: ' + f1(t.e0) + ' → <span class="up">' + f1(t.e1) + '</span></div>';
   const rows = C.items.map(z => { const c = S.players.get(z.id) || {}, tn = tierName(z.U); return '<li><button class="row cart-row" type="button" data-action="buy-detail" data-id="' + esc(z.id) + '" data-src="res"><span class="who">' + face(z.id, 'sm') + '<span class="nm">' + esc(c.name || nameOf(z.id)) + '</span><span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span></span><b class="num">' + usd(z.ask) + '</b></button></li>'; }).join('');
-  return '<div class="card buy-cart">' + head + '<div class="cart-gain">' + gain + '<div class="small muted">' + (C.items.length > 1 ? 'With all ' + C.items.length + ' together (the run was re-planned with all of them).' : 'The best-value purchase for that amount.') + '</div></div><ul class="list">' + rows + '</ul></div>';
+  return '<div class="card buy-cart">' + head + '<div class="cart-gain">' + gain + '<div class="small muted">' + (C.items.length > 1 ? 'With all ' + C.items.length + ' together (the run was re-planned with all of them).' : 'The best-value purchase for that amount.') + realTxt + '</div></div><ul class="list">' + rows + '</ul></div>';
 }
 function buyResultsHtml(R) {
   const usesTxt = n => n + ' use' + (n > 1 ? 's' : '');
@@ -4403,7 +4412,7 @@ function buyResultsHtml(R) {
   const keys = R.base.group ? R.base.group.keys : ['main'], multi = keys.length > 1;
   const resOf = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res);
   const seen = new Set(R.list.map(x => String(x.id)).concat(R.skip || [])), left = R.rank ? R.rank.filter(id => !seen.has(id)).length : 0;
-  const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Looked at the ' + R.pool + ' players with games in the remaining days' + (R.maxPrice ? ' and a ' + (R.any ? 'Moment' : tierName(R.U)) + ' listed up to ' + usd(R.maxPrice) : '') + ' and fully re-ran the run with the ' + R.list.length + ' most promising' + (R.any ? ', each in the tier that ' + (R.sort === 'value' ? 'gives the most per dollar' : 'raises the run the most') : '') + '.' + (R.sort === 'value' ? ' Sorted by what each dollar gives.' : '') + (R.unsold ? ' Left out ' + R.unsold + ' with no ' + (R.any ? 'Moment' : tierName(R.U)) + ' for sale.' : '') + '</div>';
+  const intro = R.single || !R.rank ? '' : '<div class="small muted buy-intro">Looked at the ' + R.pool + ' players with games in the remaining days' + (R.maxPrice ? ' and a ' + (R.any ? 'Moment' : tierName(R.U)) + ' listed up to ' + usd(R.maxPrice) : '') + ' and fully re-ran the run with the ' + R.list.length + ' most promising' + (R.any ? ', each in the tier that ' + (R.sort === 'value' ? 'gives the most per dollar' : 'raises the run the most') : '') + '.' + (R.sort === 'value' ? (R.real ? ' Sorted by what each dollar of real cost gives: the price minus what you get if you resell to the highest offer (after the 5% fee).' : ' Sorted by what each dollar gives.') : '') + (R.unsold ? ' Left out ' + R.unsold + ' with no ' + (R.any ? 'Moment' : tierName(R.U)) + ' for sale.' : '') + '</div>';
   const moreBtn = left ? '<div id="buyMoreBox"><button class="btn" type="button" data-action="buy-more">Test the next ' + Math.min(left, S.multi ? 5 : 8) + '</button></div>' : '';
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
@@ -4442,7 +4451,7 @@ function buyResultsHtml(R) {
       const tiles = '<div class="bd-tiles">' +
         (byPrize ? tile('Prize', pct(best.from) + ' → <span class="up">' + pct(best.to) + '</span>', best.p.wins + ' wins' + (multi ? ' · ' + esc(accLabel(best.k)) : '')) : '') +
         tile('Expected wins', f1(e0) + ' → <span class="' + (e1 - e0 >= 0.15 ? 'up' : '') + '">' + f1(e1) + '</span>', multi ? 'all accounts' : 'in the run') +
-        tile('Price', mk && mk.ask != null ? '<span class="up">' + usd(mk.ask) + '</span>' : '—', mk && mk.ask != null ? tierName(R.U) + ', cheapest' : mk && mk.ts ? 'no ' + tierName(R.U) + ' for sale' : 'not read yet') + '</div>';
+        tile('Price', mk && mk.ask != null ? '<span class="up">' + usd(mk.ask) + '</span>' : '—', mk && mk.ask != null ? (mk.offer != null ? 'real cost ' + usd(costOf(id, R.U)) + ' · offer ' + usd(mk.offer) : tierName(R.U) + ', cheapest') : mk && mk.ts ? 'no ' + tierName(R.U) + ' for sale' : 'not read yet') + '</div>';
       const prizeRows = tiers.length ? '<div class="label" style="margin-top:4px">Prizes that change</div><div class="bd-prizes">' + tiers.map(w => '<b>' + w + 'W</b><span>' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → <b class="' + (m.a > m.b ? 'up' : '') + '">' + pct(m.a) + '</b>').join(' · ') + '</span>').join('') + '</div>' : '';
       return '<div class="buy-detail stack"><div class="bd-head">' + face(id, 'lg') + '<div style="min-width:0"><h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + teamTag(c.team) + ' · ' + tierLab + '</div></div></div>' + (worth ? '' : '<div class="note">Not worth it: the run barely changes.</div>') + tiles +
         '<div><div class="label">' + (days.length ? 'New days he plays' : 'Days') + '</div><div class="small" style="margin:4px 0">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') + '</div>' + prizeRows + '</div>';
@@ -5418,7 +5427,7 @@ async function mktLoad(ids) {
 // preço de um jogador num escalão (uses: 1, 2 ou 4): {ask, serial, last, lastAt, n}
 function mktOf(id, uses) {
   const x = pxOf(id);
-  if (x) { const v = x.c[pxCol(uses)]; return { ask: v != null ? v / 100 : null, serial: null, last: null, lastAt: null, n: 0, ts: x.at }; }
+  if (x) { const v = x.c[pxCol(uses)], o = x.c.length >= 6 ? x.c[3 + pxCol(uses)] : null; return { ask: v != null ? v / 100 : null, offer: v != null && o > 0 && o < v ? o / 100 : null, offers: x.c.length >= 6, serial: null, last: null, lastAt: null, n: 0, ts: x.at }; }
   const m = S.mkt.get(mktKey(id)); if (!m) return null;
   const ts = MKT_TIER[uses] || ['Common', 'Fandom'], a = m.asks.filter(r => ts.includes(r.tier)), sl = m.sales.filter(r => ts.includes(r.tier));
   return { ask: a.length ? +a[0].price : null, serial: a.length ? a[0].serial : null, last: sl.length ? +sl[0].price : null, lastAt: sl.length ? sl[0].sold_at : null, n: sl.length };
@@ -5441,7 +5450,7 @@ function mktFill() {
 function mktBlock(id) {
   const x = pxOf(id), upd = '';
   if (x) {
-    const rows = [1, 2, 4].map((u, i) => '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">' + (x.c[i] != null ? 'listed from <b class="num">' + usd(x.c[i] / 100) + '</b>' : '<span class="muted">none for sale</span>') + '</span></div>').join('');
+    const rows = [1, 2, 4].map((u, i) => '<div class="row" style="padding:8px 0;display:flex;justify-content:space-between;gap:10px"><span><b>' + tierName(u) + '</b></span><span class="small" style="text-align:right">' + (x.c[i] != null ? 'listed from <b class="num">' + usd(x.c[i] / 100) + '</b>' + (x.c[3 + i] > 0 && x.c[3 + i] < x.c[i] ? ' <span class="muted">· offer ' + usd(x.c[3 + i] / 100) + '</span>' : '') : '<span class="muted">none for sale</span>') + '</span></div>').join('');
     return '<div class="mkt-box"><div class="list-head" style="margin-bottom:4px"><span class="label">Top Shot market</span><span class="small muted">' + esc(ago(x.at)) + '</span></div>' + rows + (Date.now() - Date.parse(x.at) > 6 * 3600e3 ? upd : '') + '</div>';
   }
   if (S.mktOff) return '<div class="mkt-box"><div class="label" style="margin-bottom:4px">Top Shot market</div><div class="small muted">No prices read for this player yet.</div>' + upd + '</div>';

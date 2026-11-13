@@ -59,6 +59,15 @@ gastos (o normal em rosters curtos) não conseguia **mudar** um jogador para um 
 - Uma pesquisa 5 vezes mais longa só encontra planos ~0,7% melhores: daqui para a frente o ganho está no modelo, não
   na pesquisa.
 
+### Lineup do dia às voltas (13 de novembro, corrigido no mesmo dia)
+- A mesma pesquisa com e sem um jogador preso pode dar planos diferentes: num caso com poucos usos, 12% de diferença
+  no objetivo. Um jogador sozinho não ganha um dia, por isso encher um dia vazio pede 4 ou 5 mudanças juntas.
+- Com o lineup de hoje mantido **incompleto**, o cálculo com ele voltava a enchê-lo e a verificação sem ele voltava ao
+  de antes: os dois trocavam sem parar, e cada volta gravava o plano.
+- Correção (`holdCheck` no `docs/app.js`): a troca automática exige que o plano novo também seja melhor pelo objetivo
+  do motor, fica como ponto de partida (`plan.hint`) e há no máximo 3 trocas automáticas por dia e sessão.
+- A testar ao mexer na pesquisa ou no lineup do dia: `K3 lineup mantido sem voltas` em `test/ui_test.py`.
+
 ## Como repetir
 1. Correr a tarefa "Dados para medir o motor" no GitHub (Actions) e ir buscar `dados.json.gz` ao ramo `dados-motor`.
 2. As contas desta medição foram feitas fora do repositório (Python e Node sobre esse ficheiro, com o `core.js`

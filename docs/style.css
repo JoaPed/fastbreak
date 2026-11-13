@@ -1286,6 +1286,8 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .buy-row .buy-tags .mkt { margin-top: 0; font-size: 11.5px; padding: 1px 8px; }
 .buy-tags .mk-pre { display: none; } /* ao lado do escalão: só "desde $1" */
 .buy-row .buy-per { color: var(--accent); font-weight: 600; font-size: 12.5px; }
+.buy-row .buy-real { font-size: 12.5px; }
+.buy-row .buy-real b { color: var(--ink); font-weight: 700; }
 .buy-money { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; }
 .buy-money label { display: grid; gap: 4px; }
 .buy-cart { border-color: color-mix(in srgb, var(--accent) 35%, var(--card-border)); }
