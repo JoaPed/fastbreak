@@ -1,17 +1,27 @@
 [
  {
   "file": "docs/app.js",
-  "text": "<span class=\"pill mute\" title=\"Trancado no Top Shot: não se manda nem se vende\">trancado",
-  "line": "return '<li class=\"row mo-row\"><div style=\"min-width:0;flex:1\"><div class=\"pn\"><span class=\"tpill t-' + TIER_CLS[t] + '\">' + esc(t) + '</span>' + (up ? '<span c"
+  "text": "<div class=\"note\">Não consegui ver que Moments estão trancados (",
+  "line": "const lkHtml = lkFail.length ? '<div class=\"note\">Não consegui ver que Moments estão trancados (' + esc(lkFail.join(', ')) + '). Lê a carteira outra vez daqui a"
  },
  {
   "file": "docs/app.js",
-  "text": " até ",
-  "line": "return '<li class=\"row mo-row\"><div style=\"min-width:0;flex:1\"><div class=\"pn\"><span class=\"tpill t-' + TIER_CLS[t] + '\">' + esc(t) + '</span>' + (up ? '<span c"
+  "text": "). Lê a carteira outra vez daqui a pouco.</div>",
+  "line": "const lkHtml = lkFail.length ? '<div class=\"note\">Não consegui ver que Moments estão trancados (' + esc(lkFail.join(', ')) + '). Lê a carteira outra vez daqui a"
  },
  {
   "file": "docs/app.js",
-  "text": "Moments trancados",
-  "line": "catch (e) { console.warn('Moments trancados', e); lk = null; }"
+  "text": "<div class=\"small muted\">Trancados: nenhum.</div>",
+  "line": ": !lkN ? '<div class=\"small muted\">Trancados: nenhum.</div>'"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Moment trancado",
+  "line": ": '<div class=\"note info\"><b>' + plural(lkN, 'Moment trancado', 'Moments trancados') + '</b> (não se mandam entre contas nem se vendem):' + Object.entries(lkBy)"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "</b> (não se mandam entre contas nem se vendem):",
+  "line": ": '<div class=\"note info\"><b>' + plural(lkN, 'Moment trancado', 'Moments trancados') + '</b> (não se mandam entre contas nem se vendem):' + Object.entries(lkBy)"
  }
 ]

@@ -6181,12 +6181,19 @@ async function walletSheet() {
     if (rem.length) diff.push('<div><b class="down">−' + plural(rem.length, 'Moment saiu', 'Moments saíram') + ':</b> ' + grp(rem, prevItems, prevCol) + '.</div>');
     if (moved.length) diff.push('<div><b>' + plural(moved.length, 'Moment mudou', 'Moments mudaram') + ' de conta:</b> ' + grp(moved, items, S.walletCol, f => '→ ' + esc(accLabel(items[f].a))) + '.</div>');
   }
+  // trancados (lock de 1 ano): quantos e de quem, por conta, para se ver logo que a leitura os apanhou
+  const lkFail = reads.filter(({ w }) => !w.lk).map(({ a }) => a.label);
+  const lkBy = {}; Object.values(items).forEach(it => { if (!it.lk) return; const a = it.a || 'main', o = (lkBy[a] = lkBy[a] || {}); o[it.p] = (o[it.p] || 0) + 1; });
+  const lkN = Object.values(lkBy).reduce((t, o) => t + Object.values(o).reduce((x, y) => x + y, 0), 0);
+  const lkHtml = lkFail.length ? '<div class="note">Não consegui ver que Moments estão trancados (' + esc(lkFail.join(', ')) + '). Lê a carteira outra vez daqui a pouco.</div>'
+    : !lkN ? '<div class="small muted">Trancados: nenhum.</div>'
+    : '<div class="note info"><b>' + plural(lkN, 'Moment trancado', 'Moments trancados') + '</b> (não se mandam entre contas nem se vendem):' + Object.entries(lkBy).map(([a, o]) => '<div>' + (groupMode() ? '<b>' + esc(accLabel(a)) + '</b>: ' : '') + Object.entries(o).sort((x, y) => y[1] - x[1] || String(nameOf(x[0])).localeCompare(String(nameOf(y[0])))).map(([pid, n]) => esc(nameOf(pid)) + (n > 1 ? ' ×' + n : '')).join(', ') + '</div>').join('') + '</div>';
   const hNames = new Set(); ((groupHist() || {}).days || []).forEach(d => (d.players || d.lines || []).forEach(x => hNames.add(norm(x[1]))));
   const nLg = Object.keys(lg).filter(k => hNames.has(k)).length;
   openSheet('<h3>A tua coleção</h3><div class="small muted">' + tot + ' · ' + found.length + ' jogadores na NBA esta época' + (nLg ? ' · ' + plural(nLg, 'lenda do Historic', 'lendas do Historic') + ' com carta (desconto)' : '') + '</div>' +
     (failed.length ? '<div class="note">Não consegui ler: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' tem o mesmo endereço Flow de outra conta: só li essa carteira uma vez. Confirma os endereços em Ajustes → Perfil.</div>' : '') +
-    (diff.length ? '<div class="note info">' + diff.join('') + '</div>' : prevItems ? '<div class="small muted">Nenhum Moment novo desde a última leitura.</div>' : '') +
+    (diff.length ? '<div class="note info">' + diff.join('') + '</div>' : prevItems ? '<div class="small muted">Nenhum Moment novo desde a última leitura.</div>' : '') + lkHtml +
     '<div class="small muted">Escalões: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '</div>' +
     (ups.length ? '<div class="small">Usos que mudam: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' e mais ' + (ups.length - 12) : '') + '.</div>' : '') +
     // só o que muda (a lista toda fica em Jogadores → Coleção)

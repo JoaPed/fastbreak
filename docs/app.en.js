@@ -6077,7 +6077,7 @@ async function readWallet(addr, progress) {
   // trancados: lotes de 500 (só uma consulta por Moment); se falhar, fica por saber (lk = null)
   let lk = {};
   try { for (let i = 0; i < ids.length; i += 500) Object.assign(lk, await flowRun(CAD_LOCKED, [{ type: 'Array', value: ids.slice(i, i + 500).map(x => ({ type: 'UInt64', value: String(x) })) }]) || {}); }
-  catch (e) { console.warn('Moments trancados', e); lk = null; }
+  catch (e) { console.warn('locked Moments', e); lk = null; }
   let listed = [];
   try { listed = await flowRun(CAD_LISTED, [A]) || []; } catch (e) { /* sem Moments à venda, ou mercado indisponível */ }
   // No mercado atual (V3) os Moments à venda continuam na coleção: contam uma vez só. Os do mercado antigo (V1)
@@ -6182,12 +6182,19 @@ async function walletSheet() {
     if (rem.length) diff.push('<div><b class="down">−' + plural(rem.length, 'Moment gone', 'Moments gone') + ':</b> ' + grp(rem, prevItems, prevCol) + '.</div>');
     if (moved.length) diff.push('<div><b>' + plural(moved.length, 'Moment moved', 'Moments moved') + ' to another account:</b> ' + grp(moved, items, S.walletCol, f => '→ ' + esc(accLabel(items[f].a))) + '.</div>');
   }
+  // trancados (lock de 1 ano): quantos e de quem, por conta, para se ver logo que a leitura os apanhou
+  const lkFail = reads.filter(({ w }) => !w.lk).map(({ a }) => a.label);
+  const lkBy = {}; Object.values(items).forEach(it => { if (!it.lk) return; const a = it.a || 'main', o = (lkBy[a] = lkBy[a] || {}); o[it.p] = (o[it.p] || 0) + 1; });
+  const lkN = Object.values(lkBy).reduce((t, o) => t + Object.values(o).reduce((x, y) => x + y, 0), 0);
+  const lkHtml = lkFail.length ? '<div class="note">I couldn’t see which Moments are locked (' + esc(lkFail.join(', ')) + '). Read the wallet again in a little while.</div>'
+    : !lkN ? '<div class="small muted">Locked: none.</div>'
+    : '<div class="note info"><b>' + plural(lkN, 'locked Moment', 'locked Moments') + '</b> (can’t be sent between accounts or sold):' + Object.entries(lkBy).map(([a, o]) => '<div>' + (groupMode() ? '<b>' + esc(accLabel(a)) + '</b>: ' : '') + Object.entries(o).sort((x, y) => y[1] - x[1] || String(nameOf(x[0])).localeCompare(String(nameOf(y[0])))).map(([pid, n]) => esc(nameOf(pid)) + (n > 1 ? ' ×' + n : '')).join(', ') + '</div>').join('') + '</div>';
   const hNames = new Set(); ((groupHist() || {}).days || []).forEach(d => (d.players || d.lines || []).forEach(x => hNames.add(norm(x[1]))));
   const nLg = Object.keys(lg).filter(k => hNames.has(k)).length;
   openSheet('<h3>Your collection</h3><div class="small muted">' + tot + ' · ' + found.length + ' NBA players this season' + (nLg ? ' · ' + plural(nLg, 'Historic legend', 'Historic legends') + ' with a card (discount)' : '') + '</div>' +
     (failed.length ? '<div class="note">Couldn\'t read: ' + esc(failed.join(' · ')) + '</div>' : '') +
     (dupAddr.length ? '<div class="note">' + esc(dupAddr.join(', ')) + ' has the same Flow address as another account: I only read that wallet once. Check the addresses in Settings → Profile.</div>' : '') +
-    (diff.length ? '<div class="note info">' + diff.join('') + '</div>' : prevItems ? '<div class="small muted">No new Moments since the last read.</div>' : '') +
+    (diff.length ? '<div class="note info">' + diff.join('') + '</div>' : prevItems ? '<div class="small muted">No new Moments since the last read.</div>' : '') + lkHtml +
     '<div class="small muted">Tiers: ' + TIERS.slice().reverse().filter(t => tierCount[t]).map(t => '<b>' + t + '</b> ' + tierCount[t]).join(' · ') + '</div>' +
     (ups.length ? '<div class="small">Uses that change: ' + ups.slice(0, 12).map(u => esc(u.e.p.name) + ' ' + u.cur + ' → <b>' + u.to + '</b>').join(' · ') + (ups.length > 12 ? ' and another ' + (ups.length - 12) : '') + '.</div>' : '') +
     // só o que muda (a lista toda fica em Jogadores → Coleção)

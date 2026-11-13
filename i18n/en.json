@@ -3250,5 +3250,10 @@
  " <span class=\"muted\">· oferta ": " <span class=\"muted\">· offer ",
  "<span class=\"pill mute\" title=\"Trancado no Top Shot: não se manda nem se vende\">trancado": "<span class=\"pill mute\" title=\"Locked on Top Shot: can’t be sent or sold\">locked",
  " até ": " until ",
- "Moments trancados": null
+ "Moments trancados": "locked Moments",
+ "<div class=\"note\">Não consegui ver que Moments estão trancados (": "<div class=\"note\">I couldn’t see which Moments are locked (",
+ "). Lê a carteira outra vez daqui a pouco.</div>": "). Read the wallet again in a little while.</div>",
+ "<div class=\"small muted\">Trancados: nenhum.</div>": "<div class=\"small muted\">Locked: none.</div>",
+ "Moment trancado": "locked Moment",
+ "</b> (não se mandam entre contas nem se vendem):": "</b> (can’t be sent between accounts or sold):"
 }

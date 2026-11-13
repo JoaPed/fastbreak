@@ -450,6 +450,9 @@ with sync_playwright() as pw:
     pg.click('#t-plantel'); pg.wait_for_timeout(600)
     pg.click('#tab-plantel button[data-action="sub"][data-sub="colecao"]'); pg.wait_for_timeout(300)
     pg.click('#plSub button[data-action="wallet-sheet"]'); pg.wait_for_timeout(2500)
+    wtxt = pg.locator('#sheetPanel').inner_text()
+    pg.locator('#sheetPanel').screenshot(path=str(shots / 'carteira-trancados.png'))
+    print('C2 aviso ao ler a carteira:', [l for l in wtxt.split('\n') if 'rancad' in l][:3], '· ok' if 'Moments trancados' in wtxt and 'Nikola Jokić' in wtxt.split('Moments trancados', 1)[1] else '· ERRO')
     pg.click('#sheetPanel button[data-action="wallet-apply"]'); pg.wait_for_timeout(3500)
     nlk = store(pg, '(() => { const c = __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection; const v = Object.values(c.items); return [v.filter(x => x.lk).length, v.filter(x => !x.v).length]; })()')  # os à venda no mercado antigo (fora da carteira) não contam
     pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="contas"]'); pg.wait_for_timeout(800)
