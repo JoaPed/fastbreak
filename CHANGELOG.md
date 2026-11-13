@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-13
+- **João** — Corrigido: com um lineup de hoje incompleto (poucos usos, o plano guarda jogadores para outros dias), o site podia ficar a trocar sozinho entre dois lineups sem parar, a gravar o plano de cada vez. Agora troca uma vez e fica; o histórico do dia perde as voltas repetidas.
 - **João** — Plano com poucos usos: a pesquisa passa a **mudar um jogador de dia** (sai de um dia onde pesa pouco e fecha o lineup de outro). Antes espalhava usos por dias perdidos; em rosters curtos (smurfs) o plano junta-os em lineups completos e ganha mais dias. Com usos de sobra fica igual.
 - **João** — Comprar por valor: com os preços lidos no Top Shot, a lista escolhe para cada jogador o **escalão que mais rende por dólar** (Common, Rare ou Legendary), mostra o preço e o que a run sobe por dólar, e ordena por aí (ou só pelo ganho). Novo campo **Tenho para gastar**: a app monta o conjunto de compras que cabe nesse valor e refaz a run com todas juntas.
 - **João** — Estimativas afinadas com 30 mil jogos reais: objetivos ligados (FGM + FGA, 3PM + 3PA) contam como um só, a forma pesa conforme a estatística, sem quebra nos jogos seguidos, e os colegas de quem falta sobem (suplentes mais do que titulares); quem volta de paragem conta menos no 1.º jogo. "Em que se baseia" explica cada passo.

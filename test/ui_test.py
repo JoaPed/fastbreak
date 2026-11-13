@@ -1996,6 +1996,23 @@ with sync_playwright() as pw:
     pg2.click('#t-grupo'); pg2.wait_for_timeout(800)
     print('K3 membro sem o botão dos lugares:', pg2.locator('button[data-action="ranks-go"]').count() == 0)
     pg2.close()
+    # O lineup mantido de hoje não anda às voltas. Aqui o plano guarda quase todos para outros dias e hoje fica com
+    # um só jogador; noutro aparelho, o cálculo com esse lineup mantido enchia-o, a verificação voltava ao de um, e os
+    # dois trocavam sem parar (cada volta gravava o plano e crescia o histórico do dia).
+    d3k = run['days'][2]['date']
+    for seedLoop in (False, True):
+        db4 = dict(dbk); db4['tables'] = json.loads(tables_k3); pl4 = db4['tables']['user_runs'][0]['plan']
+        hold0 = list((pl4.get('hold') or {}).get('ids') or [])
+        if seedLoop:  # chega já com as voltas que o erro deixou: o histórico fica limpo e o lineup pára
+            five = ['maxey', 'cade', 'sga', 'lebron', 'brunson']; E_ = lambda k, ids: {'t': '2026-10-22T08:35:00.000Z', 'k': k, 'ids': ids, 'outs': [], 'ins': [], 'prev': [], 'why': []}
+            pl4['lhist'] = {d3k: [{'t': '2026-10-22T08:30:00.000Z', 'k': 'start', 'ids': hold0}] + [E_('out', five), E_('upd', hold0)] * 6 + [E_('out', five)]}; pl4['hold'] = {'d': d3k, 'ids': five}
+        pg4 = new_page(b, db4); pg4.route('https://site.api.espn.com/**', lambda r: r.fulfill(status=404, body='')); pg4.clock.set_fixed_time('2026-10-22T08:40:00Z')
+        pg4.goto('https://site.test/'); pg4.wait_for_timeout(500)
+        pg4.fill('#auEmail', 'eu@x.pt'); pg4.fill('#auPass', 'segredo1'); pg4.click('#auSubmit'); pg4.wait_for_timeout(8000)
+        lh = lambda: json.loads(store(pg4, '((__FAKE_DB.tables.user_runs[0].plan.lhist || {})["%s"] || []).map(e => e.k + ":" + (e.ids || []).length)' % d3k))
+        h1 = lh(); hold1 = store(pg4, '(__FAKE_DB.tables.user_runs[0].plan.hold || {}).ids'); pg4.wait_for_timeout(6000); h2 = lh(); hold2 = store(pg4, '(__FAKE_DB.tables.user_runs[0].plan.hold || {}).ids')
+        print('K3 lineup mantido sem voltas' + (' (chega com voltas)' if seedLoop else '') + ': à chegada', len(pl4['hold']['ids']), 'jogador(es) · histórico', h1, '→', h2, '· mantido', hold1, '· ok' if len(h2) <= 4 and h1 == h2 and hold1 == hold2 else '· ERRO')
+        pg4.close()
     pg.close()
 
     # ---------- L: Mudar o lineup antes dos jogos (fixar, tirar e pôr um a um, com o que muda face à sugestão) ----------

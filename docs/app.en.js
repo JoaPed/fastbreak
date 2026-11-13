@@ -1185,9 +1185,19 @@ function holdOn(acc) {
   const tip = firstTipOf(day); if (tip != null && Date.now() >= tip) return null;
   return h;
 }
+// tira do histórico do dia as voltas repetidas (o mesmo lineup a entrar e a sair sozinho, de um erro já corrigido):
+// fica a primeira ida e a primeira volta
+function holdTidy(H) {
+  if (!H || H.length < 4) return H;
+  const auto = e => e.k === 'out' || e.k === 'upd', sig = e => e.k + ':' + (e.ids || []).slice().sort().join();
+  const out = [];
+  H.forEach(e => { const n = out.length; if (auto(e) && n >= 2 && auto(out[n - 1]) && auto(out[n - 2]) && (sig(e) === sig(out[n - 1]) || sig(e) === sig(out[n - 2]))) return; out.push(e); });
+  return out;
+}
 function holdLog(acc, date, ev) {
   const pa = planOf(acc), H = pa.lhist = pa.lhist || {};
   (H[date] = H[date] || []).push(Object.assign({ t: new Date().toISOString() }, ev));
+  H[date] = holdTidy(H[date]);
   if (H[date].length > 30) H[date] = H[date].slice(-30);
   Object.keys(H).sort().slice(0, -3).forEach(d => delete H[d]); // só os últimos 3 dias
 }
@@ -1206,6 +1216,7 @@ function holdSync() {
   accounts().forEach(a => {
     const R = S.multi ? S.multi.byKey[a.id] : (a.id === 'main' ? S.result : null); if (!R || !R.model.days.length) return;
     const md = R.model.days[0], date = md.day.date, d = R.normal.days[0]; if (!d || d.date !== date) return;
+    { const pa0 = planOf(a.id), H0 = (pa0.lhist || {})[date], T0 = holdTidy(H0); if (H0 && T0.length !== H0.length) { pa0.lhist[date] = T0; ch = true; } }
     const tip = firstTipOf(md.day); if (tip == null || Date.now() >= tip || liveOn(date)) return;
     const L = d.lineup.slice(), pa = planOf(a.id), h = pa.hold, xNow = R.normal.expected;
     if (!L.length) return;
@@ -1235,6 +1246,7 @@ function holdSigs(date) {
   return { odds: o ? Object.keys(o.players || {}).length + '|' + (o.updated_at || '') : '', inj };
 }
 let holdKey = null, holdBusy = false, holdTimer = null;
+const holdFlips = {}; // trocas automáticas do lineup de cada dia nesta sessão (no máximo 3: nunca fica às voltas)
 function scheduleHoldCheck() {
   const key = calcKey; if (!key || holdBusy || holdKey === key || !S.result || S.calcError) return;
   if (!accounts().some(a => holdOn(a.id))) return;
@@ -1265,7 +1277,14 @@ async function holdCheck(key) {
     S.mine.plan.holdSig = sg;
     if (!diffs.length) { saveMine(); return; }
     const g = expU - expK;
-    if (g >= HOLD_MIN) {
+    // O plano sem o lineup mantido só o substitui se também for melhor pela medida do motor (o valor dos prémios). Com
+    // um lineup mantido incompleto, o cálculo seguinte podia voltar a enchê-lo e os dois planos trocavam sem parar
+    // (cada volta gravava o plano). O plano novo fica como ponto de partida (plan.hint): com o lineup novo mantido, o
+    // cálculo chega ao mesmo plano.
+    const objU = multi ? out.group.objective : out.res.objective, objK = multi ? S.multi.objective : S.result.normal.objective;
+    if (g >= HOLD_MIN && !(objU < objK - 1e-9) && (holdFlips[date] || 0) < 3) {
+      holdFlips[date] = (holdFlips[date] || 0) + 1;
+      S.mine.plan.hint = { run: S.runId, at: new Date().toISOString(), acc: Object.fromEntries(accs.map(k => [k, Object.fromEntries((((resOf(k) || {}).days) || []).map(d => [d.date, d.lineup.slice()]))])) };
       diffs.forEach(x => { planOf(x.k).hold = { d: date, ids: x.now, x: (resOf(x.k) || {}).expected }; holdLog(x.k, date, { k: 'upd', outs: x.outs, ins: x.ins, prev: x.old, ids: x.now, g, P0: x.P0, P1: x.P1, why }); });
       saveMine(); schedule();
       // aviso grande só quando veio de dados novos (odds, lesões); depois de mexeres no plantel basta uma nota
