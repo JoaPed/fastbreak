@@ -1527,11 +1527,11 @@ with sync_playwright() as pw:
     pg.locator('#tab-hoje .day-hero button[data-action="pro-lu"]').click(); pg.wait_for_timeout(500)
     lu0 = ' '.join(pg.locator('#sheetPanel').inner_text().split())
     pg.locator('#sheetPanel button[data-action="pro-out"]').first.click(); pg.wait_for_timeout(500)
-    lu1 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-mudar.png'))
+    luA = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-mudar.png'))
     pg.locator('#sheetPanel button[data-action="pro-pick"]').first.click(); pg.wait_for_timeout(500)
     pk2 = ' '.join(pg.locator('#sheetPanel').inner_text().split()); pg.locator('#sheetPanel').screenshot(path=str(shots / 'pro-quem-entra.png'))
     pg.locator('#sheetPanel #luCand button[data-action="pro-fill"]').first.click(); pg.wait_for_timeout(600)
-    lu2 = ' '.join(pg.locator('#sheetPanel').inner_text().split())
+    luB = ' '.join(pg.locator('#sheetPanel').inner_text().split())
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # Sugestões (como no Classic): barata, equilibrada e a melhor, com a vitória e o custo; "Usar esta" muda a equipa
     pg.locator('#tab-hoje .day-hero button[data-action="pro-opts"]').click(); pg.wait_for_timeout(800)
@@ -1545,10 +1545,10 @@ with sync_playwright() as pw:
     own13 = ' '.join(pg.locator('#tab-hoje').inner_text().split())
     okOwn = 'O que já tens para o dia 1' in own13 and 'Metallic Gold LE' in own13 and ('na sugestão' in own13 or 'útil' in own13) and 'úteis' in own13
     print('O13 o que tens no dia:', okOwn)
-    okLu = okOwn and okOpt and 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in lu1 and 'saiu' in lu1 and 'manter' in lu1 and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in lu2 and 'Voltar à sugestão' in lu2
+    okLu = okOwn and okOpt and 'Lineup do dia 1' in lu0 and 'Adicionar jogador' in luA and 'saiu' in luA and 'manter' in luA and 'low ask $' in pk2.replace('\xa0', ' ') and 'Lineup do dia 1' in luB and 'Voltar à sugestão' in luB
     ok13 = 'ensaio' not in h0 and 'A tua que conta' in cB and 'terose' in cB and '#40 de 99' in cB and 'manda esta carta' in cB and 'ASP' not in cB and 'A que compras' in cX and 'low ask' in cX and 'ASP' not in cX and 'Troca rápida' in cX and 'pagas $1,73' in cX and 'ou troca a tua Throwdowns: +$1,73' in t0.replace('\xa0', ' ') and 'a sugestão custa $36' in h0.lower() and 'com trocas $31,73' in h0 and 'a tua equipa custa $51' in h1.lower() and h1 != h0 and '$' in t0 and nA13 in t0 and 'Quem entra?' in pk and 'Só contam cartas de Metallic Gold LE' in pk and all('tens' in x for x in own) and 'a tua escolha' in t1 and t1 != t0 and \
         ((nB13 in t0 and 'está em' in t0 and 'Manda para a principal' in t0) or (nB13 not in t0)) and okLu
-    print('O13 lineup:', lu0[:120], '|', lu1[:160], '|', pk2[:200], '|', lu2[:120])
+    print('O13 lineup:', lu0[:120], '|', luA[:160], '|', pk2[:200], '|', luB[:120])
     print('O13 placar:', h0[:200], '|', h1[:200])
     print('O13 Pro com equipa:', t0[:300], '|', cB[:200], '|', cX[:200], '|', pk[:200], '|', own[:3], '|', t1[:160], '· ok' if ok13 else '· ERRO')
     pg.close()
