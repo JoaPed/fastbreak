@@ -1,52 +1,17 @@
 [
  {
   "file": "docs/app.js",
-  "text": "A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 10 $), Rare 2, Legendary 4. “Todos” inclui jogadores novos e um Moment de escalão acima de quem já tens (um Rare de quem só tem um Common dá +1 uso); “Reforçar os teus” vê só esses. Num jogador que já tens, só ganha se o novo for de um escalão acima. <b>Qualquer</b> escalão: para cada jogador fica o que mais compensa. <b>Mais por dólar</b> ordena pelo que a run sobe por cada dólar de <b>custo real</b>: o preço do Moment mais barato à venda menos o que recebes se o revenderes à oferta mais alta dessa edição (com os 5% de comissão). Um Rare de 20 $ com oferta a 17 $ custa-te cerca de 4 $. Sem oferta, conta o preço todo. É uma estimativa: a oferta pode sair antes de venderes. <b>Mais ganho</b> ordena só pelo que a run sobe. Com <b>Tenho para gastar</b>, a app monta o conjunto de compras que cabe nesse valor (conta o preço que pagas, não o custo real) e refaz a run com todas juntas (dois jogadores para o mesmo dia não somam).",
-  "line": "comprar: ['Comprar', 'A run é refeita com cada candidato: vês quanto sobem os prémios e em que dias ele jogaria. Usos por run: Common 1 (2 se o ASP passar dos 1"
+  "text": "<span class=\"pill mute\" title=\"Trancado no Top Shot: não se manda nem se vende\">trancado",
+  "line": "return '<li class=\"row mo-row\"><div style=\"min-width:0;flex:1\"><div class=\"pn\"><span class=\"tpill t-' + TIER_CLS[t] + '\">' + esc(t) + '</span>' + (up ? '<span c"
  },
  {
   "file": "docs/app.js",
-  "text": "\">Mais ganho</button></div>",
-  "line": "(pxReady() ? '<div><div class=\"label\" style=\"margin-bottom:6px\">Ordenar por</div><div class=\"seg acc-seg\" role=\"group\" aria-label=\"Ordenar as compras\"><button t"
+  "text": " até ",
+  "line": "return '<li class=\"row mo-row\"><div style=\"min-width:0;flex:1\"><div class=\"pn\"><span class=\"tpill t-' + TIER_CLS[t] + '\">' + esc(t) + '</span>' + (up ? '<span c"
  },
  {
   "file": "docs/app.js",
-  "text": "<div class=\"small muted\" style=\"margin-top:6px\">Para contar o custo real (preço menos a revenda), atualiza o leitor para a v35 e lê os preços outra vez.</div>",
-  "line": "(pxReady() ? '<div><div class=\"label\" style=\"margin-bottom:6px\">Ordenar por</div><div class=\"seg acc-seg\" role=\"group\" aria-label=\"Ordenar as compras\"><button t"
- },
- {
-  "file": "docs/app.js",
-  "text": "<div class=\"ps buy-real\">custo real <b class=\"num\">",
-  "line": "return '<li><button class=\"row buy-row\" type=\"button\" data-action=\"buy-detail\" data-id=\"' + esc(t.id) + '\" data-src=\"' + src + '\"><span class=\"who\">' + face(t.i"
- },
- {
-  "file": "docs/app.js",
-  "text": " Custo real ",
-  "line": "const realTxt = C.real != null && C.real < C.cost - 0.005 ? ' Custo real ' + usd(C.real) + ' se as revenderes no fim.' : '';"
- },
- {
-  "file": "docs/app.js",
-  "text": " se as revenderes no fim.",
-  "line": "const realTxt = C.real != null && C.real < C.cost - 0.005 ? ' Custo real ' + usd(C.real) + ' se as revenderes no fim.' : '';"
- },
- {
-  "file": "docs/app.js",
-  "text": " Por ordem do que rende cada dólar de custo real: o preço menos o que recebes se o revenderes à oferta mais alta (com os 5% de comissão).",
-  "line": "const intro = R.single || !R.rank ? '' : '<div class=\"small muted buy-intro\">Vi os ' + R.pool + ' jogadores com jogos nos dias que faltam' + (R.maxPrice ? ' e u"
- },
- {
-  "file": "docs/app.js",
-  "text": "custo real ",
-  "line": "tile('Preço', mk && mk.ask != null ? '<span class=\"up\">' + usd(mk.ask) + '</span>' : '—', mk && mk.ask != null ? (mk.offer != null ? 'custo real ' + usd(costOf("
- },
- {
-  "file": "docs/app.js",
-  "text": " · oferta ",
-  "line": "tile('Preço', mk && mk.ask != null ? '<span class=\"up\">' + usd(mk.ask) + '</span>' : '—', mk && mk.ask != null ? (mk.offer != null ? 'custo real ' + usd(costOf("
- },
- {
-  "file": "docs/app.js",
-  "text": " <span class=\"muted\">· oferta ",
-  "line": "const rows = [1, 2, 4].map((u, i) => '<div class=\"row\" style=\"padding:8px 0;display:flex;justify-content:space-between;gap:10px\"><span><b>' + tierName(u) + '</b"
+  "text": "Moments trancados",
+  "line": "catch (e) { console.warn('Moments trancados', e); lk = null; }"
  }
 ]

@@ -3247,5 +3247,8 @@
  " Por ordem do que rende cada dólar de custo real: o preço menos o que recebes se o revenderes à oferta mais alta (com os 5% de comissão).": " Sorted by what each dollar of real cost gives: the price minus what you get if you resell to the highest offer (after the 5% fee).",
  "custo real ": "real cost ",
  " · oferta ": " · offer ",
- " <span class=\"muted\">· oferta ": " <span class=\"muted\">· offer "
+ " <span class=\"muted\">· oferta ": " <span class=\"muted\">· offer ",
+ "<span class=\"pill mute\" title=\"Trancado no Top Shot: não se manda nem se vende\">trancado": "<span class=\"pill mute\" title=\"Locked on Top Shot: can’t be sent or sold\">locked",
+ " até ": " until ",
+ "Moments trancados": null
 }

@@ -81,6 +81,7 @@ def new_page(b, db):
     pg.route('https://site.api.espn.com/**', espn)
     # blockchain Flow falsa: carteira com 450 Moments; lotes de mais de 150 dão erro de cálculo (para testar a divisão dos lotes)
     allnames = [p['name'] for p in roster['players'].values()]
+    LOCKED = LOCKED_IDS
     wallets = {'0xe7fb03955ade55fa': allnames[:12] + ['Sue Bird', 'Michael Jordan'], '0x0000000000000a01': allnames[12:24]}
     def cad(v): return json.dumps(base64.b64encode(json.dumps(v).encode()).decode())
     def S(x): return {'type': 'String', 'value': x}
@@ -97,6 +98,9 @@ def new_page(b, db):
         body = json.loads(r.request.post_data); code = base64.b64decode(body['script']).decode()
         args = [json.loads(base64.b64decode(a)) for a in body['arguments']]
         h = {'access-control-allow-origin': '*'}
+        if 'TopShotLocking' in code:  # Moments trancados (LOCKED: ids; por defeito nenhum)
+            ids = [x['value'] for x in args[0]['value']]
+            return r.fulfill(status=200, content_type='application/json', headers=h, body=cad({'type': 'Dictionary', 'value': [{'key': {'type': 'UInt64', 'value': i}, 'value': {'type': 'UFix64', 'value': '1810000000.00000000'}} for i in ids if int(i) in LOCKED]}))
         if 'sets: [UInt32]' in code:
             return r.fulfill(status=200, content_type='application/json', headers=h, body=cad(editions([x['value'] for x in args[0]['value']])))
         names = wallets.get(args[0]['value'], allnames[:3])
@@ -110,10 +114,12 @@ def new_page(b, db):
             if len(ids) > 150: return r.fulfill(status=400, content_type='application/json', headers=h, body='{"code":400,"message":"computation exceeds limit (100000)"}')
             return r.fulfill(status=200, content_type='application/json', headers=h, body=cad({'type': 'Array', 'value': [row(k, names) for k in ids]}))
         n = 450 if args[0]['value'] == '0xe7fb03955ade55fa' else 60
-        return r.fulfill(status=200, content_type='application/json', headers=h, body=cad({'type': 'Array', 'value': [{'type': 'UInt64', 'value': str(k)} for k in range(1, n + 1)]}))
+        o = 1000 if LOCKED and args[0]['value'] != '0xe7fb03955ade55fa' else 0  # no C2 a smurf tem ids próprios (como na blockchain)
+        return r.fulfill(status=200, content_type='application/json', headers=h, body=cad({'type': 'Array', 'value': [{'type': 'UInt64', 'value': str(k + o)} for k in range(1, n + 1)]}))
     pg.route('https://rest-mainnet.onflow.org/**', flow)
     return pg
 
+LOCKED_IDS = set()  # Moments trancados na blockchain falsa (o teste C2 tranca todos)
 def width(pg): return pg.evaluate('document.documentElement.scrollWidth')
 def lineup_card(pg): return pg.locator('#tab-hoje .card').filter(has=pg.locator('button[data-k="lineup"], button[data-k="aovivo"]'))
 def wait_opcoes(pg, ms=90000): pg.wait_for_function("() => !document.getElementById('opProg')", timeout=ms); pg.wait_for_timeout(200)
@@ -430,6 +436,41 @@ with sync_playwright() as pw:
     nsend = pg.locator('#tab-hoje .todo .todo-send, #tab-hoje [data-action="tr-go"]').count(); ntr = pg.locator('#tab-hoje .todo .todo-grp-s').count()
     print('C trocas sem Enviar no Top Shot:', nsend, 'botões ·', ntr, 'grupos de trocas', '· ok' if nsend == 0 and ntr > 0 else '· ERRO')
     pg.close()
+
+    # ---------- C2: smurf com todos os Moments trancados (lock de 1 ano): nenhum se manda; cada conta só joga com os seus ----------
+    LOCKED_IDS.update(list(range(1, 451)) + list(range(1001, 1061)) + [999999])
+    db = seeded(); T = db['tables']
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa', 'smurfs': [{'id': 's1', 'topshot_username': 'joao_smurf', 'flow_address': '0x0000000000000a01'}]})
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in roster['players']}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    pg.click('#t-plantel'); pg.wait_for_timeout(600)
+    pg.click('#tab-plantel button[data-action="sub"][data-sub="colecao"]'); pg.wait_for_timeout(300)
+    pg.click('#plSub button[data-action="wallet-sheet"]'); pg.wait_for_timeout(2500)
+    pg.click('#sheetPanel button[data-action="wallet-apply"]'); pg.wait_for_timeout(3500)
+    nlk = store(pg, '(() => { const c = __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection; const v = Object.values(c.items); return [v.filter(x => x.lk).length, v.filter(x => !x.v).length]; })()')  # os à venda no mercado antigo (fora da carteira) não contam
+    pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#tab-run button[data-action="sub"][data-sub="contas"]'); pg.wait_for_timeout(800)
+    trc = pg.locator('#tab-run .card').filter(has_text='Transferências')
+    trt = trc.inner_text().replace('\n', ' | ')[:300] if trc.count() else 'sem cartão'
+    pg.click('#t-hoje'); pg.wait_for_timeout(500)
+    ntr = pg.locator('#tab-hoje .todo .todo-ck[data-k*="|tr|"]').count()
+    main_ids = set(json.loads(store(pg, '(() => { const c = __FAKE_DB.tables.profiles.find(p => p.user_id === "u-eu").collection; return Object.values(c.items).filter(x => x.a === "main").map(x => x.p); })()')))
+    s1_lu = json.loads(store(pg, '(() => { const s = (__FAKE_DB.tables.user_runs[0].plan.smurfs || {}).s1 || {}; return (s.hold || {}).ids || []; })()'))
+    pg.click('#tab-hoje button[data-action="acc"][data-acc="s1"]'); pg.wait_for_timeout(600)
+    s1_names = pg.locator('#tab-hoje .list .row .nm').all_inner_texts()
+    bad = [n for n in s1_names if any(n == (roster['players'][pid]['name'] if pid in roster['players'] else '') for pid in main_ids)]
+    print('C2 trancados:', nlk, '· transferências:', trt[:160], '· "Mandar" no A fazer:', ntr, '· smurf joga com da principal:', bad, '· ok' if json.loads(nlk)[0] >= json.loads(nlk)[1] and ntr == 0 and not bad and all('Brunson' in x for x in trt.split(' | JB | ')[0:0]) and trc.locator('.row').filter(has_not_text='Brunson').count() == 0 else '· ERRO')
+    # ficha de um jogador da principal: a carta diz "trancado" e não tem "Mandar…"
+    pg.click('#tab-hoje button[data-action="acc"][data-acc="main"]'); pg.wait_for_timeout(500)
+    pg.locator('#tab-hoje button[data-action="player"]').first.click(); pg.wait_for_timeout(700)
+    pg.locator('#sheetPanel button', has_text='Cartas').first.click(); pg.wait_for_timeout(400)
+    cards_txt = pg.locator('#sheetPanel').inner_text()
+    print('C2 ficha: trancado', 'trancado' in cards_txt, '· Mandar…', pg.locator('#sheetPanel button[data-action="card-send"]').count(), '· ok' if 'trancado' in cards_txt and pg.locator('#sheetPanel button[data-action="card-send"]').count() == 0 else '· ERRO')
+    pg.close()
+    LOCKED_IDS.clear()
 
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']

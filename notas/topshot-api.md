@@ -49,3 +49,13 @@ Base: `https://api.production.atlas.dapperlabs.com/atlas.v1.<Serviço>/<Método>
 
 ## Blockchain
 - O contrato FastBreakV1 não tem nenhuma run NBA 2026-27 (a última é WNBA de junho 2026): a tarefa da blockchain não traz runs nem lineups desta época. A run nova lê-se no Admin → "Run e prémios".
+
+## Moments trancados (13 nov 2026)
+- Contrato `TopShotLocking` na mesma conta do TopShot (`0x0b2a3299cc857e29`; confirmado com uma sonda: ~5,85 milhões de
+  Moments trancados). `TopShotLocking.getExpiry(tokenID:)` dá o fim do lock (segundos) ou nil se não está trancado.
+- Um Moment trancado não sai da carteira (`withdraw` falha com "Moment is locked"): não se manda, não se vende, não se
+  põe à venda. Continua trancado depois do fim até o dono o destrancar. Pode jogar em Challenges (exceto Crafting).
+- O site lê isto ao ler as carteiras (`CAD_LOCKED`, lotes de 500) e guarda `lk` em cada carta da coleção. Usos por conta
+  (`reachUses`): só as cartas da própria conta e as livres das outras. O motor recebe `pin` e nunca o põe numa
+  transferência; o "A fazer", o Vender e a troca rápida do Pro saltam as trancadas.
+

@@ -1343,7 +1343,8 @@
   // holds[id] = { conta: [usos de cada Moment] } (ou o número de Moments, sem escalões); past = jogadas já feitas.
   // Em cada noite, cada conta que joga precisa de uma carta com usos ≥ ao número da jogada dela; se não a tem, recebe-a
   // de uma conta que não a usa nessa noite (a carta mais pequena que chega).
-  function transfersFor(keys, results, owners, copies, holds, past) {
+  // pins: por jogador, {conta: [usos das cartas trancadas]}; uma carta trancada nunca sai da conta onde está
+  function transfersFor(keys, results, owners, copies, holds, past, pins) {
     const uses = {};
     keys.forEach(k => results[k].days.forEach(d => d.lineup.forEach(id => { (uses[id] = uses[id] || []).push({ date: d.date, acc: k }); })));
     const out = [];
@@ -1352,6 +1353,9 @@
       if ((copies[id] || 1) > 1) {
         const h0 = holds && holds[id]; if (!h0) return;
         const h = {}; Object.entries(h0).forEach(([k, v]) => { const arr = Array.isArray(v) ? v.map(Number) : new Array(Math.max(0, +v || 0)).fill(99); if (arr.length) h[k] = arr.sort((x, y) => x - y); });
+        // quantas cartas trancadas de cada valor há em cada conta (não podem ser dadas)
+        const pin = {}; Object.entries((pins && pins[id]) || {}).forEach(([k, v]) => { (Array.isArray(v) ? v : []).forEach(u => { const o = (pin[k] = pin[k] || {}); o[+u] = (o[+u] || 0) + 1; }); });
+        const free = (k, q) => { const n = (pin[k] || {})[h[k][q]] || 0; if (!n) return true; return h[k].filter(x => x === h[k][q]).length > n; };
         const cnt = {};
         const byDate = {}; list.forEach(u => { (byDate[u.date] = byDate[u.date] || []).push(u.acc); });
         Object.keys(byDate).sort().forEach(date => {
@@ -1364,7 +1368,7 @@
               const playing = new Set(users.map(x => x.acc));
               const donors = Object.keys(h).filter(k => k !== u.acc).sort((x, y) => (playing.has(x) ? 1 : 0) - (playing.has(y) ? 1 : 0));
               let from = null, fj = -1;
-              for (const k of donors) { const q = pickOwn(k, u.r); if (q >= 0 && (fj < 0 || h[k][q] < h[from][fj])) { from = k; fj = q; } }
+              for (const k of donors) { let q = -1; const arr = h[k] || []; for (let j2 = 0; j2 < arr.length; j2++) if (arr[j2] >= u.r && !(busy[k] || []).includes(j2) && free(k, j2)) { q = j2; break; } if (q >= 0 && (fj < 0 || h[k][q] < h[from][fj])) { from = k; fj = q; } }
               if (!from) return;
               const card = h[from].splice(fj, 1)[0]; (busy[from] || []).forEach((x, n, arr) => { if (x > fj) arr[n] = x - 1; });
               h[u.acc] = (h[u.acc] || []).concat([card]).sort((x, y) => x - y);
@@ -1377,6 +1381,7 @@
         return;
       }
       if (!owners[id]) return;
+      if (pins && pins[id] && Object.keys(pins[id]).length) return; // o único Moment está trancado: não se manda
       let at = owners[id];
       list.forEach(u => { if (u.acc !== at) { out.push({ id, before: u.date, from: at, to: u.acc }); at = u.acc; } });
     });
@@ -1458,9 +1463,10 @@
       byKey[keys[a]] = { model, normal: res[a], allIn: null, group: true, wins, losses, playedCount: wins + losses, prizes: model.prizes };
     });
     const ownerById = {}, cp = {}, holdById = {};
-    players.forEach((p, i) => { cp[p.id] = copies[i]; if (p.owner) ownerById[p.id] = p.owner; if (p.hold) holdById[p.id] = p.hold; });
+    const pinById = {};
+    players.forEach((p, i) => { cp[p.id] = copies[i]; if (p.owner) ownerById[p.id] = p.owner; if (p.hold) holdById[p.id] = p.hold; if (p.pin) pinById[p.id] = p.pin; });
     const pastById = {}; models.forEach((m, a) => Object.values(m.played || {}).forEach(pl => { if (pl && pl.done) (pl.lineup || []).forEach(id => { const o = (pastById[keys[a]] = pastById[keys[a]] || {}); o[id] = (o[id] || 0) + 1; }); }));
-    const transfers = transfersFor(keys, Object.fromEntries(keys.map((k, a) => [k, res[a]])), ownerById, cp, holdById, pastById);
+    const transfers = transfersFor(keys, Object.fromEntries(keys.map((k, a) => [k, res[a]])), ownerById, cp, holdById, pastById, pinById);
     // um Moment em duas contas na mesma noite (só acontece com jogadores fixados à mão)
     const clashes = [];
     const byDate = {};

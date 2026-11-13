@@ -1006,10 +1006,10 @@ function usedCount(acc, id) { let n = 0; Object.values(planOf(acc).played || {})
 // usos restantes de cada conta: a principal guarda-os em "uses"; as smurf em "su" (se ainda não foram mexidos,
 // têm os mesmos usos por run que a principal, menos os que já gastaram)
 function usesEff(e, id, acc) {
-  // jogador com Moments na coleção: cada conta tem os usos da melhor carta (passa de uma conta para a outra)
-  // menos os que já gastou. Não se muda à mão.
+  // jogador com Moments na coleção: cada conta tem os usos da melhor carta que pode ter (as suas e as que podem passar
+  // de outra conta; as trancadas não passam) menos os que já gastou. Não se muda à mão.
   const top = colTopUses(id);
-  if (top) return Math.max(0, top - usedCount(acc, id));
+  if (top) return Math.max(0, (reachUses(id, acc) || 0) - usedCount(acc, id));
   if (acc === 'main') return +e.uses || 0;
   return e.su && e.su[acc] != null ? +e.su[acc] : Math.max(0, (+e.uses || 0) + usedCount('main', id) - usedCount(acc, id));
 }
@@ -1018,6 +1018,14 @@ function colTopUses(id) {
   const col = (S.profile || {}).collection; if (!col || !col.items) return null;
   if (colTopMemo.col !== col || colTopMemo.ed !== edIndex()) { const m = new Map(); Object.keys(col.items).forEach(f => { const p = String(col.items[f].p), u = cardUses(col, f); if (u > (m.get(p) || 0)) m.set(p, u); }); colTopMemo = { col, m, ed: edIndex() }; }
   return colTopMemo.m.get(String(id)) || null;
+}
+// Moment trancado no Top Shot (lock de 1 ano): fica na conta onde está (não se manda nem se vende)
+const cardLocked = (col, f) => !!(((col && col.items) || {})[f] || {}).lk;
+// usos da melhor carta que uma conta pode usar: as dela e as das outras contas que não estão trancadas; 0 se nenhuma
+function reachUses(id, acc) {
+  const col = (S.profile || {}).collection; if (!col || !col.items) return null;
+  let best = 0; Object.keys(col.items).forEach(f => { const it = col.items[f]; if (String(it.p) !== String(id) || ((it.a || 'main') !== acc && it.lk)) return; best = Math.max(best, cardUses(col, f)); });
+  return best;
 }
 // usos da melhor carta que uma conta tem hoje (lido das carteiras); null se a conta não tem nenhum Moment dele
 function bestTierName(id) {
@@ -1048,10 +1056,10 @@ function collectionInfo(id) {
   const fids = col.items ? Object.keys(col.items).filter(f => String(col.items[f].p) === String(id)) : [];
   if (fids.length) {
     const u = fids.map(f => cardUses(col, f)), top = Math.max(...u), nTop = u.filter(x => x === top).length;
-    const hold = {}; fids.forEach((f, i) => { const a = col.items[f].a || 'main'; (hold[a] = hold[a] || []).push(u[i]); });
+    const hold = {}, pin = {}; fids.forEach((f, i) => { const a = col.items[f].a || 'main'; (hold[a] = hold[a] || []).push(u[i]); if (col.items[f].lk) (pin[a] = pin[a] || []).push(u[i]); });
     sentSince(col, id).forEach(([from, to]) => { const h = hold[from]; if (!h || !h.length) return; const k = h.indexOf(Math.max(...h)); (hold[to] = hold[to] || []).push(h.splice(k, 1)[0]); if (!h.length) delete hold[from]; });
     const keys = Object.keys(hold);
-    return { copies: fids.length, owner: fids.length === 1 ? keys[0] : null, hold, cards: u.slice().sort((x, y) => y - x), moments: fids.length, topUses: top, nTop };
+    return { copies: fids.length, owner: fids.length === 1 ? keys[0] : null, hold, pin: Object.keys(pin).length ? pin : null, cards: u.slice().sort((x, y) => y - x), moments: fids.length, topUses: top, nTop };
   }
   const keys = Object.keys(c.owners).filter(k => c.owners[k] > 0), n = keys.reduce((a, k) => a + c.owners[k], 0);
   const hold = {}; keys.forEach(k => { hold[k] = +c.owners[k]; });
@@ -1483,7 +1491,7 @@ function engineInputs(acc, raw) {
     const c = S.players.get(String(id)) || {}, pk = acc + '|' + id;
     const uses = S.pendingUses[pk] != null ? S.pendingUses[pk] : usesEff(e, id, acc);
     const ci = collectionInfo(id);
-    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: gone(id) ? 'fora' : 'ok' /* o estado vem do relatório de lesões; quem já não está na NBA fica de fora */, injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, cards: ci.cards || null, owner: ci.owner, hold: ci.hold };
+    players[id] = { name: e.name || c.name || id, team: e.team || c.team || '', uses, status: gone(id) ? 'fora' : 'ok' /* o estado vem do relatório de lesões; quem já não está na NBA fica de fora */, injIgnore: !!e.injIgnore, avg: e.avg || c.avg || null, copies: ci.copies, cards: ci.cards || null, owner: ci.owner, hold: ci.hold, pin: ci.pin || null };
   });
   const odds = { days: {} };
   Object.entries(S.odds).forEach(([d, o]) => { odds.days[d] = { players: o.players || {}, source: o.source, updatedAt: o.updated_at }; });
@@ -2022,7 +2030,7 @@ function proSwapOf(id, pr) {
   if (!pr) return null; const want = TS_TIER(pr[1]) || proTierTxt(pr[1]), col = (S.profile || {}).collection || {}, items = col.items || {};
   let best = null;
   Object.keys(items).forEach(f => { const it = items[f]; if (String(it.p) !== String(id)) return; const e = cardEd(col, f), t = (e && e.tier) || momentTier(col, f);
-    if (t !== want || !e || !e.offer) return; if (!best || e.offer > best.offer) best = { f, it, t, offer: e.offer }; });
+    if (t !== want || !e || !e.offer || it.lk) return; if (!best || e.offer > best.offer) best = { f, it, t, offer: e.offer }; });
   if (!best) return null;
   const use = S.result ? usageOf(id) : null;
   return Object.assign(best, { diff: pr[0] - best.offer * (1 - SELL_FEE), classic: !!(use && use.total) });
@@ -2836,7 +2844,7 @@ function trJob(from) {
   S.multi.transfers.filter(t => t.before <= nd.date && t.from === from).forEach(t => {
     const k = (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before; if (TODO_DONE[k]) return;
     const fa = accAddr(uid, t.from), ta = accAddr(uid, t.to); if (!fa || !ta) { miss.push(nameOf(t.id)); return; }
-    const need = t.uses || 1, cs = Object.keys(col.items).filter(f => String(col.items[f].p) === String(t.id) && (col.items[f].a || 'main') === from && !used.has(f))
+    const need = t.uses || 1, cs = Object.keys(col.items).filter(f => String(col.items[f].p) === String(t.id) && (col.items[f].a || 'main') === from && !used.has(f) && !col.items[f].lk)
       .map(f => { const e = cardEd(col, f); return { f, u: cardUses(col, f), ask: e && e.ask ? e.ask : 1e12 }; });
     const c = cs.filter(x => x.u >= need).sort((a, b) => (a.u - b.u) || (a.ask - b.ask))[0] || cs.sort((a, b) => b.u - a.u)[0];
     if (!c) { miss.push(nameOf(t.id)); return; }
@@ -5481,7 +5489,7 @@ const worthSaving = (save, ask) => save >= 300 && save >= 0.25 * ask * (1 - SELL
 // usos ou mais, numa raridade acima, por igual ou menos)
 function sellF() { if (!S.sellF) { let o = null; try { o = JSON.parse(localStorage.getItem('fb-sellf') || 'null'); } catch (e) {} S.sellF = Object.assign({ down: false, asp: true, up: false, fast: false }, o || {}); } return S.sellF; }
 // preço de venda de uma carta: o low ask (pões à venda e esperas) ou, com "Vendas rápidas", a oferta mais alta (vendes já)
-const sellPx = c => sellF().fast ? c.offer || null : c.ask;
+const sellPx = c => c.lk ? null : sellF().fast ? c.offer || null : c.ask; // trancada: não se vende
 const tierRankOf = t => TIER_RANK[TS_TIER(t) || t] || 1;
 // o que os filtros deixam passar, numa linha (por cima da lista)
 function sellFTxt(tab) { const F = sellF(), fast = F.fast ? 'Fast sales: by the highest offer' : ''; if (tab && tab !== 'poupar') return fast || 'By the low ask (you list it and wait)'; return (fast ? fast + ' · ' : '') + (F.down ? 'Any rarity' : 'Same rarity or higher') + ' · ' + (F.asp ? 'uses from ASP, with margin' : 'uses from rarity only') + (F.up ? ' · with rarity upgrades' : ''); }
@@ -5539,7 +5547,7 @@ function sellPlayers() {
     const cards = fs.map(f => { const it = col.items[f], e = cardEd(col, f), u = cardUses(col, f), t = (e && e.tier) || momentTier(col, f); return { f, it, e, u, t, ask: e && e.ask ? e.ask : null, asp: e && e.asp > 0 ? e.asp : null, offer: e && e.offer ? e.offer : null }; })
       .sort((a, b) => (b.u - a.u) || ((a.ask == null ? 1e12 : a.ask) - (b.ask == null ? 1e12 : b.ask)));
     const use = S.result ? usageOf(id) : null;
-    cards.forEach(c => { c.keep = false; });
+    cards.forEach(c => { c.keep = false; c.lk = !!c.it.lk; });
     if (use && use.total) {
       Object.values(use.per).sort((a, b) => b - a).forEach(n => {
         const c = cards.filter(x => !x.keep && x.u >= n).sort((a, b) => (a.u - b.u) || ((a.ask == null ? 1e12 : a.ask) - (b.ask == null ? 1e12 : b.ask)))[0]
@@ -5550,7 +5558,7 @@ function sellPlayers() {
     const tc = {}; cards.forEach(c => { tc[c.t] = (tc[c.t] || 0) + 1; });
     // repetida = carta que o plano não usa e de que tens outra da mesma raridade (a que fica, ou a primeira dessa
     // raridade); um Rare e um Common não são repetidas (pedido do João)
-    cards.forEach((c, i) => { c.dup = !c.keep && cards.some((y, j) => j !== i && y.t === c.t && (y.keep || (!y.dup && j < i))); });
+    cards.forEach((c, i) => { c.dup = !c.keep && !c.lk && cards.some((y, j) => j !== i && y.t === c.t && (y.keep || (!y.dup && j < i))); });
     const extra = cards.filter(c => c.dup);
     return { id, cards, tc, N, use, days: S.result ? planDaysOf(id) : null, value: cards.reduce((t, c) => t + (c.ask || 0), 0), extra: extra.reduce((t, c) => t + (c.ask || 0), 0), nExtra: extra.length, offer: cards.reduce((t, c) => t + (c.offer || 0), 0), offerX: extra.reduce((t, c) => t + (c.offer || 0), 0), xRank: extra.reduce((m, c) => Math.max(m, tierRankOf(c.t)), 0), team: pTeam(id) || '' };
   });
@@ -5680,11 +5688,11 @@ function cardsBlock(id) {
   const rows = its.map(({ f, it, t, u: cu, e }) => {
     const w = momentTierWhy(col, f, lab).why, b = e && aspBand(e.asp), up = b && b[1] > (TIER_USES[t] || 1);
     const [base, ...sub] = String(it.s || '').split(' · ');
-    return '<li class="row mo-row"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + TIER_CLS[t] + '">' + esc(t) + '</span>' + (up ? '<span class="tpill t-asp">' + esc(b[2]) + '</span>' : '') + (w !== 5 && WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">for sale</span>' : '') + '</div>' +
+    return '<li class="row mo-row"><div style="min-width:0;flex:1"><div class="pn"><span class="tpill t-' + TIER_CLS[t] + '">' + esc(t) + '</span>' + (up ? '<span class="tpill t-asp">' + esc(b[2]) + '</span>' : '') + (w !== 5 && WHY[w] ? '<span class="badge">' + WHY[w] + '</span>' : '') + (it.v ? '<span class="pill prov">for sale</span>' : '') + (it.lk ? '<span class="pill mute" title="Locked on Top Shot: can’t be sent or sold">locked' + (it.lk > 1 ? ' until ' + dShort(new Date(it.lk * 1000).toISOString().slice(0, 10)) : '') + '</span>' : '') + '</div>' +
       '<div class="mo-set">' + esc(base) + (sub.length ? ' <span class="muted">· ' + esc(sub.join(' · ')) + '</span>' : '') + '</div>' +
       '<div class="ps">' + [it.n ? '#' + f0(it.n) + (it.m ? ' of ' + f0(it.m) : '') : it.m ? 'mint count ' + f0(it.m) : '', groupMode() ? accLabel(it.a) : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
       '<div class="mo-px">' + (e && e.asp > 0 ? '<span>ASP <b class="num">' + usd(e.asp / 100) + '</b></span>' : '<span class="muted">' + (e ? 'no sales' : 'no Top Shot data') + '</span>') + (e && e.ask ? '<span class="muted">listed from <b class="num">' + usd(e.ask / 100) + '</b></span>' : '') +
-        (accounts().length > 1 && accAddr(S.session.user.id, it.a || 'main') ? '<button class="btn link small mo-send" type="button" data-action="card-send" data-fid="' + esc(f) + '">Send…</button>' : '') + '</div>' +
+        (accounts().length > 1 && !it.lk && accAddr(S.session.user.id, it.a || 'main') ? '<button class="btn link small mo-send" type="button" data-action="card-send" data-fid="' + esc(f) + '">Send…</button>' : '') + '</div>' +
       (e && e.tier ? '' : '<select class="field tier-sel" data-mo-tier="' + esc(f) + '" aria-label="Tier of this card">' + TIERS.map(z => '<option value="' + z + '"' + (z === t ? ' selected' : '') + '>' + z + ' · ' + usesTxt(TIER_USES[z]) + '</option>').join('') + '</select>') + '</div>' +
       '<div class="pv mo-u' + (cu === u ? ' top' : '') + '"><div class="v num">' + usesN(cu) + '</div><div class="u">' + (cu === 1 ? 'use' : 'uses') + '</div></div></li>'; }).join('');
   const tc = {}; its.forEach(x => { tc[x.t] = (tc[x.t] || 0) + 1; });
@@ -5794,6 +5802,14 @@ access(all) fun main(addr: Address, ids: [UInt64]): [[String]] {
       }
     }
   }
+  return out
+}`;
+// Moments trancados (lock de 1 ano no Top Shot): não saem da carteira, não se mandam para outra conta nem se vendem.
+// Devolve {id: fim do lock em segundos}; um Moment continua trancado depois do fim até o dono o destrancar.
+const CAD_LOCKED = `import TopShotLocking from 0x0b2a3299cc857e29
+access(all) fun main(ids: [UInt64]): {UInt64: UFix64} {
+  let out: {UInt64: UFix64} = {}
+  for id in ids { if let x = TopShotLocking.getExpiry(tokenID: id) { out[id] = x } }
   return out
 }`;
 const CAD_LISTED = `import TopShot from 0x0b2a3299cc857e29
@@ -6058,12 +6074,16 @@ async function readWallet(addr, progress) {
   await Promise.all(Array.from({ length: Math.min(4, lots.length) }, async () => {
     while (next < lots.length) { const b = lots[next++]; rows.push(...await batch(b)); done += b.length; if (progress) progress(done, ids.length); }
   }));
+  // trancados: lotes de 500 (só uma consulta por Moment); se falhar, fica por saber (lk = null)
+  let lk = {};
+  try { for (let i = 0; i < ids.length; i += 500) Object.assign(lk, await flowRun(CAD_LOCKED, [{ type: 'Array', value: ids.slice(i, i + 500).map(x => ({ type: 'UInt64', value: String(x) })) }]) || {}); }
+  catch (e) { console.warn('Moments trancados', e); lk = null; }
   let listed = [];
   try { listed = await flowRun(CAD_LISTED, [A]) || []; } catch (e) { /* sem Moments à venda, ou mercado indisponível */ }
   // No mercado atual (V3) os Moments à venda continuam na coleção: contam uma vez só. Os do mercado antigo (V1)
   // saíram da coleção e entram aqui à parte.
   const own = new Set(ids.map(String)), sale = new Set(listed.map(r => String(r[3])));
-  return { total: ids.length, rows, extra: listed.filter(r => !own.has(String(r[3]))), sale, listedAll: listed.length };
+  return { total: ids.length, rows, extra: listed.filter(r => !own.has(String(r[3]))), sale, listedAll: listed.length, lk };
 }
 // nome completo do Top Shot → jogador do catálogo (nome igual; ou primeiro + último nome; ou todas as palavras, se só houver um)
 function catalogIndex() {
@@ -6119,6 +6139,8 @@ async function walletSheet() {
   const by = new Map(), outside = new Map(), accTot = {}, lg = {};
   reads.forEach(({ a, w }) => {
     accTot[a.id] = { moments: w.total + w.extra.length, listed: w.listedAll };
+    // trancado: o fim do lock lido agora; se a leitura dos locks falhou, fica o que se sabia
+    const lockOf = fid => (w.lk ? (w.lk[fid] != null ? Math.round(+w.lk[fid]) || 1 : 0) : (((prevCol.items || {})[fid] || {}).lk || 0));
     const add = (r, sale) => {
       const name = r[0]; if (!name) return;
       const p = find(name);
@@ -6127,7 +6149,7 @@ async function walletSheet() {
       if (!p) { outside.set(norm(name), name); return; }
       const e = by.get(p.id) || { p, n: 0, sale: 0, owners: {}, sets: {}, bySet: {}, ids: [] };
       const fid = String(r[3]), sub = /\/\s*(\d+)/.exec(r[7] || ''), mint = sub ? +sub[1] : +(((editions[String(r[4])] || {})[String(r[5])]) || 0);
-      if (!items[fid]) { items[fid] = Object.assign({ p: p.id, s: setKey(r), a: a.id }, +r[8] ? { n: +r[8] } : {}, mint ? { m: mint } : {}, r[2] ? { se: +r[2] } : {}, r[4] != null && r[4] !== '' ? { si: +r[4], pi: +r[5] } : {}, /^\d{4}-\d{2}-\d{2}/.test(r[9] || '') ? { d: String(r[9]).slice(0, 10) } : {}, sale ? { v: 1 } : {}); e.ids.push(fid); if (prevMt[fid]) mt[fid] = prevMt[fid]; }
+      if (!items[fid]) { items[fid] = Object.assign({ p: p.id, s: setKey(r), a: a.id }, +r[8] ? { n: +r[8] } : {}, mint ? { m: mint } : {}, r[2] ? { se: +r[2] } : {}, r[4] != null && r[4] !== '' ? { si: +r[4], pi: +r[5] } : {}, /^\d{4}-\d{2}-\d{2}/.test(r[9] || '') ? { d: String(r[9]).slice(0, 10) } : {}, sale ? { v: 1 } : {}, lockOf(fid) ? { lk: lockOf(fid) } : {}); e.ids.push(fid); if (prevMt[fid]) mt[fid] = prevMt[fid]; }
       e.n++; if (sale) e.sale++; e.owners[a.id] = (e.owners[a.id] || 0) + 1; e.sets[r[1] || '?'] = (e.sets[r[1] || '?'] || 0) + 1; e.bySet[setKey(r)] = (e.bySet[setKey(r)] || 0) + 1;
       by.set(p.id, e);
     };

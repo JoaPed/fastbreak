@@ -551,5 +551,22 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   }
   ok('pesquisa: em cenários ao acaso (1 e 2 contas) o plano respeita usos, jogos, tamanho e um Moment por noite', bad.length === 0, bad.slice(0, 5));
 }
+// ---------- Moments trancados (lock de 1 ano no Top Shot): nunca entram numa transferência ----------
+{
+  const star = Object.entries(roster.players).map(([id, p]) => [id, run.days.filter(d => d.games.some(g => g.includes(p.team))).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const mk = (extra) => { const ro = JSON.parse(JSON.stringify(roster)); Object.values(ro.players).forEach(p => { p.uses = 0; }); Object.assign(ro.players[star], { uses: 2, avg: { pts: 60, reb: 20, ast: 15, fg3: 8, stl: 4, blk: 4 } }, extra); return ro; };
+  // 1 Moment, na principal: livre → a smurf joga-o com uma transferência; trancado → sem transferência
+  const free1 = mk({ copies: 1, owner: 'main', hold: { main: [2] } }), lk1 = mk({ copies: 1, owner: 'main', hold: { main: [2] }, pin: { main: [2] } });
+  const plays = g => g.keys.filter(k => g.byKey[k].normal.days.some(d => d.lineup.includes(star)));
+  const g0 = FB.planGroup(run, [{ key: 'main', roster: free1, plan: {} }, { key: 's1', roster: free1, plan: {} }], odds, { now: NOW });
+  const g1 = FB.planGroup(run, [{ key: 'main', roster: lk1, plan: {} }, { key: 's1', roster: lk1, plan: {} }], odds, { now: NOW });
+  ok('trancados: livre, o Moment passa para a smurf (há transferência)', plays(g0).includes('s1') && g0.transfers.some(t => t.id === star), [plays(g0), g0.transfers.filter(t => t.id === star)]);
+  ok('trancados: trancado, nenhuma transferência dele', !g1.transfers.some(t => t.id === star), g1.transfers.filter(t => t.id === star));
+  // 2 Moments na principal (Rare trancado + Common livre): só o Common pode ir
+  const two = mk({ copies: 2, cards: [2, 1], hold: { main: [2, 1] }, pin: { main: [2] } });
+  const g2 = FB.planGroup(run, [{ key: 'main', roster: two, plan: {} }, { key: 's1', roster: two, plan: {} }], odds, { now: NOW });
+  const sent = g2.transfers.filter(t => t.id === star && t.from === 'main');
+  ok('trancados: com um Rare trancado e um Common livre, só sai o Common', sent.every(t => (t.uses || 1) === 1), sent);
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);
