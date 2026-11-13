@@ -3255,5 +3255,15 @@
  "). Lê a carteira outra vez daqui a pouco.</div>": "). Read the wallet again in a little while.</div>",
  "<div class=\"small muted\">Trancados: nenhum.</div>": "<div class=\"small muted\">Locked: none.</div>",
  "Moment trancado": "locked Moment",
- "</b> (não se mandam entre contas nem se vendem):": "</b> (can’t be sent between accounts or sold):"
+ "</b> (não se mandam entre contas nem se vendem):": "</b> (can’t be sent between accounts or sold):",
+ "não": "off",
+ " off": null,
+ "<span class=\"vh\">não jogas</span>": "<span class=\"vh\">not playing</span>",
+ "<div class=\"note info off-note\">Não jogas ": "<div class=\"note info off-note\">You’re not playing ",
+ "\">afinal jogo</button>": "\">I’ll play after all</button>",
+ ". O plano guarda os usos para os outros dias.</div>": ". The plan saves the uses for the other days.</div>",
+ "\">Não vou jogar este dia</button></div>": "\">I won’t play this day</button></div>",
+ " sem jogar. Plano refeito.": ": not playing. Plan updated.",
+ "Voltas a jogar ": "Playing again ",
+ ". Plano refeito.": ". Plan updated."
 }

@@ -1295,3 +1295,6 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .cart-row { grid-template-columns: minmax(0, 1fr) auto; padding-block: 8px; }
 .cart-row .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cart-row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ds.off .ds-v { color: var(--muted); font-size: 12px; }
+.jc-off { position: relative; text-align: center; margin-top: 6px; }
+.jc-off .btn.link { color: rgba(255, 255, 255, .72); }

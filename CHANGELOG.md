@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-13
+- **João** — Jornada: "Não vou jogar este dia" (por baixo do lineup, antes dos jogos). O plano deixa de contar com esse dia e guarda os usos para os outros; o dia fica com "não" na faixa e um aviso com "afinal jogo" para voltar atrás.
 - **Pedro** — Ler carteira: o resultado diz logo quantos Moments estão trancados e de que jogadores (por conta), ou avisa se não deu para ver os trancados.
 - **João** — Moments trancados (lock de 1 ano no Top Shot): ao ler as carteiras, o site vê quais estão trancados. Esses nunca entram nas transferências nem no "A fazer", não aparecem no Vender e cada conta só os joga se os tiver; a ficha do jogador marca-os como "trancado". Quem tem Moments trancados (ex.: o Pedro) tem de ler a carteira outra vez (Jogadores → Coleção → Ler carteira).
 - **João** — Comprar pelo **custo real**: o leitor (v35) lê também a oferta mais alta de cada Moment à venda, e "Mais por dólar" passa a contar o que perdes — o preço menos o que recebes ao revender à oferta (com os 5% de comissão). Um Rare de 20 $ com oferta a 17 $ custa cerca de 4 $. Cada linha mostra o preço e o custo real; "Tenho para gastar" continua a contar o preço que pagas. Precisa de atualizar o leitor e ler os preços outra vez.

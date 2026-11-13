@@ -475,6 +475,32 @@ with sync_playwright() as pw:
     pg.close()
     LOCKED_IDS.clear()
 
+    # ---------- C3: "Não jogo" num dia: o plano não conta com ele, aparece o aviso e dá para voltar atrás ----------
+    db = seeded(); T = db['tables']
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in roster['players']}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    eb0 = pg.locator('#tab-hoje .hero .eyebrow').first.inner_text()
+    pg.locator('#tab-hoje .hero button[data-action="day-off"]').click(); pg.wait_for_timeout(2500)
+    off = store(pg, '__FAKE_DB.tables.user_runs[0].plan.off')
+    note = pg.locator('#tab-hoje .off-note').inner_text() if pg.locator('#tab-hoje .off-note').count() else ''
+    eb1 = pg.locator('#tab-hoje .hero .eyebrow').first.inner_text() if pg.locator('#tab-hoje .hero .eyebrow').count() else ''
+    lu_next = pg.locator('#tab-hoje .hero .jc-list .nm').all_inner_texts()
+    print('C3 não jogo hoje:', eb0.split('·')[0].strip(), '→', eb1.split('·')[0].strip(), '· aviso:', note[:80], '· guardado:', off, '· ok' if 'Não jogas hoje' in note and '"2026-10-21":true' in off.replace(' ', '') and eb1.startswith('Dia') and len(lu_next) == 5 else '· ERRO')
+    strip2 = pg.locator('#tab-hoje .day-strip .ds').nth(1).inner_text().replace('\n', ' ')
+    hl = pg.locator('#tab-hoje .hero').inner_text()
+    print('C3 faixa e lineup do dia:', strip2, '· ok' if 'não' in strip2 and 'Lineup do dia desde' not in hl else '· ERRO')
+    pg.screenshot(path=str(shots / 'nao-jogo.png'), full_page=False)
+    print('C3 largura:', width(pg), '· ok' if width(pg) <= 390 else '· ERRO')
+    pg.locator('#tab-hoje .off-note button[data-action="day-on"]').click(); pg.wait_for_timeout(2500)
+    eb2 = pg.locator('#tab-hoje .hero .eyebrow').first.inner_text()
+    print('C3 afinal jogo:', eb2.split('·')[0].strip(), '· ok' if eb2.startswith('Hoje') and not pg.locator('#tab-hoje .off-note').count() else '· ERRO')
+    pg.close()
+
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']
     T['runs'][0]['fictitious'] = False

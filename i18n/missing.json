@@ -1,27 +1,52 @@
 [
  {
   "file": "docs/app.js",
-  "text": "<div class=\"note\">Não consegui ver que Moments estão trancados (",
-  "line": "const lkHtml = lkFail.length ? '<div class=\"note\">Não consegui ver que Moments estão trancados (' + esc(lkFail.join(', ')) + '). Lê a carteira outra vez daqui a"
+  "text": "não",
+  "line": "else if (offOn(S.acc, day.date) && !(p && p.done)) { val = 'não'; cls = ' off'; sr = '<span class=\"vh\">não jogas</span>'; }"
  },
  {
   "file": "docs/app.js",
-  "text": "). Lê a carteira outra vez daqui a pouco.</div>",
-  "line": "const lkHtml = lkFail.length ? '<div class=\"note\">Não consegui ver que Moments estão trancados (' + esc(lkFail.join(', ')) + '). Lê a carteira outra vez daqui a"
+  "text": " off",
+  "line": "else if (offOn(S.acc, day.date) && !(p && p.done)) { val = 'não'; cls = ' off'; sr = '<span class=\"vh\">não jogas</span>'; }"
  },
  {
   "file": "docs/app.js",
-  "text": "<div class=\"small muted\">Trancados: nenhum.</div>",
-  "line": ": !lkN ? '<div class=\"small muted\">Trancados: nenhum.</div>'"
+  "text": "<span class=\"vh\">não jogas</span>",
+  "line": "else if (offOn(S.acc, day.date) && !(p && p.done)) { val = 'não'; cls = ' off'; sr = '<span class=\"vh\">não jogas</span>'; }"
  },
  {
   "file": "docs/app.js",
-  "text": "Moment trancado",
-  "line": ": '<div class=\"note info\"><b>' + plural(lkN, 'Moment trancado', 'Moments trancados') + '</b> (não se mandam entre contas nem se vendem):' + Object.entries(lkBy)"
+  "text": "<div class=\"note info off-note\">Não jogas ",
+  "line": "if (offs.length) html.push('<div class=\"note info off-note\">Não jogas ' + offs.map(x => '<b>' + (x.date === todayET() ? 'hoje' : 'o dia ' + (S.days.indexOf(x) +"
  },
  {
   "file": "docs/app.js",
-  "text": "</b> (não se mandam entre contas nem se vendem):",
-  "line": ": '<div class=\"note info\"><b>' + plural(lkN, 'Moment trancado', 'Moments trancados') + '</b> (não se mandam entre contas nem se vendem):' + Object.entries(lkBy)"
+  "text": "\">afinal jogo</button>",
+  "line": "if (offs.length) html.push('<div class=\"note info off-note\">Não jogas ' + offs.map(x => '<b>' + (x.date === todayET() ? 'hoje' : 'o dia ' + (S.days.indexOf(x) +"
+ },
+ {
+  "file": "docs/app.js",
+  "text": ". O plano guarda os usos para os outros dias.</div>",
+  "line": "if (offs.length) html.push('<div class=\"note info off-note\">Não jogas ' + offs.map(x => '<b>' + (x.date === todayET() ? 'hoje' : 'o dia ' + (S.days.indexOf(x) +"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "\">Não vou jogar este dia</button></div>",
+  "line": "(btns.length ? '<div class=\"jc-btns\">' + btns.join('') + '</div>' : '') + (canEdit && !d.noObjective ? '<div class=\"jc-off\"><button class=\"btn link small\" type="
+ },
+ {
+  "file": "docs/app.js",
+  "text": " sem jogar. Plano refeito.",
+  "line": "planPatch({ off: { [date]: true } }); S.hd = null; toast((date === todayET() ? 'Hoje' : 'Dia ' + (S.days.findIndex(x => x.date === date) + 1)) + ' sem jogar. Pl"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Voltas a jogar ",
+  "line": "case 'day-on': planPatch({ off: { [date]: false } }); toast('Voltas a jogar ' + (date === todayET() ? 'hoje' : 'o dia ' + (S.days.findIndex(x => x.date === date"
+ },
+ {
+  "file": "docs/app.js",
+  "text": ". Plano refeito.",
+  "line": "case 'day-on': planPatch({ off: { [date]: false } }); toast('Voltas a jogar ' + (date === todayET() ? 'hoje' : 'o dia ' + (S.days.findIndex(x => x.date === date"
  }
 ]

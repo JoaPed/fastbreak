@@ -1226,6 +1226,7 @@ function holdSync() {
   accounts().forEach(a => {
     const R = S.multi ? S.multi.byKey[a.id] : (a.id === 'main' ? S.result : null); if (!R || !R.model.days.length) return;
     const md = R.model.days[0], date = md.day.date, d = R.normal.days[0]; if (!d || d.date !== date) return;
+    if (offOn(a.id, todayET()) && date > todayET()) return; // hoje não jogas: o dia seguinte não fica fixo desde já
     { const pa0 = planOf(a.id), H0 = (pa0.lhist || {})[date], T0 = holdTidy(H0); if (H0 && T0.length !== H0.length) { pa0.lhist[date] = T0; ch = true; } }
     const tip = firstTipOf(md.day); if (tip == null || Date.now() >= tip || liveOn(date)) return;
     const L = d.lineup.slice(), pa = planOf(a.id), h = pa.hold, xNow = R.normal.expected;
@@ -1437,7 +1438,10 @@ function dayEnd(day) {
 const dayOver = day => Date.now() > dayEnd(day);
 // Dias que já acabaram sem resultado registado (não jogaste, ou o resultado ainda não chegou da blockchain): o plano
 // deixa de contar com eles (não gasta usos nem os mostra como "hoje"); continuam por registar em Run → Dias
-const skippedDays = acc => { const pl = planOf(acc || S.acc).played || {}; return S.days.filter(d => !(pl[d.date] && pl[d.date].done) && dayOver(d)); };
+const skippedDays = acc => { const pl = planOf(acc || S.acc).played || {}; return S.days.filter(d => !(pl[d.date] && pl[d.date].done) && (dayOver(d) || offOn(acc || S.acc, d.date))); };
+// dias em que disseste que não jogas (plan.off, por conta): o plano não conta com eles nem gasta usos neles
+const offOn = (acc, date) => !!((planOf(acc || S.acc).off || {})[date]);
+const offDays = acc => S.days.filter(d => offOn(acc, d.date) && !dayOver(d) && !(((planOf(acc || S.acc).played || {})[d.date] || {}).done));
 // lineup mantido (keep, ao tirar um cadeado) que já não pode ser: o jogador está fixado noutra conta nessa noite e
 // não há Moments/cartas para as duas (ex.: 2.ª jogada nas duas com um só Rare). Sai do "mantido" e o plano escolhe outro
 function keepConflict(acc, date, id) {
@@ -1771,6 +1775,7 @@ function dayStrip(sel) {
       val = p.result === 'win' ? '✓' : '✕'; cls = p.result === 'win' ? ' win' : ' loss'; sr = '<span class="vh">' + (p.result === 'win' ? 'vitória' : 'derrota') + '</span>';
     }
     else if (md && d && !d.noObjective && d.lineup.length) { val = pct(d.P); cls = ' c-' + dTone(d.P); }
+    else if (offOn(S.acc, day.date) && !(p && p.done)) { val = 'não'; cls = ' off'; sr = '<span class="vh">não jogas</span>'; }
     else if (!md && !(p && p.noAuto) && lineupFor(S.acc, day.date)) val = '…'; // passou: à espera das estatísticas
     const inj = md && d ? lineupInjured(r, md, d.lineup).length : 0;
     return '<button type="button" class="ds' + cls + (now ? ' now' : '') + '" data-action="hd" data-date="' + day.date + '" aria-pressed="' + (day.date === sel) + '"><b class="num">' + (i + 1) + '</b><small>' + (now ? 'Hoje' : dWeek(day.date)) + '</small><span class="ds-v num">' + val + '</span>' + sr + (inj ? '<i class="ds-inj" title="Lesão no lineup"></i>' : '') + '</button>';
@@ -2631,6 +2636,9 @@ function renderJornada(el) {
   const sub = subOf('hoje'), html = [dayStrip(J.date), jornadaNav(J.date, sub)];
   if (!nextDay()) html.push('<div class="note info run-end">Run terminada: ' + plural(r.wins, 'vitória', 'vitórias') + ' em ' + plural(r.playedCount, 'dia', 'dias') + '. Toca num dia para o rever.</div>');
   const run = curRun() || {}, real = S.runs.find(x => x.active && !x.fictitious && x.id !== run.id);
+  const offs = offDays(S.acc);
+  if (offs.length) html.push('<div class="note info off-note">Não jogas ' + offs.map(x => '<b>' + (x.date === todayET() ? 'hoje' : 'o dia ' + (S.days.indexOf(x) + 1)) + '</b> <button class="btn link small" type="button" data-action="day-on" data-date="' + x.date + '">afinal jogo</button>').join(' · ') + '. O plano guarda os usos para os outros dias.</div>');
+  if (offOn(S.acc, J.date) && !dayOver(J.day)) { el.innerHTML = html.join(''); return; }
   if (run.fictitious) html.push('<div class="note">Run de teste: jogos e objetivos inventados.' + (real ? ' <button class="btn link small" type="button" data-action="run-go" data-id="' + esc(real.id) + '">Ver a ' + esc(real.name) + '</button>' : '') + '</div>');
   if (J.past) {
     html.push(sub === 'lineup' ? pastDayHtml(J) : '<div class="note info">Dia já jogado: o resultado está em Lineup.</div>');
@@ -2727,10 +2735,10 @@ function renderJornada(el) {
     const LD = S.liveDiag, liveDiag = live ? '<div class="live-diag">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' de ' + LD.sub + ' com estatísticas' + ((LD.miss || []).length ? ' (sem: ' + LD.miss.map(esc).join(', ') + ')' : '') + (LD.err ? ' · erro: ' + esc(LD.err) : '') + ' · ' : '') + '<button class="btn link small" type="button" data-action="live-refresh">Atualizar</button></div>' : '';
     const finalLine = allFinal && t ? '<div class="row small jc-final" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '';
     const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar o lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Mudar o lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Partilhar o lineup" title="Partilhar o lineup">' + icoShare + '</button>' : ''].filter(Boolean);
-    html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur ? 'Hoje' : 'Dia ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Ao vivo</span>' : '') + '</span>' +
-      (live ? (d.totals.length === 1 && t ? liveBoard(d, 'top') : '') : '<div class="jc-sub">' + (d.noObjective ? 'Sem objetivo' : d.lineup.length ? perStat : '') + '</div>') + (live ? '' : '<div class="jc-sub">' + (isCur ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1.º jogo ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
+    html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur && nd.date <= todayET() ? 'Hoje' : 'Dia ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Ao vivo</span>' : '') + '</span>' +
+      (live ? (d.totals.length === 1 && t ? liveBoard(d, 'top') : '') : '<div class="jc-sub">' + (d.noObjective ? 'Sem objetivo' : d.lineup.length ? perStat : '') + '</div>') + (live ? '' : '<div class="jc-sub">' + (isCur && nd.date <= todayET() ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1.º jogo ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
       (live && t ? liveBoard(d, 'bar') : '') + liveDiag + (d.lineup.length ? '<ul class="list jc-list' + (live ? ' lv-list' : '') + '">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
-      (btns.length ? '<div class="jc-btns">' + btns.join('') + '</div>' : '') + '</div>';
+      (btns.length ? '<div class="jc-btns">' + btns.join('') + '</div>' : '') + (canEdit && !d.noObjective ? '<div class="jc-off"><button class="btn link small" type="button" data-action="day-off" data-date="' + nd.date + '">Não vou jogar este dia</button></div>' : '') + '</div>';
   } else html.splice(luAt, 0, '<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar</button>' : '<span class="small muted">' + (live ? 'pontos ao vivo' : d.lineup.length ? d.lineup.length + ' de ' + md.size : '') + '</span>') + '</div>' +
     (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '') +
@@ -2892,7 +2900,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
   const run = curRun();
   if (run && !run.fictitious) {
     const lim = new Date(Date.parse(today + 'T12:00:00Z') - 3 * 864e5).toISOString().slice(0, 10), pl = curPlan().played || {};
-    skippedDays(S.acc).filter(x => x.date >= lim && !(pl[x.date] && pl[x.date].noAuto) && (x.objectives || []).some(o => o && o.stat) && Date.now() > dayEnd(x) + 12 * 3600e3).forEach(x => {
+    skippedDays(S.acc).filter(x => x.date >= lim && !offOn(S.acc, x.date) && !(pl[x.date] && pl[x.date].noAuto) && (x.objectives || []).some(o => o && o.stat) && Date.now() > dayEnd(x) + 12 * 3600e3).forEach(x => {
       items.push(btn('data-action="past-lu" data-date="' + x.date + '"', 'Dia ' + (S.days.indexOf(x) + 1) + ' sem resultado', 'Não fechou sozinho. Se jogaste, regista-o.', 'res|' + x.date));
     });
   }
@@ -7149,6 +7157,9 @@ document.addEventListener('click', async e => {
     case 'ban': choiceSheet(id, date, 'ban'); break;
     case 'ban-yes': banToggle(id, date, true); luBack(date); break;
     case 'unban': banToggle(id, date, false); luBack(date); break;
+    case 'day-off': { const pa = curPlan(); if (pa.hold && pa.hold.d === date) delete pa.hold; if (pa.keep) delete pa.keep[date]; }
+      planPatch({ off: { [date]: true } }); S.hd = null; toast((date === todayET() ? 'Hoje' : 'Dia ' + (S.days.findIndex(x => x.date === date) + 1)) + ' sem jogar. Plano refeito.'); break;
+    case 'day-on': planPatch({ off: { [date]: false } }); toast('Voltas a jogar ' + (date === todayET() ? 'hoje' : 'o dia ' + (S.days.findIndex(x => x.date === date) + 1)) + '. Plano refeito.'); break;
     // Mudar o lineup (folha com o que muda face à sugestão do plano)
     case 'lu-edit': S.lu = null; lineupSheet(date); break;
     case 'lu-lockall': luBusy(); lockAll(date, b.dataset.on === '1'); break;
