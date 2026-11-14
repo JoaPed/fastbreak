@@ -27,4 +27,4 @@
   carrinho. O **orçamento** ("Tenho para gastar") e o "Máximo por Moment" continuam a contar o preço que se paga.
 - É uma estimativa: a oferta é a dessa edição no momento da leitura e pode sair antes de se vender.
 - Com preços lidos mas sem ofertas (leitor antigo), o formulário das compras pede a v35.
-
+- **14 nov 2026:** desligado (`BUY_RESALE = false` no `docs/app.js`). O João não revende os Moments depois da run, por isso a ordem volta a ser pelo preço. O leitor continua a ler a oferta; ela só aparece na ficha da compra.

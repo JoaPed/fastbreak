@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-14
+- **João** — Compras: deixa de contar o "custo real" (revenda à oferta mais alta), porque o grupo não revende depois da run. A ordem "Mais por dólar" volta a usar o preço; a oferta mais alta só aparece na ficha da compra, como informação.
 - **João** — Compras: as que não mudam nada na run ("esperadas 19,7 → 19,7") deixam de aparecer na lista e nas Melhores compras. Em inglês os preços passam a usar ponto decimal ($2.40).
 
 ## 2026-11-13

@@ -2076,7 +2076,6 @@ with sync_playwright() as pw:
     pg.click('#sheetPanel button[data-action="close-sheet"]'); pg.wait_for_timeout(200)
     pg.screenshot(path=str(shots / 'compras-carrinho.png'), full_page=True)
     pg.fill('#buyBudget', ''); pg.wait_for_timeout(100)
-    hint0 = 'leitor para a v35' in pg.locator('#plSub').inner_text()  # preços sem ofertas: pede o leitor novo
     pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
     pg.click('#meBtn'); pg.wait_for_timeout(300); pg.click('#tab-ajustes button[data-action="sub"][data-sub="admin"]'); pg.wait_for_timeout(400); pg.click('#tab-ajustes button[data-action="ranks-go"][data-do^="px"]'); pg.wait_for_url('https://nbatopshot.com/**', timeout=5000)
     job = json.loads(_b64.urlsafe_b64decode((pg.evaluate('window.name').split(':', 1)[1] + '===')).decode())
@@ -2118,14 +2117,14 @@ with sync_playwright() as pw:
     pg3.goto('https://site.test/'); pg3.wait_for_timeout(500)
     pg3.fill('#auEmail', 'eu@x.pt'); pg3.fill('#auPass', 'segredo1'); pg3.click('#auSubmit'); pg3.wait_for_timeout(4000)
     pg3.click('#t-plantel'); pg3.wait_for_timeout(300); pg3.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg3.wait_for_timeout(300)
-    hint1 = 'leitor para a v35' in pg3.locator('#plSub').inner_text()
     pg3.click('#tab-plantel button[data-action="buy-run"]'); pg3.wait_for_selector('#buyOut .buy-row, #buyOut .note', timeout=40000); pg3.wait_for_timeout(300)
-    R3 = pg3.evaluate('''() => [...document.querySelectorAll('#buyOut .card:not(.buy-cart) .buy-row')].map(r => ({ nm: (r.querySelector('.nm') || {}).textContent, tier: (r.querySelector('.tpill') || {}).textContent, ask: (r.querySelector('.mkt b') || {}).textContent || '', real: (r.querySelector('.buy-real b') || {}).textContent || '', per: ((r.querySelector('.buy-per') || {}).textContent || '').replace(/^.*· /, '') }))''')
+    R3 = pg3.evaluate('''() => [...document.querySelectorAll('#buyOut .card:not(.buy-cart) .buy-row')].map(r => ({ nm: (r.querySelector('.nm') || {}).textContent, ask: (r.querySelector('.mkt b') || {}).textContent || '', per: (r.querySelector('.buy-per') || {}).textContent || '' }))''')
     pers3 = [_num(x['per']) for x in R3 if x['per']]
-    rares = [x for x in R3 if x['tier'] == 'Rare' and x['real']]
-    print('K3 custo real:', [(x['nm'], x['tier'], x['ask'], x['real'], x['per']) for x in R3][:3], '| aviso do leitor antes/depois:', hint0, hint1, '| ok:', hint0 and not hint1 and len(rares) >= 1 and all(_num(x['real']) < _num(x['ask']) for x in rares) and len(pers3) >= 2 and pers3 == sorted(pers3, reverse=True) and 'custo real' in pg3.locator('#buyOut .buy-intro').inner_text() or ('ERRO', R3))
+    # o grupo não revende: a lista conta o preço (sem "custo real"); a oferta só aparece na ficha da compra
+    print('K3 com ofertas lidas:', [(x['nm'], x['ask'], x['per']) for x in R3][:3], '| ok:', len(R3) >= 2 and 'custo real' not in pg3.locator('#buyOut').inner_text() and pers3 == sorted(pers3, reverse=True) and 'leitor para a v35' not in pg3.locator('#plSub').inner_text() or ('ERRO', R3))
     pg3.locator('#buyOut .card:not(.buy-cart) .buy-row').first.click(); pg3.wait_for_timeout(500)
-    print('K3 custo real na ficha da compra:', pg3.locator('#sheetPanel .bd-tiles').inner_text().replace('\n', ' | ')[-90:], '| ok:', ('custo real' in pg3.locator('#sheetPanel .bd-tiles').inner_text()) == bool(R3 and R3[0]['real']) or 'ERRO')
+    tiles = pg3.locator('#sheetPanel .bd-tiles').inner_text()
+    print('K3 oferta na ficha da compra:', tiles.replace('\n', ' | ')[-80:], '| ok:', 'custo real' not in tiles or 'ERRO')
     pg3.click('#sheetPanel button[data-action="close-sheet"]'); pg3.wait_for_timeout(200)
     pg3.screenshot(path=str(shots / 'compras-custo-real.png'), full_page=True)
     pg3.close()
