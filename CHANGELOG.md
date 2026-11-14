@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-14
+- **João** — Compras: as que não mudam nada na run ("esperadas 19,7 → 19,7") deixam de aparecer na lista e nas Melhores compras. Em inglês os preços passam a usar ponto decimal ($2.40).
+
 ## 2026-11-13
 - **João** — Jornada: "Não vou jogar este dia" (por baixo do lineup, antes dos jogos). O plano deixa de contar com esse dia e guarda os usos para os outros; o dia fica com "não" na faixa e um aviso com "afinal jogo" para voltar atrás.
 - **Pedro** — Ler carteira: o resultado diz logo quantos Moments estão trancados e de que jogadores (por conta), ou avisa se não deu para ver os trancados.

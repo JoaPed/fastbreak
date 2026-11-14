@@ -3265,5 +3265,6 @@
  "\">Não vou jogar este dia</button></div>": "\">I won’t play this day</button></div>",
  " sem jogar. Plano refeito.": ": not playing. Plan updated.",
  "Voltas a jogar ": "Playing again ",
- ". Plano refeito.": ". Plan updated."
+ ". Plano refeito.": ". Plan updated.",
+ "<div class=\"note info\">Nenhuma destas compras muda a tua run.</div>": "<div class=\"note info\">None of these purchases changes your run.</div>"
 }

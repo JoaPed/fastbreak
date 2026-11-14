@@ -4141,6 +4141,8 @@ const buyExp = ev => (ev.group ? ev.group.keys.reduce((t, k) => t + ev.group.byK
 // de cada linha batem certo com os números que lá estão.
 const buyPz = (ev, k) => (ev.group ? ev.group.byKey[k].normal : ev.res).prizeProbs;
 const buyPzUp = (R, x, round) => { let m = 0; (R.base.group ? R.base.group.keys : ['main']).forEach(k => realPrizes(R, k, (p, i) => { const a = buyPz(x.ev, k)[i], b = buyPz(R.base, k)[i]; m = Math.max(m, round ? Math.round(a * 100) - Math.round(b * 100) : a - b); })); return m; };
+// a compra muda alguma coisa que se veja (um prémio sobe 1% ou mais, ou as vitórias esperadas 0,05 ou mais)?
+const buyUseful = (R, x) => !R.base || buyPzUp(R, x, true) >= 1 || buyExp(x.ev) - buyExp(R.base) >= 0.05;
 const buyGain = (x, R) => (!R.base ? x.ev.total : R.unit === 'V' ? buyExp(x.ev) - buyExp(R.base) : buyPzUp(R, x));
 function buySort(R) {
   if (!R.base || !R.list.length) return R;
@@ -4404,7 +4406,7 @@ function buyTipsCard(limit, jornada) {
   if (S.autoBuyErr === key) return '<div class="card">' + head + '<div class="row small muted" style="display:block">Não deu para calcular. <button class="btn link small" type="button" data-action="buy-retry">Tentar outra vez</button></div></div>';
   if (!A) return '<div class="card">' + head + '<div class="row small muted" style="display:block">A testar cada compra na tua run…</div></div>';
   // os melhores primeiro, mesmo os que mudam pouco (assim vês sempre qual é o Rare que mais compensa)
-  const tips = A.list.map(x => buySummary(A, x)).slice(0, limit);
+  const tips = A.list.filter(x => buyUseful(A, x)).map(x => buySummary(A, x)).slice(0, limit);
   if (!tips.length) return '<div class="card">' + head + '<div class="row small muted" style="display:block">' + (A.noPool ? 'Não há candidatos com jogos nos dias que faltam.' : A.any ? 'Nenhuma compra muda a tua run.' : 'Nenhum Rare muda a tua run.') + '</div></div>';
   return '<div class="card">' + head + '<ul class="list">' + tips.map((t, i) => buyRow(A, t, i, 'auto')).join('') +
     '</ul>' + (jornada ? '<button class="btn link small buy-more-link" type="button" data-action="goto" data-tab="plantel" data-sub="comprar">Ver mais compras ›</button>' : '') + '</div>';
@@ -4431,7 +4433,8 @@ function buyResultsHtml(R) {
   const moreBtn = left ? '<div id="buyMoreBox"><button class="btn" type="button" data-action="buy-more">Testar os próximos ' + Math.min(left, S.multi ? 5 : 8) + '</button></div>' : '';
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
-  if (!R.single) return intro + buyCartHtml(R) + '<div class="card"><ul class="list">' + R.list.map((x, n) => buyRow(R, buySummary(R, x), n, 'res')).join('') + '</ul></div>' + moreBtn;
+  const useful = R.list.filter(x => buyUseful(R, x)); // as que não mudam nada não aparecem
+  if (!R.single) return intro + buyCartHtml(R) + (useful.length ? '<div class="card"><ul class="list">' + useful.map((x, n) => buyRow(R, buySummary(R, x), n, 'res')).join('') + '</ul></div>' : '<div class="note info">Nenhuma destas compras muda a tua run.</div>') + moreBtn;
   return R.list.map((x, n) => {
     const id = String(x.id), c = S.players.get(id) || {}, more = R.mode === 'more' || !!S.mine.roster[id];
     // dias em que passa a jogar (que antes não jogava), com a vitória desse dia antes → depois, por conta
@@ -5447,7 +5450,7 @@ function mktOf(id, uses) {
   const ts = MKT_TIER[uses] || ['Common', 'Fandom'], a = m.asks.filter(r => ts.includes(r.tier)), sl = m.sales.filter(r => ts.includes(r.tier));
   return { ask: a.length ? +a[0].price : null, serial: a.length ? a[0].serial : null, last: sl.length ? +sl[0].price : null, lastAt: sl.length ? sl[0].sold_at : null, n: sl.length };
 }
-const usd = x => '$' + (x >= 100 || Math.abs(x - Math.round(x)) < 0.005 ? f0(x) : (Math.round(x * 100) / 100).toFixed(2).replace('.', ','));
+const usd = x => '$' + (x >= 100 || Math.abs(x - Math.round(x)) < 0.005 ? f0(x) : (Math.round(x * 100) / 100).toFixed(2).replace('.', LANG === 'en' ? '.' : ','));
 function mktTxt(id, uses) {
   const p = mktOf(id, uses);
   if (p && p.ask != null) return '<span class="mk-pre">à venda </span>desde <b class="num">' + usd(p.ask) + '</b>';

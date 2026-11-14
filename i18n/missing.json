@@ -1,52 +1,7 @@
 [
  {
   "file": "docs/app.js",
-  "text": "não",
-  "line": "else if (offOn(S.acc, day.date) && !(p && p.done)) { val = 'não'; cls = ' off'; sr = '<span class=\"vh\">não jogas</span>'; }"
- },
- {
-  "file": "docs/app.js",
-  "text": " off",
-  "line": "else if (offOn(S.acc, day.date) && !(p && p.done)) { val = 'não'; cls = ' off'; sr = '<span class=\"vh\">não jogas</span>'; }"
- },
- {
-  "file": "docs/app.js",
-  "text": "<span class=\"vh\">não jogas</span>",
-  "line": "else if (offOn(S.acc, day.date) && !(p && p.done)) { val = 'não'; cls = ' off'; sr = '<span class=\"vh\">não jogas</span>'; }"
- },
- {
-  "file": "docs/app.js",
-  "text": "<div class=\"note info off-note\">Não jogas ",
-  "line": "if (offs.length) html.push('<div class=\"note info off-note\">Não jogas ' + offs.map(x => '<b>' + (x.date === todayET() ? 'hoje' : 'o dia ' + (S.days.indexOf(x) +"
- },
- {
-  "file": "docs/app.js",
-  "text": "\">afinal jogo</button>",
-  "line": "if (offs.length) html.push('<div class=\"note info off-note\">Não jogas ' + offs.map(x => '<b>' + (x.date === todayET() ? 'hoje' : 'o dia ' + (S.days.indexOf(x) +"
- },
- {
-  "file": "docs/app.js",
-  "text": ". O plano guarda os usos para os outros dias.</div>",
-  "line": "if (offs.length) html.push('<div class=\"note info off-note\">Não jogas ' + offs.map(x => '<b>' + (x.date === todayET() ? 'hoje' : 'o dia ' + (S.days.indexOf(x) +"
- },
- {
-  "file": "docs/app.js",
-  "text": "\">Não vou jogar este dia</button></div>",
-  "line": "(btns.length ? '<div class=\"jc-btns\">' + btns.join('') + '</div>' : '') + (canEdit && !d.noObjective ? '<div class=\"jc-off\"><button class=\"btn link small\" type="
- },
- {
-  "file": "docs/app.js",
-  "text": " sem jogar. Plano refeito.",
-  "line": "planPatch({ off: { [date]: true } }); S.hd = null; toast((date === todayET() ? 'Hoje' : 'Dia ' + (S.days.findIndex(x => x.date === date) + 1)) + ' sem jogar. Pl"
- },
- {
-  "file": "docs/app.js",
-  "text": "Voltas a jogar ",
-  "line": "case 'day-on': planPatch({ off: { [date]: false } }); toast('Voltas a jogar ' + (date === todayET() ? 'hoje' : 'o dia ' + (S.days.findIndex(x => x.date === date"
- },
- {
-  "file": "docs/app.js",
-  "text": ". Plano refeito.",
-  "line": "case 'day-on': planPatch({ off: { [date]: false } }); toast('Voltas a jogar ' + (date === todayET() ? 'hoje' : 'o dia ' + (S.days.findIndex(x => x.date === date"
+  "text": "<div class=\"note info\">Nenhuma destas compras muda a tua run.</div>",
+  "line": "if (!R.single) return intro + buyCartHtml(R) + (useful.length ? '<div class=\"card\"><ul class=\"list\">' + useful.map((x, n) => buyRow(R, buySummary(R, x), n, 'res"
  }
 ]
