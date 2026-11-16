@@ -5250,7 +5250,7 @@ function adminHtml(run) {
     '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks,lu,hist">Standings, picks, lineups and Historic</button><span class="small muted">1–2 minutes. Once a day, in the morning or before the games.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="' + (edOn() ? 'px,ed' : 'px') + '">Player prices' + (edOn() ? ' and card ASP' : '') + '</button><span class="small muted">2–4 minutes. Every now and then.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="pro">Pro prices</button><span class="small muted">2–3 minutes. The cheapest card of each Pro set family. Once a day is enough.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run and prizes</button><span class="small muted">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run,hist">Run and prizes</button><span class="small muted">When a new run starts: Classic, Historic and Pro.</span></div>' +
     '<div class="small muted">On Top Shot tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div></div>');
   out.push(jobsCard());
   const imp = chainImportCard(); if (imp) out.push(imp);

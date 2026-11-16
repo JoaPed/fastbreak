@@ -5249,7 +5249,7 @@ function adminHtml(run) {
     '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks,lu,hist">Classificação, picks, lineups e Historic</button><span class="small muted">1–2 minutos. Uma vez por dia, de manhã ou antes dos jogos.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="' + (edOn() ? 'px,ed' : 'px') + '">Preços dos jogadores' + (edOn() ? ' e das cartas (ASP)' : '') + '</button><span class="small muted">2–4 minutos. De vez em quando.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="pro">Preços do Pro</button><span class="small muted">2–3 minutos. A carta mais barata de cada família de sets do Pro. Uma vez por dia chega.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run">Run e prémios</button><span class="small muted">Rápido. Quando sai uma run nova, se a blockchain não a trouxer.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run,hist">Run e prémios</button><span class="small muted">Quando sai uma run nova: a Classic, o Historic e o Pro.</span></div>' +
     '<div class="small muted">No Top Shot toca no favorito <b>FB lugares</b> e depois em <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">Como instalar</a></div></div>');
   out.push(jobsCard());
   const imp = chainImportCard(); if (imp) out.push(imp);

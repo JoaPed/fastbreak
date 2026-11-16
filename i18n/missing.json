@@ -1,12 +1,7 @@
 [
  {
   "file": "docs/app.js",
-  "text": "Run nova: os melhores Moments vão primeiro para a <b>",
-  "line": "'<div class=\"small muted\">' + (p === 'auto' ? (au && au.fresh ? 'Run nova: os melhores Moments vão primeiro para a <b>' + esc(accLabel(au.id)) + '</b> até haver"
- },
- {
-  "file": "docs/app.js",
-  "text": "</b> até haver lugares desta run.",
-  "line": "'<div class=\"small muted\">' + (p === 'auto' ? (au && au.fresh ? 'Run nova: os melhores Moments vão primeiro para a <b>' + esc(accLabel(au.id)) + '</b> até haver"
+  "text": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run e prémios</button><span class=\"small muted\">Quando sai uma run nova: a Classic, o Historic e o Pro.</span></div>",
+  "line": "'<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run e prémios</button><span class=\"small muted\">Quando sai uma"
  }
 ]

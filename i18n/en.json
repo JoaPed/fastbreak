@@ -1959,7 +1959,6 @@
  "<div class=\"row small muted\" style=\"display:block\">Patamares de vitórias para o plano: ": "<div class=\"row small muted\" style=\"display:block\">Win tiers for the plan: ",
  "<div class=\"row small\" style=\"display:block\"><b>Prémios da run</b>": "<div class=\"row small\" style=\"display:block\"><b>Run prizes</b>",
  "<div class=\"row small\" style=\"display:block\"><b>Prémios de cada dia</b>: ": "<div class=\"row small\" style=\"display:block\"><b>Daily prizes</b>: ",
- "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run\">Run e prémios</button><span class=\"small muted\">Rápido. Quando sai uma run nova, se a blockchain não a trouxer.</span></div>": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run\">Run and prizes</button><span class=\"small muted\">Quick. When a new run comes out, if the blockchain doesn’t bring it.</span></div>",
  "<h3>Run lida no Top Shot</h3><div class=\"small muted\">": "<h3>Run read on Top Shot</h3><div class=\"small muted\">",
  "<li class=\"row\"><span><b>Dia ": "<li class=\"row\"><span><b>Day ",
  "<span class=\"muted\">o Top Shot não mostrou</span>": "<span class=\"muted\">Top Shot didn’t show them</span>",
@@ -3281,5 +3280,6 @@
  "Não percebi. Exemplo: 1-100 10, 101-200 2": "Didn't get that. Example: 1-100 10, 101-200 2",
  "Prémios da run guardados.": "Run prizes saved.",
  "Run nova: os melhores Moments vão primeiro para a <b>": "New run: the best Moments go first to <b>",
- "</b> até haver lugares desta run.": "</b> until there are ranks for this run."
+ "</b> até haver lugares desta run.": "</b> until there are ranks for this run.",
+ "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run e prémios</button><span class=\"small muted\">Quando sai uma run nova: a Classic, o Historic e o Pro.</span></div>": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run and prizes</button><span class=\"small muted\">When a new run starts: Classic, Historic and Pro.</span></div>"
 }

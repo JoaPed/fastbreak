@@ -233,19 +233,26 @@ async function picks(addr) {
   try { const u = await call('PredictionService/GetUserPredictionSummary', { product: 'nba', userFlowAddress: String(addr || '').replace(/^0x/, '') }); out.cap = +u.dailyActivePointsCap || null; out.free = !!u.freePicks; } catch (e) {}
   return out;
 }
+// a run mais recente de um tipo: das ativas, a mais nova pela data no id; e, se houver, uma ainda mais nova pelo id
+// (prefixo + AAAA-MM-DD) nos últimos dias (a lista das ativas pode ainda trazer a run que acabou, ou não vir)
+const runDay = id => (String(id || '').match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
+async function latestRun(runs, test, prefix, back) {
+  let run = runs.filter(test).sort((a, b) => runDay(b.id).localeCompare(runDay(a.id)))[0] || null;
+  for (let k = 1; k >= -back; k--) {
+    const day = new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
+    if (run && runDay(run.id) >= day) break;
+    try { const res = await call('GameEngineService/SearchContests', { product: 'nba', runId: prefix + day }); if ((res.contests || []).length) { run = { id: prefix + day, name: null }; break; } } catch (err) {}
+  }
+  return run;
+}
 // ---- Historic: lendas e Roster Points dos dias abertos, resultados simulados (e os 40 primeiros) dos dias fechados ----
 const H_KEYS = ['points', 'rebounds', 'assists', 'steals', 'blocks', 'turnovers', 'three_points_made', 'double_double', 'triple_double', 'field_goals_made', 'field_goals_att', 'offensive_rebounds'];
 async function readHist() {
   say('A ler o Historic…');
   let runs = [];
   try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {}
-  let run = runs.find(r => /historic/i.test(r.id + ' ' + (r.name || ''))) || runs.find(r => r.league === 'simulation') || null;
-  // sem a lista das runs ativas (API pública): a run do Historic mais recente que já começou, pelo id
-  // (run-fb-historic-AAAA-MM-DD); se não houver nenhuma, a que o site já conhece
-  for (let k = 1; k >= -14 && !run; k--) {
-    const id = 'run-fb-historic-' + new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
-    try { const res = await call('GameEngineService/SearchContests', { product: 'nba', runId: id }); if ((res.contests || []).length) run = { id, name: null }; } catch (err) {}
-  }
+  // a run do Historic mais recente (das ativas ou pelo id run-fb-historic-AAAA-MM-DD); se não houver nenhuma, a que o site já conhece
+  let run = await latestRun(runs, r => /historic/i.test(r.id + ' ' + (r.name || '')) || r.league === 'simulation', 'run-fb-historic-', 14);
   if (!run && job.hRun) run = { id: job.hRun, name: null };
   if (!run) throw new Error('não encontrei a run do Historic');
   let cs = [], page = null;
@@ -308,7 +315,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 28, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 29, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -387,11 +394,7 @@ async function readProRun() {
   say('A ler o Pro…');
   let runs = [];
   try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {}
-  let run = runs.find(r => r.mode === 'RUN_MODE_PRO' || /nba-pro/.test(String(r.id))) || null;
-  for (let k = 1; k >= -7 && !run; k--) {
-    const id = 'run-nba-pro-' + new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
-    try { const res = await call('GameEngineService/SearchContests', { product: 'nba', runId: id }); if ((res.contests || []).length) run = { id, name: null }; } catch (err) {}
-  }
+  let run = await latestRun(runs, r => r.mode === 'RUN_MODE_PRO' || /nba-pro/.test(String(r.id)), 'run-nba-pro-', 7);
   if (!run) return null;
   let cs = [], page = null;
   for (let i = 0; i < 6; i++) { const res = await call('GameEngineService/SearchContests', Object.assign({ product: 'nba', runId: run.id }, page ? { pageToken: page } : {})); cs = cs.concat(res.contests || []); page = res.nextPageToken || null; if (!page) break; }
@@ -458,11 +461,7 @@ async function readProRanks() {
   say('A ler a classificação do Pro…');
   let runs = [];
   try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {}
-  let run = runs.find(r => r.mode === 'RUN_MODE_PRO' || /nba-pro/.test(String(r.id))) || null;
-  for (let k = 1; k >= -7 && !run; k--) {
-    const id = 'run-nba-pro-' + new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
-    try { const res = await call('GameEngineService/SearchContests', { product: 'nba', runId: id }); if ((res.contests || []).length) run = { id, name: null }; } catch (err) {}
-  }
+  let run = await latestRun(runs, r => r.mode === 'RUN_MODE_PRO' || /nba-pro/.test(String(r.id)), 'run-nba-pro-', 7);
   if (!run) return null;
   const ak = a => String(a.a).replace(/^0x/, '').toLowerCase(), lb = run.leaderboardId || ('run:' + run.id);
   const out = { at: new Date().toISOString(), run: { id: run.id, name: run.name || null, ends: run.endsAt || null }, bands: ((run.reward || {}).bands || []).map(b => [+b.rankLow, +b.rankHigh, +b.amount, b.label || '']), qual: run.reward && run.reward.qualifier ? +run.reward.qualifier.rankHigh : null, accs: [], days: [] };

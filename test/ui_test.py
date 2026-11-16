@@ -1206,7 +1206,7 @@ with sync_playwright() as pw:
     pback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))['px']
     print('T2b preços com ofertas:', pback.get('p'), 'sem:', pback.get('miss'), '· ok' if pback['p'].get('jokic') == [300, 2000, 90000, 200, 1700, None] and pback['p'].get('luka') == [500, None, 100, None, None, None] and pback.get('miss') == ['zz'] else '· ERRO')
     us = (docs / 'fb-lugares.user.js').read_text()
-    print('T2b userscript: versão 35 e o mesmo código:', '· ok' if '// @version      35' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
+    print('T2b userscript: versão 36 e o mesmo código:', '· ok' if '// @version      36' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
     pg.close()
     # T3: com a run 2 já a decorrer, o leitor lê a run do site (pelo 1.º dia), mesmo que o site tenha guardado a outra
     # run por engano; e com folga de dias quando o 1.º dia do site não é o mesmo do Top Shot
@@ -1232,6 +1232,28 @@ with sync_playwright() as pw:
         t3 += [bd.get('leaderboardId') for m, bd in rcalls if m == 'LeaderboardService/GetSubjectRank']
         pg.close()
     print('T3 run do site com outra ativa:', t3, '· ok' if t3 == ['run:run-nba-classic-2026-10-20', 'run:run-nba-classic-2026-10-20', 'run:run-nba-classic-2026-11-03'] else '· ERRO')
+    # T3b: run nova: a lista das ativas ainda traz o Historic e o Pro que acabaram; o leitor apanha os novos pelo id
+    def rapi3b(r, *_):
+        m = r.request.url.split('atlas.v1.')[1]; bd = json.loads(r.request.post_data or '{}')
+        H = {'access-control-allow-origin': '*'}
+        old = [{'id': 'run-fb-historic-2026-10-20', 'league': 'simulation'}, {'id': 'run-nba-pro-2026-10-20', 'mode': 'RUN_MODE_PRO'}, {'id': 'run-nba-classic-2026-11-16', 'league': 'nba', 'mode': 'RUN_MODE_CLASSIC'}]
+        if m == 'GameEngineService/ListActiveRuns': return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'runs': old}))
+        if m == 'GameEngineService/SearchContests' and bd.get('runId') in ('run-fb-historic-2026-11-16', 'run-nba-pro-2026-11-16', 'run-nba-classic-2026-11-16'):
+            return r.fulfill(status=200, content_type='application/json', headers=H, body=json.dumps({'contests': [{'id': bd['runId'] + '-d1', 'locksAt': '2026-11-17T23:00:00Z'}]}))
+        return r.fulfill(status=200, content_type='application/json', headers=H, body='{}')
+    pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
+    pg.clock.set_fixed_time('2026-11-16T18:00:00Z')
+    pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+    pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
+    pg.route('https://api.production.atlas.dapperlabs.com/**', rapi3b)
+    rjob = {'do': ['run', 'hist'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}], 'hRun': 'run-fb-historic-2026-10-20'}
+    pg.goto('https://nbatopshot.com/fastbreak?league=nba#fbsync=' + base64.urlsafe_b64encode(json.dumps(rjob).encode()).decode().rstrip('='))
+    pg.evaluate((docs / 'fb-lugares.js').read_text()); pg.evaluate("new Headers().set('authorization', 'Bearer x')")
+    pg.wait_for_url('https://site.test/**', timeout=30000)
+    b3 = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))
+    h3, p3 = ((b3.get('hist') or {}).get('run') or {}).get('id'), (b3.get('prorun') or {}).get('id')
+    print('T3b Historic e Pro novos:', h3, p3, b3.get('histErr') or '', b3.get('proErr') or '', '· ok' if h3 == 'run-fb-historic-2026-11-16' and p3 == 'run-nba-pro-2026-11-16' else '· ERRO')
+    pg.close()
     # T4: sem sessão (a página do Fast Break já não põe autorização): o leitor começa sozinho e lê pela API pública
     t4 = []
     def rapi4(r):
