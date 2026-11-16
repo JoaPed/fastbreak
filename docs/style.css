@@ -1316,3 +1316,17 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .gc-wrap.scrolled .gc-run td.rr::before, .gc-wrap.scrolled .gc-run thead th:nth-child(2)::before, .gc-wrap.scrolled .gc-run tr.tot td:nth-child(2)::before {
   right: -12px; box-shadow: 8px 0 10px -6px rgb(0 0 0 / 35%); clip-path: inset(-4px -24px -4px 0); }
 .gc-run tr.tot td.who2::after, .gc-run tr.tot td:nth-child(2)::after { border-top: 1px solid var(--line); }
+/* telemóvel: só a coluna das contas fica fixa; o lugar na run passa para uma linha dela (a coluna da run some) */
+.gc .rr-mini { display: none; font-style: normal; font-size: 10.5px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gc .rr-mini b, .gc tr.me td.who2 .rr-mini b { font-size: 11px; color: var(--ink); }
+.gc .rr-mini.z-p b, .gc tr.me td.who2 .rr-mini.z-p b { color: var(--ball); }
+.gc .rr-mini.z-q b, .gc tr.me td.who2 .rr-mini.z-q b { color: #C9971C; }
+@media (max-width: 560px) {
+  .gc .rr-mini { display: block; }
+  .gc-run td.rr, .gc-run thead th:nth-child(2), .gc-run tr.tot td:nth-child(2) { display: none; }
+  .gc-run td.who2, .gc-run th.who2 { width: 118px; min-width: 118px; max-width: 118px; padding-left: 10px; }
+  .gc-run td.who2 .avatar, .gc-run th.who2 .avatar { display: none; }
+  .gc-run .who2 b { max-width: 104px; }
+  .gc-run .who2 small { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gc-wrap.scrolled .gc-run td.who2::before, .gc-wrap.scrolled .gc-run th.who2::before { right: -12px; box-shadow: 8px 0 10px -6px rgb(0 0 0 / 35%); clip-path: inset(-4px -24px -4px 0); }
+}

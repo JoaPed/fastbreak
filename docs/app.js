@@ -103,10 +103,18 @@ const engOpts = () => { const h = S.mine && S.mine.plan && S.mine.plan.hint, pr 
 // prioridade entre contas (com smurfs): a conta escolhida, ou a mais bem classificada na Geral (Automática); cada
 // vitória esperada dela vale PRIO_W no plano conjunto. 'eq' = iguais
 const PRIO_W = 1.2;
+// os lugares lidos são desta run? (pela data no id da run do Top Shot, ±3 dias do 1.º dia do site)
+function ranksThisRun(R) {
+  const m = String(((R || {}).run || {}).id || '').match(/(\d{4}-\d{2}-\d{2})/), d0 = S.days && S.days.length ? S.days[0].date : null;
+  return !m || !d0 || Math.abs(Date.parse(m[1]) - Date.parse(d0)) <= 3 * 864e5;
+}
 function prioAuto() {
   if (!S.session) return null; const uid = S.session.user.id; let best = null;
+  // run nova (sem lugares desta run, ou ainda os da run anterior): a principal primeiro
+  const main = accounts().some(a => a.id === 'main') ? { id: 'main', rank: null, fresh: true } : null;
+  if (!groupRanks()) return main;
   accounts().forEach(a => { const r = rankOf(accAddr(uid, a.id)); if (r && r.rank != null && (!best || +r.rank < best.rank)) best = { id: a.id, rank: +r.rank }; });
-  return best;
+  return best || main;
 }
 function prioAcc() {
   if (!S.mine || !S.mine.plan || accounts().length < 2) return null;
@@ -829,7 +837,8 @@ function bandsParse(t) {
   return out.filter(b => b[0] >= 1 && b[1] >= b[0] && b[2] > 0).sort((p, q) => p[0] - q[0]);
 }
 function groupRanks() {
-  const docs = [S.ranksMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ranks)).filter(r => r && r.at && Array.isArray(r.accs));
+  // só os lugares desta run: os da anterior ficam no Classic dessa run (escolher a run passada)
+  const docs = [S.ranksMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ranks)).filter(r => r && r.at && Array.isArray(r.accs) && ranksThisRun(r));
   if (!docs.length) return null;
   docs.sort((p, q) => String(p.at).localeCompare(String(q.at)));
   const best = docs[docs.length - 1], runId = (best.run || {}).id;
@@ -4709,7 +4718,7 @@ function proClassifHtml() {
     const cls = dr ? (dr.won ? 'w' : 'l') : 'n', tip = dShort(d.date) + (no ? ': sem lineup' : dr ? (dr.won ? ': ganhou' : ': perdeu') + (d.total ? ' · ' + dr.rank + ' de ' + d.total : '') : '');
     return '<td class="c ' + cls + '" title="' + esc(tip) + '">' + (dr ? dr.rank.toLocaleString('pt-PT') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : '—') + '</td>'; };
   const rows = people.map(x => { const r = rk(x), f = r && r.found ? r : null, pz = f ? prizeAt(f.rank) : '', won = days.reduce((t, d) => t + dayPrize(d, x.addr ? (d.accs || {})[addrKey(x.addr)] : null), 0);
-    return '<tr' + (x.uid === S.session.user.id ? ' class="me"' : '') + '><td class="who2">' + avatar(x.uid, x.name) + '<span><b>' + esc(x.name) + '</b>' + (x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
+    return '<tr' + (x.uid === S.session.user.id ? ' class="me"' : '') + '><td class="who2">' + avatar(x.uid, x.name) + '<span><b>' + esc(x.name) + '</b>' + (x.uid === S.session.user.id ? '<small>tu</small>' : '') + rrMini(f && f.rank, f ? f.wins : 0, pz, f ? zone(f.rank) : '') + '</span></td>' +
       '<td class="rr' + (f ? zone(f.rank) : '') + '">' + (f ? '<b>' + f.rank.toLocaleString('pt-PT') + '.º</b><small>' + plural(f.wins, 'vitória', 'vitórias') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + (!r ? 'por ler' : r.err ? 'não deu' : 'não joga') + '</small>') + '</td>' +
       days.map(d => cell(x, d)).join('') + '<td class="money">' + (won ? money(won) : '—') + '</td></tr>'; }).join('');
   const allWon = people.reduce((t, x) => t + days.reduce((u, d) => u + dayPrize(d, x.addr ? (d.accs || {})[addrKey(x.addr)] : null), 0), 0);
@@ -4806,7 +4815,7 @@ function pastClassicHtml(run, P) {
     return '<td class="c ' + res + '" title="' + esc(tip) + '">' + (dr && dr.rank ? dr.rank.toLocaleString('pt-PT') + '.º' + (pz ? '<small class="dz">+' + money(pz) + '</small>' : '') : '—') + '</td>';
   };
   const rows = ppl.map(z => '<tr' + (z.x.uid === S.session.user.id ? ' class="me"' : '') + '><td class="who2">' + avatar(z.x.acc === 'main' ? z.x.uid : z.x.uid + '|' + z.x.acc, z.x.name) +
-    '<span><b>' + esc(z.x.name) + '</b>' + (z.x.acc !== 'main' ? '<small>smurf' + (z.x.owner ? ' de ' + esc(z.x.owner) : '') + '</small>' : z.x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
+    '<span><b>' + esc(z.x.name) + '</b>' + (z.x.acc !== 'main' ? '<small>smurf' + (z.x.owner ? ' de ' + esc(z.x.owner) : '') + '</small>' : z.x.uid === S.session.user.id ? '<small>tu</small>' : '') + rrMini(z.rk && z.rk.rank, z.wins, z.rp ? money(z.rp) : '', z.rk ? zone(z.rk.rank) : '') + '</span></td>' +
     '<td class="rr' + (z.rk ? zone(z.rk.rank) : '') + '">' + (z.rk ? '<b>' + z.rk.rank.toLocaleString('pt-PT') + '.º</b>' : '<b class="muted">—</b>') + '<small>' + plural(z.wins, 'vitória', 'vitórias') + (z.rp ? ' · ' + money(z.rp) : '') + '</small></td>' +
     days.map(d => cell(z, d)).join('') + '<td class="money">' + (z.won + z.rp ? money(z.won + z.rp) : '—') + '</td></tr>').join('');
   const dayTot = d => { const D = rd(d.date); let t = 0, w = 0, any = false; ppl.forEach(z => { const dr = (D.accs || {})[z.ak]; if (dr && dr.rank) { any = true; if (dr.won) w++; t += dayPrize(D, dr); } }); return { t, w, any }; };
@@ -4828,6 +4837,8 @@ function runBandsSheet(rid) {
     if (!bands.length) { toast('Não percebi. Exemplo: 1-100 10, 101-200 2'); return; }
     bandsKeep(rid, bands, x && x.qual); S.lastSummary = ''; closeSheet(); render(); publishSummary(); toast('Prémios da run guardados.'); });
 }
+// no telemóvel a coluna da run some e o lugar na run vai numa linha da coluna das contas (só uma coluna fixa)
+const rrMini = (rank, wins, pz, z) => '<i class="rr-mini' + (z || '') + '">' + (rank ? '<b>' + rank.toLocaleString('pt-PT') + '.º</b>' : '—') + ' · ' + wins + ' ✓' + (pz ? ' · ' + esc(pz) : '') + '</i>';
 // Classic ou Historic na Classificação (sem escolha: segue o modo da Jornada)
 const gcMode = () => S.gcMode || (S.jmode === 'historic' ? 'historic' : S.jmode === 'pro' ? 'pro' : 'classic');
 const gcSeg = () => '<div class="seg gc-mode" role="group" aria-label="Modo" style="grid-template-columns:repeat(3,1fr)">' + [['classic', 'Classic'], ['historic', 'Historic'], ['pro', 'Pro']].map(([k, l]) => '<button type="button" data-action="gc-mode" data-v="' + k + '" aria-pressed="' + (gcMode() === k) + '">' + l + '</button>').join('') + '</div>';
@@ -4873,7 +4884,7 @@ function renderGrupo() {
     const rk = x.rk && x.rk.found ? x.rk : null, pz = rk ? prizeAt(rk.rank) : '';
     const won = rdays.reduce((t, d) => t + dayPrize(d, x.addr ? (d.accs || {})[addrKey(x.addr)] : null), 0);
     return '<tr' + (x.uid === S.session.user.id ? ' class="me"' : '') + ' data-action="friend" data-id="' + esc(x.uid) + '" data-acc="' + esc(x.acc) + '" tabindex="0" role="button"><td class="who2">' + avatar(x.acc === 'main' ? x.uid : x.uid + '|' + x.acc, x.name) +
-      '<span><b>' + esc(x.name) + '</b>' + (x.acc !== 'main' ? '<small>smurf' + (x.owner ? ' de ' + esc(x.owner) : '') + '</small>' : x.uid === S.session.user.id ? '<small>tu</small>' : '') + '</span></td>' +
+      '<span><b>' + esc(x.name) + '</b>' + (x.acc !== 'main' ? '<small>smurf' + (x.owner ? ' de ' + esc(x.owner) : '') + '</small>' : x.uid === S.session.user.id ? '<small>tu</small>' : '') + rrMini(rk && rk.rank, rk && rk.wins != null ? rk.wins : x.wins, pz, rk ? zone(rk.rank) : '') + '</span></td>' +
       '<td class="rr' + (rk ? zone(rk.rank) : '') + '">' + (rk ? '<b>' + rk.rank.toLocaleString('pt-PT') + '.º</b><small>' + plural(rk.wins != null ? rk.wins : x.wins, 'vitória', 'vitórias') + (pz ? ' · ' + esc(pz) : '') + '</small>' : '<b class="muted">—</b><small>' + plural(x.wins, 'vitória', 'vitórias') + '</small>') + '</td>' +
       days.map(d => cell(x, d)).join('') + '<td class="money">' + (won ? money(won) : '—') + '</td></tr>';
   }).join('');
@@ -4978,7 +4989,7 @@ function renderAjustes() {
     const p = (S.mine.plan || {}).prio || 'auto', au = prioAuto();
     html.push('<div class="card panel"><h2>Prioridade entre contas ' + helpBtn('prio') + '</h2>' +
       '<div class="chips" role="group" aria-label="Prioridade entre contas">' + [['auto', 'Automática']].concat(accounts().map(a => [a.id, accLabel(a.id)])).concat([['eq', 'Iguais']]).map(([k, l]) => '<button type="button" data-action="prio" data-v="' + esc(k) + '" aria-pressed="' + (p === k) + '">' + esc(l) + '</button>').join('') + '</div>' +
-      '<div class="small muted">' + (p === 'auto' ? (au ? 'Os melhores Moments vão primeiro para a <b>' + esc(accLabel(au.id)) + '</b>, a mais bem classificada (' + esc(ord(au.rank)) + ' na Geral).' : 'Ainda sem lugares lidos: sem prioridade.') : p === 'eq' ? 'Sem prioridade: o plano pode pôr os melhores Moments em qualquer uma das contas.' : 'Os melhores Moments vão primeiro para a <b>' + esc(accLabel(p)) + '</b>.') + '</div></div>');
+      '<div class="small muted">' + (p === 'auto' ? (au && au.fresh ? 'Run nova: os melhores Moments vão primeiro para a <b>' + esc(accLabel(au.id)) + '</b> até haver lugares desta run.' : au ? 'Os melhores Moments vão primeiro para a <b>' + esc(accLabel(au.id)) + '</b>, a mais bem classificada (' + esc(ord(au.rank)) + ' na Geral).' : 'Ainda sem lugares lidos: sem prioridade.') : p === 'eq' ? 'Sem prioridade: o plano pode pôr os melhores Moments em qualquer uma das contas.' : 'Os melhores Moments vão primeiro para a <b>' + esc(accLabel(p)) + '</b>.') + '</div></div>');
   }
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Cálculo sem odds ' + helpBtn('avancado') + '</h2>' +
     '<div class="label">Jogos seguidos</div><div class="seg acc-seg" role="group" aria-label="Jogos seguidos"><button type="button" data-action="b2b" data-v="1" aria-pressed="' + b2bOn + '">Ajustar</button><button type="button" data-action="b2b" data-v="0" aria-pressed="' + !b2bOn + '">Não ajustar</button></div>' +

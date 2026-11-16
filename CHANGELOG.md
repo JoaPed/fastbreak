@@ -4,6 +4,8 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-16
+- **João** — Classificação no telemóvel: só a coluna das contas fica fixa e leva o lugar na run (73.º · 10 ✓ · $10); a coluna da run só aparece em ecrãs largos.
+- **João** — Run nova: a Classificação deixa de mostrar os lugares da run anterior, e a prioridade Automática vai para a conta principal até haver lugares desta run.
 - **João** — Classificação: ao deslizar, já não se vê nada dos dias por trás das colunas da conta e da run (nem nos cantos entre linhas).
 - **João** — Classificação: os prémios da run aparecem sempre (também na Run 2), sem pôr nada à mão: quando nenhuma leitura os guardou, valem os da Classic (1.º $2000 … 71.º–120.º $10, 121.º–150.º $5, 151.º–250.º $2).
 - **João** — Classificação: o Historic volta ao normal; ao deslizar o Classic já não se vê o verde dos dias por trás da coluna da run.

@@ -3279,5 +3279,7 @@
  "<form id=\"bandsForm\" class=\"stack\"><label>Lugares e prémio<input class=\"field\" id=\"bandsIn\" autocomplete=\"off\" spellcheck=\"false\" value=\"": "<form id=\"bandsForm\" class=\"stack\"><label>Places and prize<input class=\"field\" id=\"bandsIn\" autocomplete=\"off\" spellcheck=\"false\" value=\"",
  "<button class=\"btn primary\" type=\"submit\">Guardar</button></form>": "<button class=\"btn primary\" type=\"submit\">Save</button></form>",
  "Não percebi. Exemplo: 1-100 10, 101-200 2": "Didn't get that. Example: 1-100 10, 101-200 2",
- "Prémios da run guardados.": "Run prizes saved."
+ "Prémios da run guardados.": "Run prizes saved.",
+ "Run nova: os melhores Moments vão primeiro para a <b>": "New run: the best Moments go first to <b>",
+ "</b> até haver lugares desta run.": "</b> until there are ranks for this run."
 }

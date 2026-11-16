@@ -1444,7 +1444,7 @@ with sync_playwright() as pw:
     pg.select_option('#gcRunSel', 'run-2'); pg.wait_for_timeout(600)
     cur4 = pg.locator('#tab-grupo .card .small.muted').first.inner_text()
     print('O4 classificação por runs:', runs4, on4, '|', heads4[:4], '|', rows4[:1], rows4[-1:], '| lineups:', lus4, '| Historic:', h4, '| Run 2:', cur4[:40],
-          '· ok' if runs4 == ['Run 2 · atual', 'Run 1'] and on4 == 'run-1' and heads4[:4] == ['Conta', 'Run', 'Dia 1 ›', 'Dia 2'] and rows4[0].startswith('J João tu 8.º 11 vitórias · $100 3.º +$50') and rows4[-1].endswith('$212') and lus4 == 'Lineups do dia 1' and h4 == ['João', 'Rui'] and ('Run 2' in cur4 or 'ainda não lidos' in cur4) else '· ERRO')
+          '· ok' if runs4 == ['Run 2 · atual', 'Run 1'] and on4 == 'run-1' and heads4[:4] == ['Conta', 'Run', 'Dia 1 ›', 'Dia 2'] and rows4[0].startswith('João tu 8.º · 11 ✓ · $100 3.º +$50') and rows4[-1].endswith('$212') and lus4 == 'Lineups do dia 1' and h4 == ['João', 'Rui'] and ('Run 2' in cur4 or 'ainda não lidos' in cur4) else '· ERRO')
     pg.close()
     # O4b: a run acabou e a leitura nova já não traz os prémios da run (o Top Shot deixa de os mostrar): ficam os da
     # leitura anterior (aqui, a de outro membro do grupo)
@@ -1458,14 +1458,19 @@ with sync_playwright() as pw:
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.click('#t-grupo'); pg.wait_for_timeout(800)
     rows4b = [' '.join(t.split()) for t in pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()]
-    print('O4b prémios da run depois de acabar:', rows4b[:1], '· ok' if rows4b and rows4b[0].startswith('J João tu 8.º 11 vitórias · $100') else '· ERRO')
-    # ao deslizar a tabela para a direita, as colunas da conta e da run ficam no sítio
+    print('O4b prémios da run depois de acabar:', rows4b[:1], '· ok' if rows4b and rows4b[0].startswith('João tu 8.º · 11 ✓ · $100') else '· ERRO')
+    # telemóvel: só a coluna das contas fica fixa e leva o lugar na run (a coluna da run some)
     pg.set_viewport_size({'width': 390, 'height': 800}); pg.wait_for_timeout(300)
-    x0 = pg.evaluate("(() => { const td = document.querySelector('#tab-grupo .gc tbody tr td.rr'); return td.getBoundingClientRect().left; })()")
-    pg.evaluate("document.querySelector('#tab-grupo .gc-wrap').scrollLeft = 400"); pg.wait_for_timeout(300)
-    x1 = pg.evaluate("(() => { const td = document.querySelector('#tab-grupo .gc tbody tr td.rr'); return td.getBoundingClientRect().left; })()")
+    lx = "(() => { const td = document.querySelector('#tab-grupo .gc tbody tr td.who2'); return td.getBoundingClientRect().left; })()"
+    x0 = pg.evaluate(lx); pg.evaluate("document.querySelector('#tab-grupo .gc-wrap').scrollLeft = 400"); pg.wait_for_timeout(300); x1 = pg.evaluate(lx)
+    rrv = pg.evaluate("getComputedStyle(document.querySelector('#tab-grupo .gc tbody tr td.rr')).display")
     pg.locator('#tab-grupo .gc-wrap').screenshot(path=str(shots / 'classif-run-fixa.png'))
-    print('O4b coluna da run fixa ao deslizar:', round(x0), '→', round(x1), '· ok' if abs(x0 - x1) < 2 else '· ERRO')
+    print('O4b telemóvel: conta fixa ao deslizar, sem coluna da run:', round(x0), '→', round(x1), rrv, '· ok' if abs(x0 - x1) < 2 and rrv == 'none' else '· ERRO')
+    # ecrã largo: as colunas da conta e da run ficam no sítio
+    pg.set_viewport_size({'width': 800, 'height': 800}); pg.wait_for_timeout(300); pg.evaluate("document.querySelector('#tab-grupo .gc-wrap').scrollLeft = 0"); pg.wait_for_timeout(200)
+    lr = "(() => { const td = document.querySelector('#tab-grupo .gc tbody tr td.rr'); return td.getBoundingClientRect().left; })()"
+    x0 = pg.evaluate(lr); pg.evaluate("document.querySelector('#tab-grupo .gc-wrap').scrollLeft = 400"); pg.wait_for_timeout(300); x1 = pg.evaluate(lr)
+    print('O4b coluna da run fixa ao deslizar (ecrã largo):', round(x0), '→', round(x1), '· ok' if abs(x0 - x1) < 2 and x0 > 100 else '· ERRO')
     # as frestas entre linhas das colunas fixas ficam tapadas (sem o verde dos dias por trás)
     sh4b = pg.evaluate("(() => { const c = getComputedStyle(document.querySelector('#tab-grupo .gc tbody tr td.rr'), '::before'); return c.top + ' ' + c.bottom + ' ' + c.backgroundColor })()")
     print('O4b frestas tapadas:', sh4b[:40], '· ok' if sh4b.startswith('-4px -4px') else '· ERRO')
@@ -1485,7 +1490,7 @@ with sync_playwright() as pw:
     pg.click('#t-grupo'); pg.wait_for_timeout(800)
     btn4c = pg.locator('#tab-grupo button[data-action="run-bands"]').count()
     rows4c = [' '.join(t.split()) for t in pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()]
-    print('O4c prémios da run sem leitura:', btn4c, rows4c[:1], '· ok' if btn4c == 0 and rows4c and rows4c[0].startswith('J João tu 8.º 11 vitórias · $100') else '· ERRO')
+    print('O4c prémios da run sem leitura:', btn4c, rows4c[:1], '· ok' if btn4c == 0 and rows4c and rows4c[0].startswith('João tu 8.º · 11 ✓ · $100') else '· ERRO')
     pg.close()
     # O5: run nova sem plantel: traz o da run anterior com os usos todos (os usos por run: os que sobraram + os gastos)
     dbc = json.loads(json.dumps(dbg)); Tc = dbc['tables']
