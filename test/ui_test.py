@@ -1467,8 +1467,8 @@ with sync_playwright() as pw:
     pg.locator('#tab-grupo .gc-wrap').screenshot(path=str(shots / 'classif-run-fixa.png'))
     print('O4b coluna da run fixa ao deslizar:', round(x0), '→', round(x1), '· ok' if abs(x0 - x1) < 2 else '· ERRO')
     # as frestas entre linhas das colunas fixas ficam tapadas (sem o verde dos dias por trás)
-    sh4b = pg.evaluate("getComputedStyle(document.querySelector('#tab-grupo .gc tbody tr td.rr')).boxShadow")
-    print('O4b frestas tapadas:', sh4b[:40], '· ok' if '4px' in sh4b else '· ERRO')
+    sh4b = pg.evaluate("(() => { const c = getComputedStyle(document.querySelector('#tab-grupo .gc tbody tr td.rr'), '::before'); return c.top + ' ' + c.bottom + ' ' + c.backgroundColor })()")
+    print('O4b frestas tapadas:', sh4b[:40], '· ok' if sh4b.startswith('-4px -4px') else '· ERRO')
     # no Historic a 2.ª coluna não é a da run: não fica fixa
     pg.click('#tab-grupo button[data-action="gc-mode"][data-v="historic"]'); pg.wait_for_timeout(600)
     hp = pg.evaluate("(() => { const t = document.querySelector('#tab-grupo .gc'); const c = t && t.querySelector('tbody tr td:nth-child(2)'); return [t ? t.className : '', c ? getComputedStyle(c).position : ''] })()")

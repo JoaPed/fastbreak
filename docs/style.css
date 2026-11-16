@@ -1300,12 +1300,19 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .jc-off .btn.link { color: rgba(255, 255, 255, .72); }
 /* coluna da run também fixa, logo a seguir à das contas (largura fixa da coluna das contas + o espaço entre células) */
 .gc-run td.who2, .gc-run th.who2 { box-sizing: border-box; width: 132px; min-width: 132px; max-width: 132px; }
-/* as duas colunas fixas tapam tudo o que passa por trás: os lados e as frestas entre linhas (sem verde a espreitar) */
-.gc-run td.rr, .gc-run thead th:nth-child(2), .gc-run tr.tot td:nth-child(2) { position: sticky; left: 140px; z-index: 1; background: var(--surface); box-shadow: 0 0 0 4px var(--surface); }
-.gc-run td.who2, .gc-run th.who2 { box-shadow: -8px 0 0 var(--surface), 0 0 0 4px var(--surface); }
-.gc-run tr.me td.who2 { box-shadow: inset 3px 0 0 var(--accent), -8px 0 0 var(--surface), 0 0 0 4px var(--surface); }
-.gc-run tr.me td.rr { box-shadow: 0 0 0 4px var(--surface); }
-
+/* as duas colunas fixas tapam tudo o que passa por trás. A célula fixa é um contexto à parte: por baixo (::before)
+   um fundo liso e quadrado que cobre as frestas entre linhas e os cantos; por cima (::after) o cartão arredondado
+   da célula (a sombra antiga seguia o arredondado e deixava espreitar o verde dos dias) */
+.gc-run td.rr, .gc-run thead th:nth-child(2), .gc-run tr.tot td:nth-child(2) { position: sticky; left: 140px; z-index: 1; }
+.gc-run td.who2, .gc-run th.who2, .gc-run td.rr, .gc-run thead th:nth-child(2), .gc-run tr.tot td:nth-child(2) { --cbg: var(--surface); --cin: none; background: transparent; box-shadow: none; }
+.gc-run tr.me td.who2, .gc-run tr.me td.rr { --cbg: color-mix(in srgb, var(--accent) 16%, var(--surface)); background: transparent; box-shadow: none; }
+.gc-run tr.me td.who2 { --cin: inset 3px 0 0 var(--accent); }
+.gc-run td.who2::before, .gc-run th.who2::before, .gc-run td.rr::before, .gc-run thead th:nth-child(2)::before, .gc-run tr.tot td:nth-child(2)::before {
+  content: ""; position: absolute; inset: -4px; z-index: -2; background: var(--surface); pointer-events: none; }
+.gc-run td.who2::after, .gc-run th.who2::after, .gc-run td.rr::after, .gc-run thead th:nth-child(2)::after, .gc-run tr.tot td:nth-child(2)::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--cbg); box-shadow: var(--cin); pointer-events: none; }
+.gc-run td.who2::before, .gc-run th.who2::before { left: -8px; }
 /* ao deslizar, a coluna da run ganha uma margem lisa e uma sombra suave: o que passa por baixo não fica a espreitar */
-.gc-wrap.scrolled .gc-run td.rr, .gc-wrap.scrolled .gc-run thead th:nth-child(2), .gc-wrap.scrolled .gc-run tr.tot td:nth-child(2) {
-  box-shadow: 0 0 0 4px var(--surface), 10px 0 0 4px var(--surface), 14px 0 10px -2px rgb(0 0 0 / 10%); }
+.gc-wrap.scrolled .gc-run td.rr::before, .gc-wrap.scrolled .gc-run thead th:nth-child(2)::before, .gc-wrap.scrolled .gc-run tr.tot td:nth-child(2)::before {
+  right: -12px; box-shadow: 8px 0 10px -6px rgb(0 0 0 / 35%); clip-path: inset(-4px -24px -4px 0); }
+.gc-run tr.tot td.who2::after, .gc-run tr.tot td:nth-child(2)::after { border-top: 1px solid var(--line); }
