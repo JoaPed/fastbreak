@@ -812,7 +812,7 @@ function rankBands(docs, best, runId) {
   // os da leitura "Run e prémios" ou postos à mão, guardados no resumo de alguém do grupo
   if (!(x && (x.bands || []).length)) x = ((S.group || {}).summaries || []).map(z => z.share && z.share.rbands && z.share.rbands[runId]).find(z => z && (z.bands || []).length) || null;
   if (x && (x.bands || []).length) return { bands: x.bands, qual: best.qual || x.qual || null };
-  return {};
+  return /classic/i.test(String(runId || '')) ? { bands: RUN_BANDS, qual: best.qual || null } : {};
 }
 // prémios da run (faixas de lugares) guardados neste aparelho, por run; vão no resumo publicado (para o grupo os ver)
 function bandsKeep(id, bands, qual) {
@@ -837,6 +837,8 @@ function groupRanks() {
   return Object.assign({}, best, rankBands(docs, best, runId), { days: docs.filter(r => (r.run || {}).id === runId).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
 }
 // lugar de uma conta num dia (pela data do site)
+// prémios da run Classic (os mesmos em todas as runs até agora, lidos na Run 1): servem quando nenhuma leitura os guardou
+const RUN_BANDS = [[1, 1, 200000], [2, 2, 100000], [3, 3, 50000], [4, 4, 25000], [5, 5, 12500], [6, 10, 10000], [11, 30, 5000], [31, 70, 2500], [71, 120, 1000], [121, 150, 500], [151, 250, 200]];
 const DAY_BANDS = [[1, 1, 15000], [2, 2, 10000], [3, 3, 5000], [4, 4, 2000], [5, 10, 1000], [11, 25, 500], [26, 50, 300], [51, 100, 200]];
 function dayRankOf(addr, date) { const R = groupRanks(), d = R && (R.days || []).find(x => x.date === date); return d && addr ? Object.assign({ total: d.total, final: d.final }, (d.accs || {})[addrKey(addr)] || { rank: null }) : null; }
 // a conta não levou lineup num dia já fechado: perguntou-se por ela e o Top Shot não a tem na classificação do dia

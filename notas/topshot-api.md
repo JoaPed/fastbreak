@@ -10,6 +10,7 @@ Base: `https://api.production.atlas.dapperlabs.com/atlas.v1.<Serviço>/<Método>
 
 ## Runs e dias
 - `GameEngineService/ListActiveRuns {product:'nba'}` → runs (id, name, mode `RUN_MODE_CLASSIC`, endsAt, reward.bands, reward.qualifier).
+- Quando a run acaba sai do `ListActiveRuns` e os prémios da run (`reward.bands`) deixam de vir em qualquer leitura. O site guarda-os (localStorage `fb-bands:<id>` e `share.rbands` no resumo) e, sem nenhuma guardada, usa `RUN_BANDS` (os da Classic Run 1: 1.º 2000 $, 2.º 1000, 3.º 500, 4.º 250, 5.º 125, 6–10 100, 11–30 50, 31–70 25, 71–120 10, 121–150 5, 151–250 2).
 - `GameEngineService/SearchContests {product, runId}` → dias (`contest-run-nba-classic-2026-10-20-AAAA-MM-DD`): objectives (statKey, statAbbreviation, target), locksAt, status, reward.bands. Usado em "Run e prémios" (Admin) e nos lugares.
 - `GameEngineService/GetContest {contestId}`, `GetGameBoxScores`, `GetPlayerIntelligence {playerId}` (médias e titular previsto, RotoBaller), `GetPlayerSlots` — vistos, ainda não usados.
 
