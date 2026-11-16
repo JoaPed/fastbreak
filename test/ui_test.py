@@ -1466,6 +1466,27 @@ with sync_playwright() as pw:
     x1 = pg.evaluate("(() => { const td = document.querySelector('#tab-grupo .gc tbody tr td.rr'); return td.getBoundingClientRect().left; })()")
     pg.locator('#tab-grupo .gc-wrap').screenshot(path=str(shots / 'classif-run-fixa.png'))
     print('O4b coluna da run fixa ao deslizar:', round(x0), '→', round(x1), '· ok' if abs(x0 - x1) < 2 else '· ERRO')
+    # as frestas entre linhas das colunas fixas ficam tapadas (sem o verde dos dias por trás)
+    sh4b = pg.evaluate("getComputedStyle(document.querySelector('#tab-grupo .gc tbody tr td.rr')).boxShadow")
+    print('O4b frestas tapadas:', sh4b[:40], '· ok' if '4px' in sh4b else '· ERRO')
+    # no Historic a 2.ª coluna não é a da run: não fica fixa
+    pg.click('#tab-grupo button[data-action="gc-mode"][data-v="historic"]'); pg.wait_for_timeout(600)
+    hp = pg.evaluate("(() => { const t = document.querySelector('#tab-grupo .gc'); const c = t && t.querySelector('tbody tr td:nth-child(2)'); return [t ? t.className : '', c ? getComputedStyle(c).position : ''] })()")
+    print('O4b Historic sem coluna fixa:', hp, '· ok' if hp[0] == 'gc' and hp[1] != 'sticky' else '· ERRO')
+    pg.close()
+    # O4c: ninguém guardou os prémios da run: o admin põe-nos à mão e aparecem na coluna da run
+    dbq = json.loads(json.dumps(dbp)); rk_nb = json.loads(json.dumps(rk_new))
+    dbq['tables']['summaries'] = [s_ for s_ in dbq['tables']['summaries'] if s_['run_id'] != 'run-1'] + [{'user_id': 'u-eu', 'run_id': 'run-1', 'wins': 11, 'losses': 2, 'share': {'ranks': rk_nb, 'hist': HO}}]
+    pg = new_page(b, dbq)
+    pg.clock.set_fixed_time('2026-11-04T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-grupo'); pg.wait_for_timeout(800)
+    btn4c = pg.locator('#tab-grupo button[data-action="run-bands"]').count()
+    if btn4c: pg.click('#tab-grupo button[data-action="run-bands"]'); pg.wait_for_timeout(400); pg.fill('#bandsIn', '1-10 25, 11-50 5'); pg.click('#bandsForm button[type="submit"]'); pg.wait_for_timeout(800)
+    rows4c = [' '.join(t.split()) for t in pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()]
+    print('O4c prémios da run à mão:', btn4c, rows4c[:1], '· ok' if btn4c == 1 and rows4c and rows4c[0].startswith('J João tu 8.º 11 vitórias · $25') else '· ERRO')
     pg.close()
     # O5: run nova sem plantel: traz o da run anterior com os usos todos (os usos por run: os que sobraram + os gastos)
     dbc = json.loads(json.dumps(dbg)); Tc = dbc['tables']

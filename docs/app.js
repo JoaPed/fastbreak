@@ -780,7 +780,7 @@ function takeRanksHash() {
     if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)); } catch (e) {} S.pickNote = (S.pickNote || '') + ' Pro: ' + plural(d.prorun.days.length, 'dia', 'dias') + ' com as regras.'; S.lastSummary = ''; delete d.prorun; }
     else if (d && d.histErr) S.pickNote = (S.pickNote || '') + ' Historic: não deu (' + d.histErr + ').';
     if (d && d.ed && d.ed.p) { edTake(d.ed); S.edNew = { n: Object.keys(d.ed.p).length, err: d.ed.err || null }; delete d.ed; }
-    if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runReview = true; S.pickNote = (S.pickNote || '') + (d.runs ? ' Run: ' + (d.runs.length ? d.runs.map(r => r.days.length + ' dias').join(', ') : 'nenhuma run Classic') + '.' : ' Run: não deu (' + (d.runErr || '?') + ').'); delete d.runs; }
+    if (d && Array.isArray(d.do) && d.do.includes('run')) { S.runRead = { at: d.at, runs: Array.isArray(d.runs) ? d.runs : [], err: d.runErr || null }; S.runRead.runs.forEach(x => x && bandsKeep(x.id, x.bands, x.qual)); S.runReview = true; S.pickNote = (S.pickNote || '') + (d.runs ? ' Run: ' + (d.runs.length ? d.runs.map(r => r.days.length + ' dias').join(', ') : 'nenhuma run Classic') + '.' : ' Run: não deu (' + (d.runErr || '?') + ').'); delete d.runs; }
     const gotRanks = d && Array.isArray(d.accs) && (!Array.isArray(d.do) || d.do.includes('ranks') || d.do.includes('lu'));
     // patamares de vitórias da run: os packs do Top Shot (5, 9, 12…), acertados sozinhos na leitura de todos os dias (admin)
     if (d && Array.isArray(d.miles) && d.miles.length && S.role === 'admin') { const run = curRun(), mw = d.miles.map(m => +m[0]), sw = ((run && run.prizes) || []).map(p => +p.wins);
@@ -807,8 +807,26 @@ function rankBands(docs, best, runId) {
   const key = 'fb-bands:' + runId, same = docs.filter(r => (r.run || {}).id === runId && (r.bands || []).length);
   const src = same.length ? same[same.length - 1] : null;
   if (src) { try { localStorage.setItem(key, JSON.stringify({ bands: src.bands, qual: src.qual || null })); } catch (e) {} return { bands: src.bands, qual: best.qual || src.qual || null }; }
-  try { const x = JSON.parse(localStorage.getItem(key) || 'null'); if (x && (x.bands || []).length) return { bands: x.bands, qual: best.qual || x.qual || null }; } catch (e) {}
+  let x = null; try { x = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+  // os da leitura "Run e prémios" ou postos à mão, guardados no resumo de alguém do grupo
+  if (!(x && (x.bands || []).length)) x = ((S.group || {}).summaries || []).map(z => z.share && z.share.rbands && z.share.rbands[runId]).find(z => z && (z.bands || []).length) || null;
+  if (x && (x.bands || []).length) return { bands: x.bands, qual: best.qual || x.qual || null };
   return {};
+}
+// prémios da run (faixas de lugares) guardados neste aparelho, por run; vão no resumo publicado (para o grupo os ver)
+function bandsKeep(id, bands, qual) {
+  if (!id || !(bands || []).length) return;
+  try { localStorage.setItem('fb-bands:' + id, JSON.stringify({ bands, qual: qual || null })); } catch (e) {}
+}
+function bandsAll() {
+  const out = {};
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!/^fb-bands:/.test(k)) continue; const x = JSON.parse(localStorage.getItem(k) || 'null'); if (x && (x.bands || []).length) out[k.slice(9)] = x; } } catch (e) {}
+  return out;
+}
+// "1-100 10, 101-200 2" → [[1,100,1000,''],[101,200,200,'']] (o valor em dólares; guarda-se em cêntimos)
+function bandsParse(t) {
+  const out = []; String(t || '').replace(/(\d+)\s*(?:[-–a]\s*(\d+))?\D+?(\d+(?:[.,]\d+)?)/g, (m, a, b, v) => { out.push([+a, +(b || a), Math.round(parseFloat(v.replace(',', '.')) * 100), '']); return m; });
+  return out.filter(b => b[0] >= 1 && b[1] >= b[0] && b[2] > 0).sort((p, q) => p[0] - q[0]);
 }
 function groupRanks() {
   const docs = [S.ranksMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ranks)).filter(r => r && r.at && Array.isArray(r.accs));
@@ -1176,7 +1194,7 @@ function publishSummary() {
     days, next_p: v.days[0] ? Math.round(v.days[0].P * 1000) / 1000 : null,
   };
   const share = shareDoc(), accs = accSummaries();
-  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.proRunMine && S.proRunMine.at ? { prorun: S.proRunMine } : {}, S.proRanksMine && S.proRanksMine.at ? { proranks: S.proRanksMine } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {}, S.histMine && S.histMine.at && Date.now() - Date.parse(S.histMine.at) < 3 * 864e5 ? { hist: S.histMine } : {}, S.proMine && S.proMine.at && Date.now() - Date.parse(S.proMine.at) < 3 * 864e5 ? { pro: S.proMine } : {});
+  const sh = Object.assign({}, share || {}, Object.keys(accs).length ? { accs } : {}, S.proRunMine && S.proRunMine.at ? { prorun: S.proRunMine } : {}, S.proRanksMine && S.proRanksMine.at ? { proranks: S.proRanksMine } : {}, S.ranksMine && S.ranksMine.at ? { ranks: S.ranksMine } : {}, (b => Object.keys(b).length ? { rbands: b } : {})(bandsAll()), S.pxMine && S.pxMine.at ? { px: S.pxMine } : {}, S.edMine && S.edMine.at ? { ed: Object.assign({ at: S.edMine.at, p: S.edMine.p, t: S.edMine.t }, S.edMine.mk ? { mk: S.edMine.mk } : {}) } : {}, S.picksMine && S.picksMine.at && Date.now() - Date.parse(S.picksMine.at) < 2 * 864e5 ? { picks: S.picksMine } : {}, S.histMine && S.histMine.at && Date.now() - Date.parse(S.histMine.at) < 3 * 864e5 ? { hist: S.histMine } : {}, S.proMine && S.proMine.at && Date.now() - Date.parse(S.proMine.at) < 3 * 864e5 ? { pro: S.proMine } : {});
   if (!S.noShareCol) row.share = Object.keys(sh).length ? sh : null;
   const key = JSON.stringify(row);
   if (key === S.lastSummary) return;
@@ -4696,7 +4714,7 @@ function proClassifHtml() {
   const totRow = people.length > 1 ? '<tr class="tot"><td class="who2"><span><b>Grupo</b></span></td><td></td>' + days.map(d => { let t = 0, w = 0; people.forEach(x => { const dr = x.addr ? (d.accs || {})[addrKey(x.addr)] : null; if (dr && dr.won) w++; t += dayPrize(d, dr); }); return '<td><b>' + (t ? money(t) : '—') + '</b><small>' + w + ' ✓</small></td>'; }).join('') + '<td class="money"><b>' + (allWon ? money(allWon) : '—') + '</b></td></tr>' : '';
   const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map(d => '<th>Dia ' + dn(d) + '</th>').join('') + '<th>Ganho</th></tr>';
   return '<div class="card"><div class="list-head"><h2>Classificação do Pro</h2></div><div class="small muted" style="padding:0 16px 6px">' + esc(R.run && R.run.name || 'Pro') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · só as contas principais · lida ' + ago(R.at) + '</div>' +
-    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div></div>' +
+    '<div class="gc-wrap"><table class="gc gc-run"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div></div>' +
     '<div class="foot" style="padding:0;border:0;grid-template-columns:1fr"><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>';
 }
 function histClassifHtml(past) {
@@ -4795,7 +4813,18 @@ function pastClassicHtml(run, P) {
   const hasLu = d => Object.values(rd(d.date).accs || {}).some(a => Array.isArray(a.lu) && a.lu.length);
   const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map(d => { const n = sdays.indexOf(d) + 1; return '<th title="' + esc(objsText(d)) + '">' + (hasLu(d) ? '<button class="gc-day" type="button" data-action="day-lus" data-date="' + d.date + '" data-run="' + esc(run.id) + '" aria-label="Lineups do dia ' + n + '">Dia ' + n + ' ›</button>' : 'Dia ' + n) + '</th>'; }).join('') + '<th>Ganho</th></tr>';
   return '<div class="card">' + title + '<div class="small muted" style="padding:0 16px 6px">' + esc(runShort(run)) + ' terminada' + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + '</div>' +
-    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + rows + totRow + '</tbody></table></div></div>';
+    '<div class="gc-wrap"><table class="gc gc-run"><thead>' + head + '</thead><tbody>' + rows + totRow + '</tbody></table></div>' + bandsLine(R) + '</div>';
+}
+// prémios da run à mão (admin): quando a leitura "Run e prémios" não os guardou e a run já acabou
+const bandsLine = R => S.role === 'admin' && R && R.run && R.run.id && !(R.bands || []).length ? '<div class="small muted gc-leg">Prémios da run por ler. <button class="btn link small" type="button" data-action="run-bands" data-run="' + esc(R.run.id) + '">Pôr à mão</button></div>' : '';
+function runBandsSheet(rid) {
+  const x = bandsAll()[rid], txt = x ? x.bands.map(b => (b[0] === b[1] ? b[0] : b[0] + '-' + b[1]) + ' ' + b[2] / 100).join(', ') : '';
+  openSheet('<h2>Prémios da run</h2><p class="small muted">Quando a run acaba o Top Shot deixa de os mostrar. Escreve os lugares e o prémio em dólares, separados por vírgulas.</p>' +
+    '<form id="bandsForm" class="stack"><label>Lugares e prémio<input class="field" id="bandsIn" autocomplete="off" spellcheck="false" value="' + esc(txt) + '" placeholder="1-100 10, 101-200 2…"></label>' +
+    '<button class="btn primary" type="submit">Guardar</button></form>');
+  const f = $('bandsForm'); if (f) f.addEventListener('submit', e => { e.preventDefault(); const bands = bandsParse($('bandsIn').value);
+    if (!bands.length) { toast('Não percebi. Exemplo: 1-100 10, 101-200 2'); return; }
+    bandsKeep(rid, bands, x && x.qual); S.lastSummary = ''; closeSheet(); render(); publishSummary(); toast('Prémios da run guardados.'); });
 }
 // Classic ou Historic na Classificação (sem escolha: segue o modo da Jornada)
 const gcMode = () => S.gcMode || (S.jmode === 'historic' ? 'historic' : S.jmode === 'pro' ? 'pro' : 'classic');
@@ -4854,9 +4883,9 @@ function renderGrupo() {
   const head = '<tr><th class="who2">Conta</th><th>Run</th>' + days.map((d, k) => '<th title="' + esc(objsText(d)) + '">' + (hasLu(d) ? '<button class="gc-day" type="button" data-action="day-lus" data-date="' + d.date + '" aria-label="Lineups do dia ' + (S.days.indexOf(d) + 1) + '">Dia ' + (S.days.indexOf(d) + 1) + ' ›</button>' : 'Dia ' + (S.days.indexOf(d) + 1)) + '</th>').join('') + '<th>Ganho</th></tr>';
   const info = R ? esc(run.name || 'Run') + (R.total ? ' · ' + R.total.toLocaleString('pt-PT') + ' jogadores' : '') + ' · lugares ' + ago(R.at) : 'Lugares do Top Shot ainda não lidos';
   el.innerHTML = subBar('grupo') + bar + '<div class="card"><div class="list-head"><h2>Classificação ' + helpBtn('classif') + '</h2></div><div class="small muted" style="padding:0 16px 6px">' + info + '</div>' +
-    '<div class="gc-wrap"><table class="gc"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div>' +
+    '<div class="gc-wrap"><table class="gc gc-run"><thead>' + head + '</thead><tbody>' + (rows || '<tr><td class="muted small">Ainda não há membros.</td></tr>') + totRow + '</tbody></table></div>' +
     // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
-    (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
+    bandsLine(R) + (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Vitórias para entrar: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
     // lugares e preços: só quem gere o grupo (admin) os vai ler ao Top Shot; os outros veem o que ele leu
     '<div class="foot" style="padding:0;border:0;grid-template-columns:1fr"><button class="btn" type="button" data-action="group-refresh">Atualizar</button></div>';
 }
@@ -7107,6 +7136,8 @@ document.addEventListener('submit', async e => {
 // linhas de tabela que abrem fichas: Enter também abre
 document.addEventListener('input', e => { const t = e.target; if (t && (t.id === 'buyMax' || t.id === 'buyBudget')) { const v = parseFloat(String(t.value).replace(',', '.')); S.buy[t.id === 'buyMax' ? 'max' : 'budget'] = v > 0 ? v : null; } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('tr[data-action]')) e.target.click(); });
+// Classificação: ao deslizar a tabela para o lado, marca-a (a coluna da run tapa o que passa por baixo)
+document.addEventListener('scroll', e => { const w = e.target; if (w && w.classList && w.classList.contains('gc-wrap')) w.classList.toggle('scrolled', w.scrollLeft > 2); }, true);
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-action], [data-tab]');
   if (!b || b.disabled) return;
@@ -7277,6 +7308,7 @@ document.addEventListener('click', async e => {
     case 'sell-fsheet': sellFSheet(); break;
     case 'sell-tab': S.sellTab = b.dataset.v; try { localStorage.setItem('fb-sell-tab', S.sellTab); } catch (e) {} render(); sellFilter(); break;
     case 'day-lus': dayLineupsSheet(date, b.dataset.run); break;
+    case 'run-bands': runBandsSheet(b.dataset.run); break;
     case 'gc-mode': S.gcMode = b.dataset.v; renderGrupo(); break;
     case 'gc-run': S.gcRun = b.dataset.v; renderGrupo(); break;
     case 'goal': { const v = b.dataset.v === 'max' ? 'max' : +b.dataset.v || 0, pl = planOf(b.dataset.acc || S.acc); if (v) pl.goal = v; else delete pl.goal; saveMine(); schedule(); renderAjustes(); toast((accounts().length > 1 ? accLabel(b.dataset.acc || S.acc) + ': ' : '') + (v === 'max' ? 'A jogar para a classificação: o máximo de vitórias em média.' : v ? 'A jogar para ' + v + ' vitórias, com o menor risco.' : 'A jogar para os prémios da run.')); break; }

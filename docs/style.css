@@ -1299,7 +1299,13 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .jc-off { position: relative; text-align: center; margin-top: 6px; }
 .jc-off .btn.link { color: rgba(255, 255, 255, .72); }
 /* coluna da run também fixa, logo a seguir à das contas (largura fixa da coluna das contas + o espaço entre células) */
-.gc td.who2, .gc th.who2 { box-sizing: border-box; width: 132px; min-width: 132px; max-width: 132px; }
-.gc td.rr, .gc thead th:nth-child(2) { position: sticky; left: 140px; z-index: 1; background: var(--surface); box-shadow: -4px 0 0 var(--surface), 4px 0 0 var(--surface); }
-.gc tr.tot td:nth-child(2) { position: sticky; left: 140px; z-index: 1; background: var(--surface); }
+.gc-run td.who2, .gc-run th.who2 { box-sizing: border-box; width: 132px; min-width: 132px; max-width: 132px; }
+/* as duas colunas fixas tapam tudo o que passa por trás: os lados e as frestas entre linhas (sem verde a espreitar) */
+.gc-run td.rr, .gc-run thead th:nth-child(2), .gc-run tr.tot td:nth-child(2) { position: sticky; left: 140px; z-index: 1; background: var(--surface); box-shadow: 0 0 0 4px var(--surface); }
+.gc-run td.who2, .gc-run th.who2 { box-shadow: -8px 0 0 var(--surface), 0 0 0 4px var(--surface); }
+.gc-run tr.me td.who2 { box-shadow: inset 3px 0 0 var(--accent), -8px 0 0 var(--surface), 0 0 0 4px var(--surface); }
+.gc-run tr.me td.rr { box-shadow: 0 0 0 4px var(--surface); }
 
+/* ao deslizar, a coluna da run ganha uma margem lisa e uma sombra suave: o que passa por baixo não fica a espreitar */
+.gc-wrap.scrolled .gc-run td.rr, .gc-wrap.scrolled .gc-run thead th:nth-child(2), .gc-wrap.scrolled .gc-run tr.tot td:nth-child(2) {
+  box-shadow: 0 0 0 4px var(--surface), 10px 0 0 4px var(--surface), 14px 0 10px -2px rgb(0 0 0 / 10%); }
