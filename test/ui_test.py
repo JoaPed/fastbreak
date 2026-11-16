@@ -1459,6 +1459,13 @@ with sync_playwright() as pw:
     pg.click('#t-grupo'); pg.wait_for_timeout(800)
     rows4b = [' '.join(t.split()) for t in pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()]
     print('O4b prémios da run depois de acabar:', rows4b[:1], '· ok' if rows4b and rows4b[0].startswith('J João tu 8.º 11 vitórias · $100') else '· ERRO')
+    # ao deslizar a tabela para a direita, as colunas da conta e da run ficam no sítio
+    pg.set_viewport_size({'width': 390, 'height': 800}); pg.wait_for_timeout(300)
+    x0 = pg.evaluate("(() => { const td = document.querySelector('#tab-grupo .gc tbody tr td.rr'); return td.getBoundingClientRect().left; })()")
+    pg.evaluate("document.querySelector('#tab-grupo .gc-wrap').scrollLeft = 400"); pg.wait_for_timeout(300)
+    x1 = pg.evaluate("(() => { const td = document.querySelector('#tab-grupo .gc tbody tr td.rr'); return td.getBoundingClientRect().left; })()")
+    pg.locator('#tab-grupo .gc-wrap').screenshot(path=str(shots / 'classif-run-fixa.png'))
+    print('O4b coluna da run fixa ao deslizar:', round(x0), '→', round(x1), '· ok' if abs(x0 - x1) < 2 else '· ERRO')
     pg.close()
     # O5: run nova sem plantel: traz o da run anterior com os usos todos (os usos por run: os que sobraram + os gastos)
     dbc = json.loads(json.dumps(dbg)); Tc = dbc['tables']

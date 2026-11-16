@@ -1298,3 +1298,8 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .ds.off .ds-v { color: var(--muted); font-size: 12px; }
 .jc-off { position: relative; text-align: center; margin-top: 6px; }
 .jc-off .btn.link { color: rgba(255, 255, 255, .72); }
+/* coluna da run também fixa, logo a seguir à das contas (largura fixa da coluna das contas + o espaço entre células) */
+.gc td.who2, .gc th.who2 { box-sizing: border-box; width: 132px; min-width: 132px; max-width: 132px; }
+.gc td.rr, .gc thead th:nth-child(2) { position: sticky; left: 140px; z-index: 1; background: var(--surface); box-shadow: -4px 0 0 var(--surface), 4px 0 0 var(--surface); }
+.gc tr.tot td:nth-child(2) { position: sticky; left: 140px; z-index: 1; background: var(--surface); }
+

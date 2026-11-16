@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-16
+- **João** — Classificação: ao deslizar para a direita, a coluna da run fica fixa ao lado da coluna das contas.
 - **João** — Classificação: cada leitura nova guarda os prémios da run que já se conheciam, para não se perderem quando a run acaba (o Top Shot deixa de os dar).
 - **João** — Classificação: quando a run acaba, os prémios da run (e a zona verde) deixam de desaparecer. O Top Shot deixa de os mostrar e a leitura nova vinha sem eles; agora ficam os da última leitura que os tinha.
 

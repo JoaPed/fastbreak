@@ -237,7 +237,8 @@
    "if (gotRanks) { const luN = (d.days || []).reduce((t, x) => t + Object.values(x.accs || {}).filter(a => a.lu && a.lu.length).length, 0), luD = (d.days || []).le": true,
    "if (d && d.pro && d.pro.p) { S.proMine = d.pro; S.proMemo = null; try { localStorage.setItem('fb-pro', JSON.stringify(d.pro)); } catch (e) {} S.pickNote = (S.pi": true,
    "return '<div class=\"card\">' + title + '<div class=\"small muted\" style=\"padding:0 16px 6px\">' + esc(runShort(run)) + ' terminada' + (R.total ? ' · ' + R.total.to": " players",
-   "return '<div class=\"card\"><div class=\"list-head\"><h2>Classificação do Pro</h2></div><div class=\"small muted\" style=\"padding:0 16px 6px\">' + esc(R.run && R.run.n": " players"
+   "return '<div class=\"card\"><div class=\"list-head\"><h2>Classificação do Pro</h2></div><div class=\"small muted\" style=\"padding:0 16px 6px\">' + esc(R.run && R.run.n": " players",
+   "S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x": true
   }
  },
  " PTS": null,
@@ -2846,7 +2847,8 @@
    "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "days",
    "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "days",
    "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "days",
-   "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true
+   "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true,
+   "S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x": true
   }
  },
  "dia": {
@@ -2865,7 +2867,8 @@
    "if (d && d.prorun && Array.isArray(d.prorun.days)) { S.proRunMine = d.prorun; S.proMemo = null; try { localStorage.setItem('fb-prorun', JSON.stringify(d.prorun)": "day",
    "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "day",
    "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "day",
-   "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true
+   "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true,
+   "S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x": true
   }
  },
  "jogo": {
