@@ -799,12 +799,21 @@ function mergeRankDays(a, b) {
   return [...by.values()].sort((x, y) => String(x.date || x.id).localeCompare(String(y.date || y.id)));
 }
 // os lugares mais recentes do grupo (os meus ou os que outro membro publicou); os dias juntam-se de todos os da mesma run
+// Prémios da run: depois de a run acabar, o Top Shot deixa de os mostrar e a leitura nova vem sem faixas. Ficam
+// as da leitura mais recente que as tinha (de qualquer pessoa do grupo), ou as guardadas neste aparelho.
+function rankBands(docs, best, runId) {
+  const key = 'fb-bands:' + runId, same = docs.filter(r => (r.run || {}).id === runId && (r.bands || []).length);
+  const src = same.length ? same[same.length - 1] : null;
+  if (src) { try { localStorage.setItem(key, JSON.stringify({ bands: src.bands, qual: src.qual || null })); } catch (e) {} return { bands: src.bands, qual: best.qual || src.qual || null }; }
+  try { const x = JSON.parse(localStorage.getItem(key) || 'null'); if (x && (x.bands || []).length) return { bands: x.bands, qual: best.qual || x.qual || null }; } catch (e) {}
+  return {};
+}
 function groupRanks() {
   const docs = [S.ranksMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.ranks)).filter(r => r && r.at && Array.isArray(r.accs));
   if (!docs.length) return null;
   docs.sort((p, q) => String(p.at).localeCompare(String(q.at)));
   const best = docs[docs.length - 1], runId = (best.run || {}).id;
-  return Object.assign({}, best, { days: docs.filter(r => (r.run || {}).id === runId).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
+  return Object.assign({}, best, rankBands(docs, best, runId), { days: docs.filter(r => (r.run || {}).id === runId).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
 }
 // lugar de uma conta num dia (pela data do site)
 const DAY_BANDS = [[1, 1, 15000], [2, 2, 10000], [3, 3, 5000], [4, 4, 2000], [5, 10, 1000], [11, 25, 500], [26, 50, 300], [51, 100, 200]];
@@ -4752,7 +4761,7 @@ function pastRanks(sums) {
   const docs = sums.map(x => x.share && x.share.ranks).filter(r => r && r.at && Array.isArray(r.accs)).sort((p, q) => String(p.at).localeCompare(String(q.at)));
   if (!docs.length) return null;
   const best = docs[docs.length - 1], rid = (best.run || {}).id;
-  return Object.assign({}, best, { days: docs.filter(r => (r.run || {}).id === rid).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
+  return Object.assign({}, best, rankBands(docs, best, rid), { days: docs.filter(r => (r.run || {}).id === rid).reduce((acc, r) => mergeRankDays(acc, r.days), []) });
 }
 function pastClassicHtml(run, P) {
   const R = pastRanks(P.sums), title = '<div class="list-head"><h2>Standings</h2></div>';

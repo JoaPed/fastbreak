@@ -1446,6 +1446,20 @@ with sync_playwright() as pw:
     print('O4 classificação por runs:', runs4, on4, '|', heads4[:4], '|', rows4[:1], rows4[-1:], '| lineups:', lus4, '| Historic:', h4, '| Run 2:', cur4[:40],
           '· ok' if runs4 == ['Run 2 · atual', 'Run 1'] and on4 == 'run-1' and heads4[:4] == ['Conta', 'Run', 'Dia 1 ›', 'Dia 2'] and rows4[0].startswith('J João tu 8.º 11 vitórias · $100 3.º +$50') and rows4[-1].endswith('$212') and lus4 == 'Lineups do dia 1' and h4 == ['João', 'Rui'] and ('Run 2' in cur4 or 'ainda não lidos' in cur4) else '· ERRO')
     pg.close()
+    # O4b: a run acabou e a leitura nova já não traz os prémios da run (o Top Shot deixa de os mostrar): ficam os da
+    # leitura anterior (aqui, a de outro membro do grupo)
+    dbp = json.loads(json.dumps(dbg)); Tp = dbp['tables']
+    rk_new = json.loads(json.dumps(rk1)); rk_new['at'] = '2026-11-03T10:00:00Z'; rk_new['bands'] = []; rk_new['qual'] = None
+    Tp['summaries'] = [s_ for s_ in Tp['summaries'] if s_['run_id'] != 'run-1'] + [{'user_id': 'u-eu', 'run_id': 'run-1', 'wins': 11, 'losses': 2, 'share': {'ranks': rk_new, 'hist': HO}}, {'user_id': 'u-amigo', 'run_id': 'run-1', 'wins': 10, 'losses': 3, 'share': {'ranks': rk1}}]
+    pg = new_page(b, dbp)
+    pg.clock.set_fixed_time('2026-11-04T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3000)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('#t-grupo'); pg.wait_for_timeout(800)
+    rows4b = [' '.join(t.split()) for t in pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()]
+    print('O4b prémios da run depois de acabar:', rows4b[:1], '· ok' if rows4b and rows4b[0].startswith('J João tu 8.º 11 vitórias · $100') else '· ERRO')
+    pg.close()
     # O5: run nova sem plantel: traz o da run anterior com os usos todos (os usos por run: os que sobraram + os gastos)
     dbc = json.loads(json.dumps(dbg)); Tc = dbc['tables']
     r1p = list(roster['players'])[:16]
