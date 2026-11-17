@@ -4,7 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-17
-- **João** — Suplente mais curto: um 6.º jogador esbatido por baixo dos 5 ("Suplente · entra por …"); tocar mostra as alternativas. Quando falta um titular, os colegas de equipa dele contam pelo que fizeram nos jogos sem ele (ex.: Precious Achiuwa sem o Sabonis), também no resto do plano.
+- **João** — Suplente mais curto: um 6.º jogador esbatido por baixo dos 5 ("Suplente · entra por …", com o que deve fazer se entrar); tocar mostra as alternativas e, com alguém em dúvida, o substituto direto (o colega de equipa que mais sobe sem ele). Quando falta um titular, os colegas de equipa dele contam pelo que fizeram nos jogos sem ele (ex.: Precious Achiuwa sem o Sabonis), também no resto do plano.
 - **João** — Suplente: na Jornada, por baixo dos 5, o plano sugere o suplente do dia (entra pelo 1.º titular que não jogar e só gasta um uso se entrar), de preferência um que não tire usos ao resto da run; tocar mostra os outros e deixa escolher.
 
 ## 2026-11-16

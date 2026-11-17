@@ -3312,5 +3312,7 @@
  "suplente <b>": "bench <b>",
  "</span></div><div class=\"ps\">Suplente": "</span></div><div class=\"ps\">Bench",
  " · entra por ": " · in for ",
- "<small>vitória</small>": "<small>win</small>"
+ "<div class=\"bench-direct\"><div class=\"label\">Substituto direto do ": "<div class=\"bench-direct\"><div class=\"label\">Direct sub for ",
+ "</div><div class=\"ps\">sem o ": "</div><div class=\"ps\">without ",
+ " · com ele faz ": " · with him: "
 }

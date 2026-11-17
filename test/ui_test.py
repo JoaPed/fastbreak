@@ -532,7 +532,10 @@ with sync_playwright() as pw:
     T['members'].append({'user_id': 'u-eu', 'role': 'member'})
     T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})
     mine = list(roster['players'])[:16]
-    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in mine}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in mine + ['chet']}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    # Chet (OKC): sem o SGA mede muito mais (para o "substituto direto" do suplente); [jogos, min, pts, reb, ast, fg3, stl, blk, fgm, fga, tov]
+    for p_ in T['nba_players']:
+        if p_['id'] == 'chet': p_['avg'] = dict(p_['avg'], sem={'sga': [6, 34, p_['avg']['pts'] * 1.7, p_['avg']['reb'] * 1.2, 3, 2, 1, 2, 9, 18, 2]})
     T['chain_results'] = []
     now_iso = '2026-10-20T14:30:00Z'
     T['injuries'] = [
@@ -566,6 +569,8 @@ with sync_playwright() as pw:
         bz.locator('button').click(); pg.wait_for_timeout(500)
         opts = pg.locator('#sheetPanel button[data-action="bench-pick"][data-id]:not([data-id=""])')
         pg.locator('#sheetPanel').screenshot(path=str(shots / 'suplente-folha.png'))
+        dxt = pg.locator('#sheetPanel .bench-direct').inner_text().replace('\n', ' ') if pg.locator('#sheetPanel .bench-direct').count() else ''
+        print('E substituto direto:', dxt[:160], '· ok' if 'Holmgren' in dxt and 'sem o Gilgeous-Alexander · com ele faz' in dxt else '· ERRO')
         n2 = opts.nth(1).locator('.nm').inner_text() if opts.count() > 1 else ''
         if n2: opts.nth(1).click(); pg.wait_for_timeout(500)
         print('E suplente escolhido:', n2, '· ok' if n2 and n2 == lineup_card(pg).locator('.bench-row .bnm').inner_text() else '· ERRO')

@@ -1638,26 +1638,47 @@ function benchOf(md, nd, lineup) {
 }
 // quem é mais provável que falte (para dizer por quem entra)
 function benchFor(md, lineup) { let best = null; lineup.forEach(id => { if (riskOf(md, id)) { const o = benchOut(md, id); if (!best || o > best.o) best = { id, o }; } }); return best; }
+// quanto se espera que faça se entrar (no cenário em que falta `whoId`: se for colega dele, já com a subida)
+function benchVals(md, pid, whoId) { const pi = S.result.model.pIndex.get(pid); return objVals(whoId ? benchScen(md, whoId) : md, pi, false); }
+// e se o duvidoso jogar (o modelo já conta com a hipótese de ele faltar: tira-se essa parte)
+function benchValsWith(md, pid, whoId) {
+  const r = S.result, pi = r.model.pIndex.get(pid), p = r.model.players[pi], mi = r.model.pIndex.get(whoId), mate = r.model.players[mi];
+  const o = riskOf(md, whoId) ? 1 - pPlayOf(md.info[mi][0]) : 0;
+  return objVals(md, pi, false).map(x => Object.assign({}, x, { v: x.v * FB.mateBoost(p, mate, x.o.stat, o) / FB.mateBoost(p, mate, x.o.stat, 0) }));
+}
+// substituto direto: o colega de equipa do duvidoso que mais sobe sem ele (ex.: Precious Achiuwa sem o Sabonis)
+function benchDirect(md, list, whoId) {
+  const r = S.result, mate = r.model.players[r.model.pIndex.get(whoId)]; if (!mate) return null;
+  let best = null;
+  list.forEach(x => { const p = r.model.players[r.model.pIndex.get(x.id)]; if (!p || p.team !== mate.team) return;
+    const up = md.objs.reduce((t, ob) => Math.max(t, FB.mateBoost(p, mate, ob.stat, 0)), 1);
+    if (up >= 1.15 && (!best || x.com > best.x.com)) best = { x, up }; });
+  return best;
+}
 // suplente: um 6.º esbatido por baixo dos 5 (tocar abre as alternativas)
 function benchRow(md, nd, lineup) {
   if (!lineup.length) return '';
   const B = benchOf(md, nd, lineup), r = S.result; if (!B) return '';
-  const p = r.model.players[r.model.pIndex.get(B.id)], gain = B.com - B.sem, who = benchFor(md, lineup);
-  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Bench' + (who ? ' · in for ' + esc(lastName(who.id)) : '') + '</div></div></span><span class="bench-p num">' + (gain >= 0.0005 ? '+' + pct(gain) + '<small>win</small>' : '') + '</span></button></li>';
+  const p = r.model.players[r.model.pIndex.get(B.id)], who = benchFor(md, lineup);
+  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Bench' + (who ? ' · in for ' + esc(lastName(who.id)) : '') + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
 }
 function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;
   const d = v.days.find(x => x.date === date), md = r.model.days.find(x => x.day.date === date); if (!d || !md) return;
   const list = benchOptions(md, md.day, d.lineup), cur = benchOf(md, md.day, d.lineup), want = (curPlan().bench || {})[date];
   const who = benchFor(md, d.lineup), sc = who ? benchScen(md, who.id) : md;
+  const dx = who ? benchDirect(md, list, who.id) : null;
   const row = x => '<li><button class="row" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '"><span class="who">' + face(x.id) +
     '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (cur && x.id === cur.id ? ' <span class="pill bench">Bench</span>' : '') + '</div>' +
     '<div class="ps">' + (x.free ? 'takes no uses from the rest of the run' : 'uses a use from day ' + x.later.map(y => y.idx + 1).join(', ')) + '</div></div></span>' +
-    '<span class="bench-p num">' + (who ? pct(lineupP(sc, d.lineup.filter(y => y !== who.id).concat([x.id]))) + '<small>if he sits</small>' : '+' + pct(x.com - x.sem) + '<small>on the day</small>') + '</span></button></li>';
+    pvHtml(benchVals(md, x.id, who && who.id)) + '</button></li>';
   openSheet('<h2>Bench</h2><p class="small muted">On Top Shot he subs in for the first starter who doesn\'t play and only uses a use if he plays. ' +
     (who ? 'Most likely to sit: <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + '). If he sits, without a bench the day drops to ' + pct(lineupP(sc, d.lineup.filter(y => y !== who.id))) + '.' : 'Nobody in the lineup is doubtful: it only counts on late scratches.') + '</p>' +
     (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Let the plan choose</button>' : '') +
-    '<ul class="list">' + list.slice(0, 8).map(row).join('') + '</ul>');
+    (dx ? '<div class="bench-direct"><div class="label">Direct sub for ' + esc(lastName(who.id)) + '</div><button class="row" type="button" data-action="bench-pick" data-id="' + esc(dx.x.id) + '" data-date="' + date + '"><span class="who">' + face(dx.x.id) +
+      '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(dx.x.id)) + '</span>' + (cur && dx.x.id === cur.id ? ' <span class="pill bench">Bench</span>' : '') + '</div><div class="ps">without ' + esc(lastName(who.id)) + ' · with him: ' + benchValsWith(md, dx.x.id, who.id).map(v => f0(v.v) + ' ' + esc(statShort(v.o.stat))).join(' · ') + '</div></div></span>' +
+      pvHtml(benchVals(md, dx.x.id, who.id)) + '</button></div>' : '') +
+    '<ul class="list">' + list.filter(x => !dx || x.id !== dx.x.id).slice(0, 8).map(row).join('') + '</ul>');
 }
 
 // ---------- render ----------
