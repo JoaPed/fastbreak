@@ -60,3 +60,8 @@ html.xmas .win-ring .wr-ball svg { visibility: hidden; }
 html.xmas .win-ring .wr-ball { width: 26px; height: 31px; margin: -6px 0 0 -2px; background: url("natal/bola.webp") no-repeat center / contain; }
 
 @media (prefers-reduced-motion: reduce) { html.xmas body::before { animation: none; } html.xmas::after { display: none; } }
+
+/* cartões e barra de baixo ligeiramente transparentes, para o campo se ver por trás */
+html.xmas .card { background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+html.xmas .card.hero { background: color-mix(in srgb, var(--board) 86%, transparent); }
+html.xmas .tabbar { background: color-mix(in srgb, var(--surface) 82%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
