@@ -1666,21 +1666,19 @@ function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;
   const d = v.days.find(x => x.date === date), md = r.model.days.find(x => x.day.date === date); if (!d || !md) return;
   const list = benchOptions(md, md.day, d.lineup), cur = benchOf(md, md.day, d.lineup), want = (curPlan().bench || {})[date];
-  const who = benchFor(md, d.lineup), sc = who ? benchScen(md, who.id) : md;
-  const dx = who ? benchDirect(md, list, who.id) : null;
-  const row = x => '<li><button class="row" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '"><span class="who">' + face(x.id) +
-    '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (cur && x.id === cur.id ? ' <span class="pill bench">Bench</span>' : '') + '</div>' +
-    '<div class="ps">' + (x.free ? 'takes no uses from the rest of the run' : 'uses a use from day ' + x.later.map(y => y.idx + 1).join(', ')) + '</div></div></span>' +
-    pvHtml(benchVals(md, x.id, who && who.id)) + '</button></li>';
-  openSheet('<h2>Bench</h2><p class="small muted">On Top Shot he subs in for the first starter who doesn\'t play and only uses a use if he plays. ' +
-    (who ? 'Most likely to sit: <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ').' : 'Nobody in the lineup is doubtful: it only counts on late scratches.') + '</p>' +
-    (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Let the plan choose</button>' : '') +
-    (dx ? '<div class="bench-direct"><div class="label">Direct sub for ' + esc(lastName(who.id)) + '</div><button class="row" type="button" data-action="bench-pick" data-id="' + esc(dx.x.id) + '" data-date="' + date + '"><span class="who">' + face(dx.x.id) +
-      '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(dx.x.id)) + '</span>' + (cur && dx.x.id === cur.id ? ' <span class="pill bench">Bench</span>' : '') + '</div><div class="ps">without ' + esc(lastName(who.id)) + ' · with him: ' + benchValsWith(md, dx.x.id, who.id).map(v => f0(v.v) + ' ' + esc(statShort(v.o.stat))).join(' · ') + '</div></div></span>' +
-      pvHtml(benchVals(md, dx.x.id, who.id)) + '</button></div>' : '') +
-    '<ul class="list">' + list.filter(x => !dx || x.id !== dx.x.id).slice(0, 8).map(row).join('') + '</ul>');
+  const who = benchFor(md, d.lineup), dx = who ? benchDirect(md, list, who.id) : null;
+  // uma só lista: o substituto direto primeiro (barra verde, "Direto"), o escolhido com ✓
+  const ord = dx ? [dx.x].concat(list.filter(x => x.id !== dx.x.id)) : list;
+  const row = x => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id;
+    const uses = x.free ? 'takes no uses from the run' : 'uses a use from day ' + x.later.map(y => y.idx + 1).join(', ');
+    return '<li><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
+      '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direct</span>' : '') + '</div>' +
+      '<div class="ps">' + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') + ' · ' : '') + uses + '</div></div></span>' +
+      pvHtml(benchVals(md, x.id, who && who.id)) + '<span class="chk' + (on ? '' : ' off') + '" aria-hidden="true">' + (on ? '✓' : '') + '</span></button></li>'; };
+  openSheet('<h2>Bench</h2><p class="small muted">' + (who ? 'Comes in if <b>' + esc(lastName(who.id)) + '</b> sits (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Subs in for the first starter who doesn\'t play') + ' · only uses a use if he plays.</p>' +
+    '<ul class="list">' + ord.slice(0, 8).map(row).join('') + '</ul>' +
+    (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Let the plan choose</button>' : ''));
 }
-
 // ---------- render ----------
 // não redesenhar uma secção enquanto alguém está a escrever num campo dela
 function typingIn(id) { const ae = document.activeElement; return !!(ae && $(id).contains(ae) && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(ae.tagName)); }

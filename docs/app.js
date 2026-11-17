@@ -1665,21 +1665,19 @@ function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;
   const d = v.days.find(x => x.date === date), md = r.model.days.find(x => x.day.date === date); if (!d || !md) return;
   const list = benchOptions(md, md.day, d.lineup), cur = benchOf(md, md.day, d.lineup), want = (curPlan().bench || {})[date];
-  const who = benchFor(md, d.lineup), sc = who ? benchScen(md, who.id) : md;
-  const dx = who ? benchDirect(md, list, who.id) : null;
-  const row = x => '<li><button class="row" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '"><span class="who">' + face(x.id) +
-    '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (cur && x.id === cur.id ? ' <span class="pill bench">Suplente</span>' : '') + '</div>' +
-    '<div class="ps">' + (x.free ? 'não tira usos ao resto da run' : 'gasta um uso do dia ' + x.later.map(y => y.idx + 1).join(', ')) + '</div></div></span>' +
-    pvHtml(benchVals(md, x.id, who && who.id)) + '</button></li>';
-  openSheet('<h2>Suplente</h2><p class="small muted">No Top Shot entra pelo 1.º titular que não jogar e só gasta um uso se entrar. ' +
-    (who ? 'O mais provável é faltar o <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ').' : 'Ninguém do lineup está em dúvida: conta só com quem fica de fora à última hora.') + '</p>' +
-    (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Deixar o plano escolher</button>' : '') +
-    (dx ? '<div class="bench-direct"><div class="label">Substituto direto do ' + esc(lastName(who.id)) + '</div><button class="row" type="button" data-action="bench-pick" data-id="' + esc(dx.x.id) + '" data-date="' + date + '"><span class="who">' + face(dx.x.id) +
-      '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(dx.x.id)) + '</span>' + (cur && dx.x.id === cur.id ? ' <span class="pill bench">Suplente</span>' : '') + '</div><div class="ps">sem o ' + esc(lastName(who.id)) + ' · com ele faz ' + benchValsWith(md, dx.x.id, who.id).map(v => f0(v.v) + ' ' + esc(statShort(v.o.stat))).join(' · ') + '</div></div></span>' +
-      pvHtml(benchVals(md, dx.x.id, who.id)) + '</button></div>' : '') +
-    '<ul class="list">' + list.filter(x => !dx || x.id !== dx.x.id).slice(0, 8).map(row).join('') + '</ul>');
+  const who = benchFor(md, d.lineup), dx = who ? benchDirect(md, list, who.id) : null;
+  // uma só lista: o substituto direto primeiro (barra verde, "Direto"), o escolhido com ✓
+  const ord = dx ? [dx.x].concat(list.filter(x => x.id !== dx.x.id)) : list;
+  const row = x => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id;
+    const uses = x.free ? 'não tira usos à run' : 'gasta um uso do dia ' + x.later.map(y => y.idx + 1).join(', ');
+    return '<li><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
+      '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direto</span>' : '') + '</div>' +
+      '<div class="ps">' + (dir ? 'com ele faz ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') + ' · ' : '') + uses + '</div></div></span>' +
+      pvHtml(benchVals(md, x.id, who && who.id)) + '<span class="chk' + (on ? '' : ' off') + '" aria-hidden="true">' + (on ? '✓' : '') + '</span></button></li>'; };
+  openSheet('<h2>Suplente</h2><p class="small muted">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Entra pelo 1.º titular que não jogar') + ' · só gasta um uso se entrar.</p>' +
+    '<ul class="list">' + ord.slice(0, 8).map(row).join('') + '</ul>' +
+    (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Deixar o plano escolher</button>' : ''));
 }
-
 // ---------- render ----------
 // não redesenhar uma secção enquanto alguém está a escrever num campo dela
 function typingIn(id) { const ae = document.activeElement; return !!(ae && $(id).contains(ae) && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(ae.tagName)); }

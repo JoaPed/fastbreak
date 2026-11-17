@@ -1339,10 +1339,11 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .bench-p small { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .jc-list .bench-p small { color: var(--board-muted); }
 .bv-c .row { opacity: .72; padding-block: 6px; }
-.bench-direct { border: 1px solid color-mix(in srgb, var(--good) 45%, var(--line)); border-radius: 14px; padding: 8px 10px 2px; margin: 10px 0 6px; background: color-mix(in srgb, var(--good) 7%, var(--surface)); }
-.bench-direct .label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--good); }
-.bench-direct .row { padding-inline: 0; background: transparent; }
-.bench-direct .ps { white-space: normal; } .bv-c .face { transform: scale(.82); }
+.bench-opt { display: flex; align-items: center; flex-wrap: nowrap; } .bench-opt .who { flex: 1 1 auto; min-width: 0; }
+.bench-opt.dir { box-shadow: inset 3px 0 0 var(--good); }
+.tag-d { font-size: 11px; font-weight: 700; color: var(--good); border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; flex: none; }
+.bench-opt .chk { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--good); color: #fff; font-size: 13px; font-weight: 700; margin-left: 10px; flex: none; }
+.bench-opt .chk.off { background: transparent; border: 1.5px solid var(--line); }
 .jc-list .bench-row, .jc-list .bench-row .row { background: transparent; }
 .jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }
 .jc-list .bench-row .bnm { color: var(--board-ink); }

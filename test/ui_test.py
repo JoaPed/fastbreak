@@ -569,8 +569,8 @@ with sync_playwright() as pw:
         bz.locator('button').click(); pg.wait_for_timeout(500)
         opts = pg.locator('#sheetPanel button[data-action="bench-pick"][data-id]:not([data-id=""])')
         pg.locator('#sheetPanel').screenshot(path=str(shots / 'suplente-folha.png'))
-        dxt = pg.locator('#sheetPanel .bench-direct').inner_text().replace('\n', ' ') if pg.locator('#sheetPanel .bench-direct').count() else ''
-        print('E substituto direto:', dxt[:160], '· ok' if 'Holmgren' in dxt and 'sem o Gilgeous-Alexander · com ele faz' in dxt else '· ERRO')
+        dxl = pg.locator('#sheetPanel .bench-opt.dir'); dxt = dxl.inner_text().replace('\n', ' ') if dxl.count() else ''
+        print('E substituto direto:', dxt[:160], '· ok' if 'Holmgren' in dxt and 'Direto' in dxt and 'com ele faz' in dxt and pg.locator('#sheetPanel .bench-opt[aria-pressed="true"] .chk:not(.off)').count() == 1 else '· ERRO')
         n2 = opts.nth(1).locator('.nm').inner_text() if opts.count() > 1 else ''
         if n2: opts.nth(1).click(); pg.wait_for_timeout(500)
         print('E suplente escolhido:', n2, '· ok' if n2 and n2 == lineup_card(pg).locator('.bench-row .bnm').inner_text() else '· ERRO')

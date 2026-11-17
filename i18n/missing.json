@@ -1,1 +1,42 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": "não tira usos à run",
+  "line": "const uses = x.free ? 'não tira usos à run' : 'gasta um uso do dia ' + x.later.map(y => y.idx + 1).join(', ');"
+ },
+ {
+  "file": "docs/app.js",
+  "text": " dir",
+  "line": "return '<li><button class=\"row bench-opt' + (dir ? ' dir' : '') + '\" type=\"button\" data-action=\"bench-pick\" data-id=\"' + esc(x.id) + '\" data-date=\"' + date + '\""
+ },
+ {
+  "file": "docs/app.js",
+  "text": " <span class=\"tag-d\">Direto</span>",
+  "line": "'<div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class=\"tag-d\">Direto</span>' : '') + '</div>' +"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "com ele faz ",
+  "line": "'<div class=\"ps\">' + (dir ? 'com ele faz ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') + ' · ' : '') + uses + '</div></div></span>' +"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "<h2>Suplente</h2><p class=\"small muted\">",
+  "line": "openSheet('<h2>Suplente</h2><p class=\"small muted\">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pInde"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Entra se o <b>",
+  "line": "openSheet('<h2>Suplente</h2><p class=\"small muted\">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pInde"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Entra pelo 1.º titular que não jogar",
+  "line": "openSheet('<h2>Suplente</h2><p class=\"small muted\">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pInde"
+ },
+ {
+  "file": "docs/app.js",
+  "text": " · só gasta um uso se entrar.</p>",
+  "line": "openSheet('<h2>Suplente</h2><p class=\"small muted\">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pInde"
+ }
+]
