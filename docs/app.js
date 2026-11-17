@@ -92,7 +92,7 @@ function applyTheme(t) {
 // modo Natal: em dezembro (até 6 de janeiro), ligado ou desligado (fica neste aparelho); o natal.css só carrega quando liga
 let xmas = 'auto';
 try { const x = localStorage.getItem('fb-xmas'); if (x === 'on' || x === 'off') xmas = x; } catch (e) {}
-const xmasSeason = () => { const d = new Date(), m = d.getMonth() + 1; return m === 12 || (m === 1 && d.getDate() <= 6); };
+const xmasSeason = () => { const d = new Date(), m = d.getMonth() + 1, dd = d.getDate(); return (m === 11 && dd >= 15) || m === 12 || (m === 1 && dd <= 6); }; // de 15 nov a 6 jan, ligado para todos
 function applyXmas(v) {
   if (v) { xmas = v; try { if (v === 'auto') localStorage.removeItem('fb-xmas'); else localStorage.setItem('fb-xmas', v); } catch (e) {} }
   const on = xmas === 'on' || (xmas === 'auto' && xmasSeason());
@@ -5081,8 +5081,8 @@ function renderAjustes() {
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Aspeto</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Aspeto">' + [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Modo Natal</h2>' +
-    '<div class="seg acc-seg" role="group" aria-label="Modo Natal">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button type="button" data-action="xmas" data-v="' + k + '" aria-pressed="' + (xmas === k) + '">' + l + '</button>').join('') + '</div>' +
-    '<div class="small muted" style="margin-top:8px">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>');
+    '<div class="seg acc-seg" role="group" aria-label="Modo Natal">' + [['auto', 'Automático'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button type="button" data-action="xmas" data-v="' + k + '" aria-pressed="' + (xmas === k) + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="small muted" style="margin-top:8px">Neve, gorros e o Pai Natal. Fica ligado para todos de 15 de novembro a 6 de janeiro.</div></div>');
   if (sub === 'prefs' && accounts().length > 1) {
     const p = (S.mine.plan || {}).prio || 'auto', au = prioAuto();
     html.push('<div class="card panel"><h2>Prioridade entre contas ' + helpBtn('prio') + '</h2>' +

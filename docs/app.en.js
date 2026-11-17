@@ -93,7 +93,7 @@ function applyTheme(t) {
 // modo Natal: em dezembro (até 6 de janeiro), ligado ou desligado (fica neste aparelho); o natal.css só carrega quando liga
 let xmas = 'auto';
 try { const x = localStorage.getItem('fb-xmas'); if (x === 'on' || x === 'off') xmas = x; } catch (e) {}
-const xmasSeason = () => { const d = new Date(), m = d.getMonth() + 1; return m === 12 || (m === 1 && d.getDate() <= 6); };
+const xmasSeason = () => { const d = new Date(), m = d.getMonth() + 1, dd = d.getDate(); return (m === 11 && dd >= 15) || m === 12 || (m === 1 && dd <= 6); }; // de 15 nov a 6 jan, ligado para todos
 function applyXmas(v) {
   if (v) { xmas = v; try { if (v === 'auto') localStorage.removeItem('fb-xmas'); else localStorage.setItem('fb-xmas', v); } catch (e) {} }
   const on = xmas === 'on' || (xmas === 'auto' && xmasSeason());
@@ -5082,8 +5082,8 @@ function renderAjustes() {
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Appearance</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Appearance">' + [['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Christmas mode</h2>' +
-    '<div class="seg acc-seg" role="group" aria-label="Christmas mode">' + [['auto', 'In December'], ['on', 'On'], ['off', 'Off']].map(([k, l]) => '<button type="button" data-action="xmas" data-v="' + k + '" aria-pressed="' + (xmas === k) + '">' + l + '</button>').join('') + '</div>' +
-    '<div class="small muted" style="margin-top:8px">Snow, lights, Santa hats and Santa Claus. Turns on by itself in December, until 6 January.</div></div>');
+    '<div class="seg acc-seg" role="group" aria-label="Christmas mode">' + [['auto', 'Automatic'], ['on', 'On'], ['off', 'Off']].map(([k, l]) => '<button type="button" data-action="xmas" data-v="' + k + '" aria-pressed="' + (xmas === k) + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="small muted" style="margin-top:8px">Snow, Santa hats and Santa Claus. On for everyone from 15 November to 6 January.</div></div>');
   if (sub === 'prefs' && accounts().length > 1) {
     const p = (S.mine.plan || {}).prio || 'auto', au = prioAuto();
     html.push('<div class="card panel"><h2>Priority between accounts ' + helpBtn('prio') + '</h2>' +

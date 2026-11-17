@@ -3342,5 +3342,6 @@
  "Em dezembro": "In December",
  "Ligado": "On",
  "Desligado": "Off",
- "<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, lights, Santa hats and Santa Claus. Turns on by itself in December, until 6 January.</div></div>"
+ "<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, lights, Santa hats and Santa Claus. Turns on by itself in December, until 6 January.</div></div>",
+ "<div class=\"small muted\" style=\"margin-top:8px\">Neve, gorros e o Pai Natal. Fica ligado para todos de 15 de novembro a 6 de janeiro.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, Santa hats and Santa Claus. On for everyone from 15 November to 6 January.</div></div>"
 }

@@ -1,47 +1,7 @@
 [
  {
   "file": "docs/app.js",
-  "text": "xmasCss",
-  "line": "if (on && !document.getElementById('xmasCss')) { const l = document.createElement('link'); l.id = 'xmasCss'; l.rel = 'stylesheet'; l.href = 'natal.css'; documen"
- },
- {
-  "file": "docs/app.js",
-  "text": "stylesheet",
-  "line": "if (on && !document.getElementById('xmasCss')) { const l = document.createElement('link'); l.id = 'xmasCss'; l.rel = 'stylesheet'; l.href = 'natal.css'; documen"
- },
- {
-  "file": "docs/app.js",
-  "text": "natal.css",
-  "line": "if (on && !document.getElementById('xmasCss')) { const l = document.createElement('link'); l.id = 'xmasCss'; l.rel = 'stylesheet'; l.href = 'natal.css'; documen"
- },
- {
-  "file": "docs/app.js",
-  "text": "<div class=\"card panel\"><h2>Modo Natal</h2>",
-  "line": "if (sub === 'prefs') html.push('<div class=\"card panel\"><h2>Modo Natal</h2>' +"
- },
- {
-  "file": "docs/app.js",
-  "text": "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">",
-  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
- },
- {
-  "file": "docs/app.js",
-  "text": "Em dezembro",
-  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
- },
- {
-  "file": "docs/app.js",
-  "text": "Ligado",
-  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
- },
- {
-  "file": "docs/app.js",
-  "text": "Desligado",
-  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
- },
- {
-  "file": "docs/app.js",
-  "text": "<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>",
-  "line": "'<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>');"
+  "text": "<div class=\"small muted\" style=\"margin-top:8px\">Neve, gorros e o Pai Natal. Fica ligado para todos de 15 de novembro a 6 de janeiro.</div></div>",
+  "line": "'<div class=\"small muted\" style=\"margin-top:8px\">Neve, gorros e o Pai Natal. Fica ligado para todos de 15 de novembro a 6 de janeiro.</div></div>');"
  }
 ]
