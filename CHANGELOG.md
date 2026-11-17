@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-17
+- **João** — Modo Natal: o lineup volta ao sítio de sempre; o campo com a árvore de Natal passa para o fundo do cartão do dia.
 - **João** — Modo Natal: o cartão do dia mostra o campo de basquetebol com neve e a árvore de Natal (sai a grinalda e as luzes); mais neve, o Pai Natal passa de 12 em 12 segundos, a lua já não fica cortada; no fim da página volta a árvore com a cabana.
 - **João** — Modo Natal: a página já não desliza para o lado no iPhone (o trenó saía pela direita); o gorro fica em cima da foto, sem tapar a cara; neve em 4 camadas, macia e sem flocos cortados; no fim da página, um campo de basquetebol com neve (noite e dia).
 - **João** — Modo Natal (Ajustes → Preferências: Em dezembro, Ligado ou Desligado): neve a cair, grinalda no topo, Pai Natal com as renas, luzes de cor no cartão do dia, gorros nos jogadores, bola com gorro na vitória e paisagem de Natal no fim da página. Em dezembro liga sozinho até 6 de janeiro.
