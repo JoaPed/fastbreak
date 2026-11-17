@@ -56,7 +56,7 @@ html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-are
 @keyframes xm-fly { 0% { background-position: -200px 12px; } 50% { background-position: calc(50% + 0px) 2px; } 85% { background-position: calc(100% + 200px) 8px; } 100% { background-position: calc(100% + 200px) 8px; } }
 
 /* cartão do dia: o campo com os cestos e a árvore numa faixa no topo, por trás do título (pouco espaço a mais: o lineup vê-se quase todo) */
-html.xmas .card.hero { padding-top: 64px; }
+html.xmas .card.hero { padding-top: 88px; }
 html.xmas .card.hero::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 240px; z-index: -1; pointer-events: none;
   background: linear-gradient(180deg, rgba(13,58,42,0) 25%, rgba(13,58,42,.7) 60%, #0D3A2A 100%), url("natal/campo-noite.webp") no-repeat 45% 20% / cover; }
 
@@ -72,3 +72,9 @@ html.xmas .win-ring .wr-ball { width: 26px; height: 31px; margin: -6px 0 0 -2px;
 
 @media (prefers-reduced-motion: reduce) { html.xmas body::before { animation: none; } html.xmas::after { display: none; } }
 html.xmas .card.hero { text-shadow: 0 1px 3px rgba(0,0,0,.85); } /* o título lê-se por cima da imagem */
+
+/* dias da run com neve em cima e uma bolinha de Natal pendurada no dia escolhido */
+html.xmas .ds { overflow: visible; }
+html.xmas .ds::before { content: ""; position: absolute; left: -1px; right: -1px; top: -1px; height: 9px; z-index: 1; pointer-events: none; border-radius: 12px 12px 0 0;
+  background: radial-gradient(circle at 15% 0, #fff 0 5px, transparent 5.5px), radial-gradient(circle at 42% 0, #fff 0 6px, transparent 6.5px), radial-gradient(circle at 70% 0, #fff 0 5px, transparent 5.5px), radial-gradient(circle at 92% 0, #fff 0 4px, transparent 4.5px), linear-gradient(#fff, #fff) top / 100% 3px no-repeat;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
