@@ -1598,6 +1598,59 @@ function lineupP(md, ids) {
   return md.objs.length ? FB.lineupProb(md, idx) : 0;
 }
 
+// ---------- suplente (Top Shot: entra pelo 1.º titular que não jogar; só gasta um uso se entrar) ----------
+const BENCH_SCRATCH = 0.03; // quem não está em dúvida também pode ficar de fora à última hora
+function benchOut(md, id) { const pi = S.result.model.pIndex.get(id), inf = pi != null && md.info[pi] && md.info[pi][0]; return riskOf(md, id) ? 1 - pPlayOf(inf) : BENCH_SCRATCH; }
+// dias seguintes em que o plano já o põe (o uso que gastar hoje pode faltar lá)
+function benchLater(pid, date) { const v = view(); return v ? v.days.filter(x => x.date > date && x.lineup.includes(pid)) : []; }
+// todos os suplentes possíveis, do melhor para o pior: primeiro os que não tiram usos ao resto da run
+function benchOptions(md, nd, lineup) {
+  const r = S.result, key = nd.date + '|' + lineup.join(',') + '|' + S.acc;
+  if (S.benchMemo && S.benchMemo.r === r && S.benchMemo.key === key) return S.benchMemo.list;
+  const outs = lineup.map(id => benchOut(md, id)), base = lineupP(md, lineup);
+  const without = lineup.map(id => lineupP(md, lineup.filter(x => x !== id)));
+  const sem = base - outs.reduce((t, o, i) => t + o * (base - without[i]), 0), list = [];
+  md.elig.forEach(pi => { const pid = r.model.players[pi].id, left = r.model.uses[pi];
+    if (lineup.includes(pid) || riskOf(md, pid) || !(left > 0) || tierBlocked(pid, S.acc, nd.date)) return;
+    const com = sem + lineup.reduce((t, id, i) => t + outs[i] * (lineupP(md, lineup.filter(x => x !== id).concat([pid])) - without[i]), 0);
+    const later = benchLater(pid, nd.date), free = !isFinite(left) || left > later.length;
+    list.push({ id: pid, com, sem, free, later }); });
+  list.sort((a, b) => (b.free - a.free) || (b.com - a.com));
+  S.benchMemo = { r, key, list }; return list;
+}
+function benchOf(md, nd, lineup) {
+  const list = benchOptions(md, nd, lineup), want = (curPlan().bench || {})[nd.date];
+  return list.find(x => x.id === want) || list[0] || null;
+}
+// quem é mais provável que falte (para dizer por quem entra)
+function benchFor(md, lineup) { let best = null; lineup.forEach(id => { if (riskOf(md, id)) { const o = benchOut(md, id); if (!best || o > best.o) best = { id, o }; } }); return best; }
+function benchRow(md, nd, lineup) {
+  if (!lineup.length) return '';
+  const B = benchOf(md, nd, lineup), r = S.result;
+  if (!B) return '<li class="bench-row"><div class="row small muted"><span class="pill bench">Suplente</span> ninguém livre neste dia</div></li>';
+  const p = r.model.players[r.model.pIndex.get(B.id)], who = benchFor(md, lineup), gain = B.com - B.sem;
+  const sub = (who ? 'entra se <b>' + esc(lastName(who.id)) + '</b> não jogar' : 'entra se alguém não jogar') + ' · uso só se entrar';
+  const cost = B.free ? '' : '<div class="risk-sub">se entrar, gasta um uso do dia ' + B.later.map(x => x.idx + 1).join(', ') + '</div>';
+  return '<li class="bench-row"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) +
+    '<div style="min-width:0"><div class="pn"><span class="pill bench">Suplente</span><span class="bnm">' + esc(p.name) + '</span></div>' +
+    '<div class="ps">' + teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd)) + '</div><div class="bench-sub">' + sub + '</div>' + cost + '</div></span>' +
+    '<span class="bench-p num">' + (gain >= 0.0005 ? '+' + pct(gain) : '—') + '<small>no dia</small></span></button></li>';
+}
+function benchSheet(date) {
+  const r = S.result, v = view(); if (!r || !v) return;
+  const d = v.days.find(x => x.date === date), md = r.model.days.find(x => x.day.date === date); if (!d || !md) return;
+  const list = benchOptions(md, md.day, d.lineup), cur = benchOf(md, md.day, d.lineup), want = (curPlan().bench || {})[date];
+  const who = benchFor(md, d.lineup);
+  const row = x => '<li><button class="row" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '"><span class="who">' + face(x.id) +
+    '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (cur && x.id === cur.id ? ' <span class="pill bench">Suplente</span>' : '') + '</div>' +
+    '<div class="ps">' + (x.free ? 'não tira usos ao resto da run' : 'gasta um uso do dia ' + x.later.map(y => y.idx + 1).join(', ')) + '</div></div></span>' +
+    '<span class="bench-p num">' + (who ? pct(lineupP(md, d.lineup.filter(y => y !== who.id).concat([x.id]))) + '<small>se ele faltar</small>' : '+' + pct(x.com - x.sem) + '<small>no dia</small>') + '</span></button></li>';
+  openSheet('<h2>Suplente</h2><p class="small muted">No Top Shot entra pelo 1.º titular que não jogar e só gasta um uso se entrar. ' +
+    (who ? 'O mais provável é faltar o <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + '). Se faltar, sem suplente o dia fica com ' + pct(lineupP(md, d.lineup.filter(y => y !== who.id))) + '.' : 'Ninguém do lineup está em dúvida: conta só com quem fica de fora à última hora.') + '</p>' +
+    (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Deixar o plano escolher</button>' : '') +
+    '<ul class="list">' + list.slice(0, 8).map(row).join('') + '</ul>');
+}
+
 // ---------- render ----------
 // não redesenhar uma secção enquanto alguém está a escrever num campo dela
 function typingIn(id) { const ae = document.activeElement; return !!(ae && $(id).contains(ae) && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(ae.tagName)); }
@@ -2761,7 +2814,8 @@ function renderJornada(el) {
     let rl = '';
     if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);
       stp += '<span class="pill duv risk" title="' + esc((INJ_LABEL[info.injury.rec.status] || '') + ': conta como se jogasse; se ficar de fora, troca-o antes do jogo') + '">⚠ ' + esc(INJ_LABEL[info.injury.rec.status] || 'Dúvida') + '</span>';
-      rl = '<div class="risk-sub">se não jogar: ' + (sb ? '<b>' + esc(lastName(sb.id)) + '</b> (hoje ' + pct(sb.P) + ')' : 'não há troca depois do jogo dele') + '</div>'; }
+      const bz = benchOf(md, nd, d.lineup);
+      rl = '<div class="risk-sub">se não jogar: ' + (bz ? 'entra o suplente <b>' + esc(lastName(bz.id)) + '</b>' : sb ? '<b>' + esc(lastName(sb.id)) + '</b> (hoje ' + pct(sb.P) + ')' : 'não há troca depois do jogo dele') + '</div>'; }
     // ao vivo, com o jogo já começado: tocar abre as estatísticas do jogo
     const gid = live && /^(jogo\??|fim)$/.test(info.liveState || '') ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
     return '<li><button class="row" type="button" ' + (/^espn:/.test(gid) ? 'data-action="game-box" data-gid="' + esc(gid) + '"' : 'data-action="player"') + ' data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div>' + rl + (live ? '' : fxHtml(id, nd, [...new Set(md.objs.map(x => x.stat))])) + '</div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
@@ -2778,10 +2832,10 @@ function renderJornada(el) {
     const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar o lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Mudar o lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Partilhar o lineup" title="Partilhar o lineup">' + icoShare + '</button>' : ''].filter(Boolean);
     html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur && nd.date <= todayET() ? 'Hoje' : 'Dia ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Ao vivo</span>' : '') + '</span>' +
       (live ? (d.totals.length === 1 && t ? liveBoard(d, 'top') : '') : '<div class="jc-sub">' + (d.noObjective ? 'Sem objetivo' : d.lineup.length ? perStat : '') + '</div>') + (live ? '' : '<div class="jc-sub">' + (isCur && nd.date <= todayET() ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1.º jogo ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
-      (live && t ? liveBoard(d, 'bar') : '') + liveDiag + (d.lineup.length ? '<ul class="list jc-list' + (live ? ' lv-list' : '') + '">' + rows + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
+      (live && t ? liveBoard(d, 'bar') : '') + liveDiag + (d.lineup.length ? '<ul class="list jc-list' + (live ? ' lv-list' : '') + '">' + rows + (live ? '' : benchRow(md, nd, d.lineup)) + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
       (btns.length ? '<div class="jc-btns">' + btns.join('') + '</div>' : '') + (canEdit && !d.noObjective ? '<div class="jc-off"><button class="btn link small" type="button" data-action="day-off" data-date="' + nd.date + '">Não vou jogar este dia</button></div>' : '') + '</div>';
   } else html.splice(luAt, 0, '<div class="card"><div class="list-head"><h2>Lineup ' + helpBtn(live ? 'aovivo' : 'lineup') + '</h2>' + (canEdit ? '<button class="btn small" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar</button>' : '<span class="small muted">' + (live ? 'pontos ao vivo' : d.lineup.length ? d.lineup.length + ' de ' + md.size : '') + '</span>') + '</div>' +
-    (d.lineup.length ? '<ul class="list">' + rows + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') +
+    (d.lineup.length ? '<ul class="list">' + rows + (live ? '' : benchRow(md, nd, d.lineup)) + '</ul>' : '<div class="row muted small">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') +
     (allFinal && t ? '<div class="row small" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '') +
     bansLine + '</div>');
   html.push(liveGamesCard(r, md, nd, live && d.live ? d.live.submitted : d.lineup, live, false));
@@ -2936,7 +2990,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
     }
   }
   d.lineup.forEach(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], j = info.injury;
-    if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>' + (j.risk ? ' ⚠' : '') + ': ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(pPlayOf(info)) + ' de jogar', (() => { const sb = j.risk ? riskSub(md, nd, d.lineup, id) : null; return 'Confirma ' + at(nd, r.model.players[pi].team) + '; se não jogar, ' + (sb ? 'troca-o por <b>' + esc(nameOf(sb.id)) + '</b> no Top Shot (hoje ' + pct(sb.P) + ').' : 'tira-o no Top Shot.'); })(), 'inj|' + id + '|' + nd.date + '|' + j.rec.status)); });
+    if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>' + (j.risk ? ' ⚠' : '') + ': ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(pPlayOf(info)) + ' de jogar', (() => { const bz = j.risk ? benchOf(md, nd, d.lineup) : null; if (bz) return 'Põe <b>' + esc(nameOf(bz.id)) + '</b> de suplente no Top Shot: entra se ele não jogar.'; const sb = j.risk ? riskSub(md, nd, d.lineup, id) : null; return 'Confirma ' + at(nd, r.model.players[pi].team) + '; se não jogar, ' + (sb ? 'troca-o por <b>' + esc(nameOf(sb.id)) + '</b> no Top Shot (hoje ' + pct(sb.P) + ').' : 'tira-o no Top Shot.'); })(), 'inj|' + id + '|' + nd.date + '|' + j.rec.status)); });
   // run a sério: dia que acabou há mais de 12 h e não fechou sozinho (sem lineup guardado, ou sem estatísticas)
   const run = curRun();
   if (run && !run.fictitious) {
@@ -7165,6 +7219,8 @@ document.addEventListener('click', async e => {
     case 'close-sheet': closeSheet(); break;
     case 'sheet-back': { const fn = S.sheetBack; fn ? fn() : closeSheet(); break; }
     case 'player': playerSheet(id, date); break;
+    case 'bench': benchSheet(date); break;
+    case 'bench-pick': { const p = curPlan(); p.bench = Object.assign({}, p.bench || {}, { [date]: id || null }); saveMine(); closeSheet(); render(); toast(id ? 'Suplente: ' + nameOf(id) + '.' : 'O plano escolhe o suplente.'); break; }
     case 'day': S.hd = date; S.hdCenter = true; closeSheet(); setSub('hoje', 'lineup'); setTab('hoje'); break;
     case 'help': helpSheet(b.dataset.k, b); break;
     case 'opcoes': await opcoesSheet(); break;

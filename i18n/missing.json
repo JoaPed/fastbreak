@@ -1,7 +1,12 @@
 [
  {
   "file": "docs/app.js",
-  "text": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run e prémios</button><span class=\"small muted\">Quando sai uma run nova: a Classic, o Historic e o Pro.</span></div>",
-  "line": "'<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run e prémios</button><span class=\"small muted\">Quando sai uma"
+  "text": "Põe <b>",
+  "line": "if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action=\"player\" data-id=\"' + esc(id) + '\" data-date=\"' + nd.date + '\"', '<b>' + esc(nam"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "</b> de suplente no Top Shot: entra se ele não jogar.",
+  "line": "if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action=\"player\" data-id=\"' + esc(id) + '\" data-date=\"' + nd.date + '\"', '<b>' + esc(nam"
  }
 ]

@@ -557,6 +557,18 @@ with sync_playwright() as pw:
     print('E jogos de hoje:', gc.first.inner_text().replace('\n', ' | ')[:240] if gc.count() else 'ERRO sem cartão', '· caras:', gc.first.locator('.face').count() if gc.count() else 0)
     rk = lineup_card(pg).locator('.row').filter(has=pg.locator('.pill.risk'))
     print('E dia a dia no lineup:', rk.inner_text().replace('\n', ' ')[:160] if rk.count() else 'ERRO sem ⚠', '· ok' if rk.count() and 'se não jogar' in rk.inner_text() else '· ERRO')
+    # suplente: por baixo dos 5; entra pelo SGA (dia a dia); escolher outro na folha
+    bz = lineup_card(pg).locator('.bench-row')
+    print('E suplente:', bz.inner_text().replace('\n', ' ')[:160] if bz.count() else 'ERRO sem suplente', '· ok' if bz.count() and 'Gilgeous' not in bz.locator('.bnm').inner_text() and 'entra se Gilgeous' in bz.inner_text() and 'entra o suplente' in rk.inner_text() else '· ERRO')
+    lineup_card(pg).screenshot(path=str(shots / 'suplente-claro.png'))
+    pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(200); lineup_card(pg).screenshot(path=str(shots / 'suplente-escuro.png')); pg.emulate_media(color_scheme='light')
+    if bz.count():
+        bz.locator('button').click(); pg.wait_for_timeout(500)
+        opts = pg.locator('#sheetPanel button[data-action="bench-pick"][data-id]:not([data-id=""])')
+        pg.locator('#sheetPanel').screenshot(path=str(shots / 'suplente-folha.png'))
+        n2 = opts.nth(1).locator('.nm').inner_text() if opts.count() > 1 else ''
+        if n2: opts.nth(1).click(); pg.wait_for_timeout(500)
+        print('E suplente escolhido:', n2, '· ok' if n2 and n2 == lineup_card(pg).locator('.bench-row .bnm').inner_text() else '· ERRO')
     pg.click('#tab-hoje button[data-action="opcoes"]'); wait_opcoes(pg, 120000)
     tt = pg.locator('#sheetPanel .op-card h2').all_inner_texts()
     print('E sugestões com dúvida:', ' | '.join(tt), '·', ' / '.join(pg.locator('#sheetPanel .op-card .c-warn').all_inner_texts())[:120], '· ok' if any('Sem riscos' in t for t in tt) else '· ERRO sem alternativa sem riscos')

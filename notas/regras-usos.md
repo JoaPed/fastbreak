@@ -55,3 +55,8 @@ Fonte: blog oficial do NBA Top Shot (Fast Break All-Star Run e Rookie Run), mais
 - **Usos de cada smurf (desde 21 out, à noite):** cada smurf tem os usos da melhor carta da coleção, mesmo que essa carta esteja noutra conta, menos os que já gastou. Isto é `colTopUses − usedCount`.
   - Um valor gravado mais baixo (por exemplo, a (smurf) a mostrar 1 Luka em vez de 2) já não passa por cima disto.
   - Só vale um número mais baixo se for mudado à mão (`e.sm[conta]`). Nesse caso a ficha do jogador mostra "Pela coleção: N · repor".
+
+## Suplente (bench), desde 17 nov 2026
+- No Classic cada lineup pode ter um suplente: "Subs in for the first starter who doesn't play". Só gasta um uso se entrar.
+- No site (`benchOptions`/`benchRow` em `app.js`): a chance de cada titular faltar é a das lesões (dia a dia/dúvida) ou 3% para os outros; o suplente sugerido é o que mais sobe a chance do dia entre os que não tiram usos ao resto da run (usos > dias em que o plano ainda o põe); se nenhum, o melhor e avisa de que dia tira o uso. A escolha à mão fica em `plan.bench[data]`.
+- Ainda por fazer: o leitor ler o suplente do lineup do Top Shot, e o motor contar com ele no plano da run.

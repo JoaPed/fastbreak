@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-17
+- **João** — Suplente: na Jornada, por baixo dos 5, o plano sugere o suplente do dia (entra pelo 1.º titular que não jogar e só gasta um uso se entrar), de preferência um que não tire usos ao resto da run; tocar mostra os outros e deixa escolher.
+
 ## 2026-11-16
 - **João** — "Run e prémios" (Admin) lê também o Historic e o Pro; o leitor apanha sempre a run mais nova de cada um (antes podia ficar na que acabou). Leitor v36.
 - **João** — Classificação no telemóvel: só a coluna das contas fica fixa e leva o lugar na run (73.º · 10 ✓ · $10); a coluna da run só aparece em ecrãs largos.

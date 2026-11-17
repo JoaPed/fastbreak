@@ -1330,3 +1330,16 @@ body { padding-top: env(safe-area-inset-top, 0px); }
   .gc-run .who2 small { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gc-wrap.scrolled .gc-run td.who2::before, .gc-wrap.scrolled .gc-run th.who2::before { right: -12px; box-shadow: 8px 0 10px -6px rgb(0 0 0 / 35%); clip-path: inset(-4px -24px -4px 0); }
 }
+/* suplente: por baixo dos 5, separado por um traço; só gasta um uso se entrar */
+.bench-row { border-top: 1px dashed var(--line); }
+.pn .bnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.bench-row .who { flex: 1 1 auto; min-width: 0; }
+.jc-list .bench-row, .jc-list .bench-row .row { background: transparent; }
+.jc-list .row .bnm { color: var(--board-ink); }
+.pill.bench { background: transparent; border: 1px dashed currentColor; color: var(--muted); margin-right: 6px; }
+.bench-sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; } .bench-sub b { color: var(--ink); font-weight: 600; }
+.bench-p { display: flex; flex-direction: column; align-items: flex-end; font-weight: 700; white-space: nowrap; }
+.bench-p small { font-size: 11px; font-weight: 400; color: var(--muted); }
+.jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }
+.jc-list .bench-sub, .jc-list .bench-p small, .jc-list .pill.bench { color: var(--board-muted); }
+.jc-list .bench-sub b { color: inherit; }
