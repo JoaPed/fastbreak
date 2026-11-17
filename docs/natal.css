@@ -55,9 +55,9 @@ html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-are
   background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 8s linear infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
 @keyframes xm-fly { 0% { background-position: -200px 12px; } 50% { background-position: calc(50% + 0px) 2px; } 85% { background-position: calc(100% + 200px) 8px; } 100% { background-position: calc(100% + 200px) 8px; } }
 
-/* cartão do dia: o campo de basquetebol com a árvore de Natal de fundo, por baixo do texto (como as linhas do campo), sem mexer no lineup */
+/* cartão do dia: o campo com os dois cestos e a árvore de Natal de fundo no topo, por baixo do texto, sem empurrar o lineup */
 html.xmas .card.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(13,58,42,.66) 0, rgba(13,58,42,.74) 300px, #0D3A2A 400px), url("natal/campo-noite.webp") no-repeat 22% 0 / 230% auto; }
+  background: linear-gradient(180deg, rgba(13,58,42,.3) 0, rgba(13,58,42,.5) 150px, rgba(13,58,42,.85) 260px, #0D3A2A 340px), url("natal/campo-noite.webp") no-repeat 45% 0 / auto 340px; }
 /* sem as linhas do campo (o desenho de sempre): a imagem já é um campo */
 html.xmas .card.hero::after, html.xmas .day-hero .court-b { display: none; }
 
