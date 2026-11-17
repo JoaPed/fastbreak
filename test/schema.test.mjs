@@ -17,6 +17,13 @@ await db.exec(`
 `);
 await db.exec(sql);
 await db.exec(sql); // idempotente
+// Vault e pg_net simulados: a chave do GitHub e os pedidos que o Supabase faria
+await db.exec(`
+  create schema vault; create table vault.decrypted_secrets (name text, decrypted_secret text);
+  create schema net; create table net.calls (url text, body jsonb, headers jsonb);
+  create function net.http_post(url text, body jsonb, headers jsonb) returns bigint language sql as $$ insert into net.calls values (url, body, headers) returning 1::bigint $$;
+  insert into vault.decrypted_secrets values ('github_dispatch', 'tok-123');
+`);
 
 const U = { a: '00000000-0000-0000-0000-00000000000a', b: '00000000-0000-0000-0000-00000000000b', c: '00000000-0000-0000-0000-00000000000c' };
 await db.exec(`insert into auth.users values ('${U.a}'), ('${U.b}'), ('${U.c}')`);
@@ -109,6 +116,8 @@ r = await as('b', `select public.request_job('odds') r`); expect('membro não pe
 r = await as('a', `select public.request_job('rm -rf') r`); expect('tarefa desconhecida recusada', !!r.error, r);
 r = await as('a', `select public.request_job('odds') r`); expect('admin pede as odds', r.rows?.[0].r.ok === true, r);
 r = await as('a', `select public.request_job('odds') r`); expect('segundo pedido logo a seguir fica à espera do primeiro', r.rows?.[0].r.ok === false, r);
+await db.exec('reset role'); r = { rows: (await db.query(`select url, body, headers from net.calls`)).rows }; expect('pedido acorda logo a tarefa no GitHub (uma vez, com a chave do Vault)', r.rows?.length === 1 && /pedidos\.yml\/dispatches$/.test(r.rows[0].url) && r.rows[0].body.ref === 'main' && r.rows[0].headers.Authorization === 'Bearer tok-123', r);
+r = await as('a', `select public.wake_requests()`); expect('o site não chama o GitHub diretamente', !!r.error, r);
 r = await as('b', `select public.job_requests() r`); expect('membro não vê os pedidos', r.rows?.[0].r === null, r);
 r = await as('a', `select public.job_requests() r`); expect('admin vê o pedido', !!r.rows?.[0].r?.odds?.at, r);
 r = await as('a', `select value from public.job_state`); expect('job_state continua fechado ao site', !r.rows?.length, r);

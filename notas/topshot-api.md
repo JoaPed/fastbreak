@@ -61,3 +61,6 @@ Base: `https://api.production.atlas.dapperlabs.com/atlas.v1.<Serviço>/<Método>
   (`reachUses`): só as cartas da própria conta e as livres das outras. O motor recebe `pin` e nunca o põe numa
   transferência; o "A fazer", o Vender e a troca rápida do Pro saltam as trancadas.
 
+
+## Pedidos do site na hora (17 nov 2026)
+- O cron de 5 em 5 min do `pedidos.yml` não é cumprido pelo GitHub (corria de ~8 em 8 horas). Agora `request_job` chama `wake_requests()`, que usa o pg_net do Supabase para fazer `workflow_dispatch` do `pedidos.yml`, com uma chave do GitHub (fine-grained, só este repositório, Actions: read and write) guardada no Vault do Supabase com o nome `github_dispatch`. Sem chave fica como antes.

@@ -251,6 +251,25 @@ begin
 end;
 $$;
 
+-- Pedido na hora: o Supabase acorda logo a tarefa "Pedidos do site" no GitHub (pg_net), com uma chave do GitHub
+-- guardada só no Vault do Supabase (nome 'github_dispatch'; nunca no repositório). Sem a chave, ou sem pg_net, fica
+-- como antes: a tarefa agendada apanha o pedido quando correr. Erros aqui nunca estragam o pedido.
+do $$ begin create extension if not exists pg_net; exception when others then null; end $$;
+create or replace function public.wake_requests() returns void
+language plpgsql security definer set search_path = public as $$
+declare tok text;
+begin
+  execute 'select decrypted_secret from vault.decrypted_secrets where name = $1 limit 1' into tok using 'github_dispatch';
+  if tok is null or tok = '' then return; end if;
+  execute 'select net.http_post(url := $1, body := $2, headers := $3)'
+    using 'https://api.github.com/repos/JoaPed/fastbreak/actions/workflows/pedidos.yml/dispatches',
+          jsonb_build_object('ref', 'main'),
+          jsonb_build_object('Authorization', 'Bearer ' || tok, 'Accept', 'application/vnd.github+json',
+                             'X-GitHub-Api-Version', '2022-11-28', 'User-Agent', 'fastbreak-site', 'Content-Type', 'application/json');
+exception when others then null;
+end;
+$$;
+
 -- Tarefas pedidas pelo admin no site (p. ex. ler as odds agora): fica o pedido em job_state 'requests'; a tarefa
 -- "Pedidos do site" (de 5 em 5 min) vê-o e corre. Um pedido por tarefa de cada vez (20 min de espera entre pedidos).
 create or replace function public.request_job(kind text) returns jsonb
@@ -273,6 +292,7 @@ begin
   cur := cur || jsonb_build_object(kind, jsonb_build_object('at', now(), 'by', auth.uid(), 'prev', prev -> 'ran'));
   insert into public.job_state (key, value, updated_at) values ('requests', cur, now())
   on conflict (key) do update set value = excluded.value, updated_at = now();
+  perform public.wake_requests(); -- na hora, se houver chave
   return jsonb_build_object('ok', true, 'at', now());
 end;
 $$;
@@ -386,4 +406,5 @@ grant all on all tables in schema public to service_role;
 grant all on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
 revoke all on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.request_job(text), public.job_requests() from anon, public;
+revoke all on function public.wake_requests() from anon, authenticated, public;
 grant execute on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.is_member(), public.is_admin(), public.request_job(text), public.job_requests() to authenticated;

@@ -1,17 +1,12 @@
 [
  {
   "file": "docs/app.js",
-  "text": "uso a mais",
-  "line": "const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'uso a mais', 'usos a mais') + (x.later.length ?"
+  "text": ". As odds chegam em 2–5 min e a app refaz o plano sozinha.",
+  "line": ": '<div class=\"small muted\">' + (pending ? 'Pedido às ' + hm(o.at) + '. As odds chegam em 2–5 min e a app refaz o plano sozinha.' : 'Odds lidas ' + (last ? ago("
  },
  {
   "file": "docs/app.js",
-  "text": "usos a mais",
-  "line": "const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'uso a mais', 'usos a mais') + (x.later.length ?"
- },
- {
-  "file": "docs/app.js",
-  "text": " (plano: dia ",
-  "line": "const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'uso a mais', 'usos a mais') + (x.later.length ?"
+  "text": "Pedido. As odds chegam em 2–5 min.",
+  "line": "else toast('Pedido. As odds chegam em 2–5 min.');"
  }
 ]

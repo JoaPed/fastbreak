@@ -5312,14 +5312,14 @@ function jobsCard() {
   const J = S.jobReq, o = J ? J.odds : null, pending = !!(o && !o.done);
   const last = Object.values(S.odds || {}).map(x => x.updated_at).filter(Boolean).sort().pop();
   const status = J === false ? '<div class="note">For this button to work, run the new <span class="kbd">supabase/schema.sql</span> in Supabase (SQL Editor).</div>'
-    : '<div class="small muted">' + (pending ? 'Requested at ' + hm(o.at) + '. The job picks it up in 5–15 min and the app redoes the plan by itself.' : 'Odds read ' + (last ? ago(last) : 'not yet') + (o && o.ran ? ' · last request ' + ago(o.ran) + (o.ok === false ? ' (failed)' : '') : '') + '.') + '</div>';
+    : '<div class="small muted">' + (pending ? 'Requested at ' + hm(o.at) + '. The odds arrive in 2–5 min and the app redoes the plan by itself.' : 'Odds read ' + (last ? ago(last) : 'not yet') + (o && o.ran ? ' · last request ' + ago(o.ran) + (o.ok === false ? ' (failed)' : '') : '') + '.') + '</div>';
   return '<div class="card panel" id="jobsCard"><h2>Jobs</h2><div class="ts-read"><button class="btn" type="button" data-action="job-odds"' + (pending || J === false || J == null ? ' disabled' : '') + '>Read the odds now</button><span class="small muted">Today and tomorrow. Uses The Odds API credits (~1 per game).</span></div>' + status + '</div>';
 }
 async function jobOdds() {
   const { data, error } = await sb.rpc('request_job', { kind: 'odds' });
   if (error) { toast(errText(error)); return; }
   if (data && data.ok === false) toast('There’s already a request from ' + hm(data.at) + ' waiting.');
-  else toast('Requested. The odds arrive in 5–15 min.');
+  else toast('Requested. The odds arrive in 2–5 min.');
   loadJobReq();
 }
 function adminHtml(run) {
