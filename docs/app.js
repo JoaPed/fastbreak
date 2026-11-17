@@ -1642,7 +1642,7 @@ function benchRow(md, nd, lineup) {
   if (!lineup.length) return '';
   const B = benchOf(md, nd, lineup), r = S.result; if (!B) return '';
   const p = r.model.players[r.model.pIndex.get(B.id)], gain = B.com - B.sem, who = benchFor(md, lineup);
-  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Suplente' + (who ? ' · entra por ' + esc(lastName(who.id)) : '') + '</div></div></span><span class="bench-p num">' + (gain >= 0.0005 ? '+' + pct(gain) : '') + '</span></button></li>';
+  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Suplente' + (who ? ' · entra por ' + esc(lastName(who.id)) : '') + '</div></div></span><span class="bench-p num">' + (gain >= 0.0005 ? '+' + pct(gain) + '<small>vitória</small>' : '') + '</span></button></li>';
 }
 function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;

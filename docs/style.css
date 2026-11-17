@@ -1335,7 +1335,9 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .pn .bnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .bench-row .who { flex: 1 1 auto; min-width: 0; }
 .pill.bench { background: transparent; border: 1px dashed currentColor; color: var(--muted); }
-.bench-p { font-weight: 700; white-space: nowrap; color: var(--good); }
+.bench-p { font-weight: 700; white-space: nowrap; color: var(--good); display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.bench-p small { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.jc-list .bench-p small { color: var(--board-muted); }
 .bv-c .row { opacity: .72; padding-block: 6px; } .bv-c .face { transform: scale(.82); }
 .jc-list .bench-row, .jc-list .bench-row .row { background: transparent; }
 .jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }

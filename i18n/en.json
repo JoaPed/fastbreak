@@ -3311,5 +3311,6 @@
  "), sem suplente: ": "), without a bench: ",
  "suplente <b>": "bench <b>",
  "</span></div><div class=\"ps\">Suplente": "</span></div><div class=\"ps\">Bench",
- " · entra por ": " · in for "
+ " · entra por ": " · in for ",
+ "<small>vitória</small>": "<small>win</small>"
 }
