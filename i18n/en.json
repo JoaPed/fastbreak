@@ -3315,12 +3315,12 @@
  "<div class=\"bench-direct\"><div class=\"label\">Substituto direto do ": "<div class=\"bench-direct\"><div class=\"label\">Direct sub for ",
  "</div><div class=\"ps\">sem o ": "</div><div class=\"ps\">without ",
  " · com ele faz ": " · with him: ",
- "não tira usos à run": "takes no uses from the run",
  " dir": null,
  " <span class=\"tag-d\">Direto</span>": " <span class=\"tag-d\">Direct</span>",
  "com ele faz ": "with him: ",
  "<h2>Suplente</h2><p class=\"small muted\">": "<h2>Bench</h2><p class=\"small muted\">",
  "Entra se o <b>": "Comes in if <b>",
  "Entra pelo 1.º titular que não jogar": "Subs in for the first starter who doesn't play",
- " · só gasta um uso se entrar.</p>": " · only uses a use if he plays.</p>"
+ " · só gasta um uso se entrar.</p>": " · only uses a use if he plays.</p>",
+ " · uso do dia ": " · uses a day "
 }

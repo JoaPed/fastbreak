@@ -1670,10 +1670,11 @@ function benchSheet(date) {
   // uma só lista: o substituto direto primeiro (barra verde, "Direto"), o escolhido com ✓
   const ord = dx ? [dx.x].concat(list.filter(x => x.id !== dx.x.id)) : list;
   const row = x => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id;
-    const uses = x.free ? 'takes no uses from the run' : 'uses a use from day ' + x.later.map(y => y.idx + 1).join(', ');
+    // o jogo dele; o custo só quando tira um uso a outro dia
+    const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? '' : ' · uses a day ' + x.later.map(y => y.idx + 1).join(', ');
     return '<li><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direct</span>' : '') + '</div>' +
-      '<div class="ps">' + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') + ' · ' : '') + uses + '</div></div></span>' +
+      '<div class="ps">' + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
       pvHtml(benchVals(md, x.id, who && who.id)) + '<span class="chk' + (on ? '' : ' off') + '" aria-hidden="true">' + (on ? '✓' : '') + '</span></button></li>'; };
   openSheet('<h2>Bench</h2><p class="small muted">' + (who ? 'Comes in if <b>' + esc(lastName(who.id)) + '</b> sits (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Subs in for the first starter who doesn\'t play') + ' · only uses a use if he plays.</p>' +
     '<ul class="list">' + ord.slice(0, 8).map(row).join('') + '</ul>' +
