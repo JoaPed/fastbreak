@@ -1617,7 +1617,7 @@ function benchOptions(md, nd, lineup) {
     if (lineup.includes(pid) || riskOf(md, pid) || !(left > 0) || tierBlocked(pid, S.acc, nd.date)) return;
     const com = sem + lineup.reduce((t, id, i) => t + outs[i] * (lineupP(scen[i], lineup.filter(x => x !== id).concat([pid])) - without[i]), 0);
     const later = benchLater(pid, nd.date), free = !isFinite(left) || left > later.length;
-    list.push({ id: pid, com, sem, free, later }); });
+    list.push({ id: pid, com, sem, free, later, spare: isFinite(left) ? left - later.length : null }); });
   list.sort((a, b) => (b.free - a.free) || (b.com - a.com));
   S.benchMemo = { r, key, list }; return list;
 }
@@ -1671,7 +1671,7 @@ function benchSheet(date) {
   const ord = dx ? [dx.x].concat(list.filter(x => x.id !== dx.x.id)) : list;
   const row = x => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id;
     // o jogo dele; o custo só quando tira um uso a outro dia
-    const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? '' : ' · uses a day ' + x.later.map(y => y.idx + 1).join(', ');
+    const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'spare use', 'spare uses') + (x.later.length ? ' (plan: day ' + x.later.map(y => y.idx + 1).join(', ') + ')' : '') : '') : ' · uses a day ' + x.later.map(y => y.idx + 1).join(', ');
     return '<li><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direct</span>' : '') + '</div>' +
       '<div class="ps">' + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
