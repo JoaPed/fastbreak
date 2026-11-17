@@ -1,17 +1,1 @@
-[
- {
-  "file": "docs/app.js",
-  "text": "<div class=\"bench-direct\"><div class=\"label\">Substituto direto do ",
-  "line": "(dx ? '<div class=\"bench-direct\"><div class=\"label\">Substituto direto do ' + esc(lastName(who.id)) + '</div><button class=\"row\" type=\"button\" data-action=\"bench"
- },
- {
-  "file": "docs/app.js",
-  "text": "</div><div class=\"ps\">sem o ",
-  "line": "'<div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(dx.x.id)) + '</span>' + (cur && dx.x.id === cur.id ? ' <span class=\"pill bench\">Suplen"
- },
- {
-  "file": "docs/app.js",
-  "text": " · com ele faz ",
-  "line": "'<div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(dx.x.id)) + '</span>' + (cur && dx.x.id === cur.id ? ' <span class=\"pill bench\">Suplen"
- }
-]
+[]

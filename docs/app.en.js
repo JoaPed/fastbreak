@@ -1673,7 +1673,7 @@ function benchSheet(date) {
     '<div class="ps">' + (x.free ? 'takes no uses from the rest of the run' : 'uses a use from day ' + x.later.map(y => y.idx + 1).join(', ')) + '</div></div></span>' +
     pvHtml(benchVals(md, x.id, who && who.id)) + '</button></li>';
   openSheet('<h2>Bench</h2><p class="small muted">On Top Shot he subs in for the first starter who doesn\'t play and only uses a use if he plays. ' +
-    (who ? 'Most likely to sit: <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + '). If he sits, without a bench the day drops to ' + pct(lineupP(sc, d.lineup.filter(y => y !== who.id))) + '.' : 'Nobody in the lineup is doubtful: it only counts on late scratches.') + '</p>' +
+    (who ? 'Most likely to sit: <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ').' : 'Nobody in the lineup is doubtful: it only counts on late scratches.') + '</p>' +
     (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Let the plan choose</button>' : '') +
     (dx ? '<div class="bench-direct"><div class="label">Direct sub for ' + esc(lastName(who.id)) + '</div><button class="row" type="button" data-action="bench-pick" data-id="' + esc(dx.x.id) + '" data-date="' + date + '"><span class="who">' + face(dx.x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(dx.x.id)) + '</span>' + (cur && dx.x.id === cur.id ? ' <span class="pill bench">Bench</span>' : '') + '</div><div class="ps">without ' + esc(lastName(who.id)) + ' · with him: ' + benchValsWith(md, dx.x.id, who.id).map(v => f0(v.v) + ' ' + esc(statShort(v.o.stat))).join(' · ') + '</div></div></span>' +
