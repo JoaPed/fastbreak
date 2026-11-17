@@ -35,7 +35,7 @@ html.xmas[data-theme="dark"] body::before { filter: none; }
 
 /* lua (o trenó passa à frente dela) */
 html.xmas #app { position: relative; z-index: 2; }
-html.xmas #app::before { content: ""; position: absolute; top: -40px; right: 0; width: 170px; height: 200px; z-index: -1; pointer-events: none; background: url("natal/lua.svg") no-repeat 30px center / 200px 200px; }
+html.xmas #app::before { content: ""; position: absolute; top: -40px; right: -16px; width: 186px; height: 200px; z-index: -1; pointer-events: none; background: url("natal/lua.svg") no-repeat 30px center / 200px 200px; }
 
 /* neve em 3 camadas (a de perto maior e mais rápida) */
 html.xmas body::before { content: ""; position: fixed; inset: -320px 0 0; z-index: 1; pointer-events: none;
@@ -55,14 +55,15 @@ html.xmas::before { content: ""; position: absolute; left: 0; right: 0; top: env
 
 /* Pai Natal com as renas a atravessar o céu, por cima da grinalda (onde não há texto) */
 html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-area-inset-top, 0px)); left: 0; right: 0; height: 52px; z-index: 4; pointer-events: none;
-  background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 28s ease-in-out infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
-@keyframes xm-fly { 0% { background-position: -200px 10px; } 40% { background-position: calc(100% + 200px) 0; } 100% { background-position: calc(100% + 200px) 0; } }
+  background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 12s linear infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+@keyframes xm-fly { 0% { background-position: -200px 12px; } 50% { background-position: calc(50% + 0px) 2px; } 85% { background-position: calc(100% + 200px) 8px; } 100% { background-position: calc(100% + 200px) 8px; } }
 
 /* luzes de cor no cartão principal (o preto da imagem desaparece com "screen") */
 html.xmas .card.hero { padding-top: 92px; }
 html.xmas .card.hero::before { content: ""; position: absolute; left: -4px; right: -4px; top: -6px; height: 96px; z-index: 0; pointer-events: none;
   background: url("natal/luzes.webp") no-repeat center top / 104% auto; mix-blend-mode: screen;
-  -webkit-mask: linear-gradient(180deg, #000 80%, transparent 100%); mask: linear-gradient(180deg, #000 80%, transparent 100%); }
+  -webkit-mask: linear-gradient(180deg, #000 55%, transparent 100%), linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); -webkit-mask-composite: source-in;
+  mask: linear-gradient(180deg, #000 55%, transparent 100%), linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-composite: intersect; }
 
 /* gorro do Pai Natal nos jogadores e bola de Natal no círculo da vitória */
 /* o gorro fica em cima da bola (só toca no topo), para não tapar a cara: a bola deixa de cortar o que sai dela e a foto
