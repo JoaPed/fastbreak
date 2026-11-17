@@ -15,7 +15,7 @@ html.xmas[data-theme="dark"] { --bg: #081224; --surface: #0F1C33; --surface-2: #
 
 /* céu: noite (escuro) ou inverno claro; a paisagem do fim da página casa com a cor de baixo */
 html.xmas { background: #DCEBF7; }
-html.xmas body { position: relative; padding-top: calc(52px + env(safe-area-inset-top, 0px)); padding-bottom: calc(430px + env(safe-area-inset-bottom, 0px));
+html.xmas body { position: relative; padding-bottom: calc(430px + env(safe-area-inset-bottom, 0px));
   background: radial-gradient(120% 60% at 85% 0%, #FFF6DA 0%, rgba(255,246,218,0) 55%), linear-gradient(180deg, #DCEBF7 0%, #CFE1F1 50%, #B0CBE3 100%) fixed; }
 html.xmas body::after { background-image: url("natal/dia.webp"); background-position: 68% bottom; }
 html.xmas #app::before { opacity: .55; }
@@ -50,9 +50,9 @@ html.xmas body::after { content: ""; position: absolute; left: 0; right: 0; bott
   -webkit-mask: linear-gradient(180deg, transparent 0, #000 28%); mask: linear-gradient(180deg, transparent 0, #000 28%); }
 
 
-/* Pai Natal com as renas a atravessar o céu, no topo (onde não há texto) */
-html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-area-inset-top, 0px)); left: 0; right: 0; height: 52px; z-index: 4; pointer-events: none;
-  background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 12s linear infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+/* Pai Natal com as renas a atravessar o céu por trás do conteúdo (a página não desce: o plantel vê-se todo) */
+html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-area-inset-top, 0px)); left: 0; right: 0; height: 52px; z-index: 1; pointer-events: none;
+  background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 8s linear infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
 @keyframes xm-fly { 0% { background-position: -200px 12px; } 50% { background-position: calc(50% + 0px) 2px; } 85% { background-position: calc(100% + 200px) 8px; } 100% { background-position: calc(100% + 200px) 8px; } }
 
 /* cartão do dia: o lineup fica no sítio de sempre; o campo de basquetebol com a árvore de Natal aparece no fundo do cartão */
