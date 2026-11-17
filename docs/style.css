@@ -1330,16 +1330,23 @@ body { padding-top: env(safe-area-inset-top, 0px); }
   .gc-run .who2 small { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gc-wrap.scrolled .gc-run td.who2::before, .gc-wrap.scrolled .gc-run th.who2::before { right: -12px; box-shadow: 8px 0 10px -6px rgb(0 0 0 / 35%); clip-path: inset(-4px -24px -4px 0); }
 }
-/* suplente: por baixo dos 5, separado por um traço; só gasta um uso se entrar */
+/* suplente: por baixo dos 5, curto (a explicação fica na folha) */
 .bench-row { border-top: 1px dashed var(--line); }
-.pn .bnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pn .bnm, .bench-l .bnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-weight: 600; }
 .bench-row .who { flex: 1 1 auto; min-width: 0; }
+.pill.bench { background: transparent; border: 1px dashed currentColor; color: var(--muted); margin-right: 8px; flex: none; }
+.bench-p { font-weight: 700; white-space: nowrap; color: var(--good); }
+.bench-l { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; }
+.bench-l .bnm { flex: 0 0 auto; max-width: 62%; }
+.bench-by { color: var(--muted); font-size: 12.5px; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.bv-a .row { padding-block: 10px; }
+.bv-b { border-top: 0; display: flex; justify-content: center; padding: 6px 0 2px; }
+.bench-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px dashed var(--line); border-radius: 999px; padding: 6px 12px; background: transparent; color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer; }
+.bench-chip .bc-k { color: var(--muted); } .bench-chip .bc-g { color: var(--good); font-weight: 700; }
+.bv-c .row { opacity: .72; padding-block: 6px; } .bv-c .face { transform: scale(.82); }
 .jc-list .bench-row, .jc-list .bench-row .row { background: transparent; }
-.jc-list .row .bnm { color: var(--board-ink); }
-.pill.bench { background: transparent; border: 1px dashed currentColor; color: var(--muted); margin-right: 6px; }
-.bench-sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; } .bench-sub b { color: var(--ink); font-weight: 600; }
-.bench-p { display: flex; flex-direction: column; align-items: flex-end; font-weight: 700; white-space: nowrap; }
-.bench-p small { font-size: 11px; font-weight: 400; color: var(--muted); }
 .jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }
-.jc-list .bench-sub, .jc-list .bench-p small, .jc-list .pill.bench { color: var(--board-muted); }
-.jc-list .bench-sub b { color: inherit; }
+.jc-list .bench-by, .jc-list .pill.bench, .jc-list .bench-chip .bc-k { color: var(--board-muted); }
+.jc-list .bench-row .bnm, .jc-list .bench-chip { color: var(--board-ink); }
+.jc-list .bench-chip { border-color: color-mix(in srgb, var(--board-muted) 50%, transparent); }
+.jc-list .bench-p, .jc-list .bench-chip .bc-g { color: var(--board-good); }

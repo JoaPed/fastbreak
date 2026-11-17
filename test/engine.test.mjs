@@ -496,6 +496,14 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   const ghost = { id: 'ghost', team: 'BOS', avg: { pts: 25, min: 33, form: { last: '2026-06-01' } } };
   const ro5 = JSON.parse(JSON.stringify(ro)); ro5.players.sup.avg.sem = { ghost: [12] };
   ok('colega parado há muito e fora do relatório: não conta como regresso', near(mu(FB.buildModel(rn, ro5, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [ghost] } }), 'sup'), mu(base, 'sup'), 1e-9));
+  // medido nos jogos sem o colega (ex.: Precious 4 ressaltos de média, 12 sem o Sabonis): conta mais do que o modelo das partes
+  const ro6 = JSON.parse(JSON.stringify(ro)); ro6.players.sup.avg.sem = { star: [3, 30, 15, 12, 2, 1, 1, 6, 12, 1] };
+  const rr = day([{ stat: 'reb', target: 30 }]);
+  const b6 = FB.buildModel(rr, ro6, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [star] } }), o6 = FB.buildModel(rr, ro6, { days: {} }, {}, { now: NOW, teams, mates: { BOS: [star] }, injuries: inj });
+  const f6 = mu(o6, 'sup') / mu(b6, 'sup'), fShare = mu(outM, 'sup') / mu(base, 'sup');
+  ok('colega fora com jogos medidos sem ele: os ressaltos sobem pelo que fez nesses jogos (4 → ~9)', f6 > 2 && mu(o6, 'sup') > 8 && f6 > fShare + 0.5, [f6, mu(o6, 'sup'), mu(b6, 'sup')]);
+  const sup6 = Object.assign({ id: 'sup' }, ro6.players.sup);
+  ok('suplente: quanto sobe se o colega faltar de certeza (outra equipa não mexe)', FB.mateBoost(sup6, star, 'reb', 0) > 2 && near(FB.mateBoost(sup6, star, 'reb', 1), 1, 1e-9) && FB.mateBoost(Object.assign({}, sup6, { team: 'SAC' }), star, 'reb', 0) === 1, [FB.mateBoost(sup6, star, 'reb', 0)]);
   // com a linha das odds os colegas não mexem (a linha já sabe quem falta)
   const od = { days: { '2026-11-03': { players: { sup: { pts: { line: 9.5, over: -110, under: -110 } } } } } };
   const a1 = FB.buildModel(rn, ro, od, {}, { now: NOW, teams, mates: { BOS: [star] }, injuries: inj }), a0 = FB.buildModel(rn, ro, od, {}, { now: NOW, teams });
