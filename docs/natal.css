@@ -55,10 +55,9 @@ html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-are
   background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 8s linear infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
 @keyframes xm-fly { 0% { background-position: -200px 12px; } 50% { background-position: calc(50% + 0px) 2px; } 85% { background-position: calc(100% + 200px) 8px; } 100% { background-position: calc(100% + 200px) 8px; } }
 
-/* cartão do dia: o lineup fica no sítio de sempre; o campo de basquetebol com a árvore de Natal aparece no fundo do cartão */
-html.xmas .card.hero { padding-bottom: 190px; }
-html.xmas .card.hero::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 330px; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, #0D3A2A 0%, rgba(13,58,42,.75) 35%, rgba(13,58,42,0) 60%), url("natal/campo-noite.webp") no-repeat 42% 35% / cover; }
+/* cartão do dia: o campo de basquetebol com a árvore de Natal de fundo, por baixo do texto (como as linhas do campo), sem mexer no lineup */
+html.xmas .card.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(13,58,42,.80) 0%, rgba(13,58,42,.86) 45%, rgba(13,58,42,.62) 100%), url("natal/campo-noite.webp") no-repeat 42% 40% / cover; }
 
 /* gorro do Pai Natal nos jogadores e bola de Natal no círculo da vitória */
 /* o gorro fica em cima da bola (só toca no topo), para não tapar a cara: a bola deixa de cortar o que sai dela e a foto
