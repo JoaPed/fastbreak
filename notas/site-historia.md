@@ -187,3 +187,7 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
 - A run real (NBA 2026-27) saiu a 20 out; a sessão do Claude não chega à Flow, ao Supabase nem aos logs das Actions (GitHub não ligado), por isso confirma pelo utilizador.
 - Depois de enviar: correr o supabase/schema.sql novo (share_plan, summaries.share); ler as carteiras outra vez (correção da 12); no iPhone, adicionar ao ecrã principal.
 - Faltam do utilizador: patamares de prémio reais da Run 1. (Usos: por conta, confirmado a 21 out.) Avisos por WhatsApp (CallMeBot, grátis, só para o próprio número, sem grupos) ficaram para depois a pedido do utilizador. Chave The Odds API já está nos segredos.
+
+## Modo Natal (17 nov 2026)
+- `docs/natal.css` + `docs/natal/` (imagens geradas no Higgsfield, modelo Z Image no plano grátis, recortadas do fundo verde/rosa; lua, neve desenhadas em SVG). Só carrega com `html.xmas`: `applyXmas()` em `app.js`, preferência `fb-xmas` (auto = 1 dez – 6 jan, on, off) em Ajustes → Preferências.
+- Escolhas do João: luzes de cor em dois fios (não as lâmpadas grandes nem as douradas), grinalda direita com laço, sem neve por cima dos cartões. A bola gerada tinha uma costura a mais: apagada à mão.

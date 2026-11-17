@@ -1,32 +1,47 @@
 [
  {
   "file": "docs/app.js",
-  "text": "<div class=\"note\">Ainda sem preços das cartas das lendas: o admin carrega em Preços (Ajustes → Admin).</div>",
-  "line": "(H.px ? '' : '<div class=\"note\">Ainda sem preços das cartas das lendas: o admin carrega em Preços (Ajustes → Admin).</div>');"
+  "text": "xmasCss",
+  "line": "if (on && !document.getElementById('xmasCss')) { const l = document.createElement('link'); l.id = 'xmasCss'; l.rel = 'stylesheet'; l.href = 'natal.css'; documen"
  },
  {
   "file": "docs/app.js",
-  "text": "<div class=\"ts-read\"><button class=\"btn primary\" type=\"button\" data-action=\"ranks-go\" data-do=\"ranks,picks,lu,hist\">Dia a dia</button><span class=\"small muted\">Classificação, picks, lineups e Historic. Todas as manhãs, 1–2 minutos.</span></div>",
-  "line": "'<div class=\"ts-read\"><button class=\"btn primary\" type=\"button\" data-action=\"ranks-go\" data-do=\"ranks,picks,lu,hist\">Dia a dia</button><span class=\"small muted\""
+  "text": "stylesheet",
+  "line": "if (on && !document.getElementById('xmasCss')) { const l = document.createElement('link'); l.id = 'xmasCss'; l.rel = 'stylesheet'; l.href = 'natal.css'; documen"
  },
  {
   "file": "docs/app.js",
-  "text": ",pro,hpx\">Preços</button><span class=\"small muted\">Jogadores",
-  "line": "'<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"' + (edOn() ? 'px,ed' : 'px') + ',pro,hpx\">Preços</button><span class=\"s"
+  "text": "natal.css",
+  "line": "if (on && !document.getElementById('xmasCss')) { const l = document.createElement('link'); l.id = 'xmasCss'; l.rel = 'stylesheet'; l.href = 'natal.css'; documen"
  },
  {
   "file": "docs/app.js",
-  "text": " e cartas (ASP)",
-  "line": "'<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"' + (edOn() ? 'px,ed' : 'px') + ',pro,hpx\">Preços</button><span class=\"s"
+  "text": "<div class=\"card panel\"><h2>Modo Natal</h2>",
+  "line": "if (sub === 'prefs') html.push('<div class=\"card panel\"><h2>Modo Natal</h2>' +"
  },
  {
   "file": "docs/app.js",
-  "text": ", Pro e lendas do Historic. De 3 em 3 dias, 5–8 minutos.</span></div>",
-  "line": "'<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"' + (edOn() ? 'px,ed' : 'px') + ',pro,hpx\">Preços</button><span class=\"s"
+  "text": "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">",
+  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
  },
  {
   "file": "docs/app.js",
-  "text": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run nova</button><span class=\"small muted\">Quando sai uma run: a Classic, o Historic e o Pro, com os prémios.</span></div>",
-  "line": "'<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run nova</button><span class=\"small muted\">Quando sai uma run:"
+  "text": "Em dezembro",
+  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Ligado",
+  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Desligado",
+  "line": "'<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button ty"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>",
+  "line": "'<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>');"
  }
 ]

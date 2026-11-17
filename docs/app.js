@@ -89,6 +89,17 @@ function applyTheme(t) {
   const sys = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches, dark = t === 'dark' || (t === 'auto' && sys);
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', t === 'auto' ? (/dark/.test(m.getAttribute('media') || '') ? '#0B1018' : '#EEF1F5') : dark ? '#0B1018' : '#EEF1F5'); });
 }
+// modo Natal: em dezembro (até 6 de janeiro), ligado ou desligado (fica neste aparelho); o natal.css só carrega quando liga
+let xmas = 'auto';
+try { const x = localStorage.getItem('fb-xmas'); if (x === 'on' || x === 'off') xmas = x; } catch (e) {}
+const xmasSeason = () => { const d = new Date(), m = d.getMonth() + 1; return m === 12 || (m === 1 && d.getDate() <= 6); };
+function applyXmas(v) {
+  if (v) { xmas = v; try { if (v === 'auto') localStorage.removeItem('fb-xmas'); else localStorage.setItem('fb-xmas', v); } catch (e) {} }
+  const on = xmas === 'on' || (xmas === 'auto' && xmasSeason());
+  document.documentElement.classList.toggle('xmas', on);
+  if (on && !document.getElementById('xmasCss')) { const l = document.createElement('link'); l.id = 'xmasCss'; l.rel = 'stylesheet'; l.href = 'natal.css'; document.head.appendChild(l); }
+}
+applyXmas();
 // hint: o plano melhor que a procura em segundo plano encontrou (ponto de partida do cálculo; só fica se for melhor)
 // habituais de cada equipa (≥ 24 min de média), para o motor repartir a produção de quem falta pelos colegas
 let matesMemo = null;
@@ -5069,6 +5080,9 @@ function renderAjustes() {
     '<div class="seg acc-seg" role="group" aria-label="Língua · Language">' + [['pt', 'Português'], ['en', 'English']].map(([k, l]) => '<button type="button" data-action="lang" data-v="' + k + '" aria-pressed="' + (LANG === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Aspeto</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Aspeto">' + [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
+  if (sub === 'prefs') html.push('<div class="card panel"><h2>Modo Natal</h2>' +
+    '<div class="seg acc-seg" role="group" aria-label="Modo Natal">' + [['auto', 'Em dezembro'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button type="button" data-action="xmas" data-v="' + k + '" aria-pressed="' + (xmas === k) + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="small muted" style="margin-top:8px">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>');
   if (sub === 'prefs' && accounts().length > 1) {
     const p = (S.mine.plan || {}).prio || 'auto', au = prioAuto();
     html.push('<div class="card panel"><h2>Prioridade entre contas ' + helpBtn('prio') + '</h2>' +
@@ -7465,6 +7479,7 @@ document.addEventListener('click', async e => {
     }
     case 'spec-stat': S.spec.stat = b.dataset.v; renderPlantel(); break;
     case 'theme': applyTheme(b.dataset.v); renderAjustes(); break;
+    case 'xmas': applyXmas(b.dataset.v); renderAjustes(); break;
     case 'lang': if (b.dataset.v !== LANG) setLang(b.dataset.v); break;
     case 'col-sort': S.colView.sort = b.dataset.v; renderPlantel(); break;
     case 'col-tier': S.colView.tier = b.dataset.v; renderPlantel(); break;

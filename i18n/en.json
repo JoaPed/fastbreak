@@ -3333,5 +3333,14 @@
  ",pro,hpx\">Preços</button><span class=\"small muted\">Jogadores": ",pro,hpx\">Prices</button><span class=\"small muted\">Players",
  " e cartas (ASP)": " and cards (ASP)",
  ", Pro e lendas do Historic. De 3 em 3 dias, 5–8 minutos.</span></div>": ", Pro and Historic legends. Every 3 days, 5–8 minutes.</span></div>",
- "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run nova</button><span class=\"small muted\">Quando sai uma run: a Classic, o Historic e o Pro, com os prémios.</span></div>": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">New run</button><span class=\"small muted\">When a run comes out: Classic, Historic and Pro, with the prizes.</span></div>"
+ "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run nova</button><span class=\"small muted\">Quando sai uma run: a Classic, o Historic e o Pro, com os prémios.</span></div>": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">New run</button><span class=\"small muted\">When a run comes out: Classic, Historic and Pro, with the prizes.</span></div>",
+ "xmasCss": null,
+ "stylesheet": null,
+ "natal.css": null,
+ "<div class=\"card panel\"><h2>Modo Natal</h2>": "<div class=\"card panel\"><h2>Christmas mode</h2>",
+ "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Modo Natal\">": "<div class=\"seg acc-seg\" role=\"group\" aria-label=\"Christmas mode\">",
+ "Em dezembro": "In December",
+ "Ligado": "On",
+ "Desligado": "Off",
+ "<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, lights, Santa hats and Santa Claus. Turns on by itself in December, until 6 January.</div></div>"
 }
