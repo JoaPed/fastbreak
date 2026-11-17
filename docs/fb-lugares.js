@@ -247,7 +247,7 @@ async function latestRun(runs, test, prefix, back) {
 }
 // ---- Historic: lendas e Roster Points dos dias abertos, resultados simulados (e os 40 primeiros) dos dias fechados ----
 const H_KEYS = ['points', 'rebounds', 'assists', 'steals', 'blocks', 'turnovers', 'three_points_made', 'double_double', 'triple_double', 'field_goals_made', 'field_goals_att', 'offensive_rebounds'];
-async function readHist() {
+async function readHist(withPx) {
   say('A ler o Historic…');
   let runs = [];
   try { runs = (await call('GameEngineService/ListActiveRuns', { product: 'nba' })).runs || []; } catch (err) {}
@@ -299,10 +299,11 @@ async function readHist() {
   }
   // preço das cartas das lendas (a mais barata à venda de cada raridade): ter a carta dá desconto no custo da lenda
   // (Common 5%, Rare 10%, Legendary 15%, Ultimate 20%); só as que custam 45 ou mais, onde o desconto conta
-  try {
+  // só na leitura dos preços (hpx): a do dia a dia fica mais rápida e o site guarda os preços da última
+  if (withPx) try {
     const ids = new Set(); out.days.forEach(d => { (d.rp || []).forEach(r => { if (+r[1] >= 45) ids.add(String(r[0])); }); (d.players || []).forEach(r => { if (+r[3] >= 45) ids.add(String(r[0])); }); });
     const todo = [...ids], px = {}; let n = 0;
-    const work = async () => { for (let id; (id = todo.shift());) { const row = []; for (const t of [['COMMON', 'FANDOM'], ['RARE'], ['LEGENDARY'], ['ULTIMATE']]) { try { row.push(await cheapest(id, t)); } catch (e) { row.push(null); } } if (row.some(v => v)) px[id] = row; if (++n % 5 === 0) say('A ler os preços das lendas… ' + n + ' de ' + ids.size); } };
+    const work = async () => { for (let id; (id = todo.shift());) { const row = []; for (const t of [['COMMON', 'FANDOM'], ['RARE'], ['LEGENDARY'], ['ULTIMATE']]) { try { row.push((await cheapest(id, t))[0]); } catch (e) { row.push(null); } // só o preço (cheapest dá [preço, oferta]) } if (row.some(v => v)) px[id] = row; if (++n % 5 === 0) say('A ler os preços das lendas… ' + n + ' de ' + ids.size); } };
     await Promise.all([1, 2, 3, 4, 5, 6].map(work));
     out.px = px; out.pxAt = new Date().toISOString();
   } catch (e) { out.pxErr = String(e.message || e).slice(0, 60); }
@@ -315,7 +316,7 @@ async function go() {
   // Sem job.do (links antigos): tudo
   const want = new Set(Array.isArray(job.do) && job.do.length ? job.do : ['ranks', 'picks', 'px', 'ed']);
   try {
-    const out = { v: 1, sv: 29, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
+    const out = { v: 1, sv: 31, do: [...want], at: new Date().toISOString(), accs: [], bands: [], cut: {} };
     // trocas entre contas (A fazer do site): só depois de tocares em "Enviar"; manda cada Moment para a conta indicada
     if (want.has('tr') && Array.isArray(job.tr) && job.tr.length) { out.tr = await sendMoments(job.tr); if (!out.tr) { started = false; return; } }
     // lu = os lineups que cada conta levou em cada dia (vai também pelos lugares, que dão o marcador de cada um)
@@ -331,7 +332,7 @@ async function go() {
     // picks do dia (jogos abertos e % do pessoal): servem para o pick do dia na Jornada
     if (want.has('picks')) { try { say('A ler os picks…'); out.picks = await picks(job.accs[0] && job.accs[0].a); } catch (err) { out.picksErr = String(err.message || err).slice(0, 80); } }
     // Historic: lendas de hoje e resultados dos dias que passaram (para sugerir a equipa)
-    if (want.has('hist')) { try { out.hist = await readHist(); } catch (err) { out.histErr = String(err.message || err).slice(0, 80); } }
+    if (want.has('hist') || want.has('hpx')) { try { out.hist = await readHist(want.has('hpx')); } catch (err) { out.histErr = String(err.message || err).slice(0, 80); } }
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
     if (want.has('pro') && Array.isArray(job.pro) && job.pro.length) { try { out.pro = await proMarket(job.pro, Array.isArray(job.prd) ? job.prd : []); } catch (err) { out.pro = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }

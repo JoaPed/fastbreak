@@ -3327,5 +3327,11 @@
  "usos a mais": "spare uses",
  " (plano: dia ": " (plan: day ",
  ". As odds chegam em 2–5 min e a app refaz o plano sozinha.": ". The odds arrive in 2–5 min and the app redoes the plan by itself.",
- "Pedido. As odds chegam em 2–5 min.": "Requested. The odds arrive in 2–5 min."
+ "Pedido. As odds chegam em 2–5 min.": "Requested. The odds arrive in 2–5 min.",
+ "<div class=\"note\">Ainda sem preços das cartas das lendas: o admin carrega em Preços (Ajustes → Admin).</div>": "<div class=\"note\">No legend card prices yet: the admin taps Prices (Settings → Admin).</div>",
+ "<div class=\"ts-read\"><button class=\"btn primary\" type=\"button\" data-action=\"ranks-go\" data-do=\"ranks,picks,lu,hist\">Dia a dia</button><span class=\"small muted\">Classificação, picks, lineups e Historic. Todas as manhãs, 1–2 minutos.</span></div>": "<div class=\"ts-read\"><button class=\"btn primary\" type=\"button\" data-action=\"ranks-go\" data-do=\"ranks,picks,lu,hist\">Daily</button><span class=\"small muted\">Standings, picks, lineups and Historic. Every morning, 1–2 minutes.</span></div>",
+ ",pro,hpx\">Preços</button><span class=\"small muted\">Jogadores": ",pro,hpx\">Prices</button><span class=\"small muted\">Players",
+ " e cartas (ASP)": " and cards (ASP)",
+ ", Pro e lendas do Historic. De 3 em 3 dias, 5–8 minutos.</span></div>": ", Pro and Historic legends. Every 3 days, 5–8 minutes.</span></div>",
+ "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">Run nova</button><span class=\"small muted\">Quando sai uma run: a Classic, o Historic e o Pro, com os prémios.</span></div>": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"run,hist\">New run</button><span class=\"small muted\">When a run comes out: Classic, Historic and Pro, with the prizes.</span></div>"
 }

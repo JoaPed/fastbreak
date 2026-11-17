@@ -2366,6 +2366,8 @@ function histMeta() {
 // o que o leitor do Top Shot trouxe do Historic (fica no meu resumo; o grupo usa o mais recente)
 try { S.histMine = JSON.parse(localStorage.getItem('fb-hist') || 'null'); } catch (e) { S.histMine = null; }
 function histTake(h) {
+  const o = S.histMine;
+  if (!h.px && o && o.px && o.run && h.run && o.run.id === h.run.id) { h.px = o.px; h.pxAt = o.pxAt; }
   S.histMine = h; S.histMemo = null; S.histCache = {};
   try { localStorage.setItem('fb-hist', JSON.stringify(h)); } catch (e) {}
   const nd = (h.days || []).find(d => d.players && d.players.length && Date.parse(d.locks) > Date.now());
@@ -2578,12 +2580,12 @@ function histBuyHtml(H) {
     const money = gcMoney, list = [...by.entries()].map(([id, L]) => ({ id, L: L.sort((p, q) => p.k - q.k), prize: Math.max(...L.map(a => a.prize)), g: Math.max(...L.map(a => a.g)) })).sort((p, q) => (q.prize - p.prize) || (q.g - p.g)).slice(0, 20);
     // sem nenhum verde: diz porquê (já estavas no top 40, ou faltava mais do que o desconto dá)
     const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class="note info h-buy-why">No discount would change your prize' + (X.nIn ? ': on ' + plural(X.nIn, 'day', 'days') + ' of ' + X.nDays + ' you were already in the top 40' : '') + (X.near ? (X.nIn ? '; ' : ': ') + 'the closest day was ' + f1(X.near.s) + ' pts short of 40th and the discount gave +' + f1(X.near.g) : '') + '.</div>' : '';
-    const opt = (id, a) => { const pr = (px[id] || [])[a.k], [tn, pc] = H_TIER_DISC[a.k];
+    const opt = (id, a) => { const pr0 = (px[id] || [])[a.k], pr = Array.isArray(pr0) ? pr0[0] : pr0, [tn, pc] = H_TIER_DISC[a.k]; // leitor v35–37: [preço, oferta]
       return '<li class="row hb-opt"><span class="pill">' + tn + ' · −' + pc + '%</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts in ' + plural(a.n, 'day', 'days') + (a.top ? ' · <b class="c-good">top 40 on ' + plural(a.top, 'day', 'days') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + (pr ? usdC(pr) : '—') + '</span></li>'; };
     const card = (x, i) => cardMin('<div class="card"><div class="list-head"><h2>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</h2><span class="small muted">' + (X.dsc[x.id] ? 'you already have −' + X.dsc[x.id] + '%' : 'you don\'t have one') + '</span></div><ul class="list">' + x.L.map(a => opt(x.id, a)).join('') + '</ul></div>', 'hb-' + x.id, i >= 3);
     return '<div class="small muted h-buy-intro">Over the ' + plural(X.nDays, 'day played', 'days played') + (X.nDays > X.nMine ? ': ' + X.nMine + ' from this run, with your score (main account), and ' + (X.nDays - X.nMine) + ' from earlier runs, with what the suggested team scored' : ' with your score (main account)') + '. For each legend: how many more points the best team of the day would score with the card\'s discount, on how many days that would put you in the top 40, and the extra prize. On the right, the price of the cheapest card' + (H.pxAt ? ' (' + esc(ago(H.pxAt)) + ')' : '') + '. It is an estimate: it uses the legends’ averages, not what you will pick.</div>' + why +
       (!X.nDays ? '<div class="note">No days played yet. The admin reads the Historic in Settings → Admin → Read on Top Shot.</div>' : list.length ? list.map(card).join('') : '<div class="note info">No card would change the best team on the played days: the discount is not enough to swap anyone.</div>') +
-      (H.px ? '' : '<div class="note">No legend card prices yet: the admin reads the Historic again with reader v34.</div>');
+      (H.px ? '' : '<div class="note">No legend card prices yet: the admin taps Prices (Settings → Admin).</div>');
   })();
   S.hbuyMemo = { k: key, h }; return h;
 }
@@ -5328,11 +5330,10 @@ function adminHtml(run) {
   // leituras no Top Shot (só o admin): cada uma abre o Fast Break no Top Shot e volta com o que leu
   out.push('<div class="card panel"><h2>Read on Top Shot</h2>' +
     (S.edPending && edOn() ? '<div class="note sug"><div>Card reading waiting for your OK (rarity and ASP).</div><div class="btns"><button class="btn primary" type="button" data-action="ed-review">See what changes</button></div></div>' : '') +
-    // leituras juntas (pedido do João): o dia a dia num botão, os preços noutro
-    '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks,lu,hist">Standings, picks, lineups and Historic</button><span class="small muted">1–2 minutes. Once a day, in the morning or before the games.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="' + (edOn() ? 'px,ed' : 'px') + '">Player prices' + (edOn() ? ' and card ASP' : '') + '</button><span class="small muted">2–4 minutes. Every now and then.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="pro">Pro prices</button><span class="small muted">2–3 minutes. The cheapest card of each Pro set family. Once a day is enough.</span></div>' +
-    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run,hist">Run and prizes</button><span class="small muted">When a new run starts: Classic, Historic and Pro.</span></div>' +
+    // três leituras (pedido do João): a run quando sai, o dia a dia de manhã, os preços de 3 em 3 dias
+    '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks,lu,hist">Daily</button><span class="small muted">Standings, picks, lineups and Historic. Every morning, 1–2 minutes.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="' + (edOn() ? 'px,ed' : 'px') + ',pro,hpx">Prices</button><span class="small muted">Players' + (edOn() ? ' and cards (ASP)' : '') + ', Pro and Historic legends. Every 3 days, 5–8 minutes.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run,hist">New run</button><span class="small muted">When a run comes out: Classic, Historic and Pro, with the prizes.</span></div>' +
     '<div class="small muted">On Top Shot tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div></div>');
   out.push(jobsCard());
   const imp = chainImportCard(); if (imp) out.push(imp);

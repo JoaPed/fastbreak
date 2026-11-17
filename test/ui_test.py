@@ -1223,7 +1223,7 @@ with sync_playwright() as pw:
     pback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))['px']
     print('T2b preços com ofertas:', pback.get('p'), 'sem:', pback.get('miss'), '· ok' if pback['p'].get('jokic') == [300, 2000, 90000, 200, 1700, None] and pback['p'].get('luka') == [500, None, 100, None, None, None] and pback.get('miss') == ['zz'] else '· ERRO')
     us = (docs / 'fb-lugares.user.js').read_text()
-    print('T2b userscript: versão 36 e o mesmo código:', '· ok' if '// @version      36' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
+    print('T2b userscript: versão 38 e o mesmo código:', '· ok' if '// @version      38' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
     pg.close()
     # T3: com a run 2 já a decorrer, o leitor lê a run do site (pelo 1.º dia), mesmo que o site tenha guardado a outra
     # run por engano; e com folga de dias quando o 1.º dia do site não é o mesmo do Top Shot
@@ -1271,6 +1271,20 @@ with sync_playwright() as pw:
     h3, p3 = ((b3.get('hist') or {}).get('run') or {}).get('id'), (b3.get('prorun') or {}).get('id')
     print('T3b Historic e Pro novos:', h3, p3, b3.get('histErr') or '', b3.get('proErr') or '', '· ok' if h3 == 'run-fb-historic-2026-11-16' and p3 == 'run-nba-pro-2026-11-16' else '· ERRO')
     pg.close()
+    # os preços das lendas só vêm na leitura dos Preços (hpx); a do dia a dia (hist) fica sem eles
+    def hist_read(do_):
+        pg = b.new_page(); pg.on('pageerror', lambda e: errors.append('PAGEERROR ' + str(e)))
+        pg.clock.set_fixed_time('2026-11-16T18:00:00Z')
+        pg.route('https://nbatopshot.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html><body>ts</body></html>'))
+        pg.route('https://site.test/**', lambda r: r.fulfill(status=200, content_type='text/html', body='<html>site</html>'))
+        pg.route('https://api.production.atlas.dapperlabs.com/**', rapi3b)
+        jb = {'do': do_, 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}]}
+        pg.goto('https://nbatopshot.com/fastbreak?league=nba#fbsync=' + base64.urlsafe_b64encode(json.dumps(jb).encode()).decode().rstrip('='))
+        pg.evaluate((docs / 'fb-lugares.js').read_text()); pg.evaluate("new Headers().set('authorization', 'Bearer x')")
+        pg.wait_for_url('https://site.test/**', timeout=30000)
+        o = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '==')); pg.close(); return o.get('hist') or {}
+    hd, hp = hist_read(['hist']), hist_read(['hpx'])
+    print('T3c preços das lendas só nos Preços:', 'pxAt' in hd, 'pxAt' in hp, '· ok' if 'pxAt' not in hd and 'pxAt' in hp else '· ERRO')
     # T4: sem sessão (a página do Fast Break já não põe autorização): o leitor começa sozinho e lê pela API pública
     t4 = []
     def rapi4(r):
@@ -1793,7 +1807,8 @@ with sync_playwright() as pw:
         cut = d_['top'][min(39, len(d_['top']) - 1)]
         d_['mine'] = {A16: {'rank': 45, 'score': cut - 2, 'lu': [str(l[0]) for l in d_['lines'][:5]]}}
         for r_ in d_.get('rp', []): lg16.add(str(r_[0]))
-    H16['px'] = {pid: [150, 800, 4000, None] for pid in list(lg16)}; H16['pxAt'] = '2026-10-29T12:00:00Z'
+    # preços em dois formatos: número (leitor v34 e v38+) e [preço, oferta] (v35–37, deu $NaN)
+    H16['px'] = {pid: [[150, 120], [800, None], 4000, None] for pid in list(lg16)}; H16['pxAt'] = '2026-10-29T12:00:00Z'
     d16 = seeded(); T16 = d16['tables']; T16['runs'][0]['fictitious'] = False
     T16['members'].append({'user_id': 'u-eu', 'role': 'admin'})
     T16['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0x' + A16})
@@ -1836,6 +1851,7 @@ with sync_playwright() as pw:
     ok16 = nt16 == 3 and all(x <= hero16 + 0.5 for x in alt16) and lend16 >= 1 and nb16 == 1 and 'dias jogados' in hb16 and ' de runs anteriores' in hb16 and ('pts em' in hb16 or 'Nenhuma carta mudava' in hb16) and min0 == max(0, nm16 - 3) and min16 == min0 + 1 and 'hb-' in sv16 and min16b == min0
     hb16 = str([nt16, hero16, alt16, lend16, nm16, min0, min16, min16b]) + ' ' + hb16[hb16.find('Pelos'):][:300]
     print('O16 Historic vale a pena comprar:', nb16, hb16[:400], '· ok' if ok16 else '· ERRO')
+    print('O16 preços sem NaN:', '· ok' if 'NaN' not in pg.locator('#tab-hoje').inner_text() and '$1,50' in pg.locator('#tab-hoje').inner_text() else '· ERRO')
     pg.close()
     # O16b: longe do top 40 (60 pts abaixo do 40.º em todos os dias): sem verdes, e a nota diz porquê
     H16b = json.loads(HISTJ)
