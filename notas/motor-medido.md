@@ -79,3 +79,8 @@ gastos (o normal em rosters curtos) não conseguia **mudar** um jogador para um 
   média (papéis que mudam). O motor não corrige isto de propósito (passa sozinho ao fim de ~10 jogos).
 - 23 dias de odds é pouco: o que depende das odds (desconto nas pequenas, dispersão com linha) deve ser medido
   outra vez com mais dias.
+
+## Colegas que faltam: jogos medidos sem eles (17 nov 2026)
+- O modelo das partes (a produção de quem falta reparte-se) ficava preso a +60% e não apanhava casos como o Precious Achiuwa (4 ressaltos de média, 12 sem o Sabonis).
+- Agora, quando há jogos medidos sem esse colega (`avg.sem[colega]`, da ESPN), conta o que o jogador fez nesses jogos (`splitRatio`), puxado para o modelo das partes com poucos jogos (peso n/(n+3)); limite 0,6–3,5.
+- O suplente usa o mesmo (`FB.mateBoost`): no cenário "falta o titular", os colegas de equipa dele sobem.
