@@ -1,6 +1,9 @@
 /* Modo Natal: só carrega com html.xmas (de 1 de dezembro a 6 de janeiro, ou ligado em Ajustes → Preferências).
    Imagens em docs/natal/ (geradas no Higgsfield e recortadas; lua, neve e luzes desenhadas). */
 
+/* nada passa da largura do ecrã (o trenó a sair pela direita fazia a página deslizar para o lado no iPhone) */
+html.xmas, html.xmas body { overflow-x: clip; }
+
 /* cores: quadro verde-pinho, vermelho e dourado */
 /* (!important: as cores do tema escuro do style.css têm mais peso que html.xmas) */
 html.xmas { --board: #0D3A2A !important; --board-line: rgba(255,255,255,.14) !important; --board-fill: #F2C14E !important; --board-ball: #F2C14E !important;
@@ -12,47 +15,47 @@ html.xmas[data-theme="dark"] { --bg: #081224; --surface: #0F1C33; --surface-2: #
 
 /* céu: noite (escuro) ou inverno claro; a paisagem do fim da página casa com a cor de baixo */
 html.xmas { background: #DCEBF7; }
-html.xmas body { position: relative; padding-top: calc(66px + env(safe-area-inset-top, 0px)); padding-bottom: calc(400px + env(safe-area-inset-bottom, 0px));
+html.xmas body { position: relative; padding-top: calc(66px + env(safe-area-inset-top, 0px)); padding-bottom: calc(430px + env(safe-area-inset-bottom, 0px));
   background: radial-gradient(120% 60% at 85% 0%, #FFF6DA 0%, rgba(255,246,218,0) 55%), linear-gradient(180deg, #DCEBF7 0%, #CFE1F1 50%, #B0CBE3 100%) fixed; }
-html.xmas body::after { background-image: url("natal/dia.webp"); background-position: 68% bottom; }
+html.xmas body::after { background-image: url("natal/dia.webp"); background-position: 42% bottom; }
 html.xmas #app::before { opacity: .55; }
-html.xmas body::before { filter: drop-shadow(0 0 1.5px rgba(70,100,140,.55)); }
+html.xmas body::before { filter: drop-shadow(0 0 1px rgba(60,90,130,.7)); }
 html.xmas[data-theme="dark"] { background: #081224; }
 html.xmas[data-theme="dark"] body { background: radial-gradient(120% 60% at 85% 0%, #24406E 0%, rgba(36,64,110,0) 60%), linear-gradient(180deg, #071022 0%, #0E2346 50%, #132846 100%) fixed; }
-html.xmas[data-theme="dark"] body::after { background-image: url("natal/noite.webp"); background-position: 40% bottom; }
+html.xmas[data-theme="dark"] body::after { background-image: url("natal/noite.webp"); background-position: 33% bottom; }
 html.xmas[data-theme="dark"] #app::before { opacity: 1; }
 html.xmas[data-theme="dark"] body::before { filter: none; }
 @media (prefers-color-scheme: dark) {
   html.xmas:not([data-theme="light"]) { background: #081224; }
   html.xmas:not([data-theme="light"]) body { background: radial-gradient(120% 60% at 85% 0%, #24406E 0%, rgba(36,64,110,0) 60%), linear-gradient(180deg, #071022 0%, #0E2346 50%, #132846 100%) fixed; }
-  html.xmas:not([data-theme="light"]) body::after { background-image: url("natal/noite.webp"); background-position: 40% bottom; }
+  html.xmas:not([data-theme="light"]) body::after { background-image: url("natal/noite.webp"); background-position: 33% bottom; }
   html.xmas:not([data-theme="light"]) #app::before { opacity: 1; }
   html.xmas:not([data-theme="light"]) body::before { filter: none; }
 }
 
 /* lua (o trenó passa à frente dela) */
 html.xmas #app { position: relative; z-index: 2; }
-html.xmas #app::before { content: ""; position: absolute; top: -40px; right: -30px; width: 200px; height: 200px; z-index: -1; pointer-events: none; background: url("natal/lua.svg") no-repeat center / contain; }
+html.xmas #app::before { content: ""; position: absolute; top: -40px; right: 0; width: 170px; height: 200px; z-index: -1; pointer-events: none; background: url("natal/lua.svg") no-repeat 30px center / 200px 200px; }
 
 /* neve em 3 camadas (a de perto maior e mais rápida) */
 html.xmas body::before { content: ""; position: fixed; inset: -320px 0 0; z-index: 1; pointer-events: none;
   background: url("natal/neve3.svg") repeat, url("natal/neve2.svg") repeat, url("natal/neve1.svg") repeat;
-  background-size: 420px 420px, 320px 320px, 220px 220px; animation: xm-snow 30s linear infinite; }
-@keyframes xm-snow { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 60px 420px, -40px 320px, 20px 220px; } }
+  background-size: 440px 440px, 360px 360px, 300px 300px; animation: xm-snow 40s linear infinite; }
+@keyframes xm-snow { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 88px 880px, -36px 720px, 30px 300px; } }
 
-/* paisagem no fim da página (árvore iluminada e cabana) */
-html.xmas body::after { content: ""; position: absolute; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); height: 330px; z-index: 0; pointer-events: none;
+/* paisagem no fim da página: campo de basquetebol com neve (noite no escuro, dia no claro) */
+html.xmas body::after { content: ""; position: absolute; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); height: 360px; z-index: 0; pointer-events: none;
   background-repeat: no-repeat; background-size: cover;
   -webkit-mask: linear-gradient(180deg, transparent 0, #000 28%); mask: linear-gradient(180deg, transparent 0, #000 28%); }
 
 /* grinalda pendurada no topo */
-html.xmas::before { content: ""; position: absolute; left: -10px; right: -10px; top: env(safe-area-inset-top, 0px); height: 64px; z-index: 3; pointer-events: none;
+html.xmas::before { content: ""; position: absolute; left: 0; right: 0; top: env(safe-area-inset-top, 0px); height: 64px; z-index: 3; pointer-events: none;
   background: url("natal/grinalda.webp") repeat-x center / auto 100%; filter: drop-shadow(0 3px 4px rgba(0,0,0,.3)); }
 
 /* Pai Natal com as renas a atravessar o céu, por cima da grinalda (onde não há texto) */
-html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-area-inset-top, 0px)); left: 0; width: 180px; height: 52px; z-index: 4; pointer-events: none;
-  background: url("natal/treno.webp") no-repeat center / contain; transform: translateX(-240px); animation: xm-fly 28s ease-in-out infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
-@keyframes xm-fly { 0% { transform: translate(-240px, 30px) rotate(-4deg); } 40% { transform: translate(calc(100vw + 40px), -10px) rotate(-4deg); } 100% { transform: translate(calc(100vw + 40px), -10px) rotate(-4deg); } }
+html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-area-inset-top, 0px)); left: 0; right: 0; height: 52px; z-index: 4; pointer-events: none;
+  background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 28s ease-in-out infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+@keyframes xm-fly { 0% { background-position: -200px 10px; } 40% { background-position: calc(100% + 200px) 0; } 100% { background-position: calc(100% + 200px) 0; } }
 
 /* luzes de cor no cartão principal (o preto da imagem desaparece com "screen") */
 html.xmas .card.hero { padding-top: 92px; }

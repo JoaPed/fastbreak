@@ -830,6 +830,9 @@ with sync_playwright() as pw:
     pg.click('#tab-ajustes button[data-action="xmas"][data-v="on"]'); pg.wait_for_timeout(600)
     xm = pg.evaluate('[document.documentElement.classList.contains("xmas"), !!document.getElementById("xmasCss"), getComputedStyle(document.documentElement, "::before").backgroundImage.includes("grinalda"), localStorage.getItem("fb-xmas")]')
     pg.screenshot(path=str(shots / 'natal-ajustes.png'))
+    # a página nunca fica mais larga que o ecrã (o trenó a sair pela direita fazia-a deslizar para o lado no iPhone)
+    wx = [pg.evaluate("(t => { document.getAnimations().forEach(a => { a.pause(); a.currentTime = t }); return document.documentElement.scrollWidth - innerWidth })(" + str(ms) + ")") for ms in (0, 5000, 11000, 20000)]
+    print('G modo Natal sem deslizar para o lado:', wx, '· ok' if max(wx) <= 0 else '· ERRO')
     pg.click('#tab-ajustes button[data-action="xmas"][data-v="off"]'); pg.wait_for_timeout(300)
     xo = pg.evaluate('[document.documentElement.classList.contains("xmas"), localStorage.getItem("fb-xmas")]')
     pg.click('#tab-ajustes button[data-action="xmas"][data-v="auto"]'); pg.wait_for_timeout(200)

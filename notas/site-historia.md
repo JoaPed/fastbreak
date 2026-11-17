@@ -190,4 +190,5 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
 
 ## Modo Natal (17 nov 2026)
 - `docs/natal.css` + `docs/natal/` (imagens geradas no Higgsfield, modelo Z Image no plano grátis, recortadas do fundo verde/rosa; lua, neve desenhadas em SVG). Só carrega com `html.xmas`: `applyXmas()` em `app.js`, preferência `fb-xmas` (auto = 1 dez – 6 jan, on, off) em Ajustes → Preferências.
+- 17 nov (à noite): no iPhone a página deslizava para o lado porque o trenó (transform até 100vw + 220px) e a lua (right: -30px) passavam da largura; agora o trenó anda pelo background-position numa faixa da largura do ecrã, e html/body têm overflow-x: clip. Teste: scrollWidth = innerWidth.
 - Escolhas do João: luzes de cor em dois fios (não as lâmpadas grandes nem as douradas), grinalda direita com laço, sem neve por cima dos cartões. A bola gerada tinha uma costura a mais: apagada à mão.
