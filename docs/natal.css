@@ -39,9 +39,10 @@ html.xmas #app::before { content: ""; position: absolute; top: -40px; right: 0; 
 
 /* neve em 3 camadas (a de perto maior e mais rápida) */
 html.xmas body::before { content: ""; position: fixed; inset: -320px 0 0; z-index: 1; pointer-events: none;
-  background: url("natal/neve3.svg") repeat, url("natal/neve2.svg") repeat, url("natal/neve1.svg") repeat;
-  background-size: 440px 440px, 360px 360px, 300px 300px; animation: xm-snow 40s linear infinite; }
-@keyframes xm-snow { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 88px 880px, -36px 720px, 30px 300px; } }
+  background: url("natal/neve4.svg") repeat, url("natal/neve3.svg") repeat, url("natal/neve2.svg") repeat, url("natal/neve1.svg") repeat;
+  background-size: 560px 560px, 440px 440px, 360px 360px, 300px 300px; animation: xm-snow 40s linear infinite; }
+/* 4 camadas: flocos grandes e desfocados mesmo à frente, depois cada vez mais pequenos e lentos ao longe */
+@keyframes xm-snow { from { background-position: 0 0, 0 0, 0 0, 0 0; } to { background-position: -112px 1680px, 88px 880px, -36px 720px, 30px 300px; } }
 
 /* paisagem no fim da página: campo de basquetebol com neve (noite no escuro, dia no claro) */
 html.xmas body::after { content: ""; position: absolute; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); height: 360px; z-index: 0; pointer-events: none;
@@ -64,8 +65,12 @@ html.xmas .card.hero::before { content: ""; position: absolute; left: -4px; righ
   -webkit-mask: linear-gradient(180deg, #000 80%, transparent 100%); mask: linear-gradient(180deg, #000 80%, transparent 100%); }
 
 /* gorro do Pai Natal nos jogadores e bola de Natal no círculo da vitória */
-html.xmas .face::after { content: ""; position: absolute; z-index: 3; top: -6%; left: -4%; width: 96%; height: 64%; pointer-events: none;
-  background: url("natal/gorro.webp") no-repeat center top / contain; transform: rotate(-12deg); filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+/* o gorro fica em cima da bola (só toca no topo), para não tapar a cara: a bola deixa de cortar o que sai dela e a foto
+   passa a ser cortada à medida do círculo (a foto tem 1,4× a largura da bola e ~1,02× a altura, alinhada em baixo) */
+html.xmas .face { overflow: visible; }
+html.xmas .face img { clip-path: ellipse(35.7% 49% at 50% 51%); }
+html.xmas .face::after { content: ""; position: absolute; z-index: 3; top: -40%; left: 14%; width: 84%; height: 56%; pointer-events: none;
+  background: url("natal/gorro.webp") no-repeat center bottom / contain; transform: rotate(14deg); transform-origin: 30% 100%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
 html.xmas .win-ring .wr-ball svg { visibility: hidden; }
 html.xmas .win-ring .wr-ball { width: 26px; height: 31px; margin: -6px 0 0 -2px; background: url("natal/bola.webp") no-repeat center / contain; }
 
