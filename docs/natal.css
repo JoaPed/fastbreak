@@ -57,7 +57,9 @@ html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-are
 
 /* cartão do dia: o campo de basquetebol com a árvore de Natal de fundo, por baixo do texto (como as linhas do campo), sem mexer no lineup */
 html.xmas .card.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(13,58,42,.72) 0%, rgba(13,58,42,.80) 45%, rgba(13,58,42,.55) 100%), url("natal/campo-noite.webp") no-repeat 16% 35% / cover; }
+  background: linear-gradient(180deg, rgba(13,58,42,.66) 0, rgba(13,58,42,.74) 300px, #0D3A2A 400px), url("natal/campo-noite.webp") no-repeat 22% 0 / 230% auto; }
+/* sem as linhas do campo (o desenho de sempre): a imagem já é um campo */
+html.xmas .card.hero::after, html.xmas .day-hero .court-b { display: none; }
 
 /* gorro do Pai Natal nos jogadores e bola de Natal no círculo da vitória */
 /* o gorro fica em cima da bola (só toca no topo), para não tapar a cara: a bola deixa de cortar o que sai dela e a foto
