@@ -100,6 +100,23 @@
   // abaixo do previsto em desarmes e roubos (e ~7% em triplos). Corta-se uma parte do que passa de um jogador normal.
   const TOP_SHRINK = { blk: [0.6, 0.15], stl: [1, 0.15], fg3: [2, 0.1], tov: [2, 0.06], oreb: [1.5, 0.08], ftm: [3, 0.05], fta: [4, 0.05] };
   function topShrink(s, v) { const t = TOP_SHRINK[s]; return t && v > t[0] ? v - t[1] * (v - t[0]) : v; }
+  // Sem um colega habitual (avg.sem[colega] = [jogos, ...médias de SPLIT], medido pela ESPN): R = o que faz nos jogos
+  // sem ele ÷ a média da época, puxado para o modelo das partes (rMod) quando há poucos jogos (com 3 jogos vale metade).
+  // Ex.: Precious Achiuwa 4 ressaltos de média, 12 sem o Sabonis.
+  const SPLIT = ['min', 'pts', 'reb', 'ast', 'fg3', 'stl', 'blk', 'fgm', 'fga', 'tov'];
+  function splitRatio(p, mateId, s, rMod) {
+    const e = p && p.avg && p.avg.sem && p.avg.sem[mateId]; if (!e) return null;
+    const k = SPLIT.includes(s) ? s : ((STATS[s] || {}).proxy || []).find(x => SPLIT.includes(x)); if (!k) return null;
+    const n = +e[0] || 0, o = num(e[SPLIT.indexOf(k) + 1]), a = num(p.avg[k]);
+    if (!(n >= 2) || o == null || !(a > 0.3)) return null;
+    const w = n / (n + 3); return { R: clamp(w * (o / a) + (1 - w) * (rMod != null ? rMod : 1), 0.4, 4), n };
+  }
+  // fator sobre a média da época quando o colega falta com probabilidade `out` (a média já tem `frac` dos jogos sem ele)
+  function splitFactor(R, out, frac) {
+    if (frac >= 0.95) return 1;
+    const W = Math.max(0.3, (1 - frac * R) / (1 - frac)); // o que faz com ele, sobre a média
+    return (1 - out) * W + out * R;
+  }
   function avgOf(player, s, raw) { // raw: sem o corte do topo (para proporções entre duas estatísticas)
     const a = formAvg(player && player.avg); if (!a) return null;
     const md = s === 'min' ? 1 : minutesDisc(a);
@@ -450,11 +467,15 @@
       const f = s => {
         if (cache[s] != null) return cache[s];
         const c = (STATS[s] && STATS[s].ctx) || [0.2, 0.8], T = num(tot[s]) > 0 ? +tot[s] : LEAGUE_TOT[s];
-        let D = 0;
-        if (T > 0) for (const x of ds) { const a = avgOf(x.A, s); if (a) D += x.d * a.v / T; }
-        return (cache[s] = clamp(1 + D * (c[0] + c[1] * tier), 0.75, 1.6));
+        let D = 0, P = 1;
+        for (const x of ds) {
+          const a = avgOf(x.A, s), part = a && T > 0 ? a.v / T * (c[0] + c[1] * tier) : 0;
+          const sp = splitRatio(p, x.A.id, s, 1 + part);
+          if (sp) P *= splitFactor(sp.R, x.out, x.frac); else D += x.d * part;
+        }
+        return (cache[s] = clamp(P * (1 + D), 0.6, 3.5));
       };
-      return { f, mates: ds.map(x => ({ id: x.A.id, out: x.out, frac: x.frac })) };
+      return { f, mates: ds.map(x => ({ id: x.A.id, out: x.out, frac: x.frac, split: !!splitRatio(p, x.A.id, 'pts') })) };
     }
     // Regresso: quem falhou os últimos jogos da equipa volta com menos minutos. Medido: −5% depois de falhar 1 jogo,
     // −8% depois de 2 ou 3, −14% depois de 4 ou mais; no segundo jogo, metade disso.
@@ -1641,7 +1662,21 @@
     return out;
   }
 
-  const api = { histModel, histBest, histEval, histPortfolio, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, lineupProb, bvnUpper, mvnUpper, rhoOf, minutesDisc, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  // suplente: multiplicador da média de `p` em `stat` se o colega `mate` faltar de certeza, face a faltar com `outNow`
+  // (só pelos jogos medidos sem ele; sem medida, ou de outra equipa, 1)
+  function mateBoost(p, mate, stat, outNow) {
+    if (!p || !mate || p.team !== mate.team || p.id === mate.id) return 1;
+    const gp = p.avg && num(p.avg.gp), e = p.avg && p.avg.sem && p.avg.sem[mate.id];
+    if (!gp || !e) return 1;
+    const frac = Math.min(1, (+e[0] || 0) / gp); let t = 0, b = 0;
+    for (const { s, sign } of statTerms(stat)) {
+      const a = avgOf(p, s), sp = splitRatio(p, mate.id, s, 1), w = a ? a.v : 1;
+      const f = sp ? splitFactor(sp.R, 1, frac) / splitFactor(sp.R, outNow || 0, frac) : 1;
+      t += sign * w * f; b += sign * w;
+    }
+    return b > 0 ? Math.max(0.3, t / b) : 1;
+  }
+  const api = { mateBoost, splitRatio, histModel, histBest, histEval, histPortfolio, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, lineupProb, bvnUpper, mvnUpper, rhoOf, minutesDisc, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

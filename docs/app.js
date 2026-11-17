@@ -1631,25 +1631,18 @@ function benchScen(md, outId) {
     v[pi] = md.v[pi].map((x, k) => x * (k < fs.length ? fs[k] * fs[k] : fs[0] * fs[fs.length - 1])); });
   return mu ? Object.assign({}, md, { mu, v }) : md;
 }
-window.__setBenchV = v => { S.benchV = v; render(); }; // (provisório: escolher o desenho)
 function benchOf(md, nd, lineup) {
   const list = benchOptions(md, nd, lineup), want = (curPlan().bench || {})[nd.date];
   return list.find(x => x.id === want) || list[0] || null;
 }
 // quem é mais provável que falte (para dizer por quem entra)
 function benchFor(md, lineup) { let best = null; lineup.forEach(id => { if (riskOf(md, id)) { const o = benchOut(md, id); if (!best || o > best.o) best = { id, o }; } }); return best; }
-// 3 desenhos à escolha (S.benchV: a = linha fina, b = etiqueta, c = 6.º esbatido); a explicação fica na folha
+// suplente: um 6.º esbatido por baixo dos 5 (tocar abre as alternativas)
 function benchRow(md, nd, lineup) {
   if (!lineup.length) return '';
-  const B = benchOf(md, nd, lineup), r = S.result, v = S.benchV || 'a';
-  if (!B) return '';
-  const p = r.model.players[r.model.pIndex.get(B.id)], who = benchFor(md, lineup), gain = B.com - B.sem;
-  const g = gain >= 0.0005 ? '+' + pct(gain) : '';
-  const by = who ? 'por ' + esc(lastName(who.id)) : '';
-  const act = 'type="button" data-action="bench" data-date="' + nd.date + '"';
-  if (v === 'b') return '<li class="bench-row bv-b"><button class="bench-chip" ' + act + '><span class="bc-k">Suplente</span> <b>' + esc(lastName(B.id)) + '</b>' + (g ? ' <span class="bc-g num">' + g + '</span>' : '') + '</button></li>';
-  if (v === 'c') return '<li class="bench-row bv-c"><button class="row" ' + act + '><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Suplente' + (by ? ' · entra ' + by : '') + '</div></div></span><span class="bench-p num">' + (g || '—') + '</span></button></li>';
-  return '<li class="bench-row bv-a"><button class="row" ' + act + '><span class="bench-l"><span class="pill bench">Suplente</span><span class="bnm">' + esc(p.name) + '</span>' + (by ? '<span class="bench-by">' + by + '</span>' : '') + '</span><span class="bench-p num">' + g + '</span></button></li>';
+  const B = benchOf(md, nd, lineup), r = S.result; if (!B) return '';
+  const p = r.model.players[r.model.pIndex.get(B.id)], gain = B.com - B.sem;
+  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Suplente</div></div></span><span class="bench-p num">' + (gain >= 0.0005 ? '+' + pct(gain) : '') + '</span></button></li>';
 }
 function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;
@@ -1660,8 +1653,7 @@ function benchSheet(date) {
     '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (cur && x.id === cur.id ? ' <span class="pill bench">Suplente</span>' : '') + '</div>' +
     '<div class="ps">' + (x.free ? 'não tira usos ao resto da run' : 'gasta um uso do dia ' + x.later.map(y => y.idx + 1).join(', ')) + '</div></div></span>' +
     '<span class="bench-p num">' + (who ? pct(lineupP(sc, d.lineup.filter(y => y !== who.id).concat([x.id]))) + '<small>se ele faltar</small>' : '+' + pct(x.com - x.sem) + '<small>no dia</small>') + '</span></button></li>';
-  openSheet('<h2>Suplente</h2><p class="small muted">No Top Shot entra pelo 1.º titular que não jogar e só gasta um uso se entrar. ' +
-    (who ? 'O mais provável é faltar o <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + '). Se faltar, sem suplente o dia fica com ' + pct(lineupP(sc, d.lineup.filter(y => y !== who.id))) + '.' : 'Ninguém do lineup está em dúvida: conta só com quem fica de fora à última hora.') + '</p>' +
+  openSheet('<h2>Suplente</h2>' + (who ? '<p class="small muted">Se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + '), sem suplente: ' + pct(lineupP(sc, d.lineup.filter(y => y !== who.id))) + '.</p>' : '') +
     (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Deixar o plano escolher</button>' : '') +
     '<ul class="list">' + list.slice(0, 8).map(row).join('') + '</ul>');
 }

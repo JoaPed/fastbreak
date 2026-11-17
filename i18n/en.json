@@ -3303,5 +3303,11 @@
  "Suplente: ": "Bench: ",
  "O plano escolhe o suplente.": "The plan picks the bench.",
  "Põe <b>": "Put <b>",
- "</b> de suplente no Top Shot: entra se ele não jogar.": "</b> on the bench in Top Shot: he comes in if this one doesn't play."
+ "</b> de suplente no Top Shot: entra se ele não jogar.": "</b> on the bench in Top Shot: he comes in if this one doesn't play.",
+ "</span></div><div class=\"ps\">Suplente</div></div></span><span class=\"bench-p num\">": "</span></div><div class=\"ps\">Bench</div></div></span><span class=\"bench-p num\">",
+ "<h2>Suplente</h2>": "<h2>Bench</h2>",
+ "<p class=\"small muted\">Se o <b>": "<p class=\"small muted\">If <b>",
+ "</b> faltar (": "</b> sits (",
+ "), sem suplente: ": "), without a bench: ",
+ "suplente <b>": "bench <b>"
 }
