@@ -313,7 +313,7 @@ async function readHist(withPx) {
   if (withPx) try {
     const ids = new Set(); out.days.forEach(d => { (d.rp || []).forEach(r => { if (+r[1] >= 45) ids.add(String(r[0])); }); (d.players || []).forEach(r => { if (+r[3] >= 45) ids.add(String(r[0])); }); });
     const todo = [...ids], px = {}; let n = 0;
-    const work = async () => { for (let id; (id = todo.shift());) { const row = []; for (const t of [['COMMON', 'FANDOM'], ['RARE'], ['LEGENDARY'], ['ULTIMATE']]) { try { row.push((await cheapest(id, t))[0]); } catch (e) { row.push(null); } // só o preço (cheapest dá [preço, oferta]) } if (row.some(v => v)) px[id] = row; if (++n % 5 === 0) say('A ler os preços das lendas… ' + n + ' de ' + ids.size); } };
+    const work = async () => { for (let id; (id = todo.shift());) { const row = []; for (const t of [['COMMON', 'FANDOM'], ['RARE'], ['LEGENDARY'], ['ULTIMATE']]) { try { row.push((await cheapest(id, t))[0]); /* só o preço: cheapest dá [preço, oferta] */ } catch (e) { row.push(null); } } if (row.some(v => v)) px[id] = row; if (++n % 5 === 0) say('A ler os preços das lendas… ' + n + ' de ' + ids.size); } };
     await Promise.all([1, 2, 3, 4, 5, 6].map(work));
     out.px = px; out.pxAt = new Date().toISOString();
   } catch (e) { out.pxErr = String(e.message || e).slice(0, 60); }
