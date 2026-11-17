@@ -3309,5 +3309,7 @@
  "<p class=\"small muted\">Se o <b>": "<p class=\"small muted\">If <b>",
  "</b> faltar (": "</b> sits (",
  "), sem suplente: ": "), without a bench: ",
- "suplente <b>": "bench <b>"
+ "suplente <b>": "bench <b>",
+ "</span></div><div class=\"ps\">Suplente": "</span></div><div class=\"ps\">Bench",
+ " · entra por ": " · in for "
 }

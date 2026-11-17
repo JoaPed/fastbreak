@@ -1,32 +1,12 @@
 [
  {
   "file": "docs/app.js",
-  "text": "</span></div><div class=\"ps\">Suplente</div></div></span><span class=\"bench-p num\">",
+  "text": "</span></div><div class=\"ps\">Suplente",
   "line": "return '<li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.date + '\"><span class=\"who\">' + face(B.id) + '<div st"
  },
  {
   "file": "docs/app.js",
-  "text": "<h2>Suplente</h2>",
-  "line": "openSheet('<h2>Suplente</h2>' + (who ? '<p class=\"small muted\">Se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get("
- },
- {
-  "file": "docs/app.js",
-  "text": "<p class=\"small muted\">Se o <b>",
-  "line": "openSheet('<h2>Suplente</h2>' + (who ? '<p class=\"small muted\">Se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get("
- },
- {
-  "file": "docs/app.js",
-  "text": "</b> faltar (",
-  "line": "openSheet('<h2>Suplente</h2>' + (who ? '<p class=\"small muted\">Se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get("
- },
- {
-  "file": "docs/app.js",
-  "text": "), sem suplente: ",
-  "line": "openSheet('<h2>Suplente</h2>' + (who ? '<p class=\"small muted\">Se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get("
- },
- {
-  "file": "docs/app.js",
-  "text": "suplente <b>",
-  "line": "rl = '<div class=\"risk-sub\">se não jogar: ' + (bz ? 'suplente <b>' + esc(lastName(bz.id)) + '</b>' : sb ? '<b>' + esc(lastName(sb.id)) + '</b> (hoje ' + pct(sb."
+  "text": " · entra por ",
+  "line": "return '<li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.date + '\"><span class=\"who\">' + face(B.id) + '<div st"
  }
 ]

@@ -1642,8 +1642,8 @@ function benchFor(md, lineup) { let best = null; lineup.forEach(id => { if (risk
 function benchRow(md, nd, lineup) {
   if (!lineup.length) return '';
   const B = benchOf(md, nd, lineup), r = S.result; if (!B) return '';
-  const p = r.model.players[r.model.pIndex.get(B.id)], gain = B.com - B.sem;
-  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Bench</div></div></span><span class="bench-p num">' + (gain >= 0.0005 ? '+' + pct(gain) : '') + '</span></button></li>';
+  const p = r.model.players[r.model.pIndex.get(B.id)], gain = B.com - B.sem, who = benchFor(md, lineup);
+  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Bench' + (who ? ' · in for ' + esc(lastName(who.id)) : '') + '</div></div></span><span class="bench-p num">' + (gain >= 0.0005 ? '+' + pct(gain) : '') + '</span></button></li>';
 }
 function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;
@@ -1654,7 +1654,8 @@ function benchSheet(date) {
     '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (cur && x.id === cur.id ? ' <span class="pill bench">Bench</span>' : '') + '</div>' +
     '<div class="ps">' + (x.free ? 'takes no uses from the rest of the run' : 'uses a use from day ' + x.later.map(y => y.idx + 1).join(', ')) + '</div></div></span>' +
     '<span class="bench-p num">' + (who ? pct(lineupP(sc, d.lineup.filter(y => y !== who.id).concat([x.id]))) + '<small>if he sits</small>' : '+' + pct(x.com - x.sem) + '<small>on the day</small>') + '</span></button></li>';
-  openSheet('<h2>Bench</h2>' + (who ? '<p class="small muted">If <b>' + esc(lastName(who.id)) + '</b> sits (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + '), without a bench: ' + pct(lineupP(sc, d.lineup.filter(y => y !== who.id))) + '.</p>' : '') +
+  openSheet('<h2>Bench</h2><p class="small muted">On Top Shot he subs in for the first starter who doesn\'t play and only uses a use if he plays. ' +
+    (who ? 'Most likely to sit: <b>' + esc(lastName(who.id)) + '</b> (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + '). If he sits, without a bench the day drops to ' + pct(lineupP(sc, d.lineup.filter(y => y !== who.id))) + '.' : 'Nobody in the lineup is doubtful: it only counts on late scratches.') + '</p>' +
     (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Let the plan choose</button>' : '') +
     '<ul class="list">' + list.slice(0, 8).map(row).join('') + '</ul>');
 }
