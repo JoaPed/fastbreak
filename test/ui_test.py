@@ -502,6 +502,27 @@ with sync_playwright() as pw:
     print('C3 afinal jogo:', eb2.split('·')[0].strip(), '· ok' if eb2.startswith('Hoje') and not pg.locator('#tab-hoje .off-note').count() else '· ERRO')
     pg.close()
 
+    # ---------- C4: três contas e o Jokić em duas: mais um Moment dele ainda conta (a 3.ª conta passa a jogá-lo) ----------
+    db = seeded(); T = db['tables']
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa',
+                          'smurfs': [{'id': 's1', 'topshot_username': 'smurf_um'}, {'id': 's2', 'topshot_username': 'smurf_dois'}],
+                          'collection': {'accounts': ['main', 's1', 's2'], 'players': {'jokic': {'owners': {'main': 1, 's1': 1}, 'uses': 2}}}})
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in roster['players']}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
+    pg.click('#plSub button[data-action="buy-mode"][data-mode="more"]'); pg.wait_for_timeout(200)
+    pg.fill('#buySearch', 'Jok'); pg.wait_for_timeout(200)
+    pg.click('#buyFound button[data-action="buy-pick"][data-id="jokic"]'); pg.wait_for_timeout(300)
+    try: pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
+    except Exception: pass
+    out = pg.locator('#buyOut').inner_text().replace('\n', ' | ')
+    print('C4 Jokić em 2 de 3 contas:', out[:200], '· ok' if out.strip() and 'escalão acima' not in out else '· ERRO')
+    pg.close()
+
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']
     T['runs'][0]['fictitious'] = False

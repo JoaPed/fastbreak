@@ -2977,7 +2977,8 @@
    "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true,
    "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + (pxReady() ? '<butt": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
-   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
+   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "uses"
   }
  },
  "uso": {
@@ -3014,7 +3015,8 @@
    "'<span class=\"inj-n\"><span class=\"pn\"><span class=\"nm\">' + esc(nameOf(x.id)) + '</span>' + (mine ? (tb && tb.others.length ? '<span class=\"badge\">joga na ' + es": true,
    "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + (pxReady() ? '<butt": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
-   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
+   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "use"
   }
  },
  "derrota": {
@@ -3101,7 +3103,8 @@
   "en": "plays",
   "at": {
    "const nextTxt = !nd ? '' : f.sh == null ? '<span class=\"muted\">não joga no ' + nxt + '</span>' : nxt + ': ' + (f.mdNext.objs.length ? f.mdNext.objs.map((o, k) =": "plays",
-   ": (twoSame ? 'Duas contas podem jogá-lo no mesmo dia. ' : more ? (usesGain(id, R.U) ? 'Com mais ' + usesTxt(usesGain(id, R.U)) + (multi ? ' em cada conta' : '')": "he plays"
+   ": (twoSame ? 'Duas contas podem jogá-lo no mesmo dia. ' : more ? (usesGain(id, R.U) ? 'Com mais ' + usesTxt(usesGain(id, R.U)) + (multi ? ' em cada conta' : '')": "he plays",
+   ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, R.U) ? 'Com mais ' + usesT": "he plays"
   }
  },
  "amigo": {
@@ -3343,5 +3346,11 @@
  "Ligado": "On",
  "Desligado": "Off",
  "<div class=\"small muted\" style=\"margin-top:8px\">Neve, luzes, gorros e o Pai Natal. Em dezembro liga sozinho, até 6 de janeiro.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, lights, Santa hats and Santa Claus. Turns on by itself in December, until 6 January.</div></div>",
- "<div class=\"small muted\" style=\"margin-top:8px\">Neve, gorros e o Pai Natal. Fica ligado para todos de 15 de novembro a 6 de janeiro.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, Santa hats and Santa Claus. On for everyone from 15 November to 6 January.</div></div>"
+ "<div class=\"small muted\" style=\"margin-top:8px\">Neve, gorros e o Pai Natal. Fica ligado para todos de 15 de novembro a 6 de janeiro.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, Santa hats and Santa Claus. On for everyone from 15 November to 6 January.</div></div>",
+ "Mais uma conta pode jogá-lo no mesmo dia. ": "One more account can play him on the same day. ",
+ "+1 Moment": null,
+ ", +1 Moment": null,
+ "Com mais um Moment (mais uma conta na mesma noite), ": "With one more Moment (one more account on the same night), ",
+ "Ver se compensa um 2.º Moment": "See if a 2nd Moment is worth it",
+ "Ver se compensa mais um Moment": "See if one more Moment is worth it"
 }

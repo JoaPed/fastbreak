@@ -4171,6 +4171,8 @@ function perRunUses(id) {
   return t != null ? t : (+e.uses || 0) + usedCount('main', id);
 }
 const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
+// com smurfs: mais um Moment de quem já tens serve enquanto houver contas sem ele (mais contas a jogá-lo na mesma noite)
+const copyHelps = id => !!S.multi && collectionInfo(id).copies < accounts().length;
 // U = usos do Moment a comprar (1 Common, 2 Rare, 4 Legendary) ou 0 = qualquer escalão: para cada jogador fica o
 // escalão que mais compensa (precisa dos preços lidos no Top Shot; sem eles, fica o Rare).
 // sort: 'value' = ganho na run por dólar (o que mais rende por cada dólar gasto) · 'gain' = o que mais sobe a run
@@ -4203,9 +4205,9 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
     const teams = new Set(); r.model.days.forEach(md => { if (md.objs.length) md.teams.forEach(t => teams.add(t)); });
     // jogadores novos e também um Moment de escalão acima de quem já tens (p. ex. um Rare de quem só tem um Common)
     pool = [...S.players.values()].filter(p => p.team && p.avg && teams.has(p.team) && (!owned(p.id) || (r.model.pIndex.get(String(p.id)) != null && (any ? BUY_TIERS.some(u => usesGain(p.id, u) > 0) : usesGain(p.id, U) > 0)))).map(p => String(p.id));
-    // com smurfs: também um 2.º Moment de quem só tens um (para as duas contas o usarem na mesma noite)
-    if (mode === 'mix') pool = [...new Set(pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && collectionInfo(id).copies === 1)))];
-  } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && ((any ? BUY_TIERS.some(u => usesGain(id, u) > 0) : usesGain(id, U) > 0) || (S.multi && collectionInfo(id).copies === 1)));
+    // com smurfs: também mais um Moment de quem tens em menos contas do que as que há (para mais contas o usarem na mesma noite)
+    if (mode === 'mix') pool = [...new Set(pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && copyHelps(id))))];
+  } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && ((any ? BUY_TIERS.some(u => usesGain(id, u) > 0) : usesGain(id, U) > 0) || copyHelps(id)));
   // com os preços do Top Shot lidos: fora quem não tem um Moment desse escalão à venda
   let unsold = 0;
   if (!onlyId && !ids && pxReady()) { const n0 = pool.length; pool = pool.filter(id => (any ? BUY_TIERS.some(u => buyable(id, u)) : buyable(id, U))); unsold = n0 - pool.length; }
@@ -4351,7 +4353,7 @@ async function buyRun(onlyId) {
   finally { B.busy = false; }
   if (!res || !$('buyOut')) return;
   if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (res.priced != null ? 'No ' + (res.any ? 'Moment' : tierName(UT)) + ' with games in the remaining days is listed up to ' + usd(res.maxPrice) + '. Raise the ' + (res.byBudget ? 'amount you have to spend' : 'max price') + '.' : mode === 'more' ? 'Nobody in your roster gains uses with a ' + tierName(UT) + (res.unsold ? ' that is for sale' : '') + '. Try a tier higher.' : res.unsold ? 'None of the candidates has a ' + tierName(UT) + ' for sale.' : 'There are no candidates with games in the remaining days.') + '</div>'; return; }
-  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.</div>'; return; }
+  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
 }
@@ -4526,7 +4528,7 @@ function perUsdTxt(t) {
 // e por baixo quanto sobe e quanto era. Tocar abre os detalhes.
 function buyRow(R, t, i, src) {
   const c = S.players.get(t.id) || {}, own = !!S.mine.roster[t.id], g = usesGain(t.id, t.U);
-  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'use', 'uses') : '2nd Moment') + '</span>' : '') + mktSpan(t.id, t.U);
+  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'use', 'uses') : collectionInfo(t.id).copies === 1 ? '2nd Moment' : '+1 Moment') + '</span>' : '') + mktSpan(t.id, t.U);
   const sub = teamTag(c.team) + (t.days.length ? ' · plays ' + (t.days.length > 1 ? 'days ' : 'day ') + t.days.join(', ') : '');
   const right = t.byPrize
     ? '<span class="bg-top">' + t.best.p.wins + ' wins' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · was ' + pct(t.best.from) + '</span>'
@@ -4593,15 +4595,15 @@ function buyResultsHtml(R) {
     const head = !worth ? '<div class="buy-gain muted">Not worth it: the run barely changes.</div>'
       : byPrize ? '<div class="buy-gain">' + best.p.wins + ' wins' + (multi ? ' (' + esc(accLabel(best.k)) + ')' : '') + ': ' + pct(best.from) + ' → <span class="up">' + pct(best.to) + '</span> <small>+' + (pp(best.to) - pp(best.from)) + '%</small></div>'
       : '<div class="buy-gain">Expected wins: ' + f1(e0) + ' → <span class="up">' + f1(e1) + '</span></div>';
-    // só com um Moment dele é que o segundo deixa duas contas jogá-lo na mesma noite; com mais, o ganho são os usos
-    const twoSame = multi && more && collectionInfo(id).copies === 1 && days.some(z => z.acc.length > 1);
+    // enquanto houver contas sem ele, mais um Moment deixa mais uma conta jogá-lo na mesma noite; depois, o ganho são os usos
+    const twoSame = multi && more && copyHelps(id) && days.some(z => z.acc.length > 1), one = collectionInfo(id).copies === 1;
     const why = !days.length ? 'Doesn’t play new days: frees up other players.'
-      : (twoSame ? 'Two accounts can play him on the same day. ' : more ? (usesGain(id, R.U) ? 'With ' + usesTxt(usesGain(id, R.U)) + (multi ? ' in each account' : '') + ', ' : 'With a 2nd Moment (both accounts on the same night), ') : '') + (more && !twoSame ? 'he plays' : 'Plays') + (days.length > 1 ? ' on days ' : ' on day ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (on top of the ones he already played)' : '') + ':';
+      : (twoSame ? (one ? 'Two accounts can play him on the same day. ' : 'One more account can play him on the same day. ') : more ? (usesGain(id, R.U) ? 'With ' + usesTxt(usesGain(id, R.U)) + (multi ? ' in each account' : '') + ', ' : (one ? 'With a 2nd Moment (both accounts on the same night), ' : 'With one more Moment (one more account on the same night), ')) : '') + (more && !twoSame ? 'he plays' : 'Plays') + (days.length > 1 ? ' on days ' : ' on day ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (on top of the ones he already played)' : '') + ':';
     const dayLines = days.map(z => { const day = S.days.find(q => q.date === z.d.date) || {};
       return '<li><b>Day ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'win ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prizes that change: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
-    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', 2nd Moment') : 'Moment ' + tierTxt(R.U);
+    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : collectionInfo(id).copies === 1 ? ', 2nd Moment' : ', +1 Moment') : 'Moment ' + tierTxt(R.U);
     if (R.detail) {
       // folha: cabeçalho, três caixas (prémio, vitórias esperadas, preço), dias novos e prémios que mudam
       const mk = mktOf(id, R.U);
@@ -5905,7 +5907,7 @@ function momentsBlock(id) {
     : ci.nTop && ci.nTop < copies && ci.topUses > 1
       ? '<b>' + copies + ' Moments, ' + ci.nTop + ' ' + esc(bestTierName(id)) + ':</b> each account has ' + usesTxt(ci.topUses) + '. Each account’s 1st play can use any card' + (ci.topUses >= 4 ? ', the 2nd needs a Rare or better and the 3rd and 4th a Legendary' : ci.topUses === 3 ? ', the 2nd and 3rd need the ' + esc(bestTierName(id)) : ', the 2nd needs the ' + esc(bestTierName(id))) + '; each card plays for one account per night (the plan says when to move it). ' + nights + '.'
       : '<b>' + copies + ' Moments:</b> ' + (copies >= nAcc ? 'every account can use him on the same night' : 'up to ' + copies + ' accounts on the same night') + '. ' + nights + '.') + '</div>' +
-    (copies === 1 && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">See if a 2nd Moment is worth it</button>' : '') + '</div>';
+    (copies < nAcc && S.runId ? '<button class="btn small" type="button" data-action="buy-eval" data-id="' + esc(id) + '" style="justify-self:start">' + (copies === 1 ? 'See if a 2nd Moment is worth it' : 'See if one more Moment is worth it') + '</button>' : '') + '</div>';
 }
 function addPlayerSheet() {
   openSheet('<h3>Add player</h3><input class="field" id="apSearch" type="search" placeholder="Player name…" autocomplete="off" aria-label="Search player"><div id="apResults" class="search-list"></div>' +
