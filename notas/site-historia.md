@@ -192,3 +192,15 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
 - `docs/natal.css` + `docs/natal/` (imagens geradas no Higgsfield, modelo Z Image no plano grátis, recortadas do fundo verde/rosa; lua, neve desenhadas em SVG). Só carrega com `html.xmas`: `applyXmas()` em `app.js`, preferência `fb-xmas` (auto = 1 dez – 6 jan, on, off) em Ajustes → Preferências.
 - 17 nov (à noite): no iPhone a página deslizava para o lado porque o trenó (transform até 100vw + 220px) e a lua (right: -30px) passavam da largura; agora o trenó anda pelo background-position numa faixa da largura do ecrã, e html/body têm overflow-x: clip. Teste: scrollWidth = innerWidth.
 - Escolhas do João: luzes de cor em dois fios (não as lâmpadas grandes nem as douradas), grinalda direita com laço, sem neve por cima dos cartões. A bola gerada tinha uma costura a mais: apagada à mão.
+
+## Odds: SportsGameOdds (18 nov 2026)
+- Fonte principal: SportsGameOdds (`SGO_API_KEY` nos segredos). Plano grátis "amateur": 2.500 jogos por mês, e cada
+  jogo devolvido conta 1, venha com quantas estatísticas e casas vier. Traz as linhas dos jogadores no plano grátis
+  (testado: 12 jogos, 160 jogadores). Também tem linhas próprias de OREB, DREB, FGA, 3PA, FGM, FTM, FTA.
+- `GET https://api.sportsgameodds.com/v2/events?leagueID=NBA&oddsAvailable=true&startsAfter=…&startsBefore=…`,
+  cabeçalho `x-api-key`. Odds em `event.odds[oddID]`, oddID = `{statID}-{JOGADOR_1_NBA}-game-ou-over`; linha em
+  `bookOverUnder`, preço sem margem em `fairOdds`. `GET /v2/account/usage` dá `rateLimits['per-month']`
+  (a resposta traz o email da conta: nunca a escrever inteira no registo, que é público).
+- Três leituras por dia (10:07, 17:07, 22:37 UTC), cada uma hoje e amanhã. À tarde de Lisboa, o dia seguinte ainda
+  não tem linhas dos jogadores (4 jogos, 0 linhas às 15:30).
+- The Odds API só entra nas datas que a SportsGameOdds deixar sem linhas.

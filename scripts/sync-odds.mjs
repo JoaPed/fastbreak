@@ -44,8 +44,10 @@ if (SGO) {
   let objs = 0; const seen = new Set();
   for (const date of Object.keys(need)) {
     const want = new Set([...need[date]].map(m => MARKET_STAT[m]).filter(Boolean).concat([...(needStats[date] || [])]));
-    // dia NBA (Nova Iorque) com folga: filtra-se depois pela data de cada jogo
-    const qs = 'leagueID=NBA&oddsAvailable=true&limit=50&startsAfter=' + encodeURIComponent(date + 'T00:00:00Z') + '&startsBefore=' + encodeURIComponent(addDays(date, 1) + 'T12:00:00Z');
+    // dia NBA (Nova Iorque: das 04:00 UTC às 08:00 UTC do dia seguinte), só jogos por começar: cada jogo devolvido
+    // gasta 1 dos 2.500 do mês, por isso a janela é justa (e filtra-se depois pela data de cada jogo)
+    const from = new Date(Math.max(Date.parse(date + 'T04:00:00Z'), now)).toISOString();
+    const qs = 'leagueID=NBA&oddsAvailable=true&limit=50&startsAfter=' + encodeURIComponent(from) + '&startsBefore=' + encodeURIComponent(addDays(date, 1) + 'T08:00:00Z');
     let cursor = null, evs = [];
     try {
       do {
