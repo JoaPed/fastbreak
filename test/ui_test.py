@@ -1298,8 +1298,14 @@ with sync_playwright() as pw:
     pg.wait_for_url('https://site.test/**', timeout=30000)
     pback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))['px']
     print('T2b preços com ofertas:', pback.get('p'), 'sem:', pback.get('miss'), '· ok' if pback['p'].get('jokic') == [300, 2000, 90000, 200, 1700, None] and pback['p'].get('luka') == [500, None, 100, None, None, None] and pback.get('miss') == ['zz'] else '· ERRO')
+    # sonda dos packs: só a API pública, volta com os métodos, as chamadas e os campos de uma edição
+    pg.goto('https://nbatopshot.com/fastbreak#fbsync=' + base64.urlsafe_b64encode(json.dumps(dict(pjob, do=['sonda'])).encode()).decode().rstrip('='))
+    pg.evaluate((docs / 'fb-lugares.js').read_text())
+    pg.wait_for_url('https://site.test/**', timeout=30000)
+    sd = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '==')).get('sonda') or {}
+    print('T2c sonda dos packs:', sorted(sd.keys()), '· ok' if isinstance(sd.get('methods'), list) and sd.get('calls') and (sd.get('edition') or {}).get('f', {}).get('editions[]') else '· ERRO')
     us = (docs / 'fb-lugares.user.js').read_text()
-    print('T2b userscript: versão 38 e o mesmo código:', '· ok' if '// @version      38' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
+    print('T2b userscript: versão 39 e o mesmo código:', '· ok' if '// @version      39' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
     pg.close()
     # T3: com a run 2 já a decorrer, o leitor lê a run do site (pelo 1.º dia), mesmo que o site tenha guardado a outra
     # run por engano; e com folga de dias quando o 1.º dia do site não é o mesmo do Top Shot

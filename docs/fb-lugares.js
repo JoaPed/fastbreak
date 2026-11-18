@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 34; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 39; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -335,6 +335,7 @@ async function go() {
     if (want.has('hist') || want.has('hpx')) { try { out.hist = await readHist(want.has('hpx')); } catch (err) { out.histErr = String(err.message || err).slice(0, 80); } }
     // raridade e ASP das cartas que o grupo tem (vai pelo set de cada carta)
     if (want.has('pro') && Array.isArray(job.pro) && job.pro.length) { try { out.pro = await proMarket(job.pro, Array.isArray(job.prd) ? job.prd : []); } catch (err) { out.pro = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
+    if (want.has('sonda')) { try { out.sonda = await sondaPacks(); } catch (err) { out.sonda = { err: String(err.message || err).slice(0, 80) }; } }
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
     const luN = (out.days || []).reduce((t, d) => t + Object.values(d.accs || {}).filter(a => a.lu && a.lu.length).length, 0);
@@ -342,6 +343,51 @@ async function go() {
     try { localStorage.removeItem('fb-lugares'); } catch (e) {}
     setTimeout(() => { location.href = back; }, 900);
   } catch (err) { started = false; say('Não deu: ' + String(err.message || err).slice(0, 120) + '. Toca outra vez em <b>Leaderboard</b> para tentar de novo.'); S.tok = null; }
+}
+// ---- sonda dos packs (só leitura, API pública): que pedidos a app do Top Shot conhece para packs, drops e mercado,
+// o que devolvem (só os nomes dos campos e um exemplo curto) e todos os campos de uma edição (circulação) ----
+async function sondaPacks() {
+  const PRIV = /email|address|username|wallet|owner|flowAddress|userId|dapperId|token|auth/i; // estes valores não saem
+  const shape = (o, d = 0, path = '', acc = {}) => {
+    if (o == null || d > 5) return acc;
+    if (Array.isArray(o)) { acc[path + '[]'] = 'lista(' + o.length + ')'; if (o.length) shape(o[0], d + 1, path + '[0]', acc); return acc; }
+    if (typeof o === 'object') { for (const [k, v] of Object.entries(o)) shape(v, d + 1, path ? path + '.' + k : k, acc); return acc; }
+    acc[path] = PRIV.test(path) ? '(' + typeof o + ')' : String(o).slice(0, 50);
+    return acc;
+  };
+  const one = async (m, body) => { try { const j = await call(m, body, 0, true); return { ok: 1, body, f: Object.fromEntries(Object.entries(shape(j)).slice(0, 80)) }; } catch (e) { return { err: String(e.message || e).slice(0, 60), body }; } };
+  const out = { at: new Date().toISOString(), page: location.pathname, methods: [], calls: {} };
+  // os ficheiros da app: os que a página carregou e, pelo índice do Next.js, os das páginas de packs, drops e mercado
+  say('Sonda: a procurar os pedidos da app…');
+  const urls = new Set([...document.scripts].map(x => x.src).concat(performance.getEntriesByType('resource').map(e => e.name)).filter(u => /\.js(\?|$)/.test(u)));
+  const bm = [...urls].find(u => /_buildManifest\.js/.test(u));
+  if (bm) { try { const t = await (await fetch(bm)).text(), base = bm.replace(/static\/.*$/, '');
+    for (const m of t.matchAll(/"([^"]*)":\[([^\]]*)\]/g)) if (/pack|drop|market|listing/i.test(m[1])) for (const c of m[2].matchAll(/"(static\/[^"]+\.js)"/g)) urls.add(base + c[1]); } catch (e) {} }
+  const found = new Set();
+  for (const u of [...urls].slice(0, 120)) {
+    try { const t = await (await fetch(u)).text();
+      for (const m of t.matchAll(/atlas\.v1\.([A-Za-z]+Service)\/([A-Za-z]+)/g)) found.add(m[1] + '/' + m[2]);
+      for (const m of t.matchAll(/typeName:"atlas\.v1\.([A-Za-z]+Service)"[^]{0,3000}?methods:\{([^]{0,4000}?)\}\s*\}/g)) for (const k of m[2].matchAll(/([a-zA-Z]+):\{name:"([A-Za-z]+)"/g)) found.add(m[1] + '/' + k[2]);
+    } catch (e) {}
+  }
+  out.scripts = urls.size; out.methods = [...found].sort();
+  // chama (só leitura) os de packs, drops, mercado e circulação
+  const want = out.methods.filter(m => /pack|drop|circulat|supply|listing|reveal/i.test(m) && /\/(Get|List|Search|Query|Find)/.test(m)).slice(0, 20);
+  if (!want.length) want.push('PackService/ListPacks', 'PackService/SearchPacks', 'DropService/ListDrops', 'MarketplaceService/SearchPackListings');
+  for (const m of want) {
+    say('Sonda: ' + m + '…');
+    let r = await one(m, { product: 'nba', limit: '3', offset: '0' });
+    if (!r.ok) r = await one(m, { product: 'nba' });
+    if (!r.ok) r = await one(m, {});
+    out.calls[m] = r;
+  }
+  // todos os campos de uma edição Rare (Luka): para ver a circulação (quantos há, em packs, queimados, presos…)
+  out.edition = await one('EditionService/SearchEditions', { product: 'nba', limit: '1', offset: '0', playerId: ['1629029'], tier: ['RARE'] });
+  // não deixa o resultado passar dos ~20 mil caracteres (volta ao site no endereço)
+  let txt = JSON.stringify(out);
+  for (const k of Object.keys(out.calls)) { if (txt.length < 20000) break; out.calls[k].f = Object.fromEntries(Object.entries(out.calls[k].f || {}).slice(0, 25)); txt = JSON.stringify(out); }
+  if (txt.length > 20000) out.methods = out.methods.filter(m => /pack|drop|market|listing|edition|circulat/i.test(m));
+  return out;
 }
 // ---- trocas entre contas ----
 // O site manda a lista do "A fazer" de uma conta: [{k: chave do A fazer, fid: id do Moment, name, tier, from/to: endereço

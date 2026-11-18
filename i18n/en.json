@@ -3366,5 +3366,10 @@
  "<div class=\"note info\">Este dia ainda não tem as regras do Top Shot: o admin lê em Ajustes → Admin → Run nova.</div>": "<div class=\"note info\">This day doesn't have the Top Shot rules yet: the admin reads them in Settings → Admin → New run.</div>",
  "<span class=\"pq-px own\">tens</span>": "<span class=\"pq-px own\">yours</span>",
  "<span class=\"pill duv\">Já joga em ": "<span class=\"pill duv\">Already playing in ",
- "Suplente": "Bench"
+ "Suplente": "Bench",
+ "<h3>Sonda dos packs</h3><div class=\"small muted\">Copia e manda ao Claude. Só tem dados públicos do Top Shot (sem a tua sessão nem endereços).</div><textarea id=\"sondaTxt\" readonly style=\"width:100%;height:180px;margin-top:10px;font:11px ui-monospace,monospace\">": "<h3>Packs probe</h3><div class=\"small muted\">Copy and send it to Claude. It only has public Top Shot data (no session or addresses).</div><textarea id=\"sondaTxt\" readonly style=\"width:100%;height:180px;margin-top:10px;font:11px ui-monospace,monospace\">",
+ "</textarea><button class=\"btn primary\" type=\"button\" data-action=\"sonda-copy\" style=\"margin-top:8px\">Copiar</button>": "</textarea><button class=\"btn primary\" type=\"button\" data-action=\"sonda-copy\" style=\"margin-top:8px\">Copy</button>",
+ "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"sonda\">Sonda dos packs</button><span class=\"small muted\">Só para descobrir o que o Top Shot diz dos packs (leitor v39).</span></div>": "<div class=\"ts-read\"><button class=\"btn\" type=\"button\" data-action=\"ranks-go\" data-do=\"sonda\">Packs probe</button><span class=\"small muted\">Only to find out what Top Shot says about packs (reader v39).</span></div>",
+ "Copiado ✓": "Copied ✓",
+ "Seleciona o texto e copia": "Select the text and copy it"
 }

@@ -790,6 +790,9 @@ function takeRanksHash() {
       const nd = d.tr.done.length, nf = (d.tr.fail || []).length; setTimeout(() => toast(plural(nd, 'Moment sent', 'Moments sent') + ' ✓' + (nf ? ' · ' + plural(nf, 'not sent', 'not sent') : '')), 600); delete d.tr;
     }
     if (d && Array.isArray(d.do) && d.do.join() === 'tr') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; } // só trocas: o resto não muda
+    // sonda dos packs (admin): mostra o resultado para copiar e mandar
+    if (d && d.sonda) { const t = JSON.stringify(d.sonda); delete d.sonda;
+      setTimeout(() => { openSheet('<h3>Packs probe</h3><div class="small muted">Copy and send it to Claude. It only has public Top Shot data (no session or addresses).</div><textarea id="sondaTxt" readonly style="width:100%;height:180px;margin-top:10px;font:11px ui-monospace,monospace">' + esc(t) + '</textarea><button class="btn primary" type="button" data-action="sonda-copy" style="margin-top:8px">Copy</button>'); }, 700); }
     if (d && d.px && d.px.p) { pxTake(d.px); delete d.px; }
     if (d && d.proranks && Array.isArray(d.proranks.accs)) { S.proRanksMine = d.proranks; try { localStorage.setItem('fb-proranks', JSON.stringify(d.proranks)); } catch (e) {} S.pickNote = (S.pickNote || '') + ' Pro: ' + d.proranks.accs.filter(x => x.found).length + ' accounts in the standings.'; delete d.proranks; }
     if (d && d.pro && d.pro.p) { S.proMine = d.pro; S.proMemo = null; try { localStorage.setItem('fb-pro', JSON.stringify(d.pro)); } catch (e) {} S.pickNote = (S.pickNote || '') + ' Pro: prices for ' + Object.keys(d.pro.p).length + ' players' + (d.pro.err ? ' (' + d.pro.err + ')' : '') + '.'; delete d.pro; }
@@ -5396,6 +5399,7 @@ function adminHtml(run) {
     '<div class="ts-read"><button class="btn primary" type="button" data-action="ranks-go" data-do="ranks,picks,lu,hist">Daily</button><span class="small muted">Standings, picks, lineups and Historic. Every morning, 1–2 minutes.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="' + (edOn() ? 'px,ed' : 'px') + ',pro,hpx">Prices</button><span class="small muted">Players' + (edOn() ? ' and cards (ASP)' : '') + ', Pro and Historic legends. Every 3 days, 5–8 minutes.</span></div>' +
     '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="run,hist">New run</button><span class="small muted">When a run comes out: Classic, Historic and Pro, with the prizes.</span></div>' +
+    '<div class="ts-read"><button class="btn" type="button" data-action="ranks-go" data-do="sonda">Packs probe</button><span class="small muted">Only to find out what Top Shot says about packs (reader v39).</span></div>' +
     '<div class="small muted">On Top Shot tap the <b>FB lugares</b> bookmark and then <b>Leaderboard</b>. <a href="' + siteBase() + 'lugares.html" target="_blank" rel="noopener">How to install</a></div></div>');
   out.push(jobsCard());
   const imp = chainImportCard(); if (imp) out.push(imp);
@@ -7350,6 +7354,8 @@ document.addEventListener('click', async e => {
     case 'friend': friendSheet(id, b.dataset.acc); break;
     case 'copy-site': { const u = siteBase(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Address copied: paste it in Safari.'), () => toast(u)); break; }
     case 'job-odds': await jobOdds(); break;
+    case 'sonda-copy': { const t = $('sondaTxt'); if (!t) break;
+      try { await navigator.clipboard.writeText(t.value); toast('Copied ✓'); } catch (e) { t.focus(); t.select(); toast('Select the text and copy it'); } break; }
     case 'ranks-go': { const what = String(b.dataset.do || 'ranks,picks').split(',');
       // a ler o Top Shot é sempre a run atual: quem está a ver uma run que acabou (p. ex. a Run 1) passa para a atual
       // antes (ler a run antiga outra vez todos os dias só tornava o leitor mais lento)
