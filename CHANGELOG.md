@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-18
+- **João** — Modo Natal: o lineup volta a ver-se todo no telemóvel (o campo com a árvore fica por trás do título, sem ocupar espaço); com várias contas, a linha "Lineup · Porquê · Comparar" fica colada às contas.
+
 ## 2026-11-17
 - **João** — Modo Natal ligado para todos já (de 15 de novembro a 6 de janeiro; quem não quiser desliga em Ajustes → Preferências); neve nos dias da run e bengala no dia escolhido; a linha "Lineup · Porquê" ocupa menos e vê-se mais do campo; carregar muito tempo na barra de baixo já não seleciona o texto.
 - **João** — Modo Natal: o lineup volta ao sítio de sempre; o campo com a árvore de Natal fica de fundo no cartão do dia, por baixo do texto; a página já não desce no topo e o Pai Natal passa por trás, de 8 em 8 segundos.

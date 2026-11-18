@@ -55,10 +55,9 @@ html.xmas::after { content: ""; position: absolute; top: calc(4px + env(safe-are
   background: url("natal/treno.webp") no-repeat -200px 0 / 180px 52px; animation: xm-fly 8s linear infinite; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
 @keyframes xm-fly { 0% { background-position: -200px 12px; } 50% { background-position: calc(50% + 0px) 2px; } 85% { background-position: calc(100% + 200px) 8px; } 100% { background-position: calc(100% + 200px) 8px; } }
 
-/* cartão do dia: o campo com os cestos e a árvore numa faixa no topo, por trás do título (pouco espaço a mais: o lineup vê-se quase todo) */
-html.xmas .card.hero { padding-top: 88px; }
-html.xmas .card.hero::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 240px; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(13,58,42,0) 25%, rgba(13,58,42,.7) 60%, #0D3A2A 100%), url("natal/campo-noite.webp") no-repeat 45% 20% / cover; }
+/* cartão do dia: o campo com os cestos e a árvore de fundo, por trás do título (sem espaço a mais: o lineup fica todo à vista) */
+html.xmas .card.hero::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 200px; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(13,58,42,.15) 0%, rgba(13,58,42,.55) 55%, #0D3A2A 100%), url("natal/campo-noite.webp") no-repeat 45% 30% / cover; }
 
 /* gorro do Pai Natal nos jogadores e bola de Natal no círculo da vitória */
 /* o gorro fica em cima da bola (só toca no topo), para não tapar a cara: a bola deixa de cortar o que sai dela e a foto

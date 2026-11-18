@@ -1164,6 +1164,8 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .j-nav.multi .j-accs::-webkit-scrollbar { display: none; }
 .j-nav.multi .acc-chip { flex: none; white-space: nowrap; }
 .j-nav.multi .j-links { align-self: flex-end; }
+#tab-hoje .j-nav.multi { gap: 0; margin-bottom: 0; } /* contas e Lineup · Porquê juntos: o plantel vê-se todo */
+#tab-hoje .j-nav.multi .j-links { margin-top: -2px; min-height: 26px; }
 /* ---- Jornada ao vivo: placar grande e pistas por jogador (feito branco, previsto às riscas, traço = esperado antes do jogo) ---- */
 .lv-big { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
 .lv-big b { font-family: var(--font-display); font-weight: 800; font-size: 50px; line-height: .92; color: var(--board-ink); }
