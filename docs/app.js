@@ -1666,11 +1666,25 @@ function benchDirect(md, list, whoId) {
   return best;
 }
 // suplente: um 6.º esbatido por baixo dos 5 (tocar abre as alternativas)
+// com smurfs: o suplente tem de estar na conta que joga; se o Moment está noutra, de onde mandar (de preferência
+// de uma conta que não o joga nessa noite). { from } ou { busy: [contas] } quando todas as que o têm o jogam
+const benchPill = (id, date) => { const f = benchFrom(id, date); if (!f) return '';
+  return f.from ? '<span class="pill prov">Mandar de ' + esc(accLabel(f.from)) + '</span> ' : '<span class="pill duv">Já joga em ' + esc(f.busy.map(accLabel).join(', ')) + '</span> '; };
+function benchFrom(id, date) {
+  if (!S.multi || !(S.profile || {}).collection) return null;
+  const h = collectionInfo(id).hold; if (!h) return null;
+  const n = a => (Array.isArray(h[a]) ? h[a].length : +h[a] || 0);
+  if (n(S.acc) > 0) return null;
+  const has = Object.keys(h).filter(a => a !== S.acc && n(a) > 0); if (!has.length) return null;
+  const plays = a => { const rr = S.multi.byKey[a], pd = rr && rr.normal.days.find(d => d.date === date); return ((pd && pd.lineup) || lineupFor(a, date) || []).includes(id); };
+  const free = has.find(a => !plays(a));
+  return free ? { from: free } : { busy: has };
+}
 function benchRow(md, nd, lineup) {
   if (!lineup.length) return '';
   const B = benchOf(md, nd, lineup), r = S.result; if (!B) return '';
   const p = r.model.players[r.model.pIndex.get(B.id)], who = benchFor(md, lineup);
-  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">Suplente' + (who ? ' · entra por ' + esc(lastName(who.id)) : '') + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
+  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">' + benchPill(B.id, nd.date) + 'Suplente' + (who ? ' · entra por ' + esc(lastName(who.id)) : '') + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
 }
 function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;
@@ -1684,7 +1698,7 @@ function benchSheet(date) {
     const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'uso a mais', 'usos a mais') + (x.later.length ? ' (plano: dia ' + x.later.map(y => y.idx + 1).join(', ') + ')' : '') : '') : ' · uso do dia ' + x.later.map(y => y.idx + 1).join(', ');
     return '<li><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direto</span>' : '') + '</div>' +
-      '<div class="ps">' + (dir ? 'com ele faz ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
+      '<div class="ps">' + benchPill(x.id, date) + (dir ? 'com ele faz ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
       pvHtml(benchVals(md, x.id, who && who.id)) + '<span class="chk' + (on ? '' : ' off') + '" aria-hidden="true">' + (on ? '✓' : '') + '</span></button></li>'; };
   openSheet('<h2>Suplente</h2><p class="small muted">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Entra pelo 1.º titular que não jogar') + ' · só gasta um uso se entrar.</p>' +
     '<ul class="list">' + ord.slice(0, 8).map(row).join('') + '</ul>' +

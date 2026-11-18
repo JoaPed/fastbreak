@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-18
+- **João** — Suplente com várias contas: diz de que conta mandar o Moment dele («Mandar de Terose»), de preferência de uma conta que não o joga nessa noite; se todas as que o têm o jogam, avisa («Já joga em …»). Também na escolha do suplente.
 - **João** — Odds dos jogadores vêm agora da SportsGameOdds (grátis, muito mais leituras): às 7h e às 16h (hoje e amanhã) e outra vez até 2 h antes do 1.º jogo, que é quando chega o aviso no Telegram; o botão «Ler odds» também a usa. A The Odds API fica de reserva.
 - **João** — Pro → Quem entra?: preço bem à vista ao lado do nome (verde se compras, azul se tens), as stats que se esperam de cada um nos objetivos do dia e quanto a vitória sobe.
 - **João** — Pro: sem ensaios. As regras de cada dia vêm só da leitura do Top Shot; sem leitura desta run, o separador diz que falta ler (em Ajustes → Admin → Run nova) em vez de inventar regras.

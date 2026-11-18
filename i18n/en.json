@@ -3364,5 +3364,7 @@
  "O admin lê em Ajustes → Admin → Run nova.": "The admin reads it in Settings → Admin → New run.",
  "Pro · Dia ": "Pro · Day ",
  "<div class=\"note info\">Este dia ainda não tem as regras do Top Shot: o admin lê em Ajustes → Admin → Run nova.</div>": "<div class=\"note info\">This day doesn't have the Top Shot rules yet: the admin reads them in Settings → Admin → New run.</div>",
- "<span class=\"pq-px own\">tens</span>": "<span class=\"pq-px own\">yours</span>"
+ "<span class=\"pq-px own\">tens</span>": "<span class=\"pq-px own\">yours</span>",
+ "<span class=\"pill duv\">Já joga em ": "<span class=\"pill duv\">Already playing in ",
+ "Suplente": "Bench"
 }

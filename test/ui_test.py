@@ -554,6 +554,16 @@ with sync_playwright() as pw:
     out = pg.locator('#buyOut').inner_text().replace('\n', ' | ')
     print('C4 Jokić 1 Rare + 2 Commons em 3 contas:', out[:200], '· ok' if out.strip() and 'escalão acima' not in out and '+1 Moment' in out else '· ERRO')
     pg.close()
+    # suplente com smurfs: o Moment dele está só noutra conta → diz de onde mandar (ou em que conta já joga)
+    T['profiles'][-1]['collection'] = {'accounts': ['main', 's1', 's2'], 'players': {pid: {'owners': {'s1': 1}, 'uses': 2} for pid in roster['players']}}
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(4000)
+    bz = pg.locator('#tab-hoje .bench-row')
+    bt = bz.first.inner_text().replace('\n', ' ') if bz.count() else ''
+    print('C4 suplente noutra conta:', bt[:140], '· ok' if ('Mandar de' in bt or 'Já joga em' in bt) else '· ERRO')
+    pg.close()
 
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']
