@@ -205,3 +205,10 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
   faltam ≤ 2 h para o 1.º jogo (conta com o atraso do GitHub); só esta avisa o grupo no Telegram. À tarde de Lisboa, o dia seguinte ainda
   não tem linhas dos jogadores (4 jogos, 0 linhas às 15:30).
 - The Odds API só entra nas datas que a SportsGameOdds deixar sem linhas.
+
+## Horas marcadas pelo Supabase (18 nov 2026)
+- Os agendamentos do GitHub estavam a chegar com ~9 h de atraso (o das 07:13 corria às 16:52) ou nem corriam, por isso
+  os "últimos jogos" e as médias ficavam um dia atrás. Agora o Supabase (pg_cron) acorda as tarefas à hora certa com
+  `dispatch_workflow(ficheiro, inputs)` (chave `github_dispatch` no Vault): calendário 06:13, 09:17, 12:13 UTC;
+  odds 07:07 e 16:07 (`--auto`, não repete em 4 h) e de meia em meia hora das 18 às 03 (`--pre`).
+  Ver/alterar: `select * from cron.job;` no SQL Editor. Os agendamentos do GitHub ficam de reserva.

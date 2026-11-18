@@ -24,6 +24,12 @@ await db.exec(`
   create function net.http_post(url text, body jsonb, headers jsonb) returns bigint language sql as $$ insert into net.calls values (url, body, headers) returning 1::bigint $$;
   insert into vault.decrypted_secrets values ('github_dispatch', 'tok-123');
 `);
+// pg_cron simulado: os agendamentos com nome (o mesmo nome substitui)
+await db.exec(`
+  create schema cron; create table cron.job (jobname text primary key, schedule text, command text);
+  create function cron.schedule(n text, s text, c text) returns bigint language sql as $$
+    insert into cron.job values (n, s, c) on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command returning 1::bigint $$;
+`);
 
 const U = { a: '00000000-0000-0000-0000-00000000000a', b: '00000000-0000-0000-0000-00000000000b', c: '00000000-0000-0000-0000-00000000000c' };
 await db.exec(`insert into auth.users values ('${U.a}'), ('${U.b}'), ('${U.c}')`);
@@ -118,6 +124,16 @@ r = await as('a', `select public.request_job('odds') r`); expect('admin pede as 
 r = await as('a', `select public.request_job('odds') r`); expect('segundo pedido logo a seguir fica à espera do primeiro', r.rows?.[0].r.ok === false, r);
 await db.exec('reset role'); r = { rows: (await db.query(`select url, body, headers from net.calls`)).rows }; expect('pedido acorda logo a tarefa no GitHub (uma vez, com a chave do Vault)', r.rows?.length === 1 && /pedidos\.yml\/dispatches$/.test(r.rows[0].url) && r.rows[0].body.ref === 'main' && r.rows[0].headers.Authorization === 'Bearer tok-123', r);
 r = await as('a', `select public.wake_requests()`); expect('o site não chama o GitHub diretamente', !!r.error, r);
+r = await as('a', `select public.dispatch_workflow('odds.yml', '{}')`); expect('o site não corre tarefas do GitHub', !!r.error, r);
+r = await as('a', `select public.schedule_jobs()`); expect('o site não mexe nos agendamentos', !!r.error, r);
+await db.exec('reset role');
+r = { rows: (await db.query(`select public.schedule_jobs() n`)).rows }; await db.query(`select public.schedule_jobs()`);
+const cj = (await db.query(`select jobname, schedule, command from cron.job order by jobname`)).rows;
+expect('horas marcadas no Supabase: estatísticas e odds (e volta a correr sem duplicar)', r.rows[0].n === 6 && cj.length === 6 && cj.some(j => j.jobname === 'fb-odds-pre' && /odds\.yml.*--pre/.test(j.command)) && cj.some(j => /calendario\.yml/.test(j.command)), cj);
+await db.exec('delete from net.calls');
+await db.query(`select public.dispatch_workflow('odds.yml', '{"dates":"--pre"}')`); await db.query(`select public.dispatch_workflow('../x.yml')`);
+const nc = (await db.query(`select url, body from net.calls`)).rows;
+expect('acorda a tarefa certa com os parâmetros; nomes estranhos recusados', nc.length === 1 && /workflows\/odds\.yml\/dispatches$/.test(nc[0].url) && nc[0].body.inputs.dates === '--pre' && nc[0].body.ref === 'main', nc);
 r = await as('b', `select public.job_requests() r`); expect('membro não vê os pedidos', r.rows?.[0].r === null, r);
 r = await as('a', `select public.job_requests() r`); expect('admin vê o pedido', !!r.rows?.[0].r?.odds?.at, r);
 r = await as('a', `select value from public.job_state`); expect('job_state continua fechado ao site', !r.rows?.length, r);
