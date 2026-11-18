@@ -64,3 +64,27 @@ Base: `https://api.production.atlas.dapperlabs.com/atlas.v1.<Serviço>/<Método>
 
 ## Pedidos do site na hora (17 nov 2026)
 - O cron de 5 em 5 min do `pedidos.yml` não é cumprido pelo GitHub (corria de ~8 em 8 horas). Agora `request_job` chama `wake_requests()`, que usa o pg_net do Supabase para fazer `workflow_dispatch` do `pedidos.yml`, com uma chave do GitHub (fine-grained, só este repositório, Actions: read and write) guardada no Vault do Supabase com o nome `github_dispatch`. Sem chave fica como antes.
+
+## Packs (sonda de 18 nov 2026, página /search/packs, pedidos com a sessão)
+Um pack é uma **distribution** (`DistributionService`). Tudo com `product:'nba'`.
+- `SearchDistributions {hasPackListings:true, sortByOption:'START_TIME', sortByDirection:'DESC', limit:'24', offset:'0'}` e
+  `GetDistributions {isEnabled:true, byStartDateBefore, byEndDateAfter, byHasBuyback:false, limit:'200', includeFeaturedEditions:true}`
+  → `distributions[]`: id, title, description, price (US$ na loja), startTime/endTime, tier, `numberOfPackSlots` (Moments por
+  pack), totalSupply, forSaleSupply, availableSupply, totalPackCount, packType, `packLowAskCents`, `packAverageSalePriceCents`,
+  `packLastPurchasePriceCents`, `packNumListed`, gated, childDistributions, featuredEditions.
+- `GetDistribution {distributionId}` → o mesmo para um pack.
+- `GetDistributionContentSummary {distributionId}` → `unopenedCount`, `totalPackCount`, `ownedCount`, `unavailableCount`,
+  `remainingByTier` e `originalCountsByTier` (common, uncommon, rare, legendary, ultimate, autograph, fandom): **o que falta sair**.
+- `GetDistributionPackOdds {distributionId}` → `slots[]` (por posição no pack): `editions[]` {editionId, playerName, setName,
+  tier, parallel, count, packCount, `oneInX`, `remainingCount`} e agrupados `byPlayer/bySet/byTier/byParallel/bySetParallel`
+  {label, totalCount, packCount, oneInX, remainingCount, minCirculation, lowAskCents, highOfferCents}; mais `combined[]`,
+  `packCount`, `remainingPackCount`.
+- `GetDistributionEditions {distributionId, hideOpened:true}` → `editions[]` {editionId, serialNumStart/End, originalCount,
+  `remainingCount`, lowAsk, averageSalePrice, jerseyNumber, serialOne, lastMint, edition{…}}.
+- `GetDistributionListingDistribution {distributionId}` → `prices[]` {priceCents, count, isOffer}: a escada do mercado do pack
+  (low ask = o mais baixo com isOffer false).
+- `PackService/GetPacksByOwner {status:'SEALED', distributionId, isListed, limit, offset}` → os packs da própria conta.
+- Filtros da página: `tier=standard,rare`, `packType=pack`, `priceMax`, `packSource=marketplace`, `packDetail=<id>`.
+- Circulação de cada edição (`SearchEditions`/`GetEdition`): `maxMintSize`, `numMinted`, `numOwned`, `numBurned`, `numLocked`,
+  `numHiddenInPacks`, `effectiveSupply` (e da própria conta: userOwnedCount, userLockedCount, userListedCount).
+- A API pública com estes nomes ainda não foi testada (a página usou a privada).
