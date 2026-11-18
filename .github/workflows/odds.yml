@@ -1,12 +1,16 @@
 name: Odds dos jogadores
 on:
   schedule:
-    # uma vez por dia (plano grátis: 500 créditos/mês, ~1 por jogo): 14:07 UTC, que o GitHub costuma atrasar umas
-    # horas; chega a meio da tarde em Lisboa, com as linhas de pontos já publicadas e antes dos jogos
-    - cron: '7 14 * * *'
+    # três leituras por dia (hora UTC; o GitHub às vezes atrasa). Cada uma lê hoje e amanhã (hora de Nova Iorque).
+    # SportsGameOdds grátis: 2.500 jogos/mês (~10 jogos × 2 datas × 3 leituras ≈ 1.800); a The Odds API só entra
+    # nas datas que ficarem sem linhas.
+    - cron: '7 10 * * *'   # manhã: o plano do dia já com odds
+    - cron: '7 17 * * *'   # tarde: as linhas que saem na manhã dos EUA
+    - cron: '37 22 * * *'  # antes do 1.º jogo (com as últimas lesões) e as primeiras linhas de amanhã
   workflow_dispatch:
     inputs:
       dates: { description: 'Datas AAAA-MM-DD separadas por espaço (vazio = hoje e amanhã)', default: '', required: false }
+      only_sgo: { description: 'Só SportsGameOdds (não gasta créditos da The Odds API)', type: boolean, default: false }
 concurrency: { group: odds, cancel-in-progress: false }
 jobs:
   run:
@@ -16,6 +20,8 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      SGO_API_KEY: ${{ secrets.SGO_API_KEY }}
+      ODDS_ONLY_SGO: ${{ inputs.only_sgo && '1' || '' }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:

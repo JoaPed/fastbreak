@@ -371,6 +371,31 @@ export function consensusFromEvent(ev) {
   }
   return out;
 }
+// SportsGameOdds (1 jogo = 1 "objeto", com todas as estatísticas e casas): event.odds[oddID], oddID =
+// {statID}-{jogador}-{período}-{tipo}-{lado}, p. ex. points-LEBRON_JAMES_1_NBA-game-ou-over. Linha = bookOverUnder
+// (ou fairOverUnder); probabilidade = fairOdds do over (já sem margem) ou, sem ela, o par over/under das casas.
+export const SGO_STAT = { points: 'pts', rebounds: 'reb', assists: 'ast', threePointersMade: 'fg3', steals: 'stl', blocks: 'blk', turnovers: 'tov', fieldGoalsMade: 'fgm', freeThrowsMade: 'ftm', freeThrowsAttempted: 'fta' };
+export function sgoName(ev, pid) {
+  const p = ((ev && ev.players) || {})[pid] || {};
+  const n = p.name || (p.names && (p.names.display || p.names.full)) || [p.firstName, p.lastName].filter(Boolean).join(' ');
+  if (n) return norm(n);
+  return norm(String(pid).replace(/_\d+_[A-Z]+$|_[A-Z]+$/, '').replace(/_/g, ' '));
+}
+export function consensusFromSGO(ev) {
+  const out = {}, odds = (ev && ev.odds) || {};
+  for (const o of Object.values(odds)) {
+    if (!o || o.betTypeID !== 'ou' || o.periodID !== 'game' || o.sideID !== 'over') continue;
+    const stat = SGO_STAT[o.statID], pid = o.statEntityID || o.playerID;
+    if (!stat || !pid || ['home', 'away', 'all'].includes(pid)) continue;
+    const line = +(o.bookOverUnder ?? o.fairOverUnder); if (!isFinite(line)) continue;
+    let p = implied(o.fairOdds);
+    if (p == null) { const u = odds[String(o.oddID || '').replace(/-over$/, '-under')], a = implied(o.bookOdds), b = u && implied(u.bookOdds); p = a != null && b != null ? a / (a + b) : null; }
+    if (p == null) continue;
+    const pc = Math.min(0.97, Math.max(0.03, p)), books = Object.values(o.byBookmaker || {}).filter(x => x && x.available !== false).length || 1;
+    (out[sgoName(ev, pid)] = out[sgoName(ev, pid)] || {})[stat] = { line, over: toAmerican(pc), under: toAmerican(1 - pc), books };
+  }
+  return out;
+}
 // Liga nomes das casas de apostas aos ids da NBA
 export function matchPlayers(byName, catalog) {
   const index = new Map(), byLast = new Map();

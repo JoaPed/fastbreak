@@ -1,5 +1,5 @@
 // Tarefas automáticas: leitura do calendário, box scores, odds e respostas da blockchain (com exemplos no formato real).
-import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, addSplits, splitsOf, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf, teamRows, GAME_KEYS, parseEspnInjuries, injuryStatus, buildAlerts, alertText, parseEspnGamelog, histFromGames } from '../scripts/lib.mjs';
+import { parseSchedule, finalGameIds, addBoxscore, addEspnSeason, addEspnCurrent, addEspnRoster, parseEspnScoreboard, parseEspnBox, addSplits, splitsOf, teamOf, playerKey, espnTeam, blendedAverages, consensusFromEvent, consensusFromSGO, matchPlayers, decodeCadence, mapStat, objectivesFromStats, etDate, minutes, norm, parseEspnCoreStats, addEspnCore, marketsForStat, addBoxForm, formOf, teamRows, GAME_KEYS, parseEspnInjuries, injuryStatus, buildAlerts, alertText, parseEspnGamelog, histFromGames } from '../scripts/lib.mjs';
 let fails = 0;
 const ok = (label, cond, info) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FALHA') + ' ' + label + (cond ? '' : ' → ' + JSON.stringify(info))); };
 
@@ -155,6 +155,20 @@ ok('linha de consenso = a mais comum', c['nikola jokic'].pts.line === 28.5 && c[
 ok('preço de consenso favorece o mais', c['nikola jokic'].pts.over < c['nikola jokic'].pts.under, c['nikola jokic']);
 const m = matchPlayers(c, [{ id: 'nikola-jokic', name: 'Nikola Jokić' }, { id: 'shai-gilgeous-alexander', name: 'Shai Gilgeous-Alexander' }]);
 ok('nomes com e sem acentos ligam ao catálogo', m.players['nikola-jokic'] && m.players['shai-gilgeous-alexander'] && !m.unmatched.length, m);
+{ // SportsGameOdds: over com fairOdds (sem margem); só jogo inteiro, só mais/menos, só jogadores
+  const sg = { players: { NIKOLA_JOKIC_1_NBA: { name: 'Nikola Jokić' } }, odds: {
+    'points-NIKOLA_JOKIC_1_NBA-game-ou-over': { oddID: 'points-NIKOLA_JOKIC_1_NBA-game-ou-over', statID: 'points', statEntityID: 'NIKOLA_JOKIC_1_NBA', periodID: 'game', betTypeID: 'ou', sideID: 'over', fairOdds: '-150', bookOverUnder: '28.5', byBookmaker: { draftkings: { odds: '-160', available: true }, fanduel: { odds: '-150', available: true } } },
+    'points-NIKOLA_JOKIC_1_NBA-game-ou-under': { oddID: 'points-NIKOLA_JOKIC_1_NBA-game-ou-under', statID: 'points', statEntityID: 'NIKOLA_JOKIC_1_NBA', periodID: 'game', betTypeID: 'ou', sideID: 'under', fairOdds: '+150', bookOverUnder: '28.5' },
+    'rebounds-SHAI_GILGEOUS_ALEXANDER_1_NBA-game-ou-over': { oddID: 'rebounds-SHAI_GILGEOUS_ALEXANDER_1_NBA-game-ou-over', statID: 'rebounds', statEntityID: 'SHAI_GILGEOUS_ALEXANDER_1_NBA', periodID: 'game', betTypeID: 'ou', sideID: 'over', bookOdds: '-110', bookOverUnder: '5.5' },
+    'rebounds-SHAI_GILGEOUS_ALEXANDER_1_NBA-game-ou-under': { oddID: 'rebounds-SHAI_GILGEOUS_ALEXANDER_1_NBA-game-ou-under', statID: 'rebounds', statEntityID: 'SHAI_GILGEOUS_ALEXANDER_1_NBA', periodID: 'game', betTypeID: 'ou', sideID: 'under', bookOdds: '-110', bookOverUnder: '5.5' },
+    'points-NIKOLA_JOKIC_1_NBA-1q-ou-over': { statID: 'points', statEntityID: 'NIKOLA_JOKIC_1_NBA', periodID: '1q', betTypeID: 'ou', sideID: 'over', fairOdds: '+100', bookOverUnder: '7.5' },
+    'points-all-game-ou-over': { statID: 'points', statEntityID: 'all', periodID: 'game', betTypeID: 'ou', sideID: 'over', fairOdds: '-110', bookOverUnder: '228.5' } } };
+  const g = consensusFromSGO(sg);
+  ok('SportsGameOdds: linha e preço do jogador (jogo inteiro)', g['nikola jokic'] && g['nikola jokic'].pts.line === 28.5 && g['nikola jokic'].pts.over === -150 && g['nikola jokic'].pts.books === 2, g);
+  ok('SportsGameOdds: sem fairOdds usa o par das casas; nome tirado do id', g['shai gilgeous alexander'] && g['shai gilgeous alexander'].reb.line === 5.5 && Math.abs(g['shai gilgeous alexander'].reb.over) === 100, g);
+  ok('SportsGameOdds: ignora períodos e totais do jogo', Object.keys(g).length === 2 && !g.all, g);
+  ok('SportsGameOdds: liga ao catálogo', !matchPlayers(g, [{ id: 'nj', name: 'Nikola Jokić' }, { id: 'sga', name: 'Shai Gilgeous-Alexander' }]).unmatched.length);
+}
 ok('normalização de nomes', norm("De'Aaron Fox Jr.") === 'deaaron fox' && norm('Luka Dončić') === 'luka doncic');
 { const m2 = matchPlayers({ 'herb jones': { pts: {} }, 'tre jones': { pts: {} } }, [{ id: 'hj', name: 'Herbert Jones' }, { id: 'tj', name: 'Tre Jones' }, { id: 'cj', name: 'Colby Jones' }]);
   ok('diminutivo liga ao nome completo (Herb = Herbert)', m2.players.hj && m2.players.tj && !m2.unmatched.length, m2); }
