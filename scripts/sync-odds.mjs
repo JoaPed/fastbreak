@@ -15,7 +15,7 @@ const API = 'https://api.the-odds-api.com/v4/sports/basketball_nba', SGO_API = '
 const sb = await supa();
 const today = etDate(Date.now());
 const dates = process.argv.slice(2).filter(a => /^\d{4}-\d{2}-\d{2}$/.test(a));
-const PRE = process.argv.includes('--pre');
+const PRE = process.argv.includes('--pre'), AUTO = process.argv.includes('--auto');
 if (!dates.length) dates.push(today, ...(PRE ? [] : [addDays(today, 1)]));
 
 // que estatísticas são precisas em cada data (objetivos das runs)
@@ -24,6 +24,12 @@ const real = new Set((await must(sb.from('runs').select('id').eq('fictitious', f
 // hora do 1.º jogo de hoje (dos dias das runs)
 const firstTip = async () => { const games = (await must(sb.from('run_days').select('run_id,games').eq('date', today))).filter(r => real.has(r.run_id)).flatMap(r => r.games || []);
   const tips = games.map(g => (Array.isArray(g) && g[2] ? Date.parse(g[2]) : NaN)).filter(x => isFinite(x)); return tips.length ? Math.min(...tips) : null; };
+// leituras com hora marcada (Supabase e, de reserva, GitHub): a mesma não se repete em 4 h (poupa a SportsGameOdds)
+if (AUTO) {
+  const st = await getState(sb, 'odds-auto', {});
+  if (st.at && Date.now() - Date.parse(st.at) < 4 * 36e5) { console.log('Leitura marcada já feita às ' + st.at + ': não repito.'); process.exit(0); }
+  await setState(sb, 'odds-auto', { at: new Date().toISOString() });
+}
 if (PRE) {
   const first = await firstTip(), st = await getState(sb, 'odds-pre', {}), left = first ? (first - Date.now()) / 36e5 : null;
   if (st.date === today) { console.log('Leitura antes do jogo já feita hoje.'); process.exit(0); }

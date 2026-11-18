@@ -1,7 +1,8 @@
 name: Odds dos jogadores
 on:
   schedule:
-    # hora UTC (= Lisboa no inverno; no verão é +1 h). O GitHub às vezes atrasa.
+    # De reserva: quem acorda esta tarefa à hora certa é o Supabase (pg_cron, em supabase/schema.sql), porque o GitHub
+    # chega a atrasar 9 h. Hora UTC (= Lisboa no inverno; no verão é +1 h).
     # SportsGameOdds grátis: 2.500 jogos/mês; cada jogo lido conta 1. A The Odds API só entra nas datas sem linhas.
     - cron: '7 7 * * *'          # 7h: hoje e amanhã (vê se já há linhas para os jogos da noite seguinte)
     - cron: '7 16 * * *'         # 16h: hoje e amanhã
@@ -28,4 +29,4 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci --omit=dev
-      - run: node scripts/sync-odds.mjs ${{ github.event.schedule == '7 18-23,0-3 * * *' && '--pre' || inputs.dates }}
+      - run: node scripts/sync-odds.mjs ${{ github.event_name == 'schedule' && (github.event.schedule == '7 18-23,0-3 * * *' && '--pre' || '--auto') || inputs.dates }}

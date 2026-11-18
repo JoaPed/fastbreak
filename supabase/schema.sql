@@ -255,20 +255,55 @@ $$;
 -- guardada só no Vault do Supabase (nome 'github_dispatch'; nunca no repositório). Sem a chave, ou sem pg_net, fica
 -- como antes: a tarefa agendada apanha o pedido quando correr. Erros aqui nunca estragam o pedido.
 do $$ begin create extension if not exists pg_net; exception when others then null; end $$;
-create or replace function public.wake_requests() returns void
+-- Corre uma tarefa do GitHub (workflow_dispatch) com a chave do Vault; inputs = parâmetros da tarefa (ou nada)
+create or replace function public.dispatch_workflow(wf text, inputs jsonb default '{}'::jsonb) returns void
 language plpgsql security definer set search_path = public as $$
-declare tok text;
+declare tok text; body jsonb;
 begin
+  if wf is null or wf !~ '^[a-z0-9-]+\.yml$' then return; end if;
   execute 'select decrypted_secret from vault.decrypted_secrets where name = $1 limit 1' into tok using 'github_dispatch';
   if tok is null or tok = '' then return; end if;
+  body := jsonb_build_object('ref', 'main');
+  if inputs is not null and inputs <> '{}'::jsonb then body := body || jsonb_build_object('inputs', inputs); end if;
   execute 'select net.http_post(url := $1, body := $2, headers := $3)'
-    using 'https://api.github.com/repos/JoaPed/fastbreak/actions/workflows/pedidos.yml/dispatches',
-          jsonb_build_object('ref', 'main'),
+    using 'https://api.github.com/repos/JoaPed/fastbreak/actions/workflows/' || wf || '/dispatches', body,
           jsonb_build_object('Authorization', 'Bearer ' || tok, 'Accept', 'application/vnd.github+json',
                              'X-GitHub-Api-Version', '2022-11-28', 'User-Agent', 'fastbreak-site', 'Content-Type', 'application/json');
 exception when others then null;
 end;
 $$;
+create or replace function public.wake_requests() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.dispatch_workflow('pedidos.yml');
+end;
+$$;
+
+-- Horas certas: os agendamentos do GitHub chegam a atrasar 9 h (ou nem correm), por isso é o Supabase (pg_cron)
+-- que acorda as tarefas que têm hora marcada. Os do GitHub ficam de reserva (as tarefas não repetem trabalho).
+-- Hora UTC (= Lisboa no inverno). Volta a correr-se sem mal: cada agendamento tem nome e é substituído.
+do $$ begin create extension if not exists pg_cron; exception when others then null; end $$;
+create or replace function public.schedule_jobs() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int := 0; j record;
+begin
+  for j in select * from (values
+    ('fb-calendario-6',  '13 6 * * *',  'calendario.yml', '{}'),             -- jogos da noite acabados: estatísticas e últimos jogos
+    ('fb-calendario-9',  '17 9 * * *',  'calendario.yml', '{}'),
+    ('fb-calendario-12', '13 12 * * *', 'calendario.yml', '{}'),
+    ('fb-odds-7',        '7 7 * * *',   'odds.yml', '{"dates":"--auto"}'),   -- odds de hoje e amanhã
+    ('fb-odds-16',       '7 16 * * *',  'odds.yml', '{"dates":"--auto"}'),
+    ('fb-odds-pre',      '7,37 18-23,0-3 * * *', 'odds.yml', '{"dates":"--pre"}') -- lê uma vez quando faltam ≤ 2 h para o 1.º jogo
+  ) as t(name, spec, wf, inp) loop
+    execute 'select cron.schedule($1, $2, $3)' using j.name, j.spec,
+      format('select public.dispatch_workflow(%L, %L::jsonb)', j.wf, j.inp);
+    n := n + 1;
+  end loop;
+  return n;
+exception when others then return -1; -- sem pg_cron: fica só o agendamento do GitHub
+end;
+$$;
+do $$ begin perform public.schedule_jobs(); exception when others then null; end $$;
 
 -- Tarefas pedidas pelo admin no site (p. ex. ler as odds agora): fica o pedido em job_state 'requests'; a tarefa
 -- "Pedidos do site" (de 5 em 5 min) vê-o e corre. Um pedido por tarefa de cada vez (20 min de espera entre pedidos).
@@ -407,4 +442,6 @@ grant all on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
 revoke all on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.request_job(text), public.job_requests() from anon, public;
 revoke all on function public.wake_requests() from anon, authenticated, public;
+revoke all on function public.dispatch_workflow(text, jsonb) from anon, authenticated, public;
+revoke all on function public.schedule_jobs() from anon, authenticated, public;
 grant execute on function public.join_group(text), public.get_invite_code(), public.set_invite_code(text), public.group_status(), public.is_member(), public.is_admin(), public.request_job(text), public.job_requests() to authenticated;
