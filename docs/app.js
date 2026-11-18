@@ -2001,8 +2001,7 @@ function proOwned() {
   return out;
 }
 const TIER_RANK = { Common: 1, Fandom: 1, Rare: 2, Legendary: 3, Ultimate: 4 };
-// ---- Pro em ensaio na run Classic que está a decorrer ----
-// Enquanto o Pro não abre: cada dia da run leva uma regra inventada (as famílias do Pro à vez) para testar as contas.
+// ---- Pro: os dias e as regras de cartas vêm só do Top Shot (Run nova); sem leitura não se inventa nada ----
 // Preços: a carta mais barata de cada família, lida no Top Shot (Ajustes → Admin → Ler no Top Shot → Preços do Pro).
 try { S.proMine = JSON.parse(localStorage.getItem('fb-pro') || 'null'); } catch (e) { S.proMine = null; }
 // classificação do Pro (lida com os lugares): a mais recente entre a minha e as do grupo
@@ -2015,21 +2014,20 @@ function groupPro() {
   const docs = [S.proMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.pro)).filter(d => d && d.at && d.p);
   return docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
 }
-const proRuleTest = idx => PRO_FAM[idx % PRO_FAM.length];
 // ---- Pro a sério: dias, objetivos e regra de cartas lidos no Top Shot (Run e prémios / Preços do Pro) ----
 try { S.proRunMine = JSON.parse(localStorage.getItem('fb-prorun') || 'null'); } catch (e) { S.proRunMine = null; }
 function groupProRun() {
   // a leitura mais recente QUE COINCIDA com a run do site (mesmas datas): uma leitura de outra run ou com o leitor antigo
-  // (de qualquer pessoa do grupo) já não esconde as boas e não faz voltar ao ensaio
+  // (de qualquer pessoa do grupo) já não esconde as boas
   const ok = d => d && d.at && Array.isArray(d.days) && d.days.some(x => x && x.date && S.days.some(z => z.date === x.date));
   const docs = [S.proRunMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.prorun)).filter(ok);
   return docs.sort((p, q) => String(q.at).localeCompare(String(p.at)))[0] || null;
 }
 const proRunDay = date => { const R = groupProRun(); return R ? R.days.find(d => d.date === date) || null : null; };
-// regra de um dia: a do Top Shot ({sets, badges}) ou, sem ela, a do ensaio (as famílias à vez)
+// regra de um dia: a do Top Shot ({sets, badges}); sem leitura desse dia, null
 function proRule(idx) {
   const d = S.days[idx], pd = d && proRunDay(d.date);
-  if (!pd) return proRuleTest(idx);
+  if (!pd) return null;
   const q = pd.req || {}, sets = q.sets || [], badges = q.badges || [];
   const names = [...new Set(sets.map(z => z[1]).filter(Boolean))], fam = PRO_FAM.find(f => names.some(n => f.re.test(n))) || null;
   const tiers = [...new Set(sets.flatMap(z => z[2] || []))];
@@ -2095,7 +2093,8 @@ function proBest(md, pool) {
 function proDay(date) {
   const P = groupPro(), M = proModel(P), mw = M.mw; if (!mw) return null;
   const idx = S.days.findIndex(d => d.date === date), md = mw.days.find(z => z.day.date === date); if (idx < 0 || !md) return null;
-  const rule = proRule(idx), fam = M.owned.find(o => o.f.k === rule.k), ownBy = rule.real ? proOwnedReal(rule) : fam.by, mine = new Set([...ownBy.keys()]);
+  const rule = proRule(idx); if (!rule) return null;
+  const fam = M.owned.find(o => o.f.k === rule.k), ownBy = rule.real ? proOwnedReal(rule) : fam.by, mine = new Set([...ownBy.keys()]);
   const elig = i => md.eligSet.has(i);
   const ownIdx = [...mine].map(id => mw.pIndex.get(id)).filter(i => i != null && elig(i));
   const base = proBest(md, ownIdx);
@@ -2310,7 +2309,8 @@ function proFill(date, out, id) {
 }
 function proOwnedDayCard(date) {
   const idx = S.days.findIndex(d => d.date === date); if (idx < 0) return '';
-  const rule = proRule(idx), by = rule.real ? proOwnedReal(rule) : ((proOwned().find(o => o.f.k === rule.k) || {}).by || new Map());
+  const rule = proRule(idx); if (!rule) return '';
+  const by = rule.real ? proOwnedReal(rule) : ((proOwned().find(o => o.f.k === rule.k) || {}).by || new Map());
   const day = S.days[idx], teams = new Set(); (day.games || []).forEach(g => { teams.add(g[0]); teams.add(g[1]); });
   const col = (S.profile || {}).collection || {}, items = col.items || {};
   const askOf = id => { let a = null; Object.keys(items).forEach(f => { const it = items[f]; if (String(it.p) !== String(id)) return; const e = cardEd(col, f), t = (e && e.tier) || momentTier(col, f); if (e && e.ask && (rule.ok ? rule.ok(it.s, t, e) : rule.re.test(it.s)) && (a == null || e.ask < a)) a = e.ask; }); return a; };
@@ -2333,14 +2333,20 @@ function renderPro(el) {
   const today = todayET(), days = S.days.map((d, i) => ({ d, i })); // a run toda: os dias passados também se veem
   if (!days.some(x => x.d.date === S.proDay)) { const nx = days.find(x => x.d.date >= today); S.proDay = nx ? nx.d.date : days.length ? days[days.length - 1].d.date : null; }
   const PR = groupProRun();
-  const intro = PR ? '' : '<div class="note info">Ensaio do Pro na run Classic: cada dia leva uma regra inventada (Metallic Gold LE, Holo Icon, estreias, à vez). As regras a sério vêm do Top Shot em Ajustes → Admin → Run e prémios.</div>';
+  // sem o Pro desta run lido no Top Shot não há regras: diz quem o lê (e se a leitura que há é de outra run)
+  if (!PR) {
+    const old = [S.proRunMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.prorun)).filter(d => d && d.at && Array.isArray(d.days)).sort((p, q) => String(q.at).localeCompare(String(p.at)))[0];
+    el.innerHTML = empty('Pro', (old ? 'A leitura do Pro que há é de outra run (' + (old.name || old.id || '') + '). ' : 'O Pro desta run ainda não foi lido. ') + 'O admin lê em Ajustes → Admin → Run nova.');
+    return;
+  }
+  const intro = '';
   const strip = days.length ? '<div class="day-strip" role="group" aria-label="Dias do Pro">' + days.map(({ d, i }) => '<button type="button" class="ds' + (d.date < today ? ' past' : d.date === today ? ' now' : '') + '" data-action="pro-day" data-date="' + d.date + '" aria-pressed="' + (d.date === S.proDay) + '"><b class="num">' + (i + 1) + '</b><small>' + dWeek(d.date) + '</small><span class="ds-v">' + esc(proRule(i).short) + '</span></button>').join('') + '</div>' : '';
   let dayHtml = '';
   if (S.proDay) {
     const X = S.result ? proDay(S.proDay) : null, P = groupPro(), dn = S.days.findIndex(d => d.date === S.proDay) + 1, rule = proRule(dn - 1);
     const pdo = proRunDay(S.proDay), objs = pdo ? pdo.objs.map(o => o.t + ' ' + (o.a || o.k)).join(' + ') : ((S.days[dn - 1] || {}).objectives || []).filter(o => o && o.stat).map(o => o.target + ' ' + statShort(o.stat)).join(' + ');
     const li = (id, right, sub) => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + sub + '</small></span>' + right + '</li>';
-    const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">' + (rule.real ? 'Pro' : 'Pro (ensaio)') + ' · Dia ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Só contam cartas de <b>' + esc(rule.name) + '</b>' + (rule.badges && !edHasBadges() ? ' · para saber que cartas têm o emblema, o admin lê outra vez as Cartas (ASP) no Top Shot' : '') + '</div>' +
+    const head = '<div class="card hero day-hero">' + COURT + '<div class="hero-top"><span class="eyebrow">' + 'Pro · Dia ' + dn + ' · ' + esc(objs) + '</span></div><div class="small muted" style="margin-top:4px">Só contam cartas de <b>' + esc(rule.name) + '</b>' + (rule.badges && !edHasBadges() ? ' · para saber que cartas têm o emblema, o admin lê outra vez as Cartas (ASP) no Top Shot' : '') + '</div>' +
       // o placar segue a tua equipa: o custo à esquerda e a vitória no anel (mudam quando mexes no lineup)
       (X ? (T => '<div class="score"><div class="gblocks"><div class="gb"><span class="gb-st">' + (T.edited ? 'A tua equipa custa' : 'A sugestão custa') + '</span><span class="gb-n">' + (T.buy.length ? usdC(T.cost) : '$0') + '</span><span class="gb-t">' + (T.buy.length ? plural(T.buy.length, 'carta a comprar', 'cartas a comprar') + (T.nSwap ? ' · com trocas ' + usdC(T.cost2) : '') : 'só com o que tens') + (T.away.length ? ' · ' + plural(T.away.length, 'por mandar', 'por mandar') : '') + '</span></div></div>' + winRing(T.P, tone(T.P), pct(T.P), 'vitória') + '</div>')(proTeam(X, S.proDay)) : '') + '</div>';
     const closed = S.proDay < today || !!(pdo && pdo.locks && Date.now() >= Date.parse(pdo.locks));

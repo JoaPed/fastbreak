@@ -3358,5 +3358,9 @@
  ", tantos como as contas: cada conta tem ": ", as many as your accounts: each account has ",
  " por run e todas o podem jogar na mesma noite. Mais um do mesmo escalão não muda nada: escolhe um escalão acima.": " per run and they can all play him on the same night. One more of the same tier changes nothing: pick a tier higher.",
  " por run: escolhe um escalão acima.": " per run: pick a tier higher.",
- "<div class=\"small muted\" style=\"margin-top:8px\">Neve, gorros e o Pai Natal. Por agora só liga se escolheres Ligado.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, Santa hats and Santa Claus. For now it only turns on if you pick On.</div></div>"
+ "<div class=\"small muted\" style=\"margin-top:8px\">Neve, gorros e o Pai Natal. Por agora só liga se escolheres Ligado.</div></div>": "<div class=\"small muted\" style=\"margin-top:8px\">Snow, Santa hats and Santa Claus. For now it only turns on if you pick On.</div></div>",
+ "A leitura do Pro que há é de outra run (": "The Pro reading we have is from another run (",
+ "O Pro desta run ainda não foi lido. ": "This run's Pro hasn't been read yet. ",
+ "O admin lê em Ajustes → Admin → Run nova.": "The admin reads it in Settings → Admin → New run.",
+ "Pro · Dia ": "Pro · Day "
 }

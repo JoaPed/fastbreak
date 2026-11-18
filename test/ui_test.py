@@ -1694,6 +1694,16 @@ with sync_playwright() as pw:
     pr7 = {'at': '2026-10-19T10:00:00Z', 'id': 'run-nba-pro-2026-10-20', 'days': [
         {'id': 'p1', 'date': run['days'][0]['date'], 'objs': [{'k': 'points', 'a': 'PTS', 't': 80}], 'req': {'sets': [['5', 'Metallic Gold LE', []]], 'badges': [], 'all': False}},
         {'id': 'p2', 'date': run['days'][1]['date'], 'objs': [{'k': 'assists', 'a': 'AST', 't': 30}, {'k': 'steals', 'a': 'STL', 't': 4}], 'req': {'sets': [], 'badges': [['top-shot-debut', 'Top Shot Debut']], 'all': False}}]}
+    # sem o Pro lido: nada de regras inventadas, só o aviso de que falta ler
+    pg = new_page(b, dp)
+    pg.add_init_script("try { localStorage.removeItem('fb-prorun'); localStorage.setItem('fb-jmode', 'pro'); } catch (e) {}")
+    pg.clock.set_fixed_time('2026-10-19T14:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    t0 = pg.locator('#tab-hoje').inner_text()
+    print('O7 Pro por ler:', ' '.join(t0.split())[:120], '· ok' if 'ainda não foi lido' in t0 and 'nsaio' not in t0 and 'Metallic Gold LE' not in t0 else '· ERRO')
+    pg.close()
     pg = new_page(b, dp)
     ed7 = {'at': '2026-10-19T10:00:00Z', 'p': {pid7: [['Metallic Gold LE', '', 'MOMENT_TIER_RARE', 3000, None, None, None, None, None, 4000, []]],
             pb7: [['Base Set', '', 'MOMENT_TIER_COMMON', 200, None, None, None, None, None, 300, ['rookie-year', 'top-shot-debut']]],

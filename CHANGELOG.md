@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-18
+- **João** — Pro: sem ensaios. As regras de cada dia vêm só da leitura do Top Shot; sem leitura desta run, o separador diz que falta ler (em Ajustes → Admin → Run nova) em vez de inventar regras.
 - **João** — Modo Natal desligado para todos (volta melhorado mais perto do Natal); quem quiser liga em Ajustes → Preferências → Modo Natal → Ligado.
 - **João** — Comprar com várias contas: conta com as raridades de cada carta. Com 1 Rare e 2 Commons do mesmo jogador em 3 contas, um 2.º Rare já aparece (deixa duas contas fazerem a 2.ª jogada na mesma noite).
 - **João** — Comprar → Avaliar um jogador: quando já o tens em todas as contas, diz quantos Moments tens dele e porque mais um do mesmo escalão não muda nada (e responde logo, sem refazer a run).
