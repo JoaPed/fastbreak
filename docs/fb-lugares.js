@@ -337,6 +337,15 @@ async function go() {
     if (want.has('pro') && Array.isArray(job.pro) && job.pro.length) { try { out.pro = await proMarket(job.pro, Array.isArray(job.prd) ? job.prd : []); } catch (err) { out.pro = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
     if (want.has('sonda')) { try { out.sonda = await sondaPacks(); } catch (err) { out.sonda = { err: String(err.message || err).slice(0, 80) }; } }
     if (want.has('ed') && Array.isArray(job.cs) && job.cs.length) { try { out.ed = await editions(job.cs); } catch (err) { out.ed = { at: new Date().toISOString(), p: {}, err: String(err.message || err).slice(0, 80) }; } }
+    // sonda aberta por um link direto (sem "back"): mostra o resultado aqui para copiar, sem voltar ao site
+    if (out.sonda && !job.back) {
+      const txt = JSON.stringify(out.sonda);
+      say('Sonda dos packs: ' + ((out.sonda.methods || []).length) + ' pedidos encontrados. Copia e manda ao Claude.<textarea readonly style="width:100%;height:140px;margin-top:8px;font:11px monospace;color:#111"></textarea><button id="fblCopy" style="margin-top:6px;padding:8px 14px;font-weight:700">Copiar</button>');
+      const ta = box.querySelector('textarea'); ta.value = txt;
+      box.querySelector('#fblCopy').onclick = async () => { try { await navigator.clipboard.writeText(txt); box.querySelector('#fblCopy').textContent = 'Copiado ✓'; } catch (e) { ta.focus(); ta.select(); } };
+      try { localStorage.removeItem('fb-lugares'); } catch (e) {}
+      return;
+    }
     const back = (job.back || 'https://joaped.github.io/fastbreak/') + '#fbranks=' + B64.enc(out);
     const luN = (out.days || []).reduce((t, d) => t + Object.values(d.accs || {}).filter(a => a.lu && a.lu.length).length, 0);
     say('Feito: ' + [out.tr ? out.tr.done.length + ' Moments mandados' : '', want.has('ranks') || want.has('lu') ? out.accs.filter(x => x.found).length + ' contas na classificação' : '', want.has('lu') ? luN + ' lineups em ' + (out.days || []).length + ' dias' : '', out.picks ? out.picks.ev.length + ' picks' : out.picksErr ? 'picks: ' + out.picksErr : '', out.px ? 'preços de ' + Object.keys(out.px.p).length + ' jogadores' : '', out.ed ? 'cartas de ' + Object.keys(out.ed.p).length + ' jogadores' : '', out.pro ? 'preços do Pro de ' + Object.keys(out.pro.p).length + ' jogadores' : '', out.runs ? out.runs.map(r => (r.name || r.id) + ': ' + r.days.length + ' dias').join(', ') || 'nenhuma run Classic' : out.runErr ? 'run: ' + out.runErr : '', out.hist ? 'Historic: ' + out.hist.days.filter(d => d.lines && d.lines.length).length + ' dias jogados, ' + ((out.hist.days.find(d => d.players && d.players.length) || {}).players || []).length + ' lendas no próximo dia' : out.histErr ? 'Historic: ' + out.histErr : ''].filter(Boolean).join(', ') + '. A voltar ao site…');
