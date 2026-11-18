@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-18
+- **João** — Sonda dos packs (`sonda-packs.js`, só leitura de dados públicos do Top Shot) para descobrir onde estão os packs, o low ask e a circulação.
 - **João** — Suplente com várias contas: diz de que conta mandar o Moment dele («Mandar de Terose»), de preferência de uma conta que não o joga nessa noite; se todas as que o têm o jogam, avisa («Já joga em …»). Também na escolha do suplente.
 - **João** — Os últimos jogos e as médias deixam de ficar um dia atrasados: as tarefas com hora marcada (estatísticas às 6h, 9h e 12h; odds às 7h, 16h e antes do 1.º jogo) passam a ser acordadas pelo Supabase à hora certa, porque o GitHub as atrasava até 9 horas.
 - **João** — Odds dos jogadores vêm agora da SportsGameOdds (grátis, muito mais leituras): às 7h e às 16h (hoje e amanhã) e outra vez até 2 h antes do 1.º jogo, que é quando chega o aviso no Telegram; o botão «Ler odds» também a usa. A The Odds API fica de reserva.
