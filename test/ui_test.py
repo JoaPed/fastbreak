@@ -536,6 +536,24 @@ with sync_playwright() as pw:
     out = pg.locator('#buyOut').inner_text().replace('\n', ' | ')
     print('C4 Jokić nas 3 contas:', out[:200], '· ok' if '3 Moments' in out and 'tantos como as contas' in out else '· ERRO')
     pg.close()
+    # 1 Rare (principal) e 2 Commons (smurf_dois): a 2.ª jogada de cada conta precisa do Rare, por isso um 2.º Rare ainda conta
+    T['profiles'][-1]['collection']['players']['jokic']['owners'] = {'main': 1, 's2': 2}
+    T['profiles'][-1]['collection']['items'] = {'f1': {'p': 'jokic', 'a': 'main', 's': 'Metallic Gold LE'}, 'f2': {'p': 'jokic', 'a': 's2', 's': 'Base Set'}, 'f3': {'p': 'jokic', 'a': 's2', 's': 'Base Set'}}
+    T['profiles'][-1]['collection']['mt'] = {'f1': 'Rare', 'f2': 'Common', 'f3': 'Common'}
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
+    pg.click('#plSub button[data-action="buy-mode"][data-mode="more"]'); pg.wait_for_timeout(200)
+    pg.click('#plSub button[data-action="buy-uses"][data-n="2"]'); pg.wait_for_timeout(200)
+    pg.fill('#buySearch', 'Jok'); pg.wait_for_timeout(200)
+    pg.click('#buyFound button[data-action="buy-pick"][data-id="jokic"]'); pg.wait_for_timeout(300)
+    try: pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
+    except Exception: pass
+    out = pg.locator('#buyOut').inner_text().replace('\n', ' | ')
+    print('C4 Jokić 1 Rare + 2 Commons em 3 contas:', out[:200], '· ok' if out.strip() and 'escalão acima' not in out and '+1 Moment' in out else '· ERRO')
+    pg.close()
 
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']
@@ -871,7 +889,8 @@ with sync_playwright() as pw:
     pg.click('#tab-ajustes button[data-action="xmas"][data-v="off"]'); pg.wait_for_timeout(300)
     xo = pg.evaluate('[document.documentElement.classList.contains("xmas"), localStorage.getItem("fb-xmas")]')
     pg.click('#tab-ajustes button[data-action="xmas"][data-v="auto"]'); pg.wait_for_timeout(200)
-    print('G modo Natal:', xm, xo, '· ok' if xm == [True, True, True, 'on'] and xo == [False, 'off'] else '· ERRO')
+    xa = pg.evaluate('document.documentElement.classList.contains("xmas")')  # por defeito fica desligado
+    print('G modo Natal:', xm, xo, xa, '· ok' if xm == [True, True, True, 'on'] and xo == [False, 'off'] and xa is False else '· ERRO')
     print('G largura:', width(pg))
     pg.close()
 

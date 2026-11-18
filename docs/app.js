@@ -92,7 +92,7 @@ function applyTheme(t) {
 // modo Natal: em dezembro (até 6 de janeiro), ligado ou desligado (fica neste aparelho); o natal.css só carrega quando liga
 let xmas = 'auto';
 try { const x = localStorage.getItem('fb-xmas'); if (x === 'on' || x === 'off') xmas = x; } catch (e) {}
-const xmasSeason = () => { const d = new Date(), m = d.getMonth() + 1, dd = d.getDate(); return (m === 11 && dd >= 15) || m === 12 || (m === 1 && dd <= 6); }; // de 15 nov a 6 jan, ligado para todos
+const xmasSeason = () => false; // por agora não liga sozinho (o João tirou-o a 18 nov: volta melhorado, talvez em dezembro); só para quem escolher Ligado
 function applyXmas(v) {
   if (v) { xmas = v; try { if (v === 'auto') localStorage.removeItem('fb-xmas'); else localStorage.setItem('fb-xmas', v); } catch (e) {} }
   const on = xmas === 'on' || (xmas === 'auto' && xmasSeason());
@@ -4171,7 +4171,14 @@ function perRunUses(id) {
 }
 const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
 // com smurfs: mais um Moment de quem já tens serve enquanto houver contas sem ele (mais contas a jogá-lo na mesma noite)
-const copyHelps = id => !!S.multi && collectionInfo(id).copies < accounts().length;
+// ou sem uma carta de U usos (p. ex. 1 Rare e 2 Commons em 3 contas: a 2.ª jogada de cada conta precisa do Rare, e
+// ele só joga numa conta por noite; um 2.º Rare deixa duas contas fazerem a 2.ª jogada na mesma noite)
+const copyHelps = (id, U) => {
+  if (!S.multi) return false;
+  const ci = collectionInfo(id), n = accounts().length; if (ci.copies < n) return true;
+  const cd = (ci.cards || []).slice().sort((x, y) => y - x);
+  return !!(U && cd.length >= n && cd[n - 1] < U);
+};
 // U = usos do Moment a comprar (1 Common, 2 Rare, 4 Legendary) ou 0 = qualquer escalão: para cada jogador fica o
 // escalão que mais compensa (precisa dos preços lidos no Top Shot; sem eles, fica o Rare).
 // sort: 'value' = ganho na run por dólar (o que mais rende por cada dólar gasto) · 'gain' = o que mais sobe a run
@@ -4186,7 +4193,7 @@ const costOf = (id, u) => { const p = mktOf(id, u); if (!p || p.ask == null) ret
 // a compra de um Moment de u usos num plantel de ensaio: jogador novo (fica na conta principal), ou mais usos (e mais
 // um Moment) para quem já tens
 const buyAdd = (id, u) => pl => {
-  if (pl[id]) { pl[id].uses = (+pl[id].uses || 0) + usesGain(id, u); pl[id].copies = (pl[id].copies || 1) + 1; pl[id].owner = null; }
+  if (pl[id]) { pl[id].uses = (+pl[id].uses || 0) + usesGain(id, u); pl[id].copies = (pl[id].copies || 1) + 1; pl[id].owner = null; if (Array.isArray(pl[id].cards)) pl[id].cards = pl[id].cards.concat(u).sort((x, y) => y - x); /* a carta nova conta nos escalões */ }
   else { const c = S.players.get(String(id)) || {}; pl[id] = { name: c.name || id, team: c.team || '', uses: u, status: 'ok', avg: c.avg || null, copies: 1, owner: 'main' }; }
 };
 async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refineN, maxPrice, sort, Uof: Uin }) {
@@ -4196,7 +4203,7 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
   const byValue = sort === 'value' && pxReady();
   const Uof = Object.assign({}, Uin || {}), uOf = id => Uof[id] || U || 2;
   // escalões que servem para um jogador: à venda (até ao preço máximo) e, se já o tens, que deem mais usos
-  const tiersFor = id => BUY_TIERS.filter(u => { const a = askOf(id, u); return a != null && (!(maxPrice > 0) || a <= maxPrice) && (!owned(id) || usesGain(id, u) > 0); });
+  const tiersFor = id => BUY_TIERS.filter(u => { const a = askOf(id, u); return a != null && (!(maxPrice > 0) || a <= maxPrice) && (!owned(id) || usesGain(id, u) > 0 || copyHelps(id, u)); });
   let pool;
   if (onlyId) pool = [String(onlyId)];
   else if (ids) pool = ids.map(String); // "Testar mais": estes, já escolhidos
@@ -4205,8 +4212,8 @@ async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refi
     // jogadores novos e também um Moment de escalão acima de quem já tens (p. ex. um Rare de quem só tem um Common)
     pool = [...S.players.values()].filter(p => p.team && p.avg && teams.has(p.team) && (!owned(p.id) || (r.model.pIndex.get(String(p.id)) != null && (any ? BUY_TIERS.some(u => usesGain(p.id, u) > 0) : usesGain(p.id, U) > 0)))).map(p => String(p.id));
     // com smurfs: também mais um Moment de quem tens em menos contas do que as que há (para mais contas o usarem na mesma noite)
-    if (mode === 'mix') pool = [...new Set(pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && copyHelps(id))))];
-  } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && ((any ? BUY_TIERS.some(u => usesGain(id, u) > 0) : usesGain(id, U) > 0) || copyHelps(id)));
+    if (mode === 'mix') pool = [...new Set(pool.concat(Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && (any ? BUY_TIERS.some(u => copyHelps(id, u)) : copyHelps(id, U)))))];
+  } else pool = Object.keys(S.mine.roster).filter(id => r.model.pIndex.get(id) != null && ((any ? BUY_TIERS.some(u => usesGain(id, u) > 0) : usesGain(id, U) > 0) || (any ? BUY_TIERS.some(u => copyHelps(id, u)) : copyHelps(id, U))));
   // com os preços do Top Shot lidos: fora quem não tem um Moment desse escalão à venda
   let unsold = 0;
   if (!onlyId && !ids && pxReady()) { const n0 = pool.length; pool = pool.filter(id => (any ? BUY_TIERS.some(u => buyable(id, u)) : buyable(id, U))); unsold = n0 - pool.length; }
@@ -4344,7 +4351,7 @@ async function buyRun(onlyId) {
   // avaliar um jogador: no escalão escolhido (com "Qualquer", o Rare)
   const U = onlyId ? (B.uses || 2) : B.uses, UT = U || 2;
   // já tem tudo o que esse escalão dá: diz logo, sem refazer a run
-  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) {
+  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId, UT)) {
     B.busy = false;
     const nc = collectionInfo(onlyId).copies;
     // com smurfs: diz em quantas contas já está (é isso que decide se mais um Moment serve)
@@ -4600,7 +4607,7 @@ function buyResultsHtml(R) {
       : byPrize ? '<div class="buy-gain">' + best.p.wins + ' vitórias' + (multi ? ' (' + esc(accLabel(best.k)) + ')' : '') + ': ' + pct(best.from) + ' → <span class="up">' + pct(best.to) + '</span> <small>+' + (pp(best.to) - pp(best.from)) + '%</small></div>'
       : '<div class="buy-gain">Vitórias esperadas: ' + f1(e0) + ' → <span class="up">' + f1(e1) + '</span></div>';
     // enquanto houver contas sem ele, mais um Moment deixa mais uma conta jogá-lo na mesma noite; depois, o ganho são os usos
-    const twoSame = multi && more && copyHelps(id) && days.some(z => z.acc.length > 1), one = collectionInfo(id).copies === 1;
+    const twoSame = multi && more && copyHelps(id, R.U) && days.some(z => z.acc.length > 1), one = collectionInfo(id).copies === 1;
     const why = !days.length ? 'Não entra em dias novos: liberta outros jogadores.'
       : (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, R.U) ? 'Com mais ' + usesTxt(usesGain(id, R.U)) + (multi ? ' em cada conta' : '') + ', ' : (one ? 'Com um 2.º Moment (as duas contas na mesma noite), ' : 'Com mais um Moment (mais uma conta na mesma noite), ')) : '') + (more && !twoSame ? 'joga' : 'Joga') + (days.length > 1 ? ' nos dias ' : ' no dia ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (além dos que já jogava)' : '') + ':';
     const dayLines = days.map(z => { const day = S.days.find(q => q.date === z.d.date) || {};
@@ -5089,7 +5096,7 @@ function renderAjustes() {
     '<div class="seg acc-seg" role="group" aria-label="Aspeto">' + [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']].map(([k, l]) => '<button type="button" data-action="theme" data-v="' + k + '" aria-pressed="' + (theme === k) + '">' + l + '</button>').join('') + '</div></div>');
   if (sub === 'prefs') html.push('<div class="card panel"><h2>Modo Natal</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="Modo Natal">' + [['auto', 'Automático'], ['on', 'Ligado'], ['off', 'Desligado']].map(([k, l]) => '<button type="button" data-action="xmas" data-v="' + k + '" aria-pressed="' + (xmas === k) + '">' + l + '</button>').join('') + '</div>' +
-    '<div class="small muted" style="margin-top:8px">Neve, gorros e o Pai Natal. Fica ligado para todos de 15 de novembro a 6 de janeiro.</div></div>');
+    '<div class="small muted" style="margin-top:8px">Neve, gorros e o Pai Natal. Por agora só liga se escolheres Ligado.</div></div>');
   if (sub === 'prefs' && accounts().length > 1) {
     const p = (S.mine.plan || {}).prio || 'auto', au = prioAuto();
     html.push('<div class="card panel"><h2>Prioridade entre contas ' + helpBtn('prio') + '</h2>' +
