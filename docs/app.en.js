@@ -2336,14 +2336,16 @@ function renderPro(el) {
   const PR = groupProRun();
   // sem o Pro desta run lido no Top Shot não há regras: diz quem o lê (e se a leitura que há é de outra run)
   if (!PR) {
+    if (!S.days.length) { el.innerHTML = ''; return; } // a run ainda a carregar
     const old = [S.proRunMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.prorun)).filter(d => d && d.at && Array.isArray(d.days)).sort((p, q) => String(q.at).localeCompare(String(p.at)))[0];
     el.innerHTML = empty('Pro', (old ? 'The Pro reading we have is from another run (' + (old.name || old.id || '') + '). ' : 'This run\'s Pro hasn\'t been read yet. ') + 'The admin reads it in Settings → Admin → New run.');
     return;
   }
   const intro = '';
-  const strip = days.length ? '<div class="day-strip" role="group" aria-label="Pro days">' + days.map(({ d, i }) => '<button type="button" class="ds' + (d.date < today ? ' past' : d.date === today ? ' now' : '') + '" data-action="pro-day" data-date="' + d.date + '" aria-pressed="' + (d.date === S.proDay) + '"><b class="num">' + (i + 1) + '</b><small>' + dWeek(d.date) + '</small><span class="ds-v">' + esc(proRule(i).short) + '</span></button>').join('') + '</div>' : '';
+  const strip = days.length ? '<div class="day-strip" role="group" aria-label="Pro days">' + days.map(({ d, i }) => '<button type="button" class="ds' + (d.date < today ? ' past' : d.date === today ? ' now' : '') + '" data-action="pro-day" data-date="' + d.date + '" aria-pressed="' + (d.date === S.proDay) + '"><b class="num">' + (i + 1) + '</b><small>' + dWeek(d.date) + '</small><span class="ds-v">' + esc((proRule(i) || { short: '–' }).short) + '</span></button>').join('') + '</div>' : '';
   let dayHtml = '';
-  if (S.proDay) {
+  if (S.proDay && !proRule(S.days.findIndex(d => d.date === S.proDay))) dayHtml = '<div class="note info">This day doesn\'t have the Top Shot rules yet: the admin reads them in Settings → Admin → New run.</div>';
+  else if (S.proDay) {
     const X = S.result ? proDay(S.proDay) : null, P = groupPro(), dn = S.days.findIndex(d => d.date === S.proDay) + 1, rule = proRule(dn - 1);
     const pdo = proRunDay(S.proDay), objs = pdo ? pdo.objs.map(o => o.t + ' ' + (o.a || o.k)).join(' + ') : ((S.days[dn - 1] || {}).objectives || []).filter(o => o && o.stat).map(o => o.target + ' ' + statShort(o.stat)).join(' + ');
     const li = (id, right, sub) => '<li class="row pro-row">' + face(id, 'sm') + '<span class="pro-n"><b>' + esc(nameOf(id)) + '</b><small class="muted">' + sub + '</small></span>' + right + '</li>';

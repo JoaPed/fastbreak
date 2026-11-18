@@ -3362,5 +3362,6 @@
  "A leitura do Pro que há é de outra run (": "The Pro reading we have is from another run (",
  "O Pro desta run ainda não foi lido. ": "This run's Pro hasn't been read yet. ",
  "O admin lê em Ajustes → Admin → Run nova.": "The admin reads it in Settings → Admin → New run.",
- "Pro · Dia ": "Pro · Day "
+ "Pro · Dia ": "Pro · Day ",
+ "<div class=\"note info\">Este dia ainda não tem as regras do Top Shot: o admin lê em Ajustes → Admin → Run nova.</div>": "<div class=\"note info\">This day doesn't have the Top Shot rules yet: the admin reads them in Settings → Admin → New run.</div>"
 }
