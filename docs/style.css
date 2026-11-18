@@ -1141,6 +1141,18 @@ p, .note { text-wrap: pretty; }
 .pro-free .pro-n b { color: var(--muted); }
 .pro-pick-p { display: grid; justify-items: end; gap: 1px; } .pro-pick-p b { font-family: var(--font-display); font-weight: 800; font-size: 18px; } .pro-pick-p small { font-size: 12px; }
 .pro-pick-seg { margin: 12px 0 0; }
+/* "Quem entra?" do Pro: preço ao lado do nome, stats esperadas e quanto sobe à direita */
+.pq-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pq-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pq-px { flex: none; font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--good-bg); color: var(--good); }
+.pq-px.own { background: color-mix(in srgb, #3b82f6 18%, transparent); color: #3b82f6; }
+.pq-tier { display: inline-block; font-size: 11px; line-height: 1.3; padding: 0 5px; margin-right: 4px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); }
+.pq-r { display: flex; align-items: center; gap: 12px; }
+.pq-st { display: flex; gap: 10px; }
+.pq-st > div { display: grid; justify-items: center; line-height: 1; }
+.pq-st b { font-family: var(--font-display); font-weight: 700; font-size: 20px; }
+.pq-st .u { font-size: 10px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.pq-row .pro-pick-p b { font-size: 16px; }
 .pro-away { margin: 0 16px 12px; }
 .pro-src { font-family: var(--font-body, inherit); font-weight: 500; font-size: 13px; }
 .ds.past { opacity: .62; } .ds.past[aria-pressed="true"] { opacity: 1; }

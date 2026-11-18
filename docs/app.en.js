@@ -2251,6 +2251,17 @@ function proSub(X, id) {
   const sw = proSwapOf(id, c.pr);
   return 'buy · ' + esc(proTierTxt(c.pr[1])) + ' ' + esc(c.pr[2] || '') + ' · low&nbsp;ask <b class="num">' + usdC(c.pr[0]) + '</b>' + (sw ? ' · or swap your ' + esc(String(sw.it.s || '').split(' · ')[0]) + ': <b class="num">' + usdS(sw.diff) + '</b>' : '');
 }
+// "Quem entra?": o preço ao lado do nome (verde = compras, azul = tens), a carta por baixo, as stats esperadas à direita
+function proPickParts(X, id) {
+  const c = X.cand.get(id); if (!c) return { px: '', sub: '' };
+  const tag = t => (t ? '<span class="pq-tier">' + esc(t) + '</span>' : '');
+  if (c.own) {
+    const accs = [...c.own.accs], set = [...c.own.sets][0] || '';
+    return { px: '<span class="pq-px own">yours</span>', sub: tag(c.own.tier) + esc(set) + (c.own.accs.has('main') ? '' : ' · <b class="c-warn">it is in ' + esc(accs.map(accLabel).join(', ')) + '</b>') };
+  }
+  const sw = proSwapOf(id, c.pr);
+  return { px: '<span class="pq-px num">' + usdC(c.pr[0]) + '</span>', sub: tag(proTierTxt(c.pr[1])) + esc(c.pr[2] || '') + (sw ? ' · or swap your ' + esc(String(sw.it.s || '').split(' · ')[0]) + ': <b class="num">' + usdS(sw.diff) + '</b>' : '') };
+}
 function proTeamCard(X, date) {
   const T = proTeam(X, date), md = X.md, day = md.day;
   const row = id => { const c = X.cand.get(id), p = X.mw.players[c.pi];
@@ -2268,9 +2279,10 @@ function proPickSheet(date, out) {
   const P0 = out ? T.P : (restPi.length ? proP(md, restPi) : 0), only = S.proPickOwn === true;
   const list = [...X.cand.entries()].filter(([id, c]) => !T.ids.includes(id) && (!only || c.own)).map(([id, c]) => ({ id, c, P: proP(md, restPi.concat([c.pi])), cost: c.own ? 0 : c.pr[0] }))
     .sort((a, b) => b.P - a.P || a.cost - b.cost).slice(0, 80);
-  const rows = list.map(x => { const p = X.mw.players[x.c.pi], d = x.P - P0;
-    return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row pro-row" type="button" data-action="pro-fill" data-date="' + date + '" data-out="' + esc(out) + '" data-id="' + esc(x.id) + '">' + face(x.id, 'sm') + '<span class="pro-n"><b>' + esc(p.name) + '</b><small class="muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '</small><small class="pro-sub">' + proSub(X, x.id) + '</small></span>' +
-      '<span class="pro-pick-p"><b class="num">' + pct(x.P) + '</b><small class="num ' + (d > 0.0005 ? 'c-good' : d < -0.0005 ? 'c-bad' : 'muted') + '">' + (Math.abs(d) < 0.0005 ? '=' : (d > 0 ? '+' : '−') + pct(Math.abs(d))) + '</small></span></button></li>'; }).join('');
+  const rows = list.map(x => { const p = X.mw.players[x.c.pi], d = x.P - P0, q = proPickParts(X, x.id);
+    const fv = v => (Math.abs(v) >= 10 ? f0(v) : f1(v)), stats = objVals(md, x.c.pi).map(v => '<div><b class="num">' + fv(v.v) + '</b><span class="u">' + esc(statShort(v.o.stat)) + '</span></div>').join('');
+    return '<li data-n="' + esc(norm(p.name) + ' ' + String(p.team || '').toLowerCase()) + '"><button class="row pro-row pq-row" type="button" data-action="pro-fill" data-date="' + date + '" data-out="' + esc(out) + '" data-id="' + esc(x.id) + '">' + face(x.id, 'sm') + '<span class="pro-n"><b class="pq-name"><span>' + esc(p.name) + '</span>' + q.px + '</b><small class="muted">' + esc(p.team) + ' ' + esc(opp(p.team, day)) + '</small><small class="pro-sub">' + q.sub + '</small></span>' +
+      '<span class="pq-r"><span class="pq-st">' + stats + '</span><span class="pro-pick-p"><b class="num ' + (d > 0.0005 ? 'c-good' : d < -0.0005 ? 'c-bad' : 'muted') + '">' + (Math.abs(d) < 0.0005 ? '=' : (d > 0 ? '+' : '−') + pct(Math.abs(d))) + '</b><small class="num muted">' + pct(x.P) + '</small></span></span></button></li>'; }).join('');
   openSheet('<h3>Who comes in?</h3><div class="small muted">' + (out ? 'Instead of ' + esc(nameOf(out)) + ' · ' : '') + 'team now ' + pct(P0) + ' · Only cards from <b>' + esc(X.rule.name) + '</b></div>' +
     '<div class="seg pro-pick-seg" role="group" aria-label="Show"><button type="button" data-action="pro-pick-f" data-v="all" data-date="' + date + '" data-out="' + esc(out) + '" aria-pressed="' + !only + '">All</button><button type="button" data-action="pro-pick-f" data-v="own" data-date="' + date + '" data-out="' + esc(out) + '" aria-pressed="' + only + '">Only yours</button></div>' +
     (rows ? '<div class="lu-search"><input class="field" id="luSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player"></div><ul class="list card" id="luCand">' + rows + '<li class="row small muted lu-none" hidden>Nobody with that name plays on this day.</li></ul>'
