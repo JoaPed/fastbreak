@@ -374,7 +374,7 @@ export function consensusFromEvent(ev) {
 // SportsGameOdds (1 jogo = 1 "objeto", com todas as estatísticas e casas): event.odds[oddID], oddID =
 // {statID}-{jogador}-{período}-{tipo}-{lado}, p. ex. points-LEBRON_JAMES_1_NBA-game-ou-over. Linha = bookOverUnder
 // (ou fairOverUnder); probabilidade = fairOdds do over (já sem margem) ou, sem ela, o par over/under das casas.
-export const SGO_STAT = { points: 'pts', rebounds: 'reb', assists: 'ast', threePointersMade: 'fg3', steals: 'stl', blocks: 'blk', turnovers: 'tov', fieldGoalsMade: 'fgm', freeThrowsMade: 'ftm', freeThrowsAttempted: 'fta' };
+export const SGO_STAT = { points: 'pts', rebounds: 'reb', assists: 'ast', threePointersMade: 'fg3', steals: 'stl', blocks: 'blk', turnovers: 'tov', fieldGoalsMade: 'fgm', freeThrowsMade: 'ftm', freeThrowsAttempted: 'fta', offensiveRebounds: 'oreb', defensiveRebounds: 'dreb', fieldGoalsAttempted: 'fga', threePointersAttempted: 'fg3a' };
 export function sgoName(ev, pid) {
   const p = ((ev && ev.players) || {})[pid] || {};
   const n = p.name || (p.names && (p.names.display || p.names.full)) || [p.firstName, p.lastName].filter(Boolean).join(' ');

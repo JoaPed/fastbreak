@@ -20,6 +20,9 @@ const need = {};
 const real = new Set((await must(sb.from('runs').select('id').eq('fictitious', false))).map(r => r.id)); // runs de teste não gastam créditos
 const rows = (await must(sb.from('run_days').select('run_id,date,objectives').in('date', dates))).filter(r => real.has(r.run_id));
 for (const r of rows) for (const o of r.objectives || []) for (const m of marketsForStat(o.stat)) (need[r.date] = need[r.date] || new Set()).add(m);
+// na SportsGameOdds também há linhas das próprias (ressaltos ofensivos, tentados…): guarda-se a estatística e as parecidas
+const needStats = {};
+for (const r of rows) for (const o of r.objectives || []) for (const x of String(o.stat || '').split(/[+-]/)) (needStats[r.date] = needStats[r.date] || new Set()).add(x);
 if (!Object.keys(need).length) { console.log('Nenhum objetivo definido para', dates.join(', '), '— não gasto créditos.'); process.exit(0); }
 
 const catalog = await must(sb.from('nba_players').select('id,name'));
@@ -40,7 +43,7 @@ async function save(date, players, source) {
 if (SGO) {
   let objs = 0; const seen = new Set();
   for (const date of Object.keys(need)) {
-    const want = new Set([...need[date]].map(m => MARKET_STAT[m]).filter(Boolean));
+    const want = new Set([...need[date]].map(m => MARKET_STAT[m]).filter(Boolean).concat([...(needStats[date] || [])]));
     // dia NBA (Nova Iorque) com folga: filtra-se depois pela data de cada jogo
     const qs = 'leagueID=NBA&oddsAvailable=true&limit=50&startsAfter=' + encodeURIComponent(date + 'T00:00:00Z') + '&startsBefore=' + encodeURIComponent(addDays(date, 1) + 'T12:00:00Z');
     let cursor = null, evs = [];
@@ -70,7 +73,9 @@ if (SGO) {
   console.log('SportsGameOdds: ' + objs + ' jogos lidos nesta execução · estatísticas de jogadores vistas: ' + ([...seen].join(', ') || 'nenhuma'));
   try {
     const u = await fetch(SGO_API + '/account/usage', { headers: { 'x-api-key': SGO } }).then(r => (r.ok ? r.json() : null));
-    if (u) console.log('::notice title=SportsGameOdds::uso ' + JSON.stringify(u.data || u).slice(0, 300));
+    // só os limites (a resposta traz também o email da conta, que não pode ir para o registo público)
+    const rl = u && (u.data || u).rateLimits;
+    if (rl) console.log('::notice title=SportsGameOdds::uso ' + JSON.stringify(rl['per-month'] || rl).slice(0, 300));
   } catch (e) { /* o uso é só informativo */ }
 }
 
