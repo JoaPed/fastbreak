@@ -4,6 +4,8 @@
 //     SportsGameOdds não deu nada (ou sem a chave dela). ODDS_ONLY_SGO=1 não gasta créditos da The Odds API.
 // Estatísticas sem mercado (pontos na área, ressaltos ofensivos, tentados) usam o mercado mais parecido.
 // Uso: node scripts/sync-odds.mjs [AAAA-MM-DD ...]   (por defeito: hoje e amanhã, hora de Nova Iorque)
+//      node scripts/sync-odds.mjs --pre   (de hora a hora à noite: só lê hoje, uma vez, quando faltam ≤ 2 h para o
+//      1.º jogo; é a única leitura que avisa o grupo no Telegram)
 import { supa, must, etDate, addDays, marketsForStat, consensusFromEvent, consensusFromSGO, MARKET_STAT, matchPlayers, getState, setState, oddsReadyText } from './lib.mjs';
 
 const KEY = process.env.ODDS_API_KEY, SGO = (process.env.SGO_API_KEY || '').trim(), ONLY_SGO = process.env.ODDS_ONLY_SGO === '1';
@@ -13,11 +15,21 @@ const API = 'https://api.the-odds-api.com/v4/sports/basketball_nba', SGO_API = '
 const sb = await supa();
 const today = etDate(Date.now());
 const dates = process.argv.slice(2).filter(a => /^\d{4}-\d{2}-\d{2}$/.test(a));
-if (!dates.length) dates.push(today, addDays(today, 1));
+const PRE = process.argv.includes('--pre');
+if (!dates.length) dates.push(today, ...(PRE ? [] : [addDays(today, 1)]));
 
 // que estatísticas são precisas em cada data (objetivos das runs)
 const need = {};
 const real = new Set((await must(sb.from('runs').select('id').eq('fictitious', false))).map(r => r.id)); // runs de teste não gastam créditos
+// hora do 1.º jogo de hoje (dos dias das runs)
+const firstTip = async () => { const games = (await must(sb.from('run_days').select('run_id,games').eq('date', today))).filter(r => real.has(r.run_id)).flatMap(r => r.games || []);
+  const tips = games.map(g => (Array.isArray(g) && g[2] ? Date.parse(g[2]) : NaN)).filter(x => isFinite(x)); return tips.length ? Math.min(...tips) : null; };
+if (PRE) {
+  const first = await firstTip(), st = await getState(sb, 'odds-pre', {}), left = first ? (first - Date.now()) / 36e5 : null;
+  if (st.date === today) { console.log('Leitura antes do jogo já feita hoje.'); process.exit(0); }
+  if (!first || left <= 0 || left > 2) { console.log('Antes do jogo: ainda não (1.º jogo ' + (first ? 'daqui a ' + left.toFixed(1) + ' h' : 'sem hora') + ').'); process.exit(0); }
+  console.log('Antes do jogo: 1.º jogo daqui a ' + left.toFixed(1) + ' h — a ler.');
+}
 const rows = (await must(sb.from('run_days').select('run_id,date,objectives').in('date', dates))).filter(r => real.has(r.run_id));
 for (const r of rows) for (const o of r.objectives || []) for (const m of marketsForStat(o.stat)) (need[r.date] = need[r.date] || new Set()).add(m);
 // na SportsGameOdds também há linhas das próprias (ressaltos ofensivos, tentados…): guarda-se a estatística e as parecidas
@@ -122,11 +134,11 @@ if (used != null) {
 // grupo do Telegram (em inglês): as odds de hoje chegaram, ir ver o lineup e fixá-lo. Uma vez por dia, só em dia
 // de run, com jogadores nas odds de hoje e antes do 1.º jogo
 const TG = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-if (TG && todayPlayers > 0) {
+if (PRE && todayPlayers > 0) await setState(sb, 'odds-pre', { date: today }); // sem linhas, tenta outra vez na hora seguinte
+if (TG && PRE && todayPlayers > 0) { // só a leitura de antes do jogo avisa
   try {
     const st = await getState(sb, 'odds-tg', {});
-    const games = (await must(sb.from('run_days').select('run_id,games').eq('date', today))).filter(r => real.has(r.run_id)).flatMap(r => r.games || []);
-    const tips = games.map(g => (Array.isArray(g) && g[2] ? Date.parse(g[2]) : NaN)).filter(x => isFinite(x)), first = tips.length ? Math.min(...tips) : null;
+    const first = await firstTip();
     let chat = (process.env.TELEGRAM_CHAT_ID || '').trim() || ((await getState(sb, 'telegram', {})) || {}).chat || null;
     if (st.date === today) console.log('::notice title=Telegram::aviso das odds já enviado hoje');
     else if (first && Date.now() >= first) console.log('::notice title=Telegram::os jogos já começaram: sem aviso das odds');

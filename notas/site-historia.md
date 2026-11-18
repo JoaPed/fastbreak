@@ -201,6 +201,7 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
   cabeçalho `x-api-key`. Odds em `event.odds[oddID]`, oddID = `{statID}-{JOGADOR_1_NBA}-game-ou-over`; linha em
   `bookOverUnder`, preço sem margem em `fairOdds`. `GET /v2/account/usage` dá `rateLimits['per-month']`
   (a resposta traz o email da conta: nunca a escrever inteira no registo, que é público).
-- Três leituras por dia (10:07, 17:07, 22:37 UTC), cada uma hoje e amanhã. À tarde de Lisboa, o dia seguinte ainda
+- Leituras (hora UTC): 07:07 e 16:07 (hoje e amanhã) e, de hora a hora à noite, `--pre`: só hoje, uma vez, quando
+  faltam ≤ 2 h para o 1.º jogo (conta com o atraso do GitHub); só esta avisa o grupo no Telegram. À tarde de Lisboa, o dia seguinte ainda
   não tem linhas dos jogadores (4 jogos, 0 linhas às 15:30).
 - The Odds API só entra nas datas que a SportsGameOdds deixar sem linhas.
