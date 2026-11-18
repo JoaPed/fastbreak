@@ -522,6 +522,20 @@ with sync_playwright() as pw:
     out = pg.locator('#buyOut').inner_text().replace('\n', ' | ')
     print('C4 Jokić em 2 de 3 contas:', out[:200], '· ok' if out.strip() and 'escalão acima' not in out else '· ERRO')
     pg.close()
+    # nas 3 contas: diz que já há um por conta
+    T['profiles'][-1]['collection']['players']['jokic']['owners'] = {'main': 1, 's1': 1, 's2': 1}
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
+    pg.click('#t-plantel'); pg.wait_for_timeout(300); pg.click('#tab-plantel button[data-action="sub"][data-sub="comprar"]'); pg.wait_for_timeout(300)
+    pg.click('#plSub button[data-action="buy-mode"][data-mode="more"]'); pg.wait_for_timeout(200)
+    pg.click('#plSub button[data-action="buy-uses"][data-n="2"]'); pg.wait_for_timeout(200)
+    pg.fill('#buySearch', 'Jok'); pg.wait_for_timeout(200)
+    pg.click('#buyFound button[data-action="buy-pick"][data-id="jokic"]'); pg.wait_for_timeout(800)
+    out = pg.locator('#buyOut').inner_text().replace('\n', ' | ')
+    print('C4 Jokić nas 3 contas:', out[:200], '· ok' if '3 Moments' in out and 'tantos como as contas' in out else '· ERRO')
+    pg.close()
 
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']

@@ -4343,6 +4343,12 @@ async function buyRun(onlyId) {
   let res;
   // avaliar um jogador: no escalão escolhido (com "Qualquer", o Rare)
   const U = onlyId ? (B.uses || 2) : B.uses, UT = U || 2;
+  // já tem tudo o que esse escalão dá: diz logo, sem refazer a run
+  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) {
+    B.busy = false;
+    const nc = collectionInfo(onlyId).copies;
+    // com smurfs: diz em quantas contas já está (é isso que decide se mais um Moment serve)
+    $('buyOut').innerHTML = '<div class="note info">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as contas: cada conta tem ' + plural(perRunUses(onlyId), 'uso', 'usos') + ' por run e todas o podem jogar na mesma noite. Mais um do mesmo escalão não muda nada: escolhe um escalão acima.' : 'Já tens ' + esc(nameOf(onlyId)) + ' com ' + plural(perRunUses(onlyId), 'uso', 'usos') + ' por run: escolhe um escalão acima.') + '</div>'; return; }
   const prog = t => { B.prog = t; const el = $('buyProg'); if (el) el.textContent = t; };
   try {
     res = await computeBuy({ onlyId, mode, U, sort: B.sort, maxPrice, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog });
@@ -4352,7 +4358,6 @@ async function buyRun(onlyId) {
   finally { B.busy = false; }
   if (!res || !$('buyOut')) return;
   if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (res.priced != null ? 'Nenhum ' + (res.any ? 'Moment' : tierName(UT)) + ' com jogos nos dias que faltam está à venda até ' + usd(res.maxPrice) + '. Sobe o ' + (res.byBudget ? 'valor que tens para gastar' : 'preço máximo') + '.' : mode === 'more' ? 'Ninguém do teu plantel ganha usos com um Moment ' + tierName(UT) + (res.unsold ? ' que esteja à venda' : '') + '. Experimenta um escalão acima.' : res.unsold ? 'Nenhum dos candidatos tem um ' + tierName(UT) + ' à venda.' : 'Não há candidatos com jogos nos dias que faltam.') + '</div>'; return; }
-  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class="note info">Já tens ' + esc(nameOf(onlyId)) + ' com ' + plural(perRunUses(onlyId), 'uso', 'usos') + ' por run: escolhe um escalão acima.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
 }

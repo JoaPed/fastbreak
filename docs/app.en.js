@@ -4344,6 +4344,12 @@ async function buyRun(onlyId) {
   let res;
   // avaliar um jogador: no escalão escolhido (com "Qualquer", o Rare)
   const U = onlyId ? (B.uses || 2) : B.uses, UT = U || 2;
+  // já tem tudo o que esse escalão dá: diz logo, sem refazer a run
+  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) {
+    B.busy = false;
+    const nc = collectionInfo(onlyId).copies;
+    // com smurfs: diz em quantas contas já está (é isso que decide se mais um Moment serve)
+    $('buyOut').innerHTML = '<div class="note info">' + (S.multi ? 'You already have ' + plural(nc, 'Moment', 'Moments') + ' of ' + esc(nameOf(onlyId)) + ', as many as your accounts: each account has ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run and they can all play him on the same night. One more of the same tier changes nothing: pick a tier higher.' : 'You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.') + '</div>'; return; }
   const prog = t => { B.prog = t; const el = $('buyProg'); if (el) el.textContent = t; };
   try {
     res = await computeBuy({ onlyId, mode, U, sort: B.sort, maxPrice, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog });
@@ -4353,7 +4359,6 @@ async function buyRun(onlyId) {
   finally { B.busy = false; }
   if (!res || !$('buyOut')) return;
   if (res.noPool) { $('buyOut').innerHTML = '<div class="note info">' + (res.priced != null ? 'No ' + (res.any ? 'Moment' : tierName(UT)) + ' with games in the remaining days is listed up to ' + usd(res.maxPrice) + '. Raise the ' + (res.byBudget ? 'amount you have to spend' : 'max price') + '.' : mode === 'more' ? 'Nobody in your roster gains uses with a ' + tierName(UT) + (res.unsold ? ' that is for sale' : '') + '. Try a tier higher.' : res.unsold ? 'None of the candidates has a ' + tierName(UT) + ' for sale.' : 'There are no candidates with games in the remaining days.') + '</div>'; return; }
-  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class="note info">You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.</div>'; return; }
   B.results = res;
   $('buyOut').innerHTML = buyResultsHtml(res);
 }

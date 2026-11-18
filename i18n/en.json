@@ -2978,7 +2978,8 @@
    "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + (pxReady() ? '<butt": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
    "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
-   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "uses"
+   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "uses",
+   "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "uses"
   }
  },
  "uso": {
@@ -3016,7 +3017,8 @@
    "'<div><div class=\"label\" style=\"margin-bottom:6px\">Escalão do Moment</div><div class=\"chips\" role=\"group\" aria-label=\"Escalão do Moment\">' + (pxReady() ? '<butt": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
    "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
-   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "use"
+   "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "use",
+   "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "use"
   }
  },
  "derrota": {
@@ -3352,5 +3354,8 @@
  ", +1 Moment": null,
  "Com mais um Moment (mais uma conta na mesma noite), ": "With one more Moment (one more account on the same night), ",
  "Ver se compensa um 2.º Moment": "See if a 2nd Moment is worth it",
- "Ver se compensa mais um Moment": "See if one more Moment is worth it"
+ "Ver se compensa mais um Moment": "See if one more Moment is worth it",
+ ", tantos como as contas: cada conta tem ": ", as many as your accounts: each account has ",
+ " por run e todas o podem jogar na mesma noite. Mais um do mesmo escalão não muda nada: escolhe um escalão acima.": " per run and they can all play him on the same night. One more of the same tier changes nothing: pick a tier higher.",
+ " por run: escolhe um escalão acima.": " per run: pick a tier higher."
 }

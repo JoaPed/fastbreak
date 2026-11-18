@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-18
+- **João** — Comprar → Avaliar um jogador: quando já o tens em todas as contas, diz quantos Moments tens dele e porque mais um do mesmo escalão não muda nada (e responde logo, sem refazer a run).
 - **João** — Comprar → Melhorar os teus: com 3 ou mais contas, sugere também mais um Moment de quem já tens em 2 contas (p. ex. um 2.º Luka Rare), para a outra conta o jogar na mesma noite; antes só sugeria quando tinhas 1.
 - **João** — Modo Natal: o lineup volta a ver-se todo no telemóvel (o campo com a árvore fica por trás do título, sem ocupar espaço); com várias contas, a linha "Lineup · Porquê · Comparar" fica colada às contas.
 
