@@ -1,7 +1,1 @@
-[
- {
-  "file": "docs/app.js",
-  "text": " n.º ",
-  "line": "if (Array.isArray(cd) && cd.length && U) return tierName(U) + ' n.º ' + (cd.filter(u => (U >= 4 ? u >= 4 : u === U)).length + 1);"
- }
-]
+[]

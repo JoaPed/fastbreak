@@ -2980,7 +2980,8 @@
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
    "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "uses",
-   "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "uses"
+   "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "uses",
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge nth\">'": "uses"
   }
  },
  "uso": {
@@ -3019,7 +3020,8 @@
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !(S.multi && collectionInfo(onlyId).copies === 1)) { $('buyOut').innerHTML = '<div class=\"note i": true,
    "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "use",
-   "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "use"
+   "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "use",
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge nth\">'": "use"
   }
  },
  "derrota": {
@@ -3379,5 +3381,6 @@
  "<li><b>Avaliar um jogador</b>: faz o mesmo só para esse jogador, no escalão escolhido.</li></ul>": "<li><b>Check a player</b>: does the same for just that player, in the chosen tier.</li></ul>",
  "Moment n.º ": "Moment #",
  "<span class=\"badge new\">Novo</span>": "<span class=\"badge new\">New</span>",
- " n.º ": " #"
+ " n.º ": " #",
+ " Moment": null
 }

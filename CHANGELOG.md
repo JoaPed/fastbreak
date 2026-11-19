@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-19
+- **João** — Comprar: «NOVO» em azul (já não se confunde com o preço) e o n.º do Moment como «2.º Rare»; num jogador que tens noutro escalão, «1.º Rare · +1 uso».
 - **João** — Comprar: «Novo» nos jogadores que ainda não tens; o n.º do Moment que compras contado no mesmo escalão («Rare n.º 2» quando tens 1 Rare e 2 Commons) em vez de «2.º Moment»/«+1 Moment»; o detalhe de uma compra mostra as cartas que já tens dele e em que conta; novo escalão **All-Star · 3 usos** (Moments de ASP de 50 a 300 $; precisa do leitor v39 e de ler os preços outra vez), e o preço de cada escalão passa a ser o mais barato com esses usos (p. ex. um Common de ASP > 10 $ conta como 2 usos).
 - **João** — Comprar: o «?» explica cada filtro numa lista (Todos, Reforçar os teus, escalão, ordem, máximo por Moment, para gastar, os botões).
 

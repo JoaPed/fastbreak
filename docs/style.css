@@ -241,7 +241,8 @@ html, body { min-height: 100%; }
 .strip i.l { background: var(--bad); border-color: var(--bad); }
 .strip i.n { border-color: var(--ball); }
 .badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--muted); white-space: nowrap; flex: none; }
-.badge.new { background: var(--good-bg); color: var(--good); } /* compra de um jogador que ainda não tens */
+.badge.new { background: color-mix(in srgb, #3b82f6 22%, transparent); color: #3b82f6; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; font-size: 10px; } /* compra de um jogador que ainda não tens */
+.badge.nth { background: transparent; border: 1px solid var(--line); color: var(--ink); } /* 2.º Rare, 1.º Rare · +1 uso */
 .search-list { max-height: 46vh; overflow: auto; border-radius: 12px; border: 1px solid var(--line); }
 .search-list .row + .row { border-top: 1px solid var(--rule); }
 .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: var(--surface-2); padding: 2px 6px; border-radius: 6px; user-select: all; }

@@ -4217,9 +4217,11 @@ function perRunUses(id) {
 const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
 // n.º do Moment que se compra de quem já tens, contado no mesmo escalão de usos (1 Rare e 2 Commons, compra Rare →
 // «Rare n.º 2»); sem as cartas lidas, conta todos os Moments
+const ordN = n => (LANG === 'en' ? n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th') : n + '.º'); // 1.º / 1st
 const momentNth = (id, U) => { const cd = collectionInfo(id).cards;
-  if (Array.isArray(cd) && cd.length && U) return tierName(U) + ' n.º ' + (cd.filter(u => (U >= 4 ? u >= 4 : u === U)).length + 1);
-  return 'Moment n.º ' + (collectionInfo(id).copies + 1); };
+  if (Array.isArray(cd) && cd.length && U) return ordN(cd.filter(u => (U >= 4 ? u >= 4 : u === U)).length + 1) + ' ' + tierName(U);
+  if (U && usesGain(id, U) > 0) return ordN(1) + ' ' + tierName(U); // sobe de escalão: é o 1.º desse escalão
+  return ordN(collectionInfo(id).copies + 1) + ' Moment'; };
 // com smurfs: mais um Moment de quem já tens serve enquanto houver contas sem ele (mais contas a jogá-lo na mesma noite)
 // ou sem uma carta de U usos (p. ex. 1 Rare e 2 Commons em 3 contas: a 2.ª jogada de cada conta precisa do Rare, e
 // ele só joga numa conta por noite; um 2.º Rare deixa duas contas fazerem a 2.ª jogada na mesma noite)
@@ -4590,7 +4592,7 @@ function perUsdTxt(t) {
 // e por baixo quanto sobe e quanto era. Tocar abre os detalhes.
 function buyRow(R, t, i, src) {
   const c = S.players.get(t.id) || {}, own = !!S.mine.roster[t.id], g = usesGain(t.id, t.U);
-  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : momentNth(t.id, t.U)) + '</span>' : '<span class="badge new">Novo</span>') + mktSpan(t.id, t.U);
+  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge nth">' + momentNth(t.id, t.U) + (g > 0 ? ' · +' + plural(g, 'uso', 'usos') : '') + '</span>' : '<span class="badge new">Novo</span>') + mktSpan(t.id, t.U);
   const sub = teamTag(c.team) + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '');
   const right = t.byPrize
     ? '<span class="bg-top">' + t.best.p.wins + ' vitórias' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · era ' + pct(t.best.from) + '</span>'
