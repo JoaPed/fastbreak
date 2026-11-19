@@ -921,7 +921,7 @@ function pxIndex() {
   const key = [(S.group || {}).summaries, S.pxMine && S.pxMine.at];
   if (S.pxIdx && S.pxIdx.k[0] === key[0] && S.pxIdx.k[1] === key[1]) return S.pxIdx.m;
   const m = new Map(), docs = [S.pxMine].concat(((S.group || {}).summaries || []).map(x => x.share && x.share.px)).filter(d => d && d.at && d.p);
-  docs.forEach(d => Object.entries(d.p).forEach(([id, c]) => { const at = (d.t || {})[id] || d.at, o = m.get(id); if (Array.isArray(c) && (!o || at > o.at)) m.set(id, { c, at }); }));
+  docs.forEach(d => Object.entries(d.p).forEach(([id, c]) => { const at = (d.t || {})[id] || d.at, o = m.get(id); if (Array.isArray(c) && (!o || at > o.at)) m.set(id, { c, at, u: Array.isArray((d.u || {})[id]) ? d.u[id] : null }); }));
   S.pxIdx = { k: key, m };
   return m;
 }
@@ -930,6 +930,8 @@ const pxOf = id => { const x = pxIndex().get(String(canon(id))) || pxIndex().get
 const pxMiss = id => !!(S.pxMine && S.pxMine.miss && Date.now() - Date.parse(S.pxMine.at) < 3 * 864e5 && S.pxMine.miss.includes(String(canon(id))) && !pxOf(id));
 // com preços lidos: só se sugere quem tem um Moment desse escalão à venda
 const pxReady = () => pxIndex().size >= 50;
+// preços pelos usos (escalão + ASP) lidos? (leitor v39): dá para procurar Moments de 3 usos (ASP de 50 a 300 $)
+const pxUses = () => { let n = 0; for (const x of pxIndex().values()) if (x.u && ++n >= 20) return true; return false; };
 // as ofertas já foram lidas (leitor v35)? Sem elas o custo de uma compra é o preço todo
 const pxOffers = () => { let n = 0; for (const x of pxIndex().values()) if (x.c.length >= 6 && ++n >= 20) return true; return false; };
 const buyable = (id, U) => { const p = mktOf(id, U); return !!(p && p.ask != null); };
@@ -3772,7 +3774,7 @@ function collectionCard(compact) {
   return colSummary(col) + '<div class="card"><div class="list-head"><h2>Players</h2><span class="small muted" id="colCount">' + S.colN + ' players</span></div>' + colToolbar() + '<ul class="list" id="colList">' + rows + '</ul></div>';
 }
 // ---- coleção: resumo (Moments, jogadores, usos por run e escalões) ----
-const TIER_CLS = { Common: 'c', Fandom: 'f', Rare: 'r', 'Rare+': 'r', Legendary: 'l', Ultimate: 'u' };
+const TIER_CLS = { Common: 'c', Fandom: 'f', Rare: 'r', 'Rare+': 'r', 'All-Star': 'r', Legendary: 'l', Ultimate: 'u' };
 function tierCounts(col, c) { const o = {}; momentTiers(col, c).forEach(t => { o[t] = (o[t] || 0) + 1; }); return o; }
 const tierPills = o => TIERS.slice().reverse().filter(t => o[t]).map(t => '<span class="tpill t-' + TIER_CLS[t] + '">' + t + (o[t] > 1 ? ' <b>×' + o[t] + '</b>' : '') + '</span>').join('');
 function colSummary(col) {
@@ -4130,7 +4132,7 @@ function buyHtml() {
   if (!S.runId || !r || !r.model.days.length) return '<div class="note info">' + (S.runId ? 'The run has already finished.' : 'No runs yet.') + '</div>' + specHtml();
   return buyTipsCard(6) + '<div class="card panel"><h2>Look for buys ' + helpBtn('comprar') + '</h2>' +
     '<div class="seg acc-seg" role="group" aria-label="What to buy"><button type="button" data-action="buy-mode" data-mode="new" aria-pressed="' + (B.mode === 'new') + '">All</button><button type="button" data-action="buy-mode" data-mode="more" aria-pressed="' + (B.mode === 'more') + '">Upgrade yours</button></div>' +
-    '<div><div class="label" style="margin-bottom:6px">Moment tier</div><div class="chips" role="group" aria-label="Moment tier">' + (pxReady() ? '<button type="button" data-action="buy-uses" data-n="0" aria-pressed="' + (!B.uses) + '">Any</button>' : '') + [1, 2, 4].map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + ((B.uses || (pxReady() ? 0 : 2)) === n) + '">' + tierName(n) + ' · ' + plural(n, 'use', 'uses') + '</button>').join('') + '</div></div>' +
+    '<div><div class="label" style="margin-bottom:6px">Moment tier</div><div class="chips" role="group" aria-label="Moment tier">' + (pxReady() ? '<button type="button" data-action="buy-uses" data-n="0" aria-pressed="' + (!B.uses) + '">Any</button>' : '') + (pxUses() ? [1, 2, 3, 4] : [1, 2, 4]).map(n => '<button type="button" data-action="buy-uses" data-n="' + n + '" aria-pressed="' + ((B.uses || (pxReady() ? 0 : 2)) === n) + '">' + tierName(n) + ' · ' + plural(n, 'use', 'uses') + '</button>').join('') + '</div></div>' +
     (pxReady() ? '<div><div class="label" style="margin-bottom:6px">Sort by</div><div class="seg acc-seg" role="group" aria-label="Sort purchases"><button type="button" data-action="buy-sort" data-v="value" aria-pressed="' + (B.sort !== 'gain') + '">Most per dollar</button><button type="button" data-action="buy-sort" data-v="gain" aria-pressed="' + (B.sort === 'gain') + '">Biggest gain</button></div>' + '' + '</div>'
       : '<div class="small muted">No prices read from Top Shot (Settings → Admin → Read on Top Shot → Prices): purchases are sorted by gain, ignoring price.</div>') +
     (B.mode !== 'more' ? '<div class="buy-money"><label class="small muted">' + (pxReady() ? 'Max per Moment ($)' : 'Max price per Moment (optional, in $)') + '<input class="field" id="buyMax" name="buyMax" type="number" inputmode="decimal" min="0" step="1" placeholder="e.g. 6" value="' + (B.max || '') + '" autocomplete="off"></label>' +
@@ -4214,6 +4216,8 @@ function perRunUses(id) {
   return t != null ? t : (+e.uses || 0) + usedCount('main', id);
 }
 const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
+// n.º do Moment que se compra de quem já tens (o 2.º, o 3.º…)
+const momentNth = id => 'Moment #' + (collectionInfo(id).copies + 1);
 // com smurfs: mais um Moment de quem já tens serve enquanto houver contas sem ele (mais contas a jogá-lo na mesma noite)
 // ou sem uma carta de U usos (p. ex. 1 Rare e 2 Commons em 3 contas: a 2.ª jogada de cada conta precisa do Rare, e
 // ele só joga numa conta por noite; um 2.º Rare deixa duas contas fazerem a 2.ª jogada na mesma noite)
@@ -4226,7 +4230,7 @@ const copyHelps = (id, U) => {
 // U = usos do Moment a comprar (1 Common, 2 Rare, 4 Legendary) ou 0 = qualquer escalão: para cada jogador fica o
 // escalão que mais compensa (precisa dos preços lidos no Top Shot; sem eles, fica o Rare).
 // sort: 'value' = ganho na run por dólar (o que mais rende por cada dólar gasto) · 'gain' = o que mais sobe a run
-const BUY_TIERS = [1, 2, 4];
+let BUY_TIERS = [1, 2, 4]; // com os preços pelos usos (leitor v39) entra também o de 3 usos
 const askOf = (id, u) => { const p = mktOf(id, u); return p && p.ask != null ? +p.ask : null; };
 // Custo real de comprar para a run: paga-se o mais barato à venda e, no fim, revende-se à oferta mais alta dessa
 // edição (menos a comissão de venda). Sem oferta lida conta o preço todo. É uma estimativa: a oferta pode sair.
@@ -4241,6 +4245,7 @@ const buyAdd = (id, u) => pl => {
   else { const c = S.players.get(String(id)) || {}; pl[id] = { name: c.name || id, team: c.team || '', uses: u, status: 'ok', avg: c.avg || null, copies: 1, owner: 'main' }; }
 };
 async function computeBuy({ onlyId, ids, mode, U, topN, alive, prog, kicks, refineN, maxPrice, sort, Uof: Uin }) {
+  BUY_TIERS = pxUses() ? [1, 2, 3, 4] : [1, 2, 4];
   const r = mainResult(); if (!r || !r.model.days.length) return null;
   const owned = id => !!S.mine.roster[id];
   const any = !U && pxReady(); if (!U && !any) U = 2;
@@ -4430,7 +4435,7 @@ async function buyMore() {
   if ($('buyOut') && B.results === R) $('buyOut').innerHTML = buyResultsHtml(R);
 }
 // nome do escalão pelos usos do Moment a comprar (Common 1, Rare 2, Legendary 4)
-const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 3 ? 'Rare+' : n === 4 ? 'Legendary' : n + ' uses');
+const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 3 ? 'All-Star' : n === 4 ? 'Legendary' : n + ' uses');
 const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' use' + (n > 1 ? 's' : '') + ')' : n + ' uses');
 // Sugestões de compra calculadas sozinhas (jogadores novos, Moment Rare = 2 usos), para Hoje e Run
 S.autoBuy = null;
@@ -4583,7 +4588,7 @@ function perUsdTxt(t) {
 // e por baixo quanto sobe e quanto era. Tocar abre os detalhes.
 function buyRow(R, t, i, src) {
   const c = S.players.get(t.id) || {}, own = !!S.mine.roster[t.id], g = usesGain(t.id, t.U);
-  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'use', 'uses') : collectionInfo(t.id).copies === 1 ? '2nd Moment' : '+1 Moment') + '</span>' : '') + mktSpan(t.id, t.U);
+  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'use', 'uses') : momentNth(t.id)) + '</span>' : '<span class="badge new">New</span>') + mktSpan(t.id, t.U);
   const sub = teamTag(c.team) + (t.days.length ? ' · plays ' + (t.days.length > 1 ? 'days ' : 'day ') + t.days.join(', ') : '');
   const right = t.byPrize
     ? '<span class="bg-top">' + t.best.p.wins + ' wins' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · was ' + pct(t.best.from) + '</span>'
@@ -4593,7 +4598,7 @@ function buyRow(R, t, i, src) {
 // detalhes de uma compra (folha): o que muda na run, dia a dia e nos prémios, e o preço
 function buyDetailSheet(src, id) {
   const R = src === 'auto' ? S.autoBuy : S.buy.results, x = R && R.list.find(z => String(z.id) === String(id)); if (!x) return;
-  openSheet(buyResultsHtml(Object.assign({}, R, { list: [x], single: true, detail: true, U: x.U || R.U })) + '<button class="btn" type="button" data-action="buy-player" data-id="' + esc(id) + '" data-src="' + src + '">Player sheet</button>');
+  openSheet(buyResultsHtml(Object.assign({}, R, { list: [x], single: true, detail: true, U: x.U || R.U })) + (S.mine.roster[id] ? cardsBlock(id) : '') + '<button class="btn" type="button" data-action="buy-player" data-id="' + esc(id) + '" data-src="' + src + '">Player sheet</button>');
 }
 // lista curta de sugestões (Hoje e Run)
 function buyTipsCard(limit, jornada) {
@@ -4658,7 +4663,7 @@ function buyResultsHtml(R) {
       return '<li><b>Day ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'win ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prizes that change: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
-    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : collectionInfo(id).copies === 1 ? ', 2nd Moment' : ', +1 Moment') : 'Moment ' + tierTxt(R.U);
+    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', ' + momentNth(id)) : 'Moment ' + tierTxt(R.U);
     if (R.detail) {
       // folha: cabeçalho, três caixas (prémio, vitórias esperadas, preço), dias novos e prémios que mudam
       const mk = mktOf(id, R.U);
@@ -5657,7 +5662,7 @@ async function mktLoad(ids) {
 // preço de um jogador num escalão (uses: 1, 2 ou 4): {ask, serial, last, lastAt, n}
 function mktOf(id, uses) {
   const x = pxOf(id);
-  if (x) { const v = x.c[pxCol(uses)], o = x.c.length >= 6 ? x.c[3 + pxCol(uses)] : null; return { ask: v != null ? v / 100 : null, offer: v != null && o > 0 && o < v ? o / 100 : null, offers: x.c.length >= 6, serial: null, last: null, lastAt: null, n: 0, ts: x.at }; }
+  if (x) { const vt = uses === 3 ? null : x.c[pxCol(uses)], vu = x.u && x.u[Math.min(4, uses) - 1], v = vt != null && (vu == null || vt <= vu) ? vt : vu != null ? vu : vt, o = v === vt && x.c.length >= 6 ? x.c[3 + pxCol(uses)] : null; /* o mais barato com esses usos: pelo escalão ou pelo ASP */ return { ask: v != null ? v / 100 : null, offer: v != null && o > 0 && o < v ? o / 100 : null, offers: x.c.length >= 6, serial: null, last: null, lastAt: null, n: 0, ts: x.at }; }
   const m = S.mkt.get(mktKey(id)); if (!m) return null;
   const ts = MKT_TIER[uses] || ['Common', 'Fandom'], a = m.asks.filter(r => ts.includes(r.tier)), sl = m.sales.filter(r => ts.includes(r.tier));
   return { ask: a.length ? +a[0].price : null, serial: a.length ? a[0].serial : null, last: sl.length ? +sl[0].price : null, lastAt: sl.length ? sl[0].sold_at : null, n: sl.length };

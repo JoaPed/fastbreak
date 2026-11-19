@@ -14,7 +14,7 @@ const S = window.__fbl = { tok: null, box: document.createElement('div'), log: [
 const box = S.box;
 box.style.cssText = 'position:fixed;z-index:2147483647;left:10px;right:10px;bottom:10px;max-width:420px;margin:0 auto;background:#111;color:#eee;font:14px/1.45 system-ui,sans-serif;padding:12px 14px;border:2px solid #f80;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)';
 if (document.body) document.body.appendChild(box); else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
-const VER = 34; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
+const VER = 39; // versão do leitor: é a do script automático (fb-lugares.user.js) e aparece no título da caixa
 const say = (html) => { box.innerHTML = '<b style="color:#f80">Fast Break · lugares</b> <span style="color:#aaa;font-size:12px">v' + VER + '</span><div style="margin-top:6px">' + html + '</div>'; };
 if (!job || !Array.isArray(job.accs) || !job.accs.length) { say('Abre isto a partir do site (Classificação → <b>Atualizar lugares</b>), para eu saber que contas procurar.'); return; }
 // as leituras (runs, dias, classificações, Moments) vão pela API pública do Top Shot, sem sessão: começa já. As trocas
@@ -101,6 +101,12 @@ async function prices(pl) {
       for (const t of PX_TIERS) { try { const c = await cheapest(x[1], t); row.push(c[0]); off.push(c[1]); } catch (e) { row.push(undefined); off.push(null); fails++; } }
       // [3 preços, 3 ofertas]: quem ainda tem o site antigo lê só os 3 primeiros
       if (row.some(v => v !== undefined)) px.p[x[0]] = row.map(v => v === undefined ? null : v).concat(off);
+      // pelos usos (escalão + ASP): a mais barata à venda com pelo menos 1, 2, 3 e 4 usos (p. ex. um Rare de ASP > 50 $ dá 3;
+      // um Common de ASP > 10 $ dá 2)
+      try { const es = await editionsOf(x[1]), u = [null, null, null, null];
+        es.forEach(e => { const a = askOf(e); if (!a) return; const n = usesOfEd(e.tier, e.averageSalePriceCents != null ? +e.averageSalePriceCents : null);
+          for (let k = 1; k <= 4; k++) if (n >= k && (u[k - 1] == null || a < u[k - 1])) u[k - 1] = a; });
+        if (u.some(v => v != null)) (px.u = px.u || {})[x[0]] = u; } catch (e) { /* fica só pelo escalão */ }
       done++; if (done % 5 === 0) say('A ler os preços… ' + done + ' de ' + (done + todo.length) + ' jogadores');
       if (fails > 30 && Object.keys(px.p).length < 3) throw new Error('o mercado não respondeu');
     }

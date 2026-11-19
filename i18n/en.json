@@ -264,7 +264,8 @@
    "const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 4 ? 'Legendary' : n + ' usos');": " uses",
    "const tierTxt = n => ([1, 2, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": " uses",
    "const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 3 ? 'Rare+' : n === 4 ? 'Legendary' : n + ' usos');": true,
-   "const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": true
+   "const tierTxt = n => ([1, 2, 3, 4].includes(n) ? tierName(n) + ' (' + n + ' uso' + (n > 1 ? 's' : '') + ')' : n + ' usos');": true,
+   "const tierName = n => (n === 1 ? 'Common' : n === 2 ? 'Rare' : n === 3 ? 'All-Star' : n === 4 ? 'Legendary' : n + ' usos');": " uses"
   }
  },
  " uso": {
@@ -3375,5 +3376,7 @@
  "<li><b>Máximo por Moment</b>: não sugere nenhum mais caro do que isto.</li>": "<li><b>Max per Moment</b>: never suggests one more expensive than this.</li>",
  "<li><b>Tenho para gastar</b>: monta o conjunto de compras que cabe nesse valor e refaz a run com todas juntas (dois que só ajudam no mesmo dia não somam).</li>": "<li><b>I have to spend</b>: builds the set of buys that fits this amount and re-runs the plan with all of them together (two that only help on the same day don't add up).</li>",
  "<li><b>Procurar as melhores compras</b>: refaz a run com cada candidato e mostra quanto sobem os prémios e em que dias ele jogaria.</li>": "<li><b>Find the best buys</b>: re-runs the plan with each candidate and shows how much the prizes improve and on which days they'd play.</li>",
- "<li><b>Avaliar um jogador</b>: faz o mesmo só para esse jogador, no escalão escolhido.</li></ul>": "<li><b>Check a player</b>: does the same for just that player, in the chosen tier.</li></ul>"
+ "<li><b>Avaliar um jogador</b>: faz o mesmo só para esse jogador, no escalão escolhido.</li></ul>": "<li><b>Check a player</b>: does the same for just that player, in the chosen tier.</li></ul>",
+ "Moment n.º ": "Moment #",
+ "<span class=\"badge new\">Novo</span>": "<span class=\"badge new\">New</span>"
 }
