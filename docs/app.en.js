@@ -248,8 +248,8 @@ function dobraCard(date) {
     return '<div class="db-leg">' + (l.k === 'pr' ? (l.id ? face(l.id, 'sm') : '<span class="face sm"></span>') : teamLogo(teamFix(l.t))) + '<div style="min-width:0;flex:1"><div class="db-what">' + what + '</div><div class="small muted">' + sub + '</div></div><div class="db-o"><b class="num">' + dec(l.o) + '</b><small class="muted">' + pct(l.p) + '</small></div></div>';
   };
   const res = D.res === 'win' ? '<span class="db-chip ok">Hit ✓</span>' : D.res === 'loss' ? '<span class="db-chip ko">Missed ✗</span>' : '<span class="db-chip">Step ' + L.step + ' of 8</span>';
-  const stair = '<div class="db-stair" aria-label="Step ' + L.step + ' of 8">' + [1, 2, 3, 4, 5, 6, 7, 8].map(k => '<i class="' + (k < L.step ? 'w' : k === L.step ? 'c' : '') + '" style="height:' + (20 + (k - 1) * 11) + '%"><b>' + k + '</b></i>').join('') + '</div>';
-  const stats = L.n ? 'This run: ' + L.hit + ' of ' + L.n + ' hit (' + pct(L.hit / L.n) + ') · expected ' + pct(L.pSum / L.n) : 'First of this run';
+  const stair = '<div class="db-stair" aria-label="Step ' + L.step + ' of 8">' + [1, 2, 3, 4, 5, 6, 7, 8].map(k => '<i class="' + (k < L.step ? 'w' : k === L.step ? 'c' : '') + '" style="height:' + (30 + (k - 1) * 10) + '%"><b>' + k + '</b></i>').join('') + '</div>';
+  const stats = L.n ? 'This run: ' + L.hit + ' of ' + L.n + ' hit (' + Math.round(100 * L.hit / L.n) + '%) · expected ' + Math.round(100 * L.pSum / L.n) + '%' : 'First of this run';
   return '<div class="card db-card"><div class="pk-top"><span class="eyebrow">Daily double ' + helpBtn('dobra') + '</span>' + res + '</div>' + D.legs.map(leg).join('') +
     '<div class="db-tot"><div><div class="small muted">Total odds</div><b class="num">' + dec(D.o) + '</b></div><div style="text-align:right"><div class="small muted">Both hit</div><b class="num c-good">' + pct(D.p) + '</b></div></div>' +
     stair + '<div class="db-foot small muted"><span>Best this run: step ' + (L.best || '–') + '</span><span>' + plural(L.restarts, 'restart', 'restarts') + '</span></div><div class="small muted" style="margin-top:4px">' + stats + '</div></div>';

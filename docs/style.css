@@ -1019,8 +1019,8 @@ p, .note { text-wrap: pretty; }
 .db-o { display: grid; justify-items: end; line-height: 1.1; } .db-o b { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
 .db-tot { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 8px; border-top: 1px solid var(--line); }
 .db-tot b { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1; }
-.db-stair { display: flex; align-items: flex-end; height: 54px; margin-top: 18px; }
-.db-stair i { flex: 1; position: relative; background: var(--surface-2, #1f2937); border-right: 2px solid var(--card, #111827); border-radius: 3px 3px 0 0; }
+.db-stair { display: flex; align-items: flex-end; height: 60px; margin-top: 18px; }
+.db-stair i { flex: 1; position: relative; background: var(--surface-2); border-right: 2px solid var(--surface); border-radius: 3px 3px 0 0; }
 .db-stair i b { position: absolute; bottom: 3px; left: 0; right: 0; text-align: center; font-size: 11.5px; color: var(--muted); font-style: normal; }
 .db-stair i.w { background: color-mix(in srgb, var(--good) 55%, #052e16); } .db-stair i.w b { color: #fff; }
 .db-stair i.c { background: #f59e0b; } .db-stair i.c b { color: #111; }

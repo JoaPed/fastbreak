@@ -583,6 +583,26 @@ with sync_playwright() as pw:
     T['user_runs'][0]['plan'] = {}
     pg.close()
 
+    # ---------- C5: dobradinha do dia (vem em odds_days.players._dobra; o motor não a vê) ----------
+    db = seeded(); T = db['tables']
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco', 'flow_address': '0xe7fb03955ade55fa'})
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in roster['players']}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
+    dob = {'legs': [{'k': 'ml', 't': 'POR', 'g': 'POR@MIL', 'home': 'MIL', 'away': 'POR', 'tip': '2026-10-22T00:00:00Z', 'o': 1.62, 'p': 0.62},
+                    {'k': 'pr', 'who': 'Nikola Jokic', 'id': 'jokic', 'stat': 'reb', 'side': 'over', 'line': 11.5, 'g': 'DEN@PHX', 'home': 'PHX', 'away': 'DEN', 'tip': '2026-10-22T02:00:00Z', 'o': 1.27, 'p': 0.79}], 'o': 2.05, 'p': 0.49}
+    for r in T['odds_days']:
+        if r['date'] == '2026-10-21': r['players'] = dict(r['players'], _dobra=dob)
+    T['odds_days'] = [r for r in T['odds_days'] if r['date'] != '2026-10-20'] + [{'date': '2026-10-20', 'players': {'_dobra': dict(dob, res='win')}, 'updated_at': '2026-10-20T07:00:00Z'}]
+    pg = new_page(b, db); pg.set_viewport_size({'width': 390, 'height': 844})
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
+    c = pg.locator('#tab-hoje .db-card'); ct = c.first.inner_text().replace('\n', ' | ') if c.count() else ''
+    above = pg.evaluate("(() => { const a = document.querySelector('#tab-hoje .db-card'), b = document.querySelector('#tab-hoje .pick-card'); return !b || !!(a && (a.compareDocumentPosition(b) & 4)); })()")
+    if c.count(): c.first.screenshot(path=str(shots / 'dobradinha.png'))
+    print('C5 dobradinha:', ct[:160], '· ok' if 'Degrau 2 de 8' in ct and 'Jokić +11,5 ressaltos' in ct and '2,05' in ct and 'POR' in ct and above else '· ERRO')
+    pg.close()
+
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']
     T['runs'][0]['fictitious'] = False

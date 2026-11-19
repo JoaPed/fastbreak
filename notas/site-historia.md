@@ -212,3 +212,12 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
   `dispatch_workflow(ficheiro, inputs)` (chave `github_dispatch` no Vault): calendário 06:13, 09:17, 12:13 UTC;
   odds 07:07 e 16:07 (`--auto`, não repete em 4 h) e de meia em meia hora das 18 às 03 (`--pre`).
   Ver/alterar: `select * from cron.job;` no SQL Editor. Os agendamentos do GitHub ficam de reserva.
+
+## Dobradinha do dia (19 nov 2026)
+- `scripts/dobra.mjs` (puro, testado em `test/jobs.test.mjs`): `sgoLegs` tira de cada jogo da SportsGameOdds as apostas
+  (ml, sp com linha .5, linhas dos jogadores .5, over e under); odd = `bookOdds` (consenso das casas), hipótese = `fairOdds`.
+  `pickDouble`: sempre jogos diferentes, odd junta 1,90–2,20, cada perna ≥ 50%, maior valor esperado (p × odd − 1) e, em
+  empate, a mais provável. `settleDouble` com o placar e as fichas da ESPN (jogador que não jogou = perna anulada).
+- Guardada em `odds_days.players._dobra` da data dos jogos (sem mudar a base); o site tira-a de lá antes do motor.
+  Escolhe-se uma vez (a 1.ª leitura do dia com jogos por começar, normalmente a das 07:07) e o resultado entra na leitura
+  seguinte (`res: win|loss`). A escada (`dobraLadder` no site) conta os degraus pela ordem dos dias da run.
