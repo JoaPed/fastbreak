@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-19
+- **João** — Comprar: o «?» explica cada filtro numa lista (Todos, Reforçar os teus, escalão, ordem, máximo por Moment, para gastar, os botões).
+
 ## 2026-11-18
 - **João** — Sonda dos packs (`sonda-packs.js`, só leitura de dados públicos do Top Shot) para descobrir onde estão os packs, o low ask e a circulação.
 - **João** — Suplente com várias contas: diz de que conta mandar o Moment dele («Mandar de Terose»), de preferência de uma conta que não o joga nessa noite; se todas as que o têm o jogam, avisa («Já joga em …»). Também na escolha do suplente.

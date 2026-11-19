@@ -600,6 +600,7 @@ p, .note { text-wrap: pretty; }
 .hero .help-btn { background: transparent; border-color: var(--board-line); color: var(--board-muted); }
 .help-text { font-size: 14.5px; line-height: 1.55; }
 .note.help-text { font-size: 13.5px; }
+.help-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
 .field-lbl { display: flex; align-items: center; gap: 6px; }
 .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 4px; }
 @media (hover: hover) and (pointer: fine) {

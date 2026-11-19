@@ -3366,5 +3366,14 @@
  "<div class=\"note info\">Este dia ainda não tem as regras do Top Shot: o admin lê em Ajustes → Admin → Run nova.</div>": "<div class=\"note info\">This day doesn't have the Top Shot rules yet: the admin reads them in Settings → Admin → New run.</div>",
  "<span class=\"pq-px own\">tens</span>": "<span class=\"pq-px own\">yours</span>",
  "<span class=\"pill duv\">Já joga em ": "<span class=\"pill duv\">Already playing in ",
- "Suplente": "Bench"
+ "Suplente": "Bench",
+ "<li><b>Todos</b>: procura em todos os jogadores, também os que ainda não tens, e em Moments de escalão acima dos teus (um Rare de quem só tem um Common dá +1 uso).</li>": "<li><b>All</b>: searches every player, including ones you don't have yet, and Moments a tier above yours (a Rare of someone you only have as a Common gives +1 use).</li>",
+ "<li><b>Reforçar os teus</b>: só os jogadores que já tens: um escalão acima e, com várias contas, mais um Moment para a conta que não o tem.</li>": "<li><b>Upgrade yours</b>: only players you already have: a tier above and, with several accounts, one more Moment for the account that doesn't have it.</li>",
+ "<li><b>Escalão do Moment</b>: <b>Qualquer</b> fica, para cada jogador, com o escalão que mais compensa; <b>Common / Rare / Legendary</b> só procura nesse (o número são os usos por run: Common 1, ou 2 se o ASP passar dos 10 $; Rare 2; Legendary 4).</li>": "<li><b>Moment tier</b>: <b>Any</b> keeps, for each player, the tier that pays off most; <b>Common / Rare / Legendary</b> only searches that one (the number is uses per run: Common 1, or 2 if the ASP is over $10; Rare 2; Legendary 4).</li>",
+ "<li><b>Mais por dólar</b>: quanto a run sobe por cada dólar do Moment mais barato à venda. Bom para comprar barato.</li>": "<li><b>Most per dollar</b>: how much the run improves per dollar of the cheapest Moment for sale. Good for buying cheap.</li>",
+ "<li><b>Mais ganho</b>: só quanto a run sobe, sem olhar ao preço.</li>": "<li><b>Biggest gain</b>: only how much the run improves, ignoring price.</li>",
+ "<li><b>Máximo por Moment</b>: não sugere nenhum mais caro do que isto.</li>": "<li><b>Max per Moment</b>: never suggests one more expensive than this.</li>",
+ "<li><b>Tenho para gastar</b>: monta o conjunto de compras que cabe nesse valor e refaz a run com todas juntas (dois que só ajudam no mesmo dia não somam).</li>": "<li><b>I have to spend</b>: builds the set of buys that fits this amount and re-runs the plan with all of them together (two that only help on the same day don't add up).</li>",
+ "<li><b>Procurar as melhores compras</b>: refaz a run com cada candidato e mostra quanto sobem os prémios e em que dias ele jogaria.</li>": "<li><b>Find the best buys</b>: re-runs the plan with each candidate and shows how much the prizes improve and on which days they'd play.</li>",
+ "<li><b>Avaliar um jogador</b>: faz o mesmo só para esse jogador, no escalão escolhido.</li></ul>": "<li><b>Check a player</b>: does the same for just that player, in the chosen tier.</li></ul>"
 }
