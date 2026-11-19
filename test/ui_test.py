@@ -1299,7 +1299,7 @@ with sync_playwright() as pw:
     pback = json.loads(base64.urlsafe_b64decode(pg.url.split('fbranks=')[1] + '=='))['px']
     print('T2b preços com ofertas:', pback.get('p'), 'sem:', pback.get('miss'), '· ok' if pback['p'].get('jokic') == [300, 2000, 90000, 200, 1700, None] and pback['p'].get('luka') == [500, None, 100, None, None, None] and pback.get('miss') == ['zz'] else '· ERRO')
     us = (docs / 'fb-lugares.user.js').read_text()
-    print('T2b userscript: versão 38 e o mesmo código:', '· ok' if '// @version      38' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
+    print('T2b userscript: versão 39 e o mesmo código:', '· ok' if '// @version      39' in us and us.split('window.__fblUS = true;\n', 1)[1] == (docs / 'fb-lugares.js').read_text() else '· ERRO')
     pg.close()
     # T3: com a run 2 já a decorrer, o leitor lê a run do site (pelo 1.º dia), mesmo que o site tenha guardado a outra
     # run por engano; e com folga de dias quando o 1.º dia do site não é o mesmo do Top Shot
