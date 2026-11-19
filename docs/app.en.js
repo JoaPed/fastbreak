@@ -1681,16 +1681,19 @@ function benchDirect(md, list, whoId) {
 // com smurfs: o suplente tem de estar na conta que joga; se o Moment está noutra, de onde mandar (de preferência
 // de uma conta que não o joga nessa noite). { from } ou { busy: [contas] } quando todas as que o têm o jogam
 const benchPill = (id, date) => { const f = benchFrom(id, date); if (!f) return '';
-  return f.from ? '<span class="pill prov">Send from ' + esc(accLabel(f.from)) + '</span> ' : '<span class="pill duv">Already playing in ' + esc(f.busy.map(accLabel).join(', ')) + '</span> '; };
+  return f.from ? '<span class="pill prov">Send ' + (f.uses >= 2 ? (f.uses >= 4 ? 'the Legendary' : 'the Rare') + ' ' : '') + 'from ' + esc(accLabel(f.from)) + '</span> ' : '<span class="pill duv">Already playing in ' + esc(f.busy.map(accLabel).join(', ')) + '</span> '; };
+// a k-ésima jogada de uma conta precisa de uma carta com ≥ k usos nessa conta: se já o jogou uma vez e aqui só há um
+// Common, o Rare tem de vir de outra (regra 5 das notas)
 function benchFrom(id, date) {
   if (!S.multi || !(S.profile || {}).collection) return null;
   const h = collectionInfo(id).hold; if (!h) return null;
-  const n = a => (Array.isArray(h[a]) ? h[a].length : +h[a] || 0);
-  if (n(S.acc) > 0) return null;
-  const has = Object.keys(h).filter(a => a !== S.acc && n(a) > 0); if (!has.length) return null;
+  const k = usedCount(S.acc, id) + 1;
+  const fits = a => (Array.isArray(h[a]) ? h[a].some(u => (+u || 1) >= k) : (+h[a] || 0) > 0);
+  if (fits(S.acc)) return null;
+  const has = Object.keys(h).filter(a => a !== S.acc && fits(a)); if (!has.length) return null;
   const plays = a => { const rr = S.multi.byKey[a], pd = rr && rr.normal.days.find(d => d.date === date); return ((pd && pd.lineup) || lineupFor(a, date) || []).includes(id); };
-  const free = has.find(a => !plays(a));
-  return free ? { from: free } : { busy: has };
+  const free = has.find(a => !plays(a)), uses = k > 1 ? k : 0;
+  return free ? { from: free, uses } : { busy: has, uses };
 }
 function benchRow(md, nd, lineup) {
   if (!lineup.length) return '';
@@ -3055,6 +3058,9 @@ function todoCard(r, v, d, md, nd, live, tips) {
     if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Read the wallets of your accounts', 'To know what to send to each account.', 'wallet|' + today));
     else {
       const due = S.multi.transfers.filter(t => t.before <= nd.date);
+      // o suplente do dia, se o Moment dele tem de vir de outra conta
+      if (d && d.lineup && d.lineup.length) { const B = benchOf(md, nd, d.lineup), f = B && benchFrom(B.id, nd.date);
+        if (f && f.from && !due.some(t => t.id === B.id && t.to === S.acc)) due.push({ id: B.id, from: f.from, to: S.acc, before: nd.date, uses: f.uses || 0, bench: true }); }
       // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot) e, dentro, uma linha por hora
       // limite com os Moments dessa hora; o visto marca a linha toda (cada Moment fica dado como mandado)
       const accOrder = accounts().map(a => a.id), tipOf = t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team; return team ? FB.tipTime(day, team) : null; };

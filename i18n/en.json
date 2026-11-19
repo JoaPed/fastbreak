@@ -3382,5 +3382,9 @@
  "Moment n.º ": "Moment #",
  "<span class=\"badge new\">Novo</span>": "<span class=\"badge new\">New</span>",
  " n.º ": " #",
- " Moment": null
+ " Moment": null,
+ "<span class=\"pill prov\">Mandar ": "<span class=\"pill prov\">Send ",
+ "a Legendary": "the Legendary",
+ "o Rare": "the Rare",
+ "de ": "from "
 }

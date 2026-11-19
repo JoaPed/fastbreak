@@ -564,6 +564,24 @@ with sync_playwright() as pw:
     bt = bz.first.inner_text().replace('\n', ' ') if bz.count() else ''
     print('C4 suplente noutra conta:', bt[:140], '· ok' if ('Mandar de' in bt or 'Já joga em' in bt) else '· ERRO')
     pg.close()
+    # já o jogou uma vez e aqui só tem um Common: a 2.ª jogada precisa do Rare, que está noutra conta → manda o Rare,
+    # e aparece no «Para fazer»
+    pids = list(roster['players'])
+    T['profiles'][-1]['collection'] = {'accounts': ['main', 's1', 's2'], 'players': {pid: {'owners': {'main': 1, 's1': 1}, 'uses': 2} for pid in pids},
+        'items': {**{'c' + str(i): {'p': pid, 'a': 'main', 's': 'Base Set'} for i, pid in enumerate(pids)}, **{'r' + str(i): {'p': pid, 'a': 's1', 's': 'Metallic Gold LE'} for i, pid in enumerate(pids)}},
+        'mt': {**{'c' + str(i): 'Common' for i in range(len(pids))}, **{'r' + str(i): 'Rare' for i in range(len(pids))}}}
+    T['user_runs'][0]['plan'] = {'played': {'2026-10-21': {'done': True, 'result': 'win', 'lineup': pids, 'edited': True}}}
+    pg = new_page(b, db)
+    pg.clock.set_fixed_time('2026-10-22T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(4000)
+    bz = pg.locator('#tab-hoje .bench-row')
+    bt = bz.first.inner_text().replace('\n', ' ') if bz.count() else ''
+    bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
+    td = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
+    print('C4 suplente precisa do Rare:', bt[:120], '| para fazer:', bn in td, '· ok' if (('Mandar o Rare de' in bt and bn in td) or 'Já joga em' in bt) else '· ERRO')
+    T['user_runs'][0]['plan'] = {}
+    pg.close()
 
     # ---------- D: admin apaga as runs de teste ----------
     db = seeded(); T = db['tables']
