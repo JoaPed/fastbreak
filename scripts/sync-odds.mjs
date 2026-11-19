@@ -7,7 +7,7 @@
 //      node scripts/sync-odds.mjs --pre   (de hora a hora à noite: só lê hoje, uma vez, quando faltam ≤ 2 h para o
 //      1.º jogo; é a única leitura que avisa o grupo no Telegram)
 import { supa, must, etDate, addDays, marketsForStat, consensusFromEvent, consensusFromSGO, sgoName, norm, espnTeam, fetchJson, parseEspnBox, MARKET_STAT, matchPlayers, getState, setState, oddsReadyText } from './lib.mjs';
-import { sgoLegs, pickDouble, settleDouble, espnScores, ladder, dobraText } from './dobra.mjs';
+import { sgoLegs, pickDouble, settleDouble, espnScores } from './dobra.mjs';
 
 const KEY = process.env.ODDS_API_KEY, SGO = (process.env.SGO_API_KEY || '').trim(), ONLY_SGO = process.env.ODDS_ONLY_SGO === '1';
 if (!KEY && !SGO) { console.log('Sem SGO_API_KEY nem ODDS_API_KEY nos segredos do GitHub: nada a fazer.'); process.exit(0); }
@@ -126,7 +126,8 @@ async function dobradinha() {
   // 2) a de hoje: a 1.ª data com jogos por começar e sem dobradinha (escolhe-se uma vez e fica)
   const date = Object.keys(sgoDay).sort().find(x => sgoDay[x].length); if (!date) return;
   const prev = await must(sb.from('odds_days').select('players').eq('date', date).maybeSingle());
-  if (prev && prev.players && prev.players._dobra) { console.log('Dobradinha de ' + date + ' já escolhida.'); return; }
+  // ODDS_DOBRA_REDO=1 escolhe outra vez (só à mão, antes dos jogos)
+  if (prev && prev.players && prev.players._dobra && process.env.ODDS_DOBRA_REDO !== '1') { console.log('Dobradinha de ' + date + ' já escolhida.'); return; }
   const inj = new Set((await must(sb.from('injuries').select('id,status'))).filter(x => ['out', 'ofs', 'doubtful', 'questionable', 'dtd'].includes(x.status)).map(x => x.id));
   const byNorm = new Map(catalog.map(p => [norm(p.name), p.id]));
   const legs = sgoDay[date].flatMap(ev => sgoLegs(ev, sgoName));
@@ -181,18 +182,6 @@ if (used != null) {
 // de run, com jogadores nas odds de hoje e antes do 1.º jogo
 const TG = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 if (PRE && todayPlayers > 0) await setState(sb, 'odds-pre', { date: today }); // sem linhas, tenta outra vez na hora seguinte
-// a dobradinha de hoje para o aviso (com o degrau, contado pelos dias da run de hoje)
-async function dobraLine() {
-  try {
-    const row = await must(sb.from('odds_days').select('players').eq('date', today).maybeSingle()), d = row && row.players && row.players._dobra; if (!d) return '';
-    const rd = (await must(sb.from('run_days').select('run_id,date').eq('date', today))).find(r => real.has(r.run_id));
-    let step = null;
-    if (rd) { const ds = (await must(sb.from('run_days').select('date').eq('run_id', rd.run_id))).map(x => x.date).filter(x => x < today).sort();
-      const prev = ds.length ? await must(sb.from('odds_days').select('date,players').in('date', ds)) : [];
-      step = ladder(prev.sort((a, b) => a.date.localeCompare(b.date)).map(r => r.players && r.players._dobra).filter(Boolean)).step; }
-    return dobraText(d, step);
-  } catch (e) { return ''; }
-}
 if (TG && PRE && todayPlayers > 0) { // só a leitura de antes do jogo avisa
   try {
     const st = await getState(sb, 'odds-tg', {});
@@ -202,7 +191,7 @@ if (TG && PRE && todayPlayers > 0) { // só a leitura de antes do jogo avisa
     else if (first && Date.now() >= first) console.log('::notice title=Telegram::os jogos já começaram: sem aviso das odds');
     else if (!chat) console.log('::notice title=Telegram::ainda não sei o grupo (corre a tarefa das lesões)');
     else {
-      const r = await fetch('https://api.telegram.org/bot' + TG + '/sendMessage', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: chat, text: oddsReadyText(first, { tz: 'Europe/Lisbon' }) + await dobraLine(), parse_mode: 'HTML', disable_web_page_preview: true }) }).then(x => x.json()).catch(e => ({ ok: false, description: e.message }));
+      const r = await fetch('https://api.telegram.org/bot' + TG + '/sendMessage', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: chat, text: oddsReadyText(first, { tz: 'Europe/Lisbon' }), parse_mode: 'HTML', disable_web_page_preview: true }) }).then(x => x.json()).catch(e => ({ ok: false, description: e.message }));
       if (r.ok) await setState(sb, 'odds-tg', { date: today });
       console.log('::notice title=Telegram::aviso das odds ' + (r.ok ? 'enviado' : 'falhou: ' + String(r.description || '').slice(0, 120)));
     }

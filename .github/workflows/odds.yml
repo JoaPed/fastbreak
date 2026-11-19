@@ -11,6 +11,7 @@ on:
     inputs:
       dates: { description: 'Datas AAAA-MM-DD separadas por espaço (vazio = hoje e amanhã)', default: '', required: false }
       only_sgo: { description: 'Só SportsGameOdds (não gasta créditos da The Odds API)', type: boolean, default: false }
+      redo_dobra: { description: 'Escolher outra vez a dobradinha do dia', type: boolean, default: false }
 concurrency: { group: odds, cancel-in-progress: false }
 jobs:
   run:
@@ -22,6 +23,7 @@ jobs:
       ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
       SGO_API_KEY: ${{ secrets.SGO_API_KEY }}
       ODDS_ONLY_SGO: ${{ inputs.only_sgo && '1' || '' }}
+      ODDS_DOBRA_REDO: ${{ inputs.redo_dobra && '1' || '' }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
