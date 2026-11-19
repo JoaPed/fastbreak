@@ -26,10 +26,15 @@ export function sgoLegs(ev, nameOf) {
   const pair = o => odds[String(o.oddID || '').replace(/-(home|away|over|under)$/, m => ({ '-home': '-away', '-away': '-home', '-over': '-under', '-under': '-over' })[m])];
   for (const o of Object.values(odds)) {
     if (!o || o.periodID !== 'game' || o.available === false) continue;
-    const d = toDec(o.bookOdds); if (!d) continue;
+    // odd que se paga: a mediana das casas com a mesma linha (o consenso da SportsGameOdds sai alto demais: 2,05 contra
+    // 1,74 numa casa a 19 nov); com menos de 2 casas fica de fora
+    const lineOf = x => (x == null ? null : +x), main = lineOf(o.bookOverUnder ?? o.bookSpread);
+    const ds = Object.values(o.byBookmaker || {}).filter(b => b && b.available !== false && (main == null || lineOf(b.overUnder ?? b.spread) == null || lineOf(b.overUnder ?? b.spread) === main)).map(b => toDec(b.odds)).filter(Boolean).sort((a, b) => a - b);
+    if (ds.length < 2) continue;
+    const d = ds.length % 2 ? ds[(ds.length - 1) / 2] : (ds[ds.length / 2 - 1] + ds[ds.length / 2]) / 2;
     let p = pOf(o.fairOdds); if (p == null) { const u = pair(o), a = pOf(o.bookOdds), b = u && pOf(u.bookOdds); p = a != null && b != null ? a / (a + b) : null; }
     if (p == null) continue;
-    const base = { g, home, away, tip, o: Math.round(d * 100) / 100, p: Math.round(p * 1000) / 1000 };
+    const base = { g, home, away, tip, o: Math.round(d * 100) / 100, p: Math.round(p * 1000) / 1000, nb: ds.length, lo: Math.round(ds[0] * 100) / 100 };
     if (o.betTypeID === 'ml' && o.statID === 'points' && (o.sideID === 'home' || o.sideID === 'away')) out.push(Object.assign(base, { k: 'ml', t: o.sideID === 'home' ? home : away }));
     else if (o.betTypeID === 'sp' && o.statID === 'points' && (o.sideID === 'home' || o.sideID === 'away')) {
       const line = +(o.bookSpread ?? o.fairSpread); if (!isFinite(line) || !half(line)) continue;
@@ -95,4 +100,11 @@ export function espnScores(json) {
     for (const c of comp.competitors || []) { const a = espnTeam((c.team || {}).abbreviation); if (a) out[a] = +c.score; }
   }
   return out;
+}
+// texto do Telegram (em inglês, como o resto do aviso)
+const STAT_EN = { pts: 'points', reb: 'rebounds', ast: 'assists', fg3: 'threes', stl: 'steals', blk: 'blocks', tov: 'turnovers', fgm: 'field goals', ftm: 'free throws', fta: 'free throws att.', oreb: 'off. rebounds', dreb: 'def. rebounds', fga: 'FG attempts', fg3a: '3PT attempts' };
+export function dobraText(d, step) {
+  if (!d || !Array.isArray(d.legs)) return '';
+  const leg = l => l.k === 'ml' ? '<b>' + l.t + '</b> win' : l.k === 'sp' ? '<b>' + l.t + '</b> ' + (l.line > 0 ? '+' : '') + l.line : '<b>' + l.who + '</b> ' + (l.side === 'over' ? '+' + l.line : 'under ' + l.line) + ' ' + (STAT_EN[l.stat] || l.stat);
+  return '\n\n🎯 <b>Daily double</b>' + (step ? ' (step ' + step + ' of 8)' : '') + ': ' + d.legs.map(leg).join(' + ') + ' · odds ' + d.o.toFixed(2) + ' · ' + Math.round(d.p * 100) + '% both hit';
 }
