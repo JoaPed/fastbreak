@@ -381,7 +381,7 @@ with sync_playwright() as pw:
     pg.click('#plSub button[data-action="buy-mode"][data-mode="new"]'); pg.wait_for_timeout(200)
     pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
     names2 = [x.split('. ', 1)[-1] for x in pg.locator('#buyOut .buy-row .nm').all_inner_texts()]
-    two = [x for x in pg.locator('#buyOut .buy-row').all_inner_texts() if 'Moment n.º 2' in x or 'mesmo dia' in x]
+    two = [x for x in pg.locator('#buyOut .buy-row').all_inner_texts() if ' n.º 2' in x or 'mesmo dia' in x]
     print('C compras Todos com smurf:', len(names2), 'candidatos ·', ', '.join(names2), '· 2.º Moment:', len(two))
     # preço máximo: só quem tem um Moment Rare à venda até esse preço (o Jokić Rare está a $89)
     pg.fill('#buyMax', '50'); pg.click('#plSub button[data-action="buy-run"]'); pg.wait_for_timeout(300); pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
@@ -389,7 +389,7 @@ with sync_playwright() as pw:
     pg.fill('#buyMax', ''); pg.evaluate("document.getElementById('buyMax').dispatchEvent(new Event('input', {bubbles: true}))"); pg.evaluate("document.getElementById('buyMax').blur()")
     pg.wait_for_function("() => { const c = [...document.querySelectorAll('#plSub .card')].find(x => /Os Rare que mais compensam/.test(x.textContent)); return c && !/A testar|a atualizar/.test(c.textContent); }", timeout=180000)
     tips = pg.locator('#plSub .card').filter(has_text='Os Rare que mais compensam').inner_text().replace('\n', ' | ')
-    print('C sugestões Rare com smurf:', tips[:400], '· 2.º Moment:', tips.count('Moment n.º 2'))
+    print('C sugestões Rare com smurf:', tips[:400], '· 2.º Moment:', tips.count(' n.º 2'))
     pg.click('#tab-plantel button[data-action="sub"][data-sub="plantel"]'); pg.wait_for_timeout(300); 
     pg.click('#t-plantel'); pg.wait_for_timeout(500)
     pg.click('#plBody button[data-action="pl-view"][data-v="plano"]'); pg.wait_for_timeout(400)
@@ -552,7 +552,7 @@ with sync_playwright() as pw:
     try: pg.wait_for_selector('#buyProg', state='detached', timeout=120000)
     except Exception: pass
     out = pg.locator('#buyOut').inner_text().replace('\n', ' | ')
-    print('C4 Jokić 1 Rare + 2 Commons em 3 contas:', out[:200], '· ok' if out.strip() and 'escalão acima' not in out and 'Moment n.º' in out else '· ERRO')
+    print('C4 Jokić 1 Rare + 2 Commons em 3 contas:', out[:200], '· ok' if out.strip() and 'escalão acima' not in out and 'Rare n.º 2' in out else '· ERRO')
     pg.close()
     # suplente com smurfs: o Moment dele está só noutra conta → diz de onde mandar (ou em que conta já joga)
     T['profiles'][-1]['collection'] = {'accounts': ['main', 's1', 's2'], 'players': {pid: {'owners': {'s1': 1}, 'uses': 2} for pid in roster['players']}}

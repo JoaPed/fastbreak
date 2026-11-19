@@ -4215,8 +4215,11 @@ function perRunUses(id) {
   return t != null ? t : (+e.uses || 0) + usedCount('main', id);
 }
 const usesGain = (id, U) => (S.mine.roster[id] ? Math.max(0, U - perRunUses(id)) : U);
-// n.º do Moment que se compra de quem já tens (o 2.º, o 3.º…)
-const momentNth = id => 'Moment n.º ' + (collectionInfo(id).copies + 1);
+// n.º do Moment que se compra de quem já tens, contado no mesmo escalão de usos (1 Rare e 2 Commons, compra Rare →
+// «Rare n.º 2»); sem as cartas lidas, conta todos os Moments
+const momentNth = (id, U) => { const cd = collectionInfo(id).cards;
+  if (Array.isArray(cd) && cd.length && U) return tierName(U) + ' n.º ' + (cd.filter(u => (U >= 4 ? u >= 4 : u === U)).length + 1);
+  return 'Moment n.º ' + (collectionInfo(id).copies + 1); };
 // com smurfs: mais um Moment de quem já tens serve enquanto houver contas sem ele (mais contas a jogá-lo na mesma noite)
 // ou sem uma carta de U usos (p. ex. 1 Rare e 2 Commons em 3 contas: a 2.ª jogada de cada conta precisa do Rare, e
 // ele só joga numa conta por noite; um 2.º Rare deixa duas contas fazerem a 2.ª jogada na mesma noite)
@@ -4587,7 +4590,7 @@ function perUsdTxt(t) {
 // e por baixo quanto sobe e quanto era. Tocar abre os detalhes.
 function buyRow(R, t, i, src) {
   const c = S.players.get(t.id) || {}, own = !!S.mine.roster[t.id], g = usesGain(t.id, t.U);
-  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : momentNth(t.id)) + '</span>' : '<span class="badge new">Novo</span>') + mktSpan(t.id, t.U);
+  const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class="tpill t-' + (TIER_CLS[tn] || 'r') + '">' + tn + '</span>' + (own ? '<span class="badge">' + (g > 0 ? '+' + plural(g, 'uso', 'usos') : momentNth(t.id, t.U)) + '</span>' : '<span class="badge new">Novo</span>') + mktSpan(t.id, t.U);
   const sub = teamTag(c.team) + (t.days.length ? ' · joga ' + (t.days.length > 1 ? 'os dias ' : 'o dia ') + t.days.join(', ') : '');
   const right = t.byPrize
     ? '<span class="bg-top">' + t.best.p.wins + ' vitórias' + (t.multi ? ' · ' + esc(accLabel(t.best.k)) : '') + '</span><span class="bg-big up">' + pct(t.best.to) + '</span><span class="bg-was"><b class="up">▲ ' + (Math.round(t.best.to * 100) - Math.round(t.best.from * 100)) + '</b> · era ' + pct(t.best.from) + '</span>'
@@ -4662,7 +4665,7 @@ function buyResultsHtml(R) {
       return '<li><b>Dia ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'vitória ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prémios que mudam: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
-    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', ' + momentNth(id)) : 'Moment ' + tierTxt(R.U);
+    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', ' + momentNth(id, R.U)) : 'Moment ' + tierTxt(R.U);
     if (R.detail) {
       // folha: cabeçalho, três caixas (prémio, vitórias esperadas, preço), dias novos e prémios que mudam
       const mk = mktOf(id, R.U);

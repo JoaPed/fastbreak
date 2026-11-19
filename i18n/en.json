@@ -3378,5 +3378,6 @@
  "<li><b>Procurar as melhores compras</b>: refaz a run com cada candidato e mostra quanto sobem os prémios e em que dias ele jogaria.</li>": "<li><b>Find the best buys</b>: re-runs the plan with each candidate and shows how much the prizes improve and on which days they'd play.</li>",
  "<li><b>Avaliar um jogador</b>: faz o mesmo só para esse jogador, no escalão escolhido.</li></ul>": "<li><b>Check a player</b>: does the same for just that player, in the chosen tier.</li></ul>",
  "Moment n.º ": "Moment #",
- "<span class=\"badge new\">Novo</span>": "<span class=\"badge new\">New</span>"
+ "<span class=\"badge new\">Novo</span>": "<span class=\"badge new\">New</span>",
+ " n.º ": " #"
 }
