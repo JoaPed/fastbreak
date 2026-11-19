@@ -44,7 +44,7 @@ const needStats = {};
 for (const r of rows) for (const o of r.objectives || []) for (const x of String(o.stat || '').split(/[+-]/)) (needStats[r.date] = needStats[r.date] || new Set()).add(x);
 if (!Object.keys(need).length) { console.log('Nenhum objetivo definido para', dates.join(', '), '— não gasto créditos.'); process.exit(0); }
 
-const catalog = await must(sb.from('nba_players').select('id,name'));
+const catalog = await must(sb.from('nba_players').select('id,name,team'));
 const now = Date.now();
 let used = null, remaining = null, todayPlayers = 0;
 const done = {}; // datas com linhas da SportsGameOdds (a The Odds API já não é precisa)
@@ -130,14 +130,15 @@ async function dobradinha() {
   if (prev && prev.players && prev.players._dobra && process.env.ODDS_DOBRA_REDO !== '1') { console.log('Dobradinha de ' + date + ' já escolhida.'); return; }
   const inj = new Set((await must(sb.from('injuries').select('id,status'))).filter(x => ['out', 'ofs', 'doubtful', 'questionable', 'dtd'].includes(x.status)).map(x => x.id));
   const byNorm = new Map(catalog.map(p => [norm(p.name), p.id]));
-  const legs = sgoDay[date].flatMap(ev => sgoLegs(ev, sgoName));
+  const legs = sgoDay[date].flatMap(ev => sgoLegs(ev, sgoName)), teamOf = new Map(catalog.map(p => [p.id, p.team]));
+  // linhas de jogadores: o id e a equipa dele pelo catálogo (a SportsGameOdds às vezes põe o jogador no jogo errado)
+  legs.forEach(l => { if (l.k !== 'pr') return; l.id = byNorm.get(norm(l.who)); const t = l.id && teamOf.get(l.id); if (t && !l.tm.includes(t)) l.tm.push(t); });
   const soon = Date.now() + 30 * 6e4;
   const best = pickDouble(legs, { skip: l => Date.parse(l.tip) < soon || (l.k === 'pr' && (inj.has(norm(l.who)) || !byNorm.has(norm(l.who)))) });
   if (!best) { console.log('Dobradinha de ' + date + ': nenhum par perto de 2 (' + legs.length + ' apostas)'); return; }
-  best.legs.forEach(l => { if (l.k === 'pr') l.id = byNorm.get(norm(l.who)); });
   best.at = new Date().toISOString(); best.n = legs.length;
   await save(date, { _dobra: best }, null);
-  console.log('::notice title=Dobradinha ' + date + '::odd ' + best.o + ' · ' + Math.round(best.p * 100) + '% · ' + best.legs.map(l => l.k === 'pr' ? l.who + ' ' + l.side + ' ' + l.line + ' ' + l.stat : l.t + ' ' + l.k + (l.line != null ? ' ' + l.line : '')).join(' + '));
+  console.log('::notice title=Dobradinha ' + date + '::odd ' + best.o + ' · ' + Math.round(best.p * 100) + '% · ' + best.legs.map(l => (l.k === 'pr' ? l.who + ' ' + l.side + ' ' + l.line + ' ' + l.stat : l.t + ' ' + l.k + (l.line != null ? ' ' + l.line : '')) + ' [' + l.tm.join('·') + ' @' + l.o + ']').join(' + '));
 }
 
 // ---------- 2.º The Odds API: só nas datas que ficaram sem linhas ----------

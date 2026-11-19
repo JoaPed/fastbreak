@@ -22,7 +22,7 @@ export function sgoLegs(ev, nameOf) {
   const out = [], odds = (ev && ev.odds) || {}, T = (ev && ev.teams) || {};
   const home = sgoTeam(T.home), away = sgoTeam(T.away), tip = ev && ev.status && ev.status.startsAt;
   if (!home || !away) return out;
-  const g = away + '@' + home;
+  const g = [away, home].sort().join('-'), tm = [home, away]; // tm: equipas desta aposta (duas apostas nunca partilham uma)
   const pair = o => odds[String(o.oddID || '').replace(/-(home|away|over|under)$/, m => ({ '-home': '-away', '-away': '-home', '-over': '-under', '-under': '-over' })[m])];
   for (const o of Object.values(odds)) {
     if (!o || o.periodID !== 'game' || o.available === false) continue;
@@ -34,7 +34,7 @@ export function sgoLegs(ev, nameOf) {
     const d = ds[0];
     let p = pOf(o.fairOdds); if (p == null) { const u = pair(o), a = pOf(o.bookOdds), b = u && pOf(u.bookOdds); p = a != null && b != null ? a / (a + b) : null; }
     if (p == null) continue;
-    const base = { g, home, away, tip, o: Math.round(d * 100) / 100, p: Math.round(p * 1000) / 1000, nb: ds.length, lo: Math.round(ds[0] * 100) / 100 };
+    const base = { g, tm: tm.slice(), home, away, tip, o: Math.round(d * 100) / 100, p: Math.round(p * 1000) / 1000, nb: ds.length, lo: Math.round(ds[0] * 100) / 100 };
     if (o.betTypeID === 'ml' && o.statID === 'points' && (o.sideID === 'home' || o.sideID === 'away')) out.push(Object.assign(base, { k: 'ml', t: o.sideID === 'home' ? home : away }));
     else if (o.betTypeID === 'sp' && o.statID === 'points' && (o.sideID === 'home' || o.sideID === 'away')) {
       const line = +(o.bookSpread ?? o.fairSpread); if (!isFinite(line) || !half(line)) continue;
@@ -55,7 +55,7 @@ export function pickDouble(legs, { lo = 1.9, hi = 2.2, minP = 0.5, skip = () => 
   const L = legs.filter(x => x.p >= minP && x.o >= 1.15 && !skip(x)).sort((a, b) => b.p - a.p).slice(0, 400);
   let best = null;
   for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
-    const a = L[i], b = L[j]; if (a.g === b.g) continue; // sempre de jogos diferentes
+    const a = L[i], b = L[j]; if (a.g === b.g || (a.tm || []).some(t => (b.tm || []).includes(t))) continue; // sempre de jogos diferentes (nem a mesma equipa)
     const o = a.o * b.o; if (o < lo || o > hi) continue;
     const p = a.p * b.p, ev = p * o - 1;
     if (!best || ev > best.ev + 1e-9 || (Math.abs(ev - best.ev) < 1e-9 && p > best.p)) best = { legs: [a, b], o: Math.round(o * 100) / 100, p: Math.round(p * 1000) / 1000, ev: Math.round(ev * 1000) / 1000 };

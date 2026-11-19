@@ -182,11 +182,13 @@ ok('nomes com e sem acentos ligam ao catálogo', m.players['nikola-jokic'] && m.
     o('rebounds-NIKOLA_JOKIC_1_NBA-game-ou-under', { statID: 'rebounds', statEntityID: 'NIKOLA_JOKIC_1_NBA', betTypeID: 'ou', sideID: 'under', bookOdds: '+160', fairOdds: '+185', bookOverUnder: '11.5' })]));
   const nameOf = (e, pid) => (e.players[pid] || {}).name;
   const L1 = sgoLegs(e1, nameOf), L2 = sgoLegs(e2, nameOf);
-  ok('dobradinha: equipas pelas alcunhas', sgoTeam({ names: { long: 'Portland Trail Blazers' } }) === 'POR' && L1[0].g === 'OKC@MEM', L1);
+  ok('dobradinha: equipas pelas alcunhas', sgoTeam({ names: { long: 'Portland Trail Blazers' } }) === 'POR' && L1[0].g === 'MEM-OKC', L1);
   ok('dobradinha: handicap com número inteiro fica de fora (pode dar empate)', !L1.some(l => l.k === 'sp'), L1);
   const best = pickDouble(L1.concat(L2));
   ok('dobradinha: duas pernas de jogos diferentes, odd perto de 2', best && best.legs[0].g !== best.legs[1].g && best.o >= 1.9 && best.o <= 2.2 && best.legs.some(l => l.k === 'ml' && l.t === 'OKC') && best.legs.some(l => l.k === 'pr' && l.side === 'over'), best);
   ok('dobradinha: nunca do mesmo jogo', pickDouble(L1) === null);
+  const grant = { g: 'MIN-NYK', tm: ['MIN', 'NYK', 'POR'], k: 'pr', o: 1.5, p: 0.7, tip: '2026-11-20T00:00:00Z' }, por = { g: 'MIL-POR', tm: ['MIL', 'POR'], k: 'ml', o: 1.4, p: 0.72, tip: '2026-11-20T00:00:00Z' };
+  ok('dobradinha: nem a mesma equipa (jogador posto noutro jogo)', pickDouble([grant, por]) === null);
   const okc = best.legs.find(l => l.k === 'ml'), jok = best.legs.find(l => l.k === 'pr');
   ok('dobradinha: bate, falha, ou espera', settleDouble(best, { OKC: 118, MEM: 101 }, { 'nikola jokic': { reb: 13 } }) === 'win' && settleDouble(best, { OKC: 118, MEM: 101 }, { 'nikola jokic': { reb: 9 } }) === 'loss' && settleDouble(best, { OKC: 99, MEM: 101 }, { 'nikola jokic': { reb: 13 } }) === 'loss' && settleDouble(best, {}, {}) === null, [okc, jok]);
   const one = sgoLegs(ev('Memphis Grizzlies', 'Oklahoma City Thunder', { 'points-away-game-ml-away': { oddID: 'points-away-game-ml-away', periodID: 'game', statID: 'points', statEntityID: 'away', betTypeID: 'ml', sideID: 'away', bookOdds: '-110', fairOdds: '-105', byBookmaker: { a: { odds: '-110' } } } }), nameOf);
