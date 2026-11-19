@@ -215,7 +215,8 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
 
 ## Dobradinha do dia (19 nov 2026)
 - `scripts/dobra.mjs` (puro, testado em `test/jobs.test.mjs`): `sgoLegs` tira de cada jogo da SportsGameOdds as apostas
-  (ml, sp com linha .5, linhas dos jogadores .5, over e under); odd = `bookOdds` (consenso das casas), hipótese = `fairOdds`.
+  (ml, sp com linha .5, linhas dos jogadores .5, só «mais de»: na casa do grupo a linha do under não se mexe); odd = a MAIS
+  BAIXA das casas com a mesma linha (consenso e mediana saíam altos: Portland 1,47 contra 1,21 na casa do grupo), hipótese = `fairOdds`.
   `pickDouble`: sempre jogos diferentes, odd junta 1,90–2,20, cada perna ≥ 50%, maior valor esperado (p × odd − 1) e, em
   empate, a mais provável. `settleDouble` com o placar e as fichas da ESPN (jogador que não jogou = perna anulada).
 - Guardada em `odds_days.players._dobra` da data dos jogos (sem mudar a base); o site tira-a de lá antes do motor.

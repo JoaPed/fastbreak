@@ -26,12 +26,12 @@ export function sgoLegs(ev, nameOf) {
   const pair = o => odds[String(o.oddID || '').replace(/-(home|away|over|under)$/, m => ({ '-home': '-away', '-away': '-home', '-over': '-under', '-under': '-over' })[m])];
   for (const o of Object.values(odds)) {
     if (!o || o.periodID !== 'game' || o.available === false) continue;
-    // odd que se paga: a mediana das casas com a mesma linha (o consenso da SportsGameOdds sai alto demais: 2,05 contra
-    // 1,74 numa casa a 19 nov); com menos de 2 casas fica de fora
+    // odd que se paga: a MAIS BAIXA das casas com a mesma linha (o consenso e até a mediana saem altos demais: na casa
+    // do grupo, a 19 nov, Portland estava a 1,21 contra 1,47 de mediana); com menos de 2 casas fica de fora
     const lineOf = x => (x == null ? null : +x), main = lineOf(o.bookOverUnder ?? o.bookSpread);
     const ds = Object.values(o.byBookmaker || {}).filter(b => b && b.available !== false && (main == null || lineOf(b.overUnder ?? b.spread) == null || lineOf(b.overUnder ?? b.spread) === main)).map(b => toDec(b.odds)).filter(Boolean).sort((a, b) => a - b);
     if (ds.length < 2) continue;
-    const d = ds.length % 2 ? ds[(ds.length - 1) / 2] : (ds[ds.length / 2 - 1] + ds[ds.length / 2]) / 2;
+    const d = ds[0];
     let p = pOf(o.fairOdds); if (p == null) { const u = pair(o), a = pOf(o.bookOdds), b = u && pOf(u.bookOdds); p = a != null && b != null ? a / (a + b) : null; }
     if (p == null) continue;
     const base = { g, home, away, tip, o: Math.round(d * 100) / 100, p: Math.round(p * 1000) / 1000, nb: ds.length, lo: Math.round(ds[0] * 100) / 100 };
@@ -39,7 +39,8 @@ export function sgoLegs(ev, nameOf) {
     else if (o.betTypeID === 'sp' && o.statID === 'points' && (o.sideID === 'home' || o.sideID === 'away')) {
       const line = +(o.bookSpread ?? o.fairSpread); if (!isFinite(line) || !half(line)) continue;
       out.push(Object.assign(base, { k: 'sp', t: o.sideID === 'home' ? home : away, line }));
-    } else if (o.betTypeID === 'ou' && (o.sideID === 'over' || o.sideID === 'under') && SGO_STAT[o.statID] && !['home', 'away', 'all'].includes(o.statEntityID)) {
+    // linhas de jogadores: só os «mais de» (na casa do grupo dá para escolher a linha do over; a do under não se mexe)
+    } else if (o.betTypeID === 'ou' && o.sideID === 'over' && SGO_STAT[o.statID] && !['home', 'away', 'all'].includes(o.statEntityID)) {
       const line = +(o.bookOverUnder ?? o.fairOverUnder); if (!isFinite(line) || !half(line)) continue;
       out.push(Object.assign(base, { k: 'pr', who: nameOf(ev, o.statEntityID), stat: SGO_STAT[o.statID], side: o.sideID, line }));
     }

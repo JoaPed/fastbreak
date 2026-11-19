@@ -191,7 +191,8 @@ ok('nomes com e sem acentos ligam ao catálogo', m.players['nikola-jokic'] && m.
   ok('dobradinha: bate, falha, ou espera', settleDouble(best, { OKC: 118, MEM: 101 }, { 'nikola jokic': { reb: 13 } }) === 'win' && settleDouble(best, { OKC: 118, MEM: 101 }, { 'nikola jokic': { reb: 9 } }) === 'loss' && settleDouble(best, { OKC: 99, MEM: 101 }, { 'nikola jokic': { reb: 13 } }) === 'loss' && settleDouble(best, {}, {}) === null, [okc, jok]);
   const one = sgoLegs(ev('Memphis Grizzlies', 'Oklahoma City Thunder', { 'points-away-game-ml-away': { oddID: 'points-away-game-ml-away', periodID: 'game', statID: 'points', statEntityID: 'away', betTypeID: 'ml', sideID: 'away', bookOdds: '-110', fairOdds: '-105', byBookmaker: { a: { odds: '-110' } } } }), nameOf);
   const med = sgoLegs(ev('Memphis Grizzlies', 'Oklahoma City Thunder', { 'points-away-game-ml-away': { oddID: 'points-away-game-ml-away', periodID: 'game', statID: 'points', statEntityID: 'away', betTypeID: 'ml', sideID: 'away', bookOdds: '+150', fairOdds: '-105', byBookmaker: { a: { odds: '-110' }, b: { odds: '-130' }, c: { odds: '+120' } } } }), nameOf);
-  ok('dobradinha: odd = mediana das casas (e com menos de 2 casas fica de fora)', !one.length && med.length === 1 && Math.abs(med[0].o - 1.91) < 0.01, [one, med]);
+  ok('dobradinha: odd = a mais baixa das casas (e com menos de 2 casas fica de fora)', !one.length && med.length === 1 && Math.abs(med[0].o - 1.77) < 0.01, [one, med]);
+  ok('dobradinha: sem «menos de» nas linhas de jogadores', !L2.some(l => l.side === 'under'), L2);
   const { dobraText } = await import('../scripts/dobra.mjs');
   ok('dobradinha: texto do Telegram', /Daily double<\/b> \(step 3 of 8\): <b>OKC<\/b> win \+ <b>Nikola Jokić<\/b> \+11\.5 rebounds · odds \d\.\d\d/.test(dobraText(best, 3)), dobraText(best, 3));
   const lad = ladder([{ res: 'win' }, { res: 'win' }, { res: 'loss' }, { res: 'win' }, {}]);
