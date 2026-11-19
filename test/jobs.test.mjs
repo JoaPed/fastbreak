@@ -169,6 +169,29 @@ ok('nomes com e sem acentos ligam ao catálogo', m.players['nikola-jokic'] && m.
   ok('SportsGameOdds: ignora períodos e totais do jogo', Object.keys(g).length === 2 && !g.all, g);
   ok('SportsGameOdds: liga ao catálogo', !matchPlayers(g, [{ id: 'nj', name: 'Nikola Jokić' }, { id: 'sga', name: 'Shai Gilgeous-Alexander' }]).unmatched.length);
 }
+{ // dobradinha: pernas da SportsGameOdds, o par de jogos diferentes perto de 2, o resultado e a escada
+  const { sgoLegs, pickDouble, settleDouble, ladder, sgoTeam } = await import('../scripts/dobra.mjs');
+  const ev = (h, a, odds) => ({ teams: { home: { names: { long: h } }, away: { names: { long: a } } }, status: { startsAt: '2026-11-20T00:30:00Z' }, players: { NIKOLA_JOKIC_1_NBA: { name: 'Nikola Jokić' } }, odds });
+  const o = (id, x) => [id, Object.assign({ oddID: id, periodID: 'game', available: true }, x)];
+  const e1 = ev('Memphis Grizzlies', 'Oklahoma City Thunder', Object.fromEntries([
+    o('points-away-game-ml-away', { statID: 'points', statEntityID: 'away', betTypeID: 'ml', sideID: 'away', bookOdds: '-260', fairOdds: '-245' }),
+    o('points-home-game-ml-home', { statID: 'points', statEntityID: 'home', betTypeID: 'ml', sideID: 'home', bookOdds: '+210', fairOdds: '+245' }),
+    o('points-away-game-sp-away', { statID: 'points', statEntityID: 'away', betTypeID: 'sp', sideID: 'away', bookOdds: '-110', fairOdds: '+100', bookSpread: '-7' })]));
+  const e2 = ev('Phoenix Suns', 'Denver Nuggets', Object.fromEntries([
+    o('rebounds-NIKOLA_JOKIC_1_NBA-game-ou-over', { statID: 'rebounds', statEntityID: 'NIKOLA_JOKIC_1_NBA', betTypeID: 'ou', sideID: 'over', bookOdds: '-200', fairOdds: '-185', bookOverUnder: '11.5' }),
+    o('rebounds-NIKOLA_JOKIC_1_NBA-game-ou-under', { statID: 'rebounds', statEntityID: 'NIKOLA_JOKIC_1_NBA', betTypeID: 'ou', sideID: 'under', bookOdds: '+160', fairOdds: '+185', bookOverUnder: '11.5' })]));
+  const nameOf = (e, pid) => (e.players[pid] || {}).name;
+  const L1 = sgoLegs(e1, nameOf), L2 = sgoLegs(e2, nameOf);
+  ok('dobradinha: equipas pelas alcunhas', sgoTeam({ names: { long: 'Portland Trail Blazers' } }) === 'POR' && L1[0].g === 'OKC@MEM', L1);
+  ok('dobradinha: handicap com número inteiro fica de fora (pode dar empate)', !L1.some(l => l.k === 'sp'), L1);
+  const best = pickDouble(L1.concat(L2));
+  ok('dobradinha: duas pernas de jogos diferentes, odd perto de 2', best && best.legs[0].g !== best.legs[1].g && best.o >= 1.9 && best.o <= 2.2 && best.legs.some(l => l.k === 'ml' && l.t === 'OKC') && best.legs.some(l => l.k === 'pr' && l.side === 'over'), best);
+  ok('dobradinha: nunca do mesmo jogo', pickDouble(L1) === null);
+  const okc = best.legs.find(l => l.k === 'ml'), jok = best.legs.find(l => l.k === 'pr');
+  ok('dobradinha: bate, falha, ou espera', settleDouble(best, { OKC: 118, MEM: 101 }, { 'nikola jokic': { reb: 13 } }) === 'win' && settleDouble(best, { OKC: 118, MEM: 101 }, { 'nikola jokic': { reb: 9 } }) === 'loss' && settleDouble(best, { OKC: 99, MEM: 101 }, { 'nikola jokic': { reb: 13 } }) === 'loss' && settleDouble(best, {}, {}) === null, [okc, jok]);
+  const lad = ladder([{ res: 'win' }, { res: 'win' }, { res: 'loss' }, { res: 'win' }, {}]);
+  ok('dobradinha: escada (sobe ao bater, volta ao 1 ao falhar)', lad.list.map(x => x.step).join() === '1,2,3,1,2' && lad.step === 2 && lad.best === 2 && lad.restarts === 1, lad);
+}
 ok('normalização de nomes', norm("De'Aaron Fox Jr.") === 'deaaron fox' && norm('Luka Dončić') === 'luka doncic');
 { const m2 = matchPlayers({ 'herb jones': { pts: {} }, 'tre jones': { pts: {} } }, [{ id: 'hj', name: 'Herbert Jones' }, { id: 'tj', name: 'Tre Jones' }, { id: 'cj', name: 'Colby Jones' }]);
   ok('diminutivo liga ao nome completo (Herb = Herbert)', m2.players.hj && m2.players.tj && !m2.unmatched.length, m2); }

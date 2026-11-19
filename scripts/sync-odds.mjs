@@ -6,7 +6,8 @@
 // Uso: node scripts/sync-odds.mjs [AAAA-MM-DD ...]   (por defeito: hoje e amanhã, hora de Nova Iorque)
 //      node scripts/sync-odds.mjs --pre   (de hora a hora à noite: só lê hoje, uma vez, quando faltam ≤ 2 h para o
 //      1.º jogo; é a única leitura que avisa o grupo no Telegram)
-import { supa, must, etDate, addDays, marketsForStat, consensusFromEvent, consensusFromSGO, MARKET_STAT, matchPlayers, getState, setState, oddsReadyText } from './lib.mjs';
+import { supa, must, etDate, addDays, marketsForStat, consensusFromEvent, consensusFromSGO, sgoName, norm, espnTeam, fetchJson, parseEspnBox, MARKET_STAT, matchPlayers, getState, setState, oddsReadyText } from './lib.mjs';
+import { sgoLegs, pickDouble, settleDouble, espnScores } from './dobra.mjs';
 
 const KEY = process.env.ODDS_API_KEY, SGO = (process.env.SGO_API_KEY || '').trim(), ONLY_SGO = process.env.ODDS_ONLY_SGO === '1';
 if (!KEY && !SGO) { console.log('Sem SGO_API_KEY nem ODDS_API_KEY nos segredos do GitHub: nada a fazer.'); process.exit(0); }
@@ -53,11 +54,12 @@ async function save(date, players, source) {
   const prev = await must(sb.from('odds_days').select('players').eq('date', date).maybeSingle());
   const merged = Object.assign({}, (prev && prev.players) || {});
   for (const [id, stats] of Object.entries(players)) merged[id] = Object.assign({}, merged[id] || {}, stats);
-  await must(sb.from('odds_days').upsert({ date, players: merged, source, updated_at: new Date().toISOString() }));
+  await must(sb.from('odds_days').upsert(Object.assign({ date, players: merged, updated_at: new Date().toISOString() }, source ? { source } : {})));
   return Object.keys(merged).length;
 }
 
 // ---------- 1.º SportsGameOdds ----------
+const sgoDay = {}; // jogos por começar de cada data (para a dobradinha)
 if (SGO) {
   let objs = 0; const seen = new Set();
   for (const date of Object.keys(need)) {
@@ -75,6 +77,7 @@ if (SGO) {
       } while (cursor && evs.length < 200);
     } catch (e) { console.log('::warning title=SportsGameOdds ' + date + '::' + String(e.message).slice(0, 200)); continue; }
     const todays = evs.filter(e => { const t = e.status && e.status.startsAt; return t && etDate(t) === date && Date.parse(t) > now; });
+    sgoDay[date] = todays;
     objs += evs.length;
     const byName = {};
     for (const ev of todays) {
@@ -97,6 +100,43 @@ if (SGO) {
     const rl = u && (u.data || u).rateLimits;
     if (rl) console.log('::notice title=SportsGameOdds::uso ' + JSON.stringify(rl['per-month'] || rl).slice(0, 300));
   } catch (e) { /* o uso é só informativo */ }
+}
+
+// ---------- dobradinha do dia (fica em odds_days.players._dobra de cada data) ----------
+try { await dobradinha(); } catch (e) { console.log('::warning title=Dobradinha::' + String(e.message || e).slice(0, 200)); }
+async function dobradinha() {
+  // 1) as dos dias anteriores que ainda não têm resultado: placar e fichas da ESPN
+  const past = await must(sb.from('odds_days').select('date,players').gte('date', addDays(today, -4)).lte('date', today));
+  for (const row of past) {
+    const d = row.players && row.players._dobra; if (!d || d.res) continue;
+    if (d.legs.some(l => Date.parse(l.tip) > Date.now() - 3 * 36e5)) continue; // ainda a jogar
+    const { json } = await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + row.date.replace(/-/g, ''));
+    const scores = espnScores(json), box = {};
+    for (const ev of (json && json.events) || []) {
+      const ts = ((ev.competitions || [])[0] || {}).competitors || [], ab = ts.map(c => espnTeam((c.team || {}).abbreviation)); // só os jogos das linhas de jogadores
+      if (!d.legs.some(l => l.k === 'pr' && (ab.includes(l.home) || ab.includes(l.away)))) continue;
+      try { const r = await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=' + ev.id); Object.assign(box, parseEspnBox(r.json)); } catch (e) {}
+    }
+    const res = settleDouble(d, scores, box);
+    if (!res) { console.log('Dobradinha ' + row.date + ': ainda sem resultado'); continue; }
+    d.res = res; d.settled = new Date().toISOString();
+    await save(row.date, { _dobra: d }, null);
+    console.log('::notice title=Dobradinha ' + row.date + '::' + (res === 'win' ? 'bateu ✓' : 'falhou ✗'));
+  }
+  // 2) a de hoje: a 1.ª data com jogos por começar e sem dobradinha (escolhe-se uma vez e fica)
+  const date = Object.keys(sgoDay).sort().find(x => sgoDay[x].length); if (!date) return;
+  const prev = await must(sb.from('odds_days').select('players').eq('date', date).maybeSingle());
+  if (prev && prev.players && prev.players._dobra) { console.log('Dobradinha de ' + date + ' já escolhida.'); return; }
+  const inj = new Set((await must(sb.from('injuries').select('id,status'))).filter(x => ['out', 'ofs', 'doubtful', 'questionable', 'dtd'].includes(x.status)).map(x => x.id));
+  const byNorm = new Map(catalog.map(p => [norm(p.name), p.id]));
+  const legs = sgoDay[date].flatMap(ev => sgoLegs(ev, sgoName));
+  const soon = Date.now() + 30 * 6e4;
+  const best = pickDouble(legs, { skip: l => Date.parse(l.tip) < soon || (l.k === 'pr' && (inj.has(norm(l.who)) || !byNorm.has(norm(l.who)))) });
+  if (!best) { console.log('Dobradinha de ' + date + ': nenhum par perto de 2 (' + legs.length + ' apostas)'); return; }
+  best.legs.forEach(l => { if (l.k === 'pr') l.id = byNorm.get(norm(l.who)); });
+  best.at = new Date().toISOString(); best.n = legs.length;
+  await save(date, { _dobra: best }, null);
+  console.log('::notice title=Dobradinha ' + date + '::odd ' + best.o + ' · ' + Math.round(best.p * 100) + '% · ' + best.legs.map(l => l.k === 'pr' ? l.who + ' ' + l.side + ' ' + l.line + ' ' + l.stat : l.t + ' ' + l.k + (l.line != null ? ' ' + l.line : '')).join(' + '));
 }
 
 // ---------- 2.º The Odds API: só nas datas que ficaram sem linhas ----------

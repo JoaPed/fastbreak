@@ -24,7 +24,7 @@ const sb = configured ? createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: {
 
 const S = {
   session: null, role: null, profile: null,
-  runs: [], runId: null, days: [], players: new Map(), odds: {}, chainRuns: [], chainGames: [],
+  runs: [], runId: null, days: [], players: new Map(), odds: {}, dobra: {}, chainRuns: [], chainGames: [],
   mine: { roster: {}, plan: {} }, mineLoaded: false,
   group: { profiles: [], summaries: [], members: [], chain: [] },
   tab: 'hoje', result: null, calcError: null, pendingUses: {}, filter: '', sheetBack: null,
@@ -228,6 +228,31 @@ function pickProbs(e, date) {
   }
   return null;
 }
+// ---- dobradinha do dia: duas apostas de jogos diferentes com odd perto de 2 (escolhida às 7h pela leitura das odds)
+// e a escada da run: sobe um degrau quando bate, volta ao 1 quando falha ----
+function dobraLadder(upTo) {
+  let step = 1, best = 0, restarts = 0, n = 0, hit = 0, pSum = 0;
+  S.days.filter(d => d.date < upTo).forEach(d => { const x = S.dobra[d.date]; if (!x || !x.res) return;
+    n++; pSum += x.p; if (x.res === 'win') { hit++; best = Math.max(best, step); step = step >= 8 ? 1 : step + 1; } else { best = Math.max(best, step - 1); restarts++; step = 1; } });
+  return { step, best, restarts, n, hit, pSum };
+}
+function dobraCard(date) {
+  const D = S.dobra && S.dobra[date]; if (!D || !Array.isArray(D.legs)) return '';
+  const L = dobraLadder(date), dec = v => { const t = (+v).toFixed(2); return LANG === 'en' ? t : t.replace('.', ','); };
+  const leg = l => {
+    const sub = esc(l.away) + ' @ ' + esc(l.home) + (l.tip ? ' · ' + hm(l.tip) : '');
+    const st = l.stat ? String((STATS[l.stat] || {}).label || l.stat).toLowerCase() : '';
+    const what = l.k === 'ml' ? '<b>' + esc(l.t) + '</b> ganha' : l.k === 'sp' ? '<b>' + esc(l.t) + '</b> ' + (l.line > 0 ? '+' : '−') + f1(Math.abs(l.line)) :
+      '<b>' + esc(l.id ? nameOf(l.id) : l.who) + '</b> ' + (l.side === 'over' ? '+' + f1(l.line) + ' ' + esc(st) : 'menos de ' + f1(l.line) + ' ' + esc(st));
+    return '<div class="db-leg">' + (l.k === 'pr' ? (l.id ? face(l.id, 'sm') : '<span class="face sm"></span>') : teamLogo(teamFix(l.t))) + '<div style="min-width:0;flex:1"><div class="db-what">' + what + '</div><div class="small muted">' + sub + '</div></div><div class="db-o"><b class="num">' + dec(l.o) + '</b><small class="muted">' + pct(l.p) + '</small></div></div>';
+  };
+  const res = D.res === 'win' ? '<span class="db-chip ok">Bateu ✓</span>' : D.res === 'loss' ? '<span class="db-chip ko">Falhou ✗</span>' : '<span class="db-chip">Degrau ' + L.step + ' de 8</span>';
+  const stair = '<div class="db-stair" aria-label="Degrau ' + L.step + ' de 8">' + [1, 2, 3, 4, 5, 6, 7, 8].map(k => '<i class="' + (k < L.step ? 'w' : k === L.step ? 'c' : '') + '" style="height:' + (20 + (k - 1) * 11) + '%"><b>' + k + '</b></i>').join('') + '</div>';
+  const stats = L.n ? 'Nesta run: ' + L.hit + ' de ' + L.n + ' bateram (' + pct(L.hit / L.n) + ') · previsto ' + pct(L.pSum / L.n) : 'Primeira desta run';
+  return '<div class="card db-card"><div class="pk-top"><span class="eyebrow">Dobradinha do dia ' + helpBtn('dobra') + '</span>' + res + '</div>' + D.legs.map(leg).join('') +
+    '<div class="db-tot"><div><div class="small muted">Odd total</div><b class="num">' + dec(D.o) + '</b></div><div style="text-align:right"><div class="small muted">Baterem as duas</div><b class="num c-good">' + pct(D.p) + '</b></div></div>' +
+    stair + '<div class="db-foot small muted"><span>Melhor da run: degrau ' + (L.best || '–') + '</span><span>' + plural(L.restarts, 'recomeço', 'recomeços') + '</span></div><div class="small muted" style="margin-top:4px">' + stats + '</div></div>';
+}
 function picksCard() {
   const P = picksDoc(); if (!P) return '';
   const now = Date.now(), ev = P.ev.filter(e => Date.parse(e.lock) > now && Date.parse(e.lock) - now < 30 * 3600e3);
@@ -389,6 +414,11 @@ const HELP = {
   premios: ['Prémios', 'Cada aro é a probabilidade de acabares a run com pelo menos esse número de vitórias: cheio é certo. Verde provável, amarelo meio-meio, vermelho difícil. O plano escolhe os lineups para subir estas probabilidades.'],
   dist: ['Vitórias no fim', 'A probabilidade de cada total de vitórias no fim da run. As cores marcam os patamares de prémio; o contorno é o total mais provável.'],
   contas: ['Contas', 'O plano junta as coleções das tuas contas como se fossem uma só e escolhe o lineup de cada uma. Toca numa conta para ver os prémios dela.'],
+  dobra: ['Dobradinha do dia', '<ul class="help-list"><li>Duas apostas de <b>jogos diferentes</b> (quem ganha, handicap ou a linha de um jogador) que juntas pagam perto de 2 (entre 1,90 e 2,20).</li>' +
+    '<li>Escolhe-se às 7h, na leitura das odds (SportsGameOdds): a hipótese de cada uma vem da odd justa (sem a margem das casas) e a das duas é a multiplicação. Fica o par que menos perde para a margem (hipótese × odd) e, em empate, o mais provável.</li>' +
+    '<li>Fora: jogadores em dúvida no relatório de lesões, linhas com número inteiro (podem dar empate) e jogos a começar.</li>' +
+    '<li><b>Escada</b>: quando bate sobe um degrau (até 8); quando falha volta ao 1. Recomeça em cada run. No dia seguinte, às 7h, vê-se pelo placar e pelas fichas da ESPN se bateu.</li>' +
+    '<li>Com a margem das casas, a hipótese das duas costuma ficar entre 45% e 48%: é normal recomeçar muitas vezes.</li></ul>'],
   picks: ['Pick do dia', 'Dos picks do Fast Break de hoje (lidos no Top Shot quando o admin atualiza), o mais seguro: o favorito com as odds mais baixas, para dobrar os pontos do dia. A probabilidade vem das casas de apostas (linha de vitória do jogo; nos jogadores, as odds de pontos); «pessoal» é a % de quem já o escolheu no Top Shot. Sem odds, vai pela % do pessoal.'],
   mudar: ['Mudar o lineup', 'Toca no cadeado para fixar quem tem de jogar, no × para tirar alguém deste dia (fica um lugar livre: no + escolhes quem entra, ou deixas o plano escolher) e no + de Pôr no lineup para meter um jogador que o plano deixou de fora. O plano completa o resto e refaz a run a cada mudança. Em cima vês o que muda face à sugestão do plano: a vitória do dia, as vitórias esperadas na run, os prémios e os outros dias em que entra ou sai alguém (os usos gastos hoje deixam de estar lá). Para desfazer, toca outra vez no cadeado ou em Voltar à sugestão do plano.'],
   dias: ['Dias', 'A run toda: o objetivo de cada dia, o lineup do plano e a vitória prevista. Nos dias que passaram, o resultado e o total feito, que entram sozinhos com as estatísticas dos jogos. Toca num dia para o abrir na Jornada.'],
@@ -682,7 +712,7 @@ function pickRun() {
   return S.runs[0] ? S.runs[0].id : null;
 }
 async function loadRun(runId) {
-  S.runId = runId; S.days = []; S.odds = {}; S.prevGames = {}; S.board = null; S.mine = { roster: {}, plan: {} }; S.mineLoaded = false; S.pendingUses = {}; S.lastSummary = '';
+  S.runId = runId; S.days = []; S.odds = {}; S.dobra = {}; S.prevGames = {}; S.board = null; S.mine = { roster: {}, plan: {} }; S.mineLoaded = false; S.pendingUses = {}; S.lastSummary = '';
   S.group = { profiles: [], summaries: [], members: [], chain: [] }; S.chainGames = [];
   try { localStorage.setItem('fb-run', runId || ''); localStorage.setItem('fb-run-act', (S.runs.find(r => r.active) || {}).id || ''); } catch (e) {}
   if (!runId) { schedule(); return; }
@@ -732,7 +762,8 @@ async function loadOdds() {
   S.oddsAt = Date.now();
   if (runId !== S.runId) return false;
   let changed = false;
-  (rows || []).forEach(o => { const cur = S.odds[o.date]; if (!cur || cur.updated_at !== o.updated_at) { S.odds[o.date] = S.alias.size ? Object.assign({}, o, { players: canonDeep(o.players || {}, S.alias) }) : o; changed = true; } });
+  (rows || []).forEach(o => { if (o.players && o.players._dobra) { S.dobra[o.date] = o.players._dobra; o = Object.assign({}, o, { players: Object.assign({}, o.players) }); delete o.players._dobra; }
+    const cur = S.odds[o.date]; if (!cur || cur.updated_at !== o.updated_at) { S.odds[o.date] = S.alias.size ? Object.assign({}, o, { players: canonDeep(o.players || {}, S.alias) }) : o; changed = true; } });
   return changed;
 }
 async function refreshOdds() {
@@ -2845,7 +2876,7 @@ function renderJornada(el) {
     (S.multi ? groupLine(nd) : '') +
     (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões para hoje</button>' : !isCur ? '' : '') + '</div>');
   const luAt = html.length; // o lineup vem logo a seguir ao placar (sem ter de descer)
-  if (isCur && !live) html.push(picksCard());
+  if (isCur && !live) html.push(dobraCard(nd.date) + picksCard());
   if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
   // ao vivo: o plano sugere mudar quem ainda não jogou
   if (live && d.live && (d.live.out.length || d.live.in.length)) {

@@ -1008,6 +1008,24 @@ p, .note { text-wrap: pretty; }
 #sheetPanel > .lu-search { padding: 8px 0 4px; }
 /* pick do dia */
 .pick-card { padding: 12px 16px 14px; border-color: color-mix(in srgb, var(--ball) 45%, var(--line)); }
+/* dobradinha do dia */
+.db-card { padding: 12px 16px 14px; border-color: color-mix(in srgb, #f59e0b 40%, var(--line)); }
+.db-card .eyebrow { color: #f59e0b; }
+.db-chip { font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, #f59e0b 18%, transparent); color: #f59e0b; }
+.db-chip.ok { background: var(--good-bg); color: var(--good); } .db-chip.ko { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.db-leg { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.db-leg:first-of-type { margin-top: 6px; }
+.db-what { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.db-o { display: grid; justify-items: end; line-height: 1.1; } .db-o b { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.db-tot { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 8px; border-top: 1px solid var(--line); }
+.db-tot b { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1; }
+.db-stair { display: flex; align-items: flex-end; height: 54px; margin-top: 18px; }
+.db-stair i { flex: 1; position: relative; background: var(--surface-2, #1f2937); border-right: 2px solid var(--card, #111827); border-radius: 3px 3px 0 0; }
+.db-stair i b { position: absolute; bottom: 3px; left: 0; right: 0; text-align: center; font-size: 11.5px; color: var(--muted); font-style: normal; }
+.db-stair i.w { background: color-mix(in srgb, var(--good) 55%, #052e16); } .db-stair i.w b { color: #fff; }
+.db-stair i.c { background: #f59e0b; } .db-stair i.c b { color: #111; }
+.db-stair i.c::after { content: "▲ hoje"; position: absolute; top: -16px; left: -8px; right: -8px; text-align: center; font-size: 10px; font-weight: 800; color: #f59e0b; }
+.db-foot { display: flex; justify-content: space-between; margin-top: 6px; }
 .pk-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
 .pk-top .eyebrow { color: var(--ball); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
 .pk-main { display: flex; align-items: center; gap: 12px; }
