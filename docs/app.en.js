@@ -2879,8 +2879,9 @@ function renderJornada(el) {
     (S.multi ? groupLine(nd) : '') +
     (isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Suggestions for today</button>' : !isCur ? '' : '') + '</div>');
   const luAt = html.length; // o lineup vem logo a seguir ao placar (sem ter de descer)
-  if (isCur && !live) html.push(dobraCard(nd.date) + picksCard());
+  // por baixo do plantel: primeiro o que há para fazer, depois a dobradinha e o pick do dia
   if (isCur) html.push(todoCard(r, v, d, md, nd, live, tips));
+  if (isCur && !live) html.push(dobraCard(nd.date) + picksCard());
   // ao vivo: o plano sugere mudar quem ainda não jogou
   if (live && d.live && (d.live.out.length || d.live.in.length)) {
     const pSub = lineupP(md, d.live.submitted);
