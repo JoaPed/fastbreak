@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-19
+- **João** — Jornada: por baixo do plantel vem primeiro o «Para fazer», depois a dobradinha e o pick do dia.
 - **João** — **Dobradinha do dia** na Jornada, acima do Pick do dia: duas apostas de jogos diferentes (quem ganha, handicap ou linha de um jogador) com odd perto de 2, escolhidas às 7h com as odds da SportsGameOdds; no dia seguinte vê-se se bateu e a escada sobe (até 8 degraus) ou recomeça. Guarda o acerto real contra o previsto em cada run. A odd é a mediana das casas (o consenso saía alto demais).
 - **João** — Suplente com várias contas: se já o jogaste e nessa conta só há um Common, diz «Mandar o Rare de …» (a 2.ª jogada precisa dele), e o suplente que tem de vir de outra conta aparece no «Para fazer».
 - **João** — Comprar: «NOVO» em azul (já não se confunde com o preço) e o n.º do Moment como «2.º Rare»; num jogador que tens noutro escalão, «1.º Rare · +1 uso».

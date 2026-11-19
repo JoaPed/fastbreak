@@ -598,7 +598,7 @@ with sync_playwright() as pw:
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
     c = pg.locator('#tab-hoje .db-card'); ct = c.first.inner_text().replace('\n', ' | ') if c.count() else ''
-    above = pg.evaluate("(() => { const a = document.querySelector('#tab-hoje .db-card'), b = document.querySelector('#tab-hoje .pick-card'); return !b || !!(a && (a.compareDocumentPosition(b) & 4)); })()")
+    above = pg.evaluate("(() => { const a = document.querySelector('#tab-hoje .db-card'), b = document.querySelector('#tab-hoje .pick-card'), t = document.querySelector('#tab-hoje .todo'); return (!b || !!(a && (a.compareDocumentPosition(b) & 4))) && (!t || !!(a && (t.compareDocumentPosition(a) & 4))); })()")  # a fazer → dobradinha → pick
     if c.count(): c.first.screenshot(path=str(shots / 'dobradinha.png'))
     bold = c.first.locator('.db-leg .small b').all_inner_texts() if c.count() else []
     print('C5 dobradinha: equipas a negrito:', bold, '· ok' if bold[:2] == ['POR', 'DEN'] else '· ERRO')
