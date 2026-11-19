@@ -241,7 +241,9 @@ function dobraCard(date) {
   const D = S.dobra && S.dobra[date]; if (!D || !Array.isArray(D.legs)) return '';
   const L = dobraLadder(date), dec = v => { const t = (+v).toFixed(2); return LANG === 'en' ? t : t.replace('.', ','); };
   const leg = l => {
-    const sub = esc(l.away) + ' @ ' + esc(l.home) + (l.tip ? ' · ' + hm(l.tip) : '');
+    // a equipa da aposta (ou a do jogador) a negrito no jogo
+    const mine = l.k === 'pr' ? teamFix(((l.id && S.players.get(l.id)) || {}).team || '') : l.t, tb = x => (x === mine ? '<b>' + esc(x) + '</b>' : esc(x));
+    const sub = tb(l.away) + ' @ ' + tb(l.home) + (l.tip ? ' · ' + hm(l.tip) : '');
     const st = l.stat ? String((STATS[l.stat] || {}).label || l.stat).toLowerCase() : '';
     const what = l.k === 'ml' ? '<b>' + esc(l.t) + '</b> wins' : l.k === 'sp' ? '<b>' + esc(l.t) + '</b> ' + (l.line > 0 ? '+' : '−') + f1(Math.abs(l.line)) :
       '<b>' + esc(l.id ? nameOf(l.id) : l.who) + '</b> ' + (l.side === 'over' ? '+' + f1(l.line) + ' ' + esc(st) : 'under ' + f1(l.line) + ' ' + esc(st));

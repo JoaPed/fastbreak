@@ -600,6 +600,8 @@ with sync_playwright() as pw:
     c = pg.locator('#tab-hoje .db-card'); ct = c.first.inner_text().replace('\n', ' | ') if c.count() else ''
     above = pg.evaluate("(() => { const a = document.querySelector('#tab-hoje .db-card'), b = document.querySelector('#tab-hoje .pick-card'); return !b || !!(a && (a.compareDocumentPosition(b) & 4)); })()")
     if c.count(): c.first.screenshot(path=str(shots / 'dobradinha.png'))
+    bold = c.first.locator('.db-leg .small b').all_inner_texts() if c.count() else []
+    print('C5 dobradinha: equipas a negrito:', bold, '· ok' if bold[:2] == ['POR', 'DEN'] else '· ERRO')
     print('C5 dobradinha:', ct[:160], '· ok' if 'Degrau 2 de 8' in ct and 'Jokić +11,5 ressaltos' in ct and '2,05' in ct and 'POR' in ct and above else '· ERRO')
     pg.close()
 
