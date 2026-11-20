@@ -51,8 +51,9 @@ export function sgoLegs(ev, nameOf) {
 // a melhor dobradinha: jogos diferentes, odd junta entre lo e hi, cada perna com pelo menos minP de hipótese;
 // escolhe a de maior valor esperado (hipótese × odd − 1: a que menos perde para a margem das casas) e, em empate, a
 // mais provável. skip(leg) tira pernas (jogadores em dúvida, jogos a começar…)
-export function pickDouble(legs, { lo = 1.9, hi = 2.2, minP = 0.5, skip = () => false } = {}) {
-  const L = legs.filter(x => x.p >= minP && x.o >= 1.15 && !skip(x)).sort((a, b) => b.p - a.p).slice(0, 400);
+export function pickDouble(legs, { lo = 1.9, hi = 2.2, minP = 0.5, minO = 1.2, skip = () => false } = {}) {
+  // cada perna paga pelo menos minO (abaixo de 1,2 não vale a pena: pedido do grupo, 20 nov)
+  const L = legs.filter(x => x.p >= minP && x.o >= minO - 1e-9 && !skip(x)).sort((a, b) => b.p - a.p).slice(0, 400);
   let best = null;
   for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
     const a = L[i], b = L[j]; if (a.g === b.g || (a.tm || []).some(t => (b.tm || []).includes(t))) continue; // sempre de jogos diferentes (nem a mesma equipa)

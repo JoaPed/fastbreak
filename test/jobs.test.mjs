@@ -187,6 +187,8 @@ ok('nomes com e sem acentos ligam ao catálogo', m.players['nikola-jokic'] && m.
   const best = pickDouble(L1.concat(L2));
   ok('dobradinha: duas pernas de jogos diferentes, odd perto de 2', best && best.legs[0].g !== best.legs[1].g && best.o >= 1.9 && best.o <= 2.2 && best.legs.some(l => l.k === 'ml' && l.t === 'OKC') && best.legs.some(l => l.k === 'pr' && l.side === 'over'), best);
   ok('dobradinha: nunca do mesmo jogo', pickDouble(L1) === null);
+  const fav = { g: 'BOS-NYK', tm: ['BOS', 'NYK'], k: 'ml', o: 1.15, p: 0.84 }, alt = { g: 'DEN-LAL', tm: ['DEN', 'LAL'], k: 'pr', o: 1.8, p: 0.57 };
+  ok('dobradinha: nunca uma perna abaixo de 1,2', pickDouble([fav, alt], { lo: 1, hi: 3 }) === null && pickDouble([Object.assign({}, fav, { o: 1.2 }), alt], { lo: 1, hi: 3 }) !== null);
   const grant = { g: 'MIN-NYK', tm: ['MIN', 'NYK', 'POR'], k: 'pr', o: 1.5, p: 0.7, tip: '2026-11-20T00:00:00Z' }, por = { g: 'MIL-POR', tm: ['MIL', 'POR'], k: 'ml', o: 1.4, p: 0.72, tip: '2026-11-20T00:00:00Z' };
   ok('dobradinha: nem a mesma equipa (jogador posto noutro jogo)', pickDouble([grant, por]) === null);
   const okc = best.legs.find(l => l.k === 'ml'), jok = best.legs.find(l => l.k === 'pr');
