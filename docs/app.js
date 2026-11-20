@@ -827,7 +827,7 @@ function takeRanksHash() {
   try {
     const d = b64u.dec(m[1]);
     if (d && d.tr && Array.isArray(d.tr.done)) {
-      d.tr.done.forEach(k => { if (typeof k === 'string' && /\|tr\|/.test(k)) TODO_DONE[k] = TODO_DONE[k] || Date.now(); }); todoSave();
+      d.tr.done.forEach(k => { if (typeof k === 'string' && /\|tr\|/.test(k)) TODO_DONE[k] = Date.now(); }); todoSave();
       const nd = d.tr.done.length, nf = (d.tr.fail || []).length; setTimeout(() => toast(plural(nd, 'Moment mandado', 'Moments mandados') + ' ✓' + (nf ? ' · ' + plural(nf, 'ficou por mandar', 'ficaram por mandar') : '')), 600); delete d.tr;
     }
     if (d && Array.isArray(d.do) && d.do.join() === 'tr') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} return; } // só trocas: o resto não muda
@@ -3087,6 +3087,14 @@ function todoSave() {
   const lim = Date.now() - 14 * 864e5; for (const k in TODO_DONE) if (!(TODO_DONE[k] > lim)) delete TODO_DONE[k];
   try { localStorage.setItem('fb-todo', JSON.stringify(TODO_DONE)); } catch (e) {}
 }
+// um Moment marcado como mandado só conta como feito até se ler a carteira outra vez: depois disso manda o que a carteira
+// diz (se a troca volta a aparecer é porque ainda não foi feita ou voltou para trás)
+function todoOn(k) {
+  const at = +TODO_DONE[k] || 0; if (!at) return false;
+  if (!/\|tr\|/.test(k)) return true;
+  const rd = Date.parse((((S.profile || {}).collection) || {}).read_at || 0) || 0;
+  return at >= rd || rd > Date.now(); // leitura «no futuro» = relógios desacertados: vale o visto
+}
 const icoTick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 S.todoShow = false;
 // trocas de hoje que saem de uma conta, com o Moment a mandar (o da conta que chega para os usos, o de menos usos e mais
@@ -3095,7 +3103,7 @@ function trJob(from) {
   const nd = nextDay(), col = (S.profile || {}).collection || {}, uid = S.session.user.id; if (!S.multi || !nd || !col.items) return null;
   const used = new Set(), out = [], miss = [];
   S.multi.transfers.filter(t => t.before <= nd.date && t.from === from).forEach(t => {
-    const k = (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before; if (TODO_DONE[k]) return;
+    const k = (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before; if (todoOn(k)) return;
     const fa = accAddr(uid, t.from), ta = accAddr(uid, t.to); if (!fa || !ta) { miss.push(nameOf(t.id)); return; }
     const need = t.uses || 1, cs = Object.keys(col.items).filter(f => String(col.items[f].p) === String(t.id) && (col.items[f].a || 'main') === from && !used.has(f) && !col.items[f].lk)
       .map(f => { const e = cardEd(col, f); return { f, u: cardUses(col, f), ask: e && e.ask ? e.ask : 1e12 }; });
@@ -3132,7 +3140,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
         due.filter(t => t.from === f && t.to === to).forEach(t => { const tt = tipOf(t), k = tt ? hm(new Date(tt).toISOString()) : '—'; (byTime.get(k) || byTime.set(k, { tt: tt || Infinity, list: [] }).get(k)).list.push(t); });
         const lines = [...byTime.entries()].sort((a, b) => a[1].tt - b[1].tt).map(([k, g]) => {
           const tag = t => { if (!t.uses || !(collectionInfo(t.id).nTop < collectionInfo(t.id).copies)) return ''; const tn = t.uses >= 4 ? 'Legendary' : t.uses >= 2 ? 'Rare' : 'Common'; return '<span class="tpill t-' + TIER_CLS[tn] + '">' + tn + '</span>'; };
-          const keys = g.list.map(t => (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before), on = keys.every(x => TODO_DONE[x]);
+          const keys = g.list.map(t => (S.runId || '') + '|tr|' + t.id + '|' + t.from + '>' + t.to + '|' + t.before), on = keys.every(todoOn);
           const html = '<span class="todo-at">' + (k === '—' ? 'antes do jogo' : 'até ' + k) + '</span><span class="todo-pls">' + g.list.map(t => '<span class="todo-pl">' + face(t.id, 'xs') + '<b>' + esc(nameOf(t.id)) + '</b>' + tag(t) + '</span>').join('') + '</span>';
           const li = '<li class="todo-li' + (on ? ' done' : '') + '"><button class="todo-ck" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Feito. Desmarcar' : 'Marcar como mandados') + '">' + icoTick + '</button><button class="row" type="button" data-action="todo-tick" data-k="' + esc(keys.join(' ')) + '"><div style="min-width:0"><div class="todo-t">' + html + '</div></div></button></li>';
           if (on) { done.push(li); return ''; } return li;
@@ -7479,7 +7487,7 @@ document.addEventListener('click', async e => {
     case 'keep-clear': planPatch({ keep: { [b.dataset.date]: null } }, true); toast('O plano volta a escolher este dia.'); break;
     case 'locks-fix': { const r = S.result, L = {}; ((r && r.model.droppedLocks) || []).forEach(x => { L[x.date] = (L[x.date] || (curPlan().locks || {})[x.date] || []).filter(id => id !== x.player); }); if (Object.keys(L).length) { planPatch({ locks: L }); toast('Cadeados a mais tirados. Plano refeito.'); } break; }
     case 'todo-tick': { const ks = String(b.dataset.k || '').split(' ').filter(Boolean), k = ks[0] || ''; // uma linha pode ter vários (Moments da mesma hora)
-      if (ks.every(x => TODO_DONE[x])) ks.forEach(x => { delete TODO_DONE[x]; }); else { ks.forEach(x => { TODO_DONE[x] = TODO_DONE[x] || Date.now(); }); toast('Feito ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
+      if (ks.every(todoOn)) ks.forEach(x => { delete TODO_DONE[x]; }); else { ks.forEach(x => { if (!todoOn(x)) TODO_DONE[x] = Date.now(); }); toast('Feito ✓'); } todoSave(); if (/\|tr\|/.test(k)) schedule(); else render(); break; } // Moment mandado: o plano conta já com ele na outra conta
     case 'todo-show': S.todoShow = !S.todoShow; render(); break;
     case 'card-send': { const col = (S.profile || {}).collection || {}, it = (col.items || {})[b.dataset.fid]; if (!it) break; const from = it.a || 'main';
       const to = accounts().filter(a => a.id !== from && accAddr(S.session.user.id, a.id));

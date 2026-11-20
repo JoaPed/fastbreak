@@ -562,7 +562,23 @@ with sync_playwright() as pw:
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(4000)
     bz = pg.locator('#tab-hoje .bench-row')
     bt = bz.first.inner_text().replace('\n', ' ') if bz.count() else ''
-    print('C4 suplente noutra conta:', bt[:140], '· ok' if ('Mandar de' in bt or 'Já joga em' in bt) else '· ERRO')
+    bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
+    td = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
+    print('C4 suplente noutra conta:', bt[:140], '| para fazer:', bn in td, '· ok' if (('Mandar de' in bt and bn in td) or 'Já joga em' in bt) else '· ERRO')
+    pg.close()
+    # marcado como mandado ANTES da última leitura da carteira (que o diz ainda na outra conta): volta a aparecer por fazer
+    T['profiles'][-1]['collection']['read_at'] = '2026-10-21T14:00:00Z'
+    old = {'run-1|tr|%s|s1>main|2026-10-21' % pid: 1760000000000 for pid in roster['players']}
+    pg = new_page(b, db)
+    pg.add_init_script("localStorage.setItem('fb-todo', %s)" % json.dumps(json.dumps(old)))
+    pg.clock.set_fixed_time('2026-10-21T15:00:00Z')
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(4000)
+    bz = pg.locator('#tab-hoje .bench-row')
+    bt = bz.first.inner_text().replace('\n', ' ') if bz.count() else ''
+    bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
+    nd_ = pg.locator('#tab-hoje .todo .todo-li:not(.done)').filter(has_text=bn).count()
+    print('C4 marcado antes de ler a carteira:', bt[:80], '| por fazer:', nd_, '· ok' if ('Mandar de' not in bt or nd_ >= 1) else '· ERRO')
     pg.close()
     # já o jogou uma vez e aqui só tem um Common: a 2.ª jogada precisa do Rare, que está noutra conta → manda o Rare,
     # e aparece no «Para fazer»

@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-20
+- **João** — Para fazer: um Moment que marcaste como mandado e que a carteira, lida depois, ainda mostra na outra conta volta a aparecer por fazer (o suplente dizia «Mandar de …» e não aparecia na lista).
 - **João** — Dobradinha: nenhuma das apostas abaixo de 1,2 (a partir de amanhã; a de hoje fica).
 - **João** — Historic: a sugestão passa a ser a equipa com mais pontos esperados (escolher pela «hipótese de prémio» das simulações era pior: nos 28 dias do arquivo ia aos prémios 2 vezes, assim 5); os pontos e a hipótese de prémio mostrados são os que se esperam mesmo (antes prometiam ~30% e saía ~18%); e cada conta do grupo joga uma equipa diferente (troca pelo menos 2 lendas, a ordem roda todos os dias), para a sorte calhar a alguém do grupo: no arquivo, com 5 equipas alguém ia aos prémios em 11 dias de 28, contra 5 todos com a mesma.
 
