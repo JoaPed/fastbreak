@@ -1546,6 +1546,7 @@
   // fechados), rp:[[id, RP, %]], top:[pontos do 1.º ao 40.º], bands, entries}]}
   // Pontos esperados de cada lenda: média dos jogos simulados até agora, encolhida para o que o custo prevê (o custo vem
   // das médias de carreira, que são a base da simulação), mais o que o adversário tem deixado marcar.
+  const HIST_CAL = 0.77;
   function histModel(data, dayId, opts) {
     opts = opts || {};
     const K = data.keys || [], W = {};
@@ -1583,7 +1584,10 @@
       const [id, name, team, r] = p, g = games.get(id) || [], avg = g.length ? mean(g.map(x => x.v)) : prior(+r);
       const post = (g.length * avg + k * prior(+r)) / (g.length + k), opp = oppToday[team] || null;
       const res = {}; g.forEach(x => { res[x.day] = x.v - avg; });
-      return { id, name, team, opp, rp: +r, cost: +r * (1 - (+disc[id] || 0) / 100), n: g.length, avg, prior: prior(+r), mu: post + oppF(opp), own: p[5] != null ? +p[5] : null, mine: +p[4] || 0, hist: g.map(x => x.v), res };
+      const mu = post + oppF(opp);
+      // exp: os pontos que se esperam mesmo (o mu promete de mais a quem se escolhe por ele: nos 29 dias de arquivo a
+      // equipa sugerida fez 228 com 238 prometidos; puxar 23% para o custo acerta a média e a hipótese de prémio)
+      return { id, name, team, opp, rp: +r, cost: +r * (1 - (+disc[id] || 0) / 100), n: g.length, avg, prior: prior(+r), mu, exp: prior(+r) + HIST_CAL * (mu - prior(+r)), own: p[5] != null ? +p[5] : null, mine: +p[4] || 0, hist: g.map(x => x.v), res };
     }).sort((x, y) => y.mu - x.mu);
     // pontos do 1.º ao 40.º nos dias com um número parecido de jogos (o campo verdadeiro)
     const ng = (today.games || []).length, like = closed.filter(d => d.top && d.top.length && Math.abs((d.games || []).length - ng) <= 1);
@@ -1625,7 +1629,7 @@
     const gauss = () => { const u = 1 - rnd(), v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
     const idx = new Map(M.rows.map((x, i) => [x.id, i])), P = M.rows.length, D = M.dayIds.length;
     const S = new Float64Array(N * P);
-    for (let n = 0; n < N; n++) { const d = D ? M.dayIds[Math.floor(rnd() * D)] : null; for (let i = 0; i < P; i++) { const x = M.rows[i], r = d != null ? x.res[d] : undefined; S[n * P + i] = x.mu + (r != null ? r : gauss() * M.sw); } }
+    for (let n = 0; n < N; n++) { const d = D ? M.dayIds[Math.floor(rnd() * D)] : null; for (let i = 0; i < P; i++) { const x = M.rows[i], r = d != null ? x.res[d] : undefined; S[n * P + i] = (x.exp != null ? x.exp : x.mu) + (r != null ? r : gauss() * M.sw); } }
     const cuts = M.cuts, pay = new Float64Array(42);
     (M.bands || [[1, 1, 4000], [2, 2, 3000], [3, 3, 2000], [4, 4, 1500], [5, 5, 1000], [6, 10, 500], [11, 20, 300], [21, 40, 100]]).forEach(([lo, hi, amt]) => { for (let r = lo; r <= Math.min(hi, 40); r++) pay[r] = +amt; });
     return lineups.map(L => {
@@ -1638,6 +1642,14 @@
       const m = t / N;
       return Object.assign({}, L, { mean: m, sd: Math.sqrt(Math.max(0, t2 / N - m * m)), p1: p1 / N, p10: p10 / N, p40: p40 / N, prize: prize / N, hit });
     });
+  }
+  // equipas para o grupo todo: a 1.ª é a de mais pontos esperados e cada uma a seguir troca pelo menos minDiff lendas
+  // face a todas as anteriores (se não chegarem, aceita trocar menos). Com todos na mesma equipa ou ganham todos ou ninguém
+  function histSpread(cands, n, minDiff) {
+    minDiff = minDiff == null ? 2 : minDiff; const out = [];
+    const diff = (a, b) => a.ids.filter(id => !b.ids.includes(id)).length;
+    for (let m = minDiff; m >= 1 && out.length < n; m--) for (const e of cands) { if (out.length >= n) break; if (out.includes(e) || out.some(o => diff(o, e) < m)) continue; out.push(e); }
+    return out;
   }
   // várias contas (smurfs): equipas diferentes que, juntas, mais vezes põem pelo menos uma nos 40 primeiros (cada nova
   // equipa muda pelo menos minDiff lendas face às já escolhidas); devolve [{…equipa, union: P(pelo menos uma até aqui)}]
@@ -1675,7 +1687,7 @@
     }
     return b > 0 ? Math.max(0.3, t / b) : 1;
   }
-  const api = { mateBoost, splitRatio, histModel, histBest, histEval, histPortfolio, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, lineupProb, bvnUpper, mvnUpper, rhoOf, minutesDisc, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
+  const api = { mateBoost, splitRatio, histModel, histBest, histEval, histSpread, histPortfolio, mapStat, STATS, STATUS, INJ_LABEL, injuryOn, buyScreen, buyRefine, buyRank, kOf, b2bFactor, lineupProb, bvnUpper, mvnUpper, rhoOf, minutesDisc, B2B_DEFAULT, QREM, matchup, statTerms, statValue, avgOf, formAvg, formInfo, setForm, alternativeSeeds, paintShare, normCdf, invNorm, poissonTail, impliedProb, devig, solveNormal, solvePoisson, playerDist, probAtLeast, buildModel, makeObjective, optimize, optimizeMulti, planGroup, transfersFor, bestSingleDay, planRun, teamsOn, gameOf, tipTime };
   root.FB = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

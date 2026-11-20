@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-20
+- **João** — Historic: a sugestão passa a ser a equipa com mais pontos esperados (escolher pela «hipótese de prémio» das simulações era pior: nos 28 dias do arquivo ia aos prémios 2 vezes, assim 5); os pontos e a hipótese de prémio mostrados são os que se esperam mesmo (antes prometiam ~30% e saía ~18%); e cada conta do grupo joga uma equipa diferente (troca pelo menos 2 lendas, a ordem roda todos os dias), para a sorte calhar a alguém do grupo: no arquivo, com 5 equipas alguém ia aos prémios em 11 dias de 28, contra 5 todos com a mesma.
+
 ## 2026-11-19
 - **João** — Jornada: por baixo do plantel vem primeiro o «Para fazer», depois a dobradinha e o pick do dia.
 - **João** — **Dobradinha do dia** na Jornada, acima do Pick do dia: duas apostas de jogos diferentes (quem ganha, handicap ou linha de um jogador) com odd perto de 2, escolhidas às 7h com as odds da SportsGameOdds; no dia seguinte vê-se se bateu e a escada sobe (até 8 degraus) ou recomeça. Guarda o acerto real contra o previsto em cada run. A odd é a mediana das casas (o consenso saía alto demais).

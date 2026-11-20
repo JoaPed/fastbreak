@@ -1,5 +1,5 @@
 # Testa o site completo num Chromium sem ecrã, com o Supabase falso (test/fake-supabase.js).
-import base64, json, pathlib, sys
+import base64, json, pathlib, re, sys
 from playwright.sync_api import sync_playwright
 
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -1470,7 +1470,8 @@ with sync_playwright() as pw:
     pg.select_option('#jmode', 'historic'); pg.wait_for_timeout(800)
     print('O historic:', ' · '.join(pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()), '|', pg.locator('#tab-hoje .h-hero .gb').inner_text().replace('\n', ' '), '| dias:', pg.locator('#tab-hoje .day-strip .ds:not([disabled])').count(), 'de', pg.locator('#tab-hoje .day-strip .ds').count())
     pg.screenshot(path=str(shots / 'historic.png'), full_page=True)
-    print('O smurf:', pg.locator('#tab-hoje .h-accs').inner_text().replace('\n', ' '), '|', pg.locator('#tab-hoje .h-port').inner_text())
+    hp_ = pg.locator('#tab-hoje .h-hero .h-port').inner_text()
+    print('O smurf e o grupo (uma equipa por conta):', pg.locator('#tab-hoje .h-accs').inner_text().replace('\n', ' '), '|', hp_, '· ok' if re.search(r'Equipa n\.º \d de 3 do grupo · alguém nos prémios: \d+%', hp_) else '· ERRO')
     t1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(400)
     t2 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=0'); pg.wait_for_timeout(400)
     print('O equipas diferentes:', len(set(t2) - set(t1)), 'lendas mudam', '· ok' if t2 and set(t2) != set(t1) else '· ERRO')

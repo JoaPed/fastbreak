@@ -413,7 +413,11 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   const M2 = FB.histModel(H, 'run-fb-historic-2026-10-20-d10', { now: Date.parse('2026-10-29T14:00:00Z'), disc: { [R[0].id]: 20 } });
   ok('historic: carta dá desconto no custo', Math.abs(M2.rows.find(x => x.id === R[0].id).cost - R[0].rp * 0.8) < 1e-9);
   const ev = FB.histEval(M, best.slice(0, 5), 2000);
-  ok('historic: simulação dá probabilidades e média perto do esperado', ev.every(r => r.p40 >= r.p10 && r.p10 >= r.p1 && Math.abs(r.mean - r.ev) < 4), ev.map(r => [r.mean, r.ev, r.p40]));
+  const expOf = r => r.ids.reduce((t, id) => t + M.rows.find(x => x.id === id).exp, 0);
+  ok('historic: simulação dá probabilidades e média perto do esperado (pontos calibrados, abaixo do mu)', ev.every(r => r.p40 >= r.p10 && r.p10 >= r.p1 && Math.abs(r.mean - expOf(r)) < 4 && expOf(r) < r.ev), ev.map(r => [r.mean, expOf(r), r.ev, r.p40]));
+  const sp = FB.histSpread(best, 6, 2);
+  ok('historic: grupo com equipas diferentes (a 1.ª é a melhor, cada uma troca ≥ 2 lendas face às anteriores)', sp.length === 6 && sp[0] === best[0] && sp.every((p, i) => sp.slice(0, i).every(o => p.ids.filter(id => !o.ids.includes(id)).length >= 2)), sp.map(p => p.ids));
+  ok('historic: grupo maior do que as equipas possíveis aceita trocar menos', FB.histSpread(best.slice(0, 4), 4, 5).length === 4);
   const all = FB.histEval(M, best, 2000).sort((p, q) => (q.p40 - p.p40) || (q.mean - p.mean)), port = FB.histPortfolio(all, 3, 2);
   ok('historic: smurfs com equipas diferentes (≥ 2 lendas) e a hipótese de pelo menos uma sobe', port.length === 3 && port.every((p, i) => port.slice(0, i).every(o => p.ids.filter(id => !o.ids.includes(id)).length >= 2)) && port[2].union > port[0].p40 && port[0].ids.join() === all[0].ids.join(), port.map(p => [p.p40, p.union]));
   // conta com orçamento próprio (descontos das cartas dela): só recebe equipas que lhe servem

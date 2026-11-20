@@ -222,3 +222,19 @@ Nota: esta sessão do Claude não tem a conta GitHub ligada nem chega ao Supabas
 - Guardada em `odds_days.players._dobra` da data dos jogos (sem mudar a base); o site tira-a de lá antes do motor.
   Escolhe-se uma vez (a 1.ª leitura do dia com jogos por começar, normalmente a das 07:07) e o resultado entra na leitura
   seguinte (`res: win|loss`). A escada (`dobraLadder` no site) conta os degraus pela ordem dos dias da run.
+
+## Historic: porque as equipas sugeridas não ganhavam (20 nov 2026)
+Teste nos 29 dias do arquivo (`docs/data/historic`, 3 runs): para cada dia, a sugestão feita só com os dias anteriores
+contra o 40.º lugar real (~250 pts, ~900 inscritos).
+- A sugestão antiga (a de mais «top 40» nas 3000 simulações) ia aos prémios em 2 de 28 dias e ficava ~23 pts abaixo do 40.º.
+- A variação de cada lenda não se repete (desvio na 1.ª metade dos jogos vs 2.ª: correlação −0,02) e também não há
+  «mão quente» (−0,03 de um jogo para o seguinte): escolher pela simulação era escolher ao acaso. Pela média: 5 de 28.
+- As médias valem (metade par vs ímpar 0,75; run 1 vs run 2 0,60) e o custo nunca muda. Mesmo sabendo a média verdadeira
+  de cada lenda, a melhor equipa faz ~231 (a nossa ~228): o resto é sorte. Colegas de equipa +0,07, adversários −0,04.
+- O mu promete de mais a quem se escolhe por ele (equipa: 238 prometidos, 228 feitos). `exp = prior + 0,77·(mu − prior)`
+  acerta a média (227,5) e a hipótese de top 40 (16% previsto, 18% real; antes 30%). A escolha continua pelos pontos.
+- Descontos: +20 RP de orçamento ≈ +5 pts; +40 RP → prémios em 9 de 28.
+- O que mais ajuda o grupo: equipas diferentes. 5 equipas (cada uma troca ≥ 2 lendas face às anteriores) → alguém nos
+  prémios em 11 de 28 dias (todos com a mesma: 5). Por isso cada conta do grupo (principal + smurfs, por ordem do
+  user_id) fica com uma equipa de `histSpread` e a ordem roda um lugar por dia; com descontos ou fixados, a conta pode
+  trocar por uma melhor desde que continue a trocar ≥ 2 lendas face às equipas das outras contas.

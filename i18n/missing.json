@@ -1,1 +1,17 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": "<div class=\"small muted h-port\">Equipa n.º <b>",
+  "line": "const grpTxt = G && G.n > 1 ? '<div class=\"small muted h-port\">Equipa n.º <b>' + G.no[ai] + '</b> de ' + G.n + ' do grupo · alguém nos prémios: <b>' + pct(G.uni"
+ },
+ {
+  "file": "docs/app.js",
+  "text": " do grupo · alguém nos prémios: <b>",
+  "line": "const grpTxt = G && G.n > 1 ? '<div class=\"small muted h-port\">Equipa n.º <b>' + G.no[ai] + '</b> de ' + G.n + ' do grupo · alguém nos prémios: <b>' + pct(G.uni"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "</b> (todos com a mesma: ",
+  "line": "const grpTxt = G && G.n > 1 ? '<div class=\"small muted h-port\">Equipa n.º <b>' + G.no[ai] + '</b> de ' + G.n + ' do grupo · alguém nos prémios: <b>' + pct(G.uni"
+ }
+]
