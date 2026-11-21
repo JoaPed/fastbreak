@@ -76,6 +76,9 @@ def new_page(b, db):
         url = r.request.url
         if 'scoreboard' in url:
             evs = [{'id': '4019%05d' % k, 'status': {'type': {'state': 'in'}, 'period': 2}} for k in range(1, 400)]
+            # um jogo na Prime Video (etiqueta no jogador; em Portugal a NBA dá na Prime)
+            evs.append({'id': '4019%05d' % 401, 'status': {'type': {'state': 'in'}, 'period': 2}, 'competitions': [{'broadcasts': [{'market': 'national', 'names': ['Prime Video']}],
+                'competitors': [{'homeAway': 'away', 'team': {'abbreviation': 'SAC'}}, {'homeAway': 'home', 'team': {'abbreviation': 'MIN'}}]}]})
             return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps({'events': evs}))
         summ = {'header': {'competitions': [{'status': {'period': 2, 'displayClock': '5:12'}}]}, 'boxscore': {'players': [{'team': {'abbreviation': 'SAC'}, 'statistics': [{'keys': ['minutes', 'points', 'rebounds', 'assists'], 'labels': ['MIN', 'PTS', 'REB', 'AST'], 'athletes': [{'athlete': {'displayName': 'Domantas Sabonis'}, 'stats': ['20', '9', '7', '3']}]}]}]}}
         return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(summ))
@@ -183,6 +186,9 @@ with sync_playwright() as pw:
     pg.click('#t-hoje'); pg.wait_for_timeout(500)
     print('B hoje:', pg.locator('.hero').inner_text().replace('\n', ' | ')[:200])
     print('B lineup:', pg.locator('#tab-hoje .list .row').count(), 'jogadores · largura', width(pg))
+    pg.wait_for_timeout(800)
+    tvs_ = [r.locator('.nm').inner_text() for r in pg.locator('.hero .list .row').all() if r.locator('.tv-tag').count()]
+    print('B etiqueta Prime Video:', tvs_, '· ok' if sorted(tvs_) == ['Domantas Sabonis', 'Rudy Gobert'] else '· ERRO')  # SAC @ MIN
     pg.screenshot(path=str(shots / 'hoje.png'))
     # ajuda ao toque: o (?) do lineup abre a explicação numa folha
     pg.locator('#tab-hoje button[data-action="help"][data-k="lineup"]').click(); pg.wait_for_timeout(200)
@@ -217,6 +223,7 @@ with sync_playwright() as pw:
     rf_ = pg.locator('.hero button.live-rf')
     if rf_.count(): rf_.first.click(); pg.wait_for_timeout(1500)
     chips_ = ' | '.join(pg.locator('.hero .lv-chip.on').all_inner_texts())
+    print('B ao vivo com a Prime Video:', pg.locator('.hero .lv-li .tv-tag').count(), '· ok' if pg.locator('.hero .lv-li .tv-tag').count() >= 1 else '· ERRO')
     print('B botão atualizar ao vivo:', rf_.count(), chips_, '· ok' if rf_.count() == 1 and pg.locator('.hero button.live-rf[aria-busy="true"]').count() == 0 and 'Q2 5:12' in chips_ else '· ERRO')
     pg.locator('.hero').first.screenshot(path=str(shots / 'ao-vivo-atualizar.png'))
 

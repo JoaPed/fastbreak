@@ -1,1 +1,12 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": " <span class=\"tv-tag\" title=\"Dá na Prime Video\"><svg viewBox=\"0 0 10 10\" aria-hidden=\"true\"><path d=\"M2 1l7 4-7 4z\" fill=\"currentColor\"/></svg>Prime Video</span>",
+  "line": "return tv && tv[teamFix(g[0]) + '@' + teamFix(g[1])] === 'prime' ? ' <span class=\"tv-tag\" title=\"Dá na Prime Video\"><svg viewBox=\"0 0 10 10\" aria-hidden=\"true\">"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "prime",
+  "line": "if (espnPrime(c)) tv[side('away') + '@' + side('home')] = 'prime'; });"
+ }
+]

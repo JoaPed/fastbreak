@@ -3417,5 +3417,7 @@
  " do grupo · alguém nos prémios: <b>": " in the group · someone in the prizes: <b>",
  "</b> (todos com a mesma: ": "</b> (all on the same one: ",
  " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Atualizar as estatísticas ao vivo\" title=\"Atualizar\"": " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Refresh live stats\" title=\"Refresh\"",
- "Prol.": "OT"
+ "Prol.": "OT",
+ " <span class=\"tv-tag\" title=\"Dá na Prime Video\"><svg viewBox=\"0 0 10 10\" aria-hidden=\"true\"><path d=\"M2 1l7 4-7 4z\" fill=\"currentColor\"/></svg>Prime Video</span>": " <span class=\"tv-tag\" title=\"On Prime Video\"><svg viewBox=\"0 0 10 10\" aria-hidden=\"true\"><path d=\"M2 1l7 4-7 4z\" fill=\"currentColor\"/></svg>Prime Video</span>",
+ "prime": null
 }

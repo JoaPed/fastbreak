@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-21
+- **João** — Jornada: etiqueta azul «▶ Prime Video» no jogador quando o jogo dele dá na Prime Video (antes e durante o jogo). Em Portugal a NBA passa só na Prime; os ~20 jogos em horário europeu ainda não aparecem.
 - **João** — Ao vivo: cada leitura pede a ficha nova à ESPN (antes a cache podia devolver a de há uns minutos) e o jogador mostra o relógio do jogo (ex.: «Q2 5:12»), para se ver até onde vão as estatísticas.
 - **João** — Ao vivo: botão pequeno ↻ ao lado de «Ao vivo» para ler já as estatísticas (sem esperar pelos 2 minutos).
 - **João** — Suplentes com smurfs: uma carta só é suplente numa conta (o Drummond, que só está na Main, aparecia na Terose e na JPolas) e o «Para fazer» mostra o envio do suplente de todas as contas.

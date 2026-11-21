@@ -238,3 +238,10 @@ contra o 40.º lugar real (~250 pts, ~900 inscritos).
   prémios em 11 de 28 dias (todos com a mesma: 5). Por isso cada conta do grupo (principal + smurfs, por ordem do
   user_id) fica com uma equipa de `histSpread` e a ordem roda um lugar por dia; com descontos ou fixados, a conta pode
   trocar por uma melhor desde que continue a trocar ≥ 2 lendas face às equipas das outras contas.
+
+## Jogos na TV em Portugal (21 nov 2026)
+Desde 2025-26 a NBA em Portugal está só na Prime Video (contrato de 11 anos; a Sport TV teve-a até 2025). A Prime na
+Europa mostra ~67 jogos da época regular, quase todos os mesmos que a Prime Video tem nos EUA, mais ~20 em horário
+europeu anunciados à parte. O site marca com «▶ Prime Video» os jogos que o placar da ESPN dá com `broadcasts`/
+`geoBroadcasts` «Prime Video» (`espnPrime`, guardado em `S.gOdds[data].tv`). Os jogos europeus não vêm na ESPN: se o
+grupo quiser, acrescentam-se à mão.
