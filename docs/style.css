@@ -1386,3 +1386,13 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }
 .jc-list .bench-row .bnm { color: var(--board-ink); }
 .jc-list .bench-p { color: var(--board-good); }
+
+/* atualizar ao vivo: botão redondo pequeno ao lado de «Ao vivo» (área de toque maior que o desenho) */
+.live-rf { display: inline-grid; place-items: center; width: 26px; height: 26px; margin: -4px 0 -4px 2px; padding: 0; vertical-align: middle; border-radius: 50%;
+  border: 1px solid var(--board-line); background: transparent; color: var(--board-fill); cursor: pointer; touch-action: manipulation; position: relative; }
+.live-rf::before { content: ""; position: absolute; inset: -9px; }
+.live-rf:hover { background: rgba(255,255,255,.08); }
+.live-rf:focus-visible { outline: 2px solid var(--board-fill); outline-offset: 2px; }
+.live-rf[aria-busy="true"] svg { animation: live-rf-spin .8s linear infinite; }
+@keyframes live-rf-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .live-rf[aria-busy="true"] svg { animation: none; opacity: .5; } }

@@ -3416,5 +3416,6 @@
  ":main": null,
  "<div class=\"small muted h-port\">Equipa n.º <b>": "<div class=\"small muted h-port\">Team no. <b>",
  " do grupo · alguém nos prémios: <b>": " in the group · someone in the prizes: <b>",
- "</b> (todos com a mesma: ": "</b> (all on the same one: "
+ "</b> (todos com a mesma: ": "</b> (all on the same one: ",
+ " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Atualizar as estatísticas ao vivo\" title=\"Atualizar\"": " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Refresh live stats\" title=\"Refresh\""
 }

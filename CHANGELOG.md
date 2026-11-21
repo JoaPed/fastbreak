@@ -3,6 +3,10 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-21
+- **João** — Ao vivo: botão pequeno ↻ ao lado de «Ao vivo» para ler já as estatísticas (sem esperar pelos 2 minutos).
+- **João** — Suplentes com smurfs: uma carta só é suplente numa conta (o Drummond, que só está na Main, aparecia na Terose e na JPolas) e o «Para fazer» mostra o envio do suplente de todas as contas.
+
 ## 2026-11-20
 - **João** — Para fazer: um Moment que marcaste como mandado e que a carteira, lida depois, ainda mostra na outra conta volta a aparecer por fazer (o suplente dizia «Mandar de …» e não aparecia na lista).
 - **João** — Dobradinha: nenhuma das apostas abaixo de 1,2 (a partir de amanhã; a de hoje fica).

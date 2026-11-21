@@ -214,6 +214,10 @@ with sync_playwright() as pw:
     print('B ao vivo (sozinho):', pg.locator('.hero .jc-txt').inner_text().replace('\n', ' '))
     print('B ao vivo:', store(pg, 'Object.values(__FAKE_DB.tables.user_runs[0].plan.live)[0].players'))
     print('B placar ao vivo:', pg.locator('.hero .lv-sub').first.inner_text().replace('\n', ' '))
+    rf_ = pg.locator('.hero button.live-rf')
+    if rf_.count(): rf_.first.click(); pg.wait_for_timeout(1500)
+    print('B botão atualizar ao vivo:', rf_.count(), '· ok' if rf_.count() == 1 and pg.locator('.hero button.live-rf[aria-busy="true"]').count() == 0 else '· ERRO')
+    pg.locator('.hero').first.screenshot(path=str(shots / 'ao-vivo-atualizar.png'))
 
     pg.click('#t-run'); pg.wait_for_timeout(400)
     print('B run (prémios):', pg.locator('#tab-run .run-board').inner_text().replace('\n', ' | '), '// distribuição:', pg.locator('#tab-run .dist i').count(), 'barras ·', pg.locator('#tab-run .dist-legend').inner_text().replace('\n', ' '))
@@ -565,6 +569,16 @@ with sync_playwright() as pw:
     bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
     td = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
     print('C4 suplente noutra conta:', bt[:140], '| para fazer:', bn in td, '· ok' if (('Mandar de' in bt and bn in td) or 'Já joga em' in bt) else '· ERRO')
+    # a mesma carta (uma só, no smurf_um) não pode ser suplente em duas contas; e o para fazer mostra o de cada conta
+    seen_ = {}
+    for acc_ in ['main', 's2']:
+        ch_ = pg.locator('#tab-hoje .acc-chip[data-acc="%s"]' % acc_)
+        if ch_.count(): ch_.first.click(); pg.wait_for_timeout(1500)
+        bz_ = pg.locator('#tab-hoje .bench-row')
+        if bz_.count() and 'Mandar de' in bz_.first.inner_text(): seen_[acc_] = bz_.first.locator('.bnm').inner_text()
+    td_ = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
+    names_ = list(seen_.values())
+    print('C4 suplente da mesma carta em 2 contas:', seen_, '· ok' if len(names_) == len(set(names_)) and all(n in td_ for n in names_) else '· ERRO')
     pg.close()
     # marcado como mandado ANTES da última leitura da carteira (que o diz ainda na outra conta): volta a aparecer por fazer
     T['profiles'][-1]['collection']['read_at'] = '2026-10-21T14:00:00Z'

@@ -1661,7 +1661,8 @@ function benchLater(pid, date) { const v = view(); return v ? v.days.filter(x =>
 // todos os suplentes possíveis, do melhor para o pior: primeiro os que não tiram usos ao resto da run
 function benchOptions(md, nd, lineup) {
   const r = S.result, key = nd.date + '|' + lineup.join(',') + '|' + S.acc;
-  if (S.benchMemo && S.benchMemo.r === r && S.benchMemo.key === key) return S.benchMemo.list;
+  if (!S.benchMemo || S.benchMemo.r !== r) S.benchMemo = { r, m: {} };
+  if (S.benchMemo.m[key]) return S.benchMemo.m[key];
   const outs = lineup.map(id => benchOut(md, id)), base = lineupP(md, lineup);
   // em cada cenário (falta o titular i) os colegas de equipa dele rendem mais (ex.: sem o Sabonis, o Precious ressalta)
   const scen = lineup.map(id => benchScen(md, id));
@@ -1673,7 +1674,7 @@ function benchOptions(md, nd, lineup) {
     const later = benchLater(pid, nd.date), free = !isFinite(left) || left > later.length;
     list.push({ id: pid, com, sem, free, later, spare: isFinite(left) ? left - later.length : null }); });
   list.sort((a, b) => (b.free - a.free) || (b.com - a.com));
-  S.benchMemo = { r, key, list }; return list;
+  S.benchMemo.m[key] = list; return list;
 }
 // o dia sem o titular `outId`: os colegas de equipa dele sobem pelo que fizeram nos jogos sem ele (FB.mateBoost)
 function benchScen(md, outId) {
@@ -1687,8 +1688,37 @@ function benchScen(md, outId) {
   return mu ? Object.assign({}, md, { mu, v }) : md;
 }
 function benchOf(md, nd, lineup) {
+  if (S.multi) { const all = benchAll(nd.date, { [S.acc]: lineup }), x = all && all[S.acc]; if (all) return x ? x.x : null; }
   const list = benchOptions(md, nd, lineup), want = (curPlan().bench || {})[nd.date];
   return list.find(x => x.id === want) || list[0] || null;
+}
+// com smurfs: o suplente de cada conta num dia, pela ordem das contas. Uma carta só serve de suplente numa conta (a
+// 21 nov o Drummond, que só está na Main, era suplente na Terose e na JPolas): se já está pedida, passa à seguinte.
+// → { conta: { x (opção), f (benchFrom: de onde mandar) } }; over = lineups a usar em vez dos do plano
+function benchAll(date, over) {
+  const accs = accounts(), key = date + '|' + JSON.stringify(over || {}) + '|' + accs.map(a => a.id + ':' + ((planOf(a.id).bench || {})[date] || '')).join();
+  const M = S.benchAllMemo; if (M && M.m === S.multi && M.col === (S.profile || {}).collection && M.key === key) return M.out;
+  const acc0 = S.acc, r0 = S.result, out = {}, used = {};
+  // cópias da carta numa conta (sem carteira lida não se sabe: não se limita)
+  const copies = (id, a) => { const h = (S.profile || {}).collection ? collectionInfo(id).hold : null; if (!h) return Infinity; const v = h[a]; return Array.isArray(v) ? v.length : (+v || 0); };
+  try {
+    // quem escolheu o suplente à mão vai primeiro (fica com a carta que escolheu)
+    accs.filter(a => (planOf(a.id).bench || {})[date]).concat(accs.filter(a => !(planOf(a.id).bench || {})[date])).forEach(a => {
+      const R = S.multi.byKey[a.id]; if (!R) return;
+      const md = R.model.days.find(x => x.day.date === date), pd = R.normal.days.find(d => d.date === date);
+      const lu = (over && over[a.id]) || (pd && pd.lineup) || [];
+      if (!md || !lu.length) return;
+      S.acc = a.id; S.result = R;
+      const list = benchOptions(md, md.day, lu), want = (planOf(a.id).bench || {})[date];
+      for (const x of list.filter(y => y.id === want).concat(list.filter(y => y.id !== want))) {
+        const f = benchFrom(x.id, date), src = f && f.from ? f.from : f && f.busy ? null : a.id;
+        if (src) { const k = x.id + '@' + src, n = src === a.id ? Infinity : copies(x.id, src); if ((used[k] || 0) >= n) continue; used[k] = (used[k] || 0) + 1; }
+        out[a.id] = { x, f }; break;
+      }
+    });
+  } finally { S.acc = acc0; S.result = r0; }
+  S.benchAllMemo = { m: S.multi, col: (S.profile || {}).collection, key, out };
+  return out;
 }
 // quem é mais provável que falte (para dizer por quem entra)
 function benchFor(md, lineup) { let best = null; lineup.forEach(id => { if (riskOf(md, id)) { const o = benchOut(md, id); if (!best || o > best.o) best = { id, o }; } }); return best; }
@@ -2978,10 +3008,10 @@ function renderJornada(el) {
   if (compact) {
     const objLine = (nd.objectives || []).filter(x => x && x.stat).map(x => x.target + ' ' + esc(statShort(x.stat))).join(' + ');
     const perStat = t ? d.totals.map(x => '<span>' + esc(statShort(x.stat)) + ' ' + (live ? '<b class="num">' + f0(x.known) + '</b>/' + x.target + ' · fim ≈ ' + f1(x.mu) : '<b class="num">' + f1(x.mu) + '</b>/' + x.target) + ' · ' + pct(FB.probAtLeast(x.mu, x.sd * x.sd, x.target)) + '</span>').join('<span aria-hidden="true"> · </span>') : '';
-    const LD = S.liveDiag, liveDiag = live ? '<div class="live-diag">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' de ' + LD.sub + ' com estatísticas' + ((LD.miss || []).length ? ' (sem: ' + LD.miss.map(esc).join(', ') + ')' : '') + (LD.err ? ' · erro: ' + esc(LD.err) : '') + ' · ' : '') + '<button class="btn link small" type="button" data-action="live-refresh">Atualizar</button></div>' : '';
+    const LD = S.liveDiag, liveDiag = live ? '<div class="live-diag">' + (LD ? 'ESPN ' + ago(new Date(LD.at).toISOString()) + ': ' + LD.found + ' de ' + LD.sub + ' com estatísticas' + ((LD.miss || []).length ? ' (sem: ' + LD.miss.map(esc).join(', ') + ')' : '') + (LD.err ? ' · erro: ' + esc(LD.err) : '') + '' : '') + '</div>' : '';
     const finalLine = allFinal && t ? '<div class="row small jc-final" style="display:block">Total ' + d.totals.map(x => '<b class="num">' + f0(x.known) + '</b> de ' + x.target + (d.totals.length > 1 ? ' ' + esc(statShort(x.stat)) : '')).join(' · ') + ' → ' + (d.totals.every(x => x.known >= x.target) ? '<b class="up">ganhaste</b>' : '<b class="down">perdeste</b>') + '</div>' : '';
     const btns = [isCur && !d.noObjective && (d.lineup.length || live) ? '<button class="btn hero-btn" type="button" data-action="opcoes">Sugestões</button>' : '', canEdit ? '<button class="btn hero-btn" type="button" data-action="lu-edit" data-date="' + nd.date + '">Mudar o lineup</button>' : isCur && (live || (tip0 != null && Date.now() >= tip0)) ? '<button class="btn hero-btn" type="button" data-action="live-lu" data-date="' + nd.date + '">Mudar o lineup</button>' : '', d.lineup.length ? '<button class="btn hero-btn jc-share" type="button" data-action="lu-share" data-date="' + nd.date + '" aria-label="Partilhar o lineup" title="Partilhar o lineup">' + icoShare + '</button>' : ''].filter(Boolean);
-    html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur && nd.date <= todayET() ? 'Hoje' : 'Dia ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Ao vivo</span>' : '') + '</span>' +
+    html[heroAt] = '<div class="card hero day-hero jcompact">' + COURT + '<div class="jc-top"><div class="jc-txt"><span class="eyebrow">' + (isCur && nd.date <= todayET() ? 'Hoje' : 'Dia ' + (nd.idx + 1)) + (objLine ? ' · ' + objLine : '') + ' ' + helpBtn(live ? 'aovivo' : 'lineup') + (live ? ' <span class="pill jogo">Ao vivo</span>' + liveBtn() : '') + '</span>' +
       (live ? (d.totals.length === 1 && t ? liveBoard(d, 'top') : '') : '<div class="jc-sub">' + (d.noObjective ? 'Sem objetivo' : d.lineup.length ? perStat : '') + '</div>') + (live ? '' : '<div class="jc-sub">' + (isCur && nd.date <= todayET() ? '' : dWeek(nd.date) + ' ' + dShort(nd.date) + (tips.length ? ' · ' : '')) + (tips.length ? '1.º jogo ' + hm(tips[0]) : '') + '</div>') + '</div>' + (d.noObjective ? '' : winRing(d.P, dTone(d.P))) + '</div>' +
       (live && t ? liveBoard(d, 'bar') : '') + liveDiag + (d.lineup.length ? '<ul class="list jc-list' + (live ? ' lv-list' : '') + '">' + rows + (live ? '' : benchRow(md, nd, d.lineup)) + '</ul>' : '<div class="row muted small jc-empty">' + (S.multi && md.elig.length ? 'Esta conta não joga neste dia: os Moments rendem mais nas outras.' : noneTxt) + '</div>') + finalLine + bansLine + (isCur && !live ? holdLine(S.acc, nd.date) : '') +
       (btns.length ? '<div class="jc-btns">' + btns.join('') + '</div>' : '') + (canEdit && !d.noObjective ? '<div class="jc-off"><button class="btn link small" type="button" data-action="day-off" data-date="' + nd.date + '">Não vou jogar este dia</button></div>' : '') + '</div>';
@@ -3128,8 +3158,10 @@ function todoCard(r, v, d, md, nd, live, tips) {
     else {
       const due = S.multi.transfers.filter(t => t.before <= nd.date);
       // o suplente do dia, se o Moment dele tem de vir de outra conta
-      if (d && d.lineup && d.lineup.length) { const B = benchOf(md, nd, d.lineup), f = B && benchFrom(B.id, nd.date);
-        if (f && f.from && !due.some(t => t.id === B.id && t.to === S.acc)) due.push({ id: B.id, from: f.from, to: S.acc, before: nd.date, uses: f.uses || 0, bench: true }); }
+      // (de todas as contas: cada uma o seu)
+      const BA = benchAll(nd.date, d && d.lineup && d.lineup.length ? { [S.acc]: d.lineup } : null) || {};
+      Object.entries(BA).forEach(([a, o]) => { const f = o.f, id = o.x.id;
+        if (f && f.from && !due.some(t => t.id === id && t.to === a)) due.push({ id, from: f.from, to: a, before: nd.date, uses: f.uses || 0, bench: true }); });
       // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot) e, dentro, uma linha por hora
       // limite com os Moments dessa hora; o visto marca a linha toda (cada Moment fica dado como mandado)
       const accOrder = accounts().map(a => a.id), tipOf = t => { const day = S.days.find(x => x.date === t.before) || nd, team = (r.model.players[r.model.pIndex.get(t.id)] || {}).team; return team ? FB.tipTime(day, team) : null; };
@@ -7071,6 +7103,10 @@ function liveVals(nd, raw, id) {
   (nd.objectives || []).forEach(o => { if (o && o.stat) vals[o.stat] = Math.round(FB.statValue(raw, o.stat, avg) * 10) / 10; });
   return vals;
 }
+// botão pequeno ao lado de «Ao vivo»: lê já as estatísticas da ESPN (sozinha a app lê de 2 em 2 minutos)
+function liveBtn() {
+  return ' <button class="live-rf" type="button" data-action="live-refresh" aria-label="Atualizar as estatísticas ao vivo" title="Atualizar"' + (S.liveBusy ? ' aria-busy="true"' : '') + '><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>';
+}
 // Vai buscar as estatísticas ao vivo dos jogadores do lineup submetido (ESPN; NBA para ids antigos)
 async function liveFetch(quiet) {
   const nd = nextDay(); if (!nd) return;
@@ -7534,7 +7570,7 @@ document.addEventListener('click', async e => {
     case 'live-lu': S.luEdit = { date, ids: (((curPlan().live || {})[date] || {}).lineup || sheetLineup(date)).slice(), live: true }; luEditSheet(); break;
     case 'live-lu-save': await liveLuSave(); break;
     case 'top-view': S.topView = b.dataset.v; renderHoje(); break;
-    case 'live-refresh': S.liveAt = Date.now(); await liveFetch(false); schedule(); break;
+    case 'live-refresh': if (S.liveBusy) break; S.liveBusy = true; S.liveAt = Date.now(); renderHoje(); try { await liveFetch(false); } finally { S.liveBusy = false; } schedule(); renderHoje(); break;
     case 'past-lu-all': if (S.luEdit) { S.luEdit.all = true; luEditSheet(); } break;
     case 'undo-result': undoResult(date); closeSheet(); break;
     case 'swap-done': swapDone(); break;
