@@ -24,7 +24,7 @@ jobs:
       - run: node scripts/sync-schedule.mjs
       - run: node scripts/sync-stats.mjs
       # jogos da NBA na Sport TV e o canal (guia da Sport TV → odds_days.players._tv)
-      - run: node scripts/sync-tv.mjs || echo "::warning::Sport TV: falhou"
+      - run: 'node scripts/sync-tv.mjs || echo "::warning::Sport TV falhou"'
       # fotos dos jogadores no próprio site (para a imagem do lineup que se partilha)
       - name: Fotos dos jogadores
         env: { GH_TOKEN: '${{ github.token }}' }
