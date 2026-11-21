@@ -329,5 +329,18 @@ ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d ===
   const c = legendCount({ collection: { lg: { 'clyde drexler': { n: 'Clyde Drexler', c: { main: ['A', 'B'], s1: ['C'] } }, 'gary payton': { n: 'Gary Payton', c: { main: ['X'] } } } } }, L);
   ok('historic: cartas de lendas por conta (só as do Historic)', c.main.lendas === 1 && c.main.sets === 2 && c.s1.lendas === 1 && legendCount({ collection: {} }, L) === null && normName('Şengün Jr.') === 'sengun', c);
 }
+{ // guia da Sport TV (payload Nuxt «devalue»): jogos da NBA, o canal e a ligação aos jogos da ESPN
+  const { unflatten, guideNba, matchTv, stvChannel } = await import('../scripts/tv.mjs');
+  // como no guia real: o programa aponta para posições do array; o canal é {nome}; data em ms; e um magazine «NBA ACTION»
+  const flat = [{ guia: 1 }, ['Reactive', 2], [3, 9, 15],
+    { canal: 4, data: 5, titulo: 6, modalidade: 7, tipoEmissao: 8 }, { id: 2079, nome: 'SPORT.TV2', premium: true }, Date.parse('2026-11-22T00:29:24Z'), 'NEW YORK KNICKS X PORTLAND TRAIL BLAZERS', { nome: 'BASQUETEBOL' }, { nome: 'Direto' },
+    { canal: 10, data: 11, titulo: 12 }, { nome: 'SPORT.TV3' }, Date.parse('2026-11-22T05:00:00Z'), 'NEW YORK KNICKS X PORTLAND TRAIL BLAZERS',
+    0, 0, { canal: 16, data: 17, titulo: 18 }, { nome: 'SPORT.TV1' }, Date.parse('2026-11-21T14:59:00Z'), 'NBA ACTION'];
+  const items = guideNba(unflatten(flat));
+  ok('sport tv: lê os jogos da NBA do guia (e não os magazines)', items.length === 2 && items[0].a === 'NYK' && items[0].b === 'POR' && items[0].ch === 'SPORT TV 2', items);
+  const tv = matchTv(items, { '2026-11-21': [['POR', 'NYK', '2026-11-22T00:30:00Z', 'espn:1'], ['SAC', 'MIN', '2026-11-22T01:00:00Z', 'espn:2']] });
+  ok('sport tv: liga ao jogo certo pelo início (a repetição das 05:00 fica de fora)', JSON.stringify(tv) === JSON.stringify({ '2026-11-21': { 'POR@NYK': 'SPORT TV 2' } }), tv);
+  ok('sport tv: nome do canal', stvChannel('SPORTTV1') === 'SPORT TV 1' && stvChannel({ nome: 'Sport TV 2' }) === 'SPORT TV 2' && stvChannel('SPORT TV+') === null);
+}
 console.log(fails ? fails + ' falha(s)' : 'tarefas: tudo certo');
 process.exit(fails ? 1 : 0);

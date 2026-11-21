@@ -23,6 +23,10 @@ def seeded():
         return dict(a, min=34, form={'n10': 8, 'n5': 5, 'l10': l5, 'l5': l5, 'last': '2026-10-14', 'games': games})
     players = [{'id': pid, 'name': p['name'], 'team': p['team'], 'avg': with_form(i, p['avg']), 'gp': 20, 'updated_at': '2026-10-15T09:20:00Z'} for i, (pid, p) in enumerate(roster['players'].items())]
     odds_rows = [{'date': d, 'players': o['players'], 'source': 'The Odds API · 6 casas', 'updated_at': '2026-10-15T15:10:00Z'} for d, o in odds['days'].items()]
+    # o SAC @ MIN de 21 out dá na SPORT TV 2 (vem do guia da Sport TV, em players._tv); e um dia só com a TV (sem odds)
+    for r_ in odds_rows:
+        if r_['date'] == '2026-10-21': r_['players'] = dict(r_['players'], _tv={'SAC@MIN': 'SPORT TV 2'})
+    if not any(r_['date'] == '2026-10-21' for r_ in odds_rows): odds_rows.append({'date': '2026-10-21', 'players': {'_tv': {'SAC@MIN': 'SPORT TV 2'}}, 'updated_at': '2026-10-21T06:13:00Z'})
     friend_days = {run['days'][0]['date']: 'win', run['days'][1]['date']: 'win'}
     return {
         'users': [{'id': 'u-amigo', 'email': 'amigo@x.pt', 'password': 'segredo1'}, {'id': 'u-eu', 'email': 'eu@x.pt', 'password': 'segredo1', 'user_metadata': {'name': 'João'}}],
@@ -76,9 +80,6 @@ def new_page(b, db):
         url = r.request.url
         if 'scoreboard' in url:
             evs = [{'id': '4019%05d' % k, 'status': {'type': {'state': 'in'}, 'period': 2}} for k in range(1, 400)]
-            # um jogo na Prime Video (etiqueta no jogador; em Portugal a NBA dá na Prime)
-            evs.append({'id': '4019%05d' % 401, 'status': {'type': {'state': 'in'}, 'period': 2}, 'competitions': [{'broadcasts': [{'market': 'national', 'names': ['Prime Video']}],
-                'competitors': [{'homeAway': 'away', 'team': {'abbreviation': 'SAC'}}, {'homeAway': 'home', 'team': {'abbreviation': 'MIN'}}]}]})
             return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps({'events': evs}))
         summ = {'header': {'competitions': [{'status': {'period': 2, 'displayClock': '5:12'}}]}, 'boxscore': {'players': [{'team': {'abbreviation': 'SAC'}, 'statistics': [{'keys': ['minutes', 'points', 'rebounds', 'assists'], 'labels': ['MIN', 'PTS', 'REB', 'AST'], 'athletes': [{'athlete': {'displayName': 'Domantas Sabonis'}, 'stats': ['20', '9', '7', '3']}]}]}]}}
         return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(summ))
@@ -188,7 +189,8 @@ with sync_playwright() as pw:
     print('B lineup:', pg.locator('#tab-hoje .list .row').count(), 'jogadores · largura', width(pg))
     pg.wait_for_timeout(800)
     tvs_ = [r.locator('.nm').inner_text() for r in pg.locator('.hero .list .row').all() if r.locator('.tv-tag').count()]
-    print('B etiqueta Prime Video:', tvs_, '· ok' if sorted(tvs_) == ['Domantas Sabonis', 'Rudy Gobert'] else '· ERRO')  # SAC @ MIN
+    tvt_ = pg.locator('.hero .list .row .tv-tag').first.inner_text() if tvs_ else ''
+    print('B etiqueta Sport TV:', tvs_, tvt_, '· ok' if sorted(tvs_) == ['Domantas Sabonis', 'Rudy Gobert'] and tvt_ == 'SPORT TV 2' else '· ERRO')  # SAC @ MIN
     pg.screenshot(path=str(shots / 'hoje.png'))
     # ajuda ao toque: o (?) do lineup abre a explicação numa folha
     pg.locator('#tab-hoje button[data-action="help"][data-k="lineup"]').click(); pg.wait_for_timeout(200)
@@ -223,7 +225,7 @@ with sync_playwright() as pw:
     rf_ = pg.locator('.hero button.live-rf')
     if rf_.count(): rf_.first.click(); pg.wait_for_timeout(1500)
     chips_ = ' | '.join(pg.locator('.hero .lv-chip.on').all_inner_texts())
-    print('B ao vivo com a Prime Video:', pg.locator('.hero .lv-li .tv-tag').count(), '· ok' if pg.locator('.hero .lv-li .tv-tag').count() >= 1 else '· ERRO')
+    print('B ao vivo com a Sport TV:', pg.locator('.hero .lv-li .tv-tag').count(), '· ok' if pg.locator('.hero .lv-li .tv-tag').count() >= 1 else '· ERRO')
     print('B botão atualizar ao vivo:', rf_.count(), chips_, '· ok' if rf_.count() == 1 and pg.locator('.hero button.live-rf[aria-busy="true"]').count() == 0 and 'Q2 5:12' in chips_ else '· ERRO')
     pg.locator('.hero').first.screenshot(path=str(shots / 'ao-vivo-atualizar.png'))
 

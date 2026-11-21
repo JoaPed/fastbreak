@@ -196,26 +196,21 @@ function espnOdds(c) {
   if (m && +m[2] !== 0) { const pf = FB.normCdf(Math.abs(+m[2]) / 12); return { pHome: teamFix(m[1]) === home ? pf : 1 - pf, src: 'spread' }; }
   return null;
 }
-// jogos na Prime Video: em Portugal a NBA passa só na Prime (desde 2025-26; a Sport TV deixou de a ter) e os jogos da
-// Prime na Europa são, quase todos, os que a ESPN marca como Prime Video nos EUA (faltam os ~20 em horário europeu)
-function espnPrime(c) {
-  const ns = (c.broadcasts || []).flatMap(b => b.names || []).concat((c.geoBroadcasts || []).map(b => ((b.media || {}).shortName) || ''));
-  return ns.some(n => /prime/i.test(n));
-}
+// jogos na Sport TV (e o canal): vêm do guia da Sport TV pela tarefa do calendário (scripts/sync-tv.mjs), guardados
+// em odds_days.players._tv → S.tv[data] = {'FORA@CASA': 'SPORT TV 2'}
 function tvTag(team, nd) {
-  const g = FB.gameOf(nd, team), tv = g && (S.gOdds[nd.date] || {}).tv;
-  return tv && tv[teamFix(g[0]) + '@' + teamFix(g[1])] === 'prime' ? ' <span class="tv-tag" title="Dá na Prime Video"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>Prime Video</span>' : '';
+  const g = FB.gameOf(nd, team), ch = g && ((S.tv || {})[nd.date] || {})[teamFix(g[0]) + '@' + teamFix(g[1])];
+  return ch ? ' <span class="tv-tag" title="Dá na ' + esc(ch) + '"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>' + esc(ch) + '</span>' : '';
 }
 async function loadGameOdds(date) {
   const G = S.gOdds[date]; if (G && (G.busy || Date.now() - G.at < 30 * 60e3)) return;
   S.gOdds[date] = Object.assign(G || { m: {} }, { busy: true });
   try {
     const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + date.replace(/-/g, ''), { cache: 'no-store' });
-    const js = res.ok ? await res.json() : { events: [] }, m = {}, tv = {};
-    (js.events || []).forEach(ev => { const c = (ev.competitions || [])[0] || {}, cs = c.competitors || [], side = h => teamFix(((cs.find(x => x.homeAway === h) || {}).team || {}).abbreviation); const o = espnOdds(c); if (o) m[side('away') + '@' + side('home')] = o;
-      if (espnPrime(c)) tv[side('away') + '@' + side('home')] = 'prime'; });
-    S.gOdds[date] = { at: Date.now(), m, tv };
-  } catch (e) { S.gOdds[date] = { at: Date.now(), m: (G && G.m) || {}, tv: (G && G.tv) || {} }; }
+    const js = res.ok ? await res.json() : { events: [] }, m = {};
+    (js.events || []).forEach(ev => { const c = (ev.competitions || [])[0] || {}, cs = c.competitors || [], side = h => teamFix(((cs.find(x => x.homeAway === h) || {}).team || {}).abbreviation); const o = espnOdds(c); if (o) m[side('away') + '@' + side('home')] = o; });
+    S.gOdds[date] = { at: Date.now(), m };
+  } catch (e) { S.gOdds[date] = { at: Date.now(), m: (G && G.m) || {} }; }
   if (S.tab === 'hoje') render();
 }
 // probabilidade de cada opção de um pick (as nossas; null = só se sabe a % do pessoal)
@@ -725,7 +720,7 @@ function pickRun() {
   return S.runs[0] ? S.runs[0].id : null;
 }
 async function loadRun(runId) {
-  S.runId = runId; S.days = []; S.odds = {}; S.dobra = {}; S.prevGames = {}; S.board = null; S.mine = { roster: {}, plan: {} }; S.mineLoaded = false; S.pendingUses = {}; S.lastSummary = '';
+  S.runId = runId; S.days = []; S.odds = {}; S.dobra = {}; S.tv = {}; S.prevGames = {}; S.board = null; S.mine = { roster: {}, plan: {} }; S.mineLoaded = false; S.pendingUses = {}; S.lastSummary = '';
   S.group = { profiles: [], summaries: [], members: [], chain: [] }; S.chainGames = [];
   try { localStorage.setItem('fb-run', runId || ''); localStorage.setItem('fb-run-act', (S.runs.find(r => r.active) || {}).id || ''); } catch (e) {}
   if (!runId) { schedule(); return; }
@@ -776,6 +771,8 @@ async function loadOdds() {
   if (runId !== S.runId) return false;
   let changed = false;
   (rows || []).forEach(o => { if (o.players && o.players._dobra) { S.dobra[o.date] = o.players._dobra; o = Object.assign({}, o, { players: Object.assign({}, o.players) }); delete o.players._dobra; }
+    if (o.players && o.players._tv) { const tv = o.players._tv; if (JSON.stringify((S.tv || {})[o.date] || {}) !== JSON.stringify(tv)) { (S.tv = S.tv || {})[o.date] = tv; changed = true; } o = Object.assign({}, o, { players: Object.assign({}, o.players) }); delete o.players._tv; }
+    if (!o.source && !Object.keys(o.players || {}).length) return; // só o canal da TV: ainda não há odds
     const cur = S.odds[o.date]; if (!cur || cur.updated_at !== o.updated_at) { S.odds[o.date] = S.alias.size ? Object.assign({}, o, { players: canonDeep(o.players || {}, S.alias) }) : o; changed = true; } });
   return changed;
 }
@@ -1889,7 +1886,7 @@ function liveRow(r, md, nd, id, scale, extra) {
   const sub = st === 'jogo' ? '≈ ' + md.objs.map((o, k) => '<span class="' + tone(xs[k]).trim() + '">' + lvNum(xs[k].end) + (many ? ' ' + esc(statShort(o.stat)) : '') + '</span>').join(' · ')
     : st === 'fim' ? 'previsto ' + md.objs.map((o, k) => lvNum(xs[k].exp) + (many ? ' ' + esc(statShort(o.stat)) : '')).join(' · ')
     : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd).replace(/ · \d\d:\d\d$/, '')); // a hora já está no selo
-  const subTv = sub + (st === 'fim' ? '' : tvTag(p.team, nd)); // a Prime Video só interessa antes e durante o jogo
+  const subTv = sub + (st === 'fim' ? '' : tvTag(p.team, nd)); // o canal só interessa antes e durante o jogo
   const tracks = md.objs.map((o, k) => '<div class="lv-tk' + (many ? ' many' : '') + '">' + (many ? '<span class="lb">' + esc(statShort(o.stat)) + '</span>' : '') + liveTrack(xs[k], scale[k]) + (many ? '<b class="num' + (xs[k].started ? '' : ' dim') + '">' + (xs[k].started ? lvNum(xs[k].known) : lvNum(xs[k].end)) + '</b>' : '') + '</div>').join('');
   const right = many ? '' : '<div class="pv"><div class="v num' + (x0.started ? '' : ' dim') + '">' + (x0.started ? lvNum(x0.known) : lvNum(x0.end)) + '</div><div class="u">' + (x0.started ? esc(statShort(md.objs[0].stat)) : 'previsto') + '</div></div>';
   const gid = x0.started ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
@@ -3002,7 +2999,7 @@ function renderJornada(el) {
     // Moment que ainda está noutra conta: tem de ser mandado antes deste jogo
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Mandar de ' + esc(accLabel(tr.from)) + '</span> ' + ps;
-    if (!S.gOdds[nd.date]) loadGameOdds(nd.date); // (ao vivo também: diz que jogos dão na Prime Video)
+    if (!live && !S.gOdds[nd.date]) loadGameOdds(nd.date);
     let stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
     let rl = '';
     if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);

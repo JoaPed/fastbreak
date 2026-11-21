@@ -240,8 +240,11 @@ contra o 40.º lugar real (~250 pts, ~900 inscritos).
   trocar por uma melhor desde que continue a trocar ≥ 2 lendas face às equipas das outras contas.
 
 ## Jogos na TV em Portugal (21 nov 2026)
-Desde 2025-26 a NBA em Portugal está só na Prime Video (contrato de 11 anos; a Sport TV teve-a até 2025). A Prime na
-Europa mostra ~67 jogos da época regular, quase todos os mesmos que a Prime Video tem nos EUA, mais ~20 em horário
-europeu anunciados à parte. O site marca com «▶ Prime Video» os jogos que o placar da ESPN dá com `broadcasts`/
-`geoBroadcasts` «Prime Video» (`espnPrime`, guardado em `S.gOdds[data].tv`). Os jogos europeus não vêm na ESPN: se o
-grupo quiser, acrescentam-se à mão.
+Em 2026-27 a Sport TV voltou a ter a NBA: mais de 200 jogos em direto nos canais Premium (anunciado a 19 out 2026); o
+Disney+ tem alguns (o grupo não quer). A Prime Video teve a NBA em Portugal em 2025-26; em 2026-27 não se confirmou.
+O guia (sporttv.pt/guia) é Nuxt: `/guia/_payload.json` traz os programas de vários dias de todos os canais no formato
+«devalue» (array; cada valor aponta para outra posição). Programa = objeto com `canal` ({nome: 'SPORT.TV2'}), `data`
+(ms), `duracao`, `tipoEmissao`, e o título «NEW YORK KNICKS X PORTLAND TRAIL BLAZERS» (magazines: «NBA ACTION»).
+A hora do guia anda uns minutos ao lado do jogo (00:29 para um jogo às 00:30) e há repetições: liga-se ao jogo da
+ESPN pelas equipas e início a ≤ 90 min. `scripts/tv.mjs` (puro) + `scripts/sync-tv.mjs` (tarefa do calendário) →
+`odds_days.players._tv` = {'FORA@CASA': 'SPORT TV 2'} por data ET; o site mostra «▶ SPORT TV 2» no jogador.

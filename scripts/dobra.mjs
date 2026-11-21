@@ -5,6 +5,12 @@ import { norm, espnTeam, SGO_STAT } from './lib.mjs';
 
 // alcunhas → sigla (a SportsGameOdds dá os nomes das equipas; a sigla liga aos jogos da ESPN)
 const NICK = { hawks: 'ATL', celtics: 'BOS', nets: 'BKN', hornets: 'CHA', bulls: 'CHI', cavaliers: 'CLE', mavericks: 'DAL', nuggets: 'DEN', pistons: 'DET', warriors: 'GSW', rockets: 'HOU', pacers: 'IND', clippers: 'LAC', lakers: 'LAL', grizzlies: 'MEM', heat: 'MIA', bucks: 'MIL', timberwolves: 'MIN', pelicans: 'NOP', knicks: 'NYK', thunder: 'OKC', magic: 'ORL', '76ers': 'PHI', sixers: 'PHI', suns: 'PHX', 'trail blazers': 'POR', blazers: 'POR', kings: 'SAC', spurs: 'SAS', raptors: 'TOR', jazz: 'UTA', wizards: 'WAS' };
+// nome de equipa por extenso → sigla («NEW YORK KNICKS» → NYK); null se não é da NBA
+export function nbaTeamByName(txt) {
+  txt = String(txt || '').toLowerCase().trim();
+  for (const [k, v] of Object.entries(NICK)) if (txt.endsWith(k) || txt.includes(' ' + k + ' ') || txt === k) return v;
+  return null;
+}
 export function sgoTeam(t) {
   if (!t) return null;
   const n = t.names || {}, s = String(n.short || n.abbreviation || '').toUpperCase();
