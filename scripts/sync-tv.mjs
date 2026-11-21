@@ -10,13 +10,14 @@ try {
   if (!res.ok) throw new Error('HTTP ' + res.status);
   items = guideNba(unflatten(await res.json()));
 } catch (e) { console.log('::warning::guia da Sport TV: ' + String(e.message || e).slice(0, 120)); process.exit(0); }
-console.log('Sport TV: ' + items.length + ' jogos da NBA no guia');
+console.log('Sport TV: ' + items.length + ' jogos da NBA no guia; p. ex. ' + items.slice(0, 4).map(x => x.a + '-' + x.b + ' ' + new Date(x.t).toISOString().slice(5, 16) + ' ' + x.ch).join(' · '));
 const today = etDate(new Date()), byDate = {};
 for (let k = -1; k <= 3; k++) {
   const date = addDays(today, k);
   try { byDate[date] = parseEspnScoreboard(await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + date.replace(/-/g, ''))); } catch (e) { byDate[date] = []; }
 }
 const tv = matchTv(items, byDate);
+console.log('jogos da ESPN: ' + Object.entries(byDate).map(([d, g]) => d + ' ' + g.length + (g[0] ? ' (' + g[0][0] + '@' + g[0][1] + ' ' + g[0][2] + ')' : '')).join(' · '));
 for (const date of Object.keys(byDate)) {
   const got = tv[date] || {};
   const prev = await must(sb.from('odds_days').select('players').eq('date', date).maybeSingle());
