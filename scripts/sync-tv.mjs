@@ -14,7 +14,7 @@ console.log('Sport TV: ' + items.length + ' jogos da NBA no guia; p. ex. ' + ite
 const today = etDate(new Date()), byDate = {};
 for (let k = -1; k <= 3; k++) {
   const date = addDays(today, k);
-  try { byDate[date] = parseEspnScoreboard(await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + date.replace(/-/g, ''))); } catch (e) { byDate[date] = []; }
+  try { const { json } = await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + date.replace(/-/g, '')); byDate[date] = json ? parseEspnScoreboard(json) : []; } catch (e) { byDate[date] = []; }
 }
 const tv = matchTv(items, byDate);
 console.log('jogos da ESPN: ' + Object.entries(byDate).map(([d, g]) => d + ' ' + g.length + (g[0] ? ' (' + g[0][0] + '@' + g[0][1] + ' ' + g[0][2] + ')' : '')).join(' · '));
