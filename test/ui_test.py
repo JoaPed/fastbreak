@@ -77,7 +77,7 @@ def new_page(b, db):
         if 'scoreboard' in url:
             evs = [{'id': '4019%05d' % k, 'status': {'type': {'state': 'in'}, 'period': 2}} for k in range(1, 400)]
             return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps({'events': evs}))
-        summ = {'boxscore': {'players': [{'team': {'abbreviation': 'SAC'}, 'statistics': [{'keys': ['minutes', 'points', 'rebounds', 'assists'], 'labels': ['MIN', 'PTS', 'REB', 'AST'], 'athletes': [{'athlete': {'displayName': 'Domantas Sabonis'}, 'stats': ['20', '9', '7', '3']}]}]}]}}
+        summ = {'header': {'competitions': [{'status': {'period': 2, 'displayClock': '5:12'}}]}, 'boxscore': {'players': [{'team': {'abbreviation': 'SAC'}, 'statistics': [{'keys': ['minutes', 'points', 'rebounds', 'assists'], 'labels': ['MIN', 'PTS', 'REB', 'AST'], 'athletes': [{'athlete': {'displayName': 'Domantas Sabonis'}, 'stats': ['20', '9', '7', '3']}]}]}]}}
         return r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(summ))
     pg.route('https://site.api.espn.com/**', espn)
     # blockchain Flow falsa: carteira com 450 Moments; lotes de mais de 150 dão erro de cálculo (para testar a divisão dos lotes)
@@ -216,7 +216,8 @@ with sync_playwright() as pw:
     print('B placar ao vivo:', pg.locator('.hero .lv-sub').first.inner_text().replace('\n', ' '))
     rf_ = pg.locator('.hero button.live-rf')
     if rf_.count(): rf_.first.click(); pg.wait_for_timeout(1500)
-    print('B botão atualizar ao vivo:', rf_.count(), '· ok' if rf_.count() == 1 and pg.locator('.hero button.live-rf[aria-busy="true"]').count() == 0 else '· ERRO')
+    chips_ = ' | '.join(pg.locator('.hero .lv-chip.on').all_inner_texts())
+    print('B botão atualizar ao vivo:', rf_.count(), chips_, '· ok' if rf_.count() == 1 and pg.locator('.hero button.live-rf[aria-busy="true"]').count() == 0 and 'Q2 5:12' in chips_ else '· ERRO')
     pg.locator('.hero').first.screenshot(path=str(shots / 'ao-vivo-atualizar.png'))
 
     pg.click('#t-run'); pg.wait_for_timeout(400)

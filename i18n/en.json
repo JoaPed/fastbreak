@@ -2883,7 +2883,6 @@
    "((day.games || []).length ? '<div class=\"card\"><div class=\"list-head\"><h2>Jogos</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + ' ": "game",
    "liveHtml = '<div class=\"card panel\" style=\"gap:10px\"><div class=\"label\">Jogo a jogo</div><div class=\"chips\" role=\"group\" aria-label=\"Estado do jogo\">' + [['por'": false,
    "return '<li class=\"uses-row' + (accs.length > 1 ? ' multi' : '') + '\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">' + esc(nameOf(id)) + '</span></": "game",
-   "players[id] = stt.state === 'post' ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false,
    "players[id] = g.gameStatus === 3 ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, +g.period || 1)), vals };": false,
    "if ((day.games || []).length) out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jo": true,
    "return '<div class=\"card\"><div class=\"list-head\"><h2>' + ttl + '</h2><span class=\"small muted\">' + (inWin ? (S.board.err ? 'sem ligação à ESPN' : 'atualiza a ca": true,
@@ -2892,7 +2891,6 @@
    "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim' + (nextTxt ? ' · ' + nextTxt : '') + '</div></div>' +": true,
    "out.push('<div class=\"card\"><div class=\"list-head\"><h2>Jogos do dia</h2><span class=\"small muted\">' + plural(day.games.length, 'jogo', 'jogos') + (board ? '' : ": true,
    "meta += ' · ' + plural((day.games || []).length, 'jogo', 'jogos') + (now && liveOn(day.date) ? ' · ao vivo' : '');": true,
-   "players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };": false,
    "if (!inWin) { const tips = (nd.games || []).map(g => g[2]).filter(Boolean).sort(); return foldCard('jogos', nd.date === (nextDay() || {}).date ? 'Jogos de hoje'": true,
    "const prow = x => '<li><button class=\"row\" type=\"button\" data-action=\"pform\" data-id=\"' + esc(x.id) + '\"><span class=\"who\">' + face(x.id, 'sm') + '<div style=\"m": true,
    "'<div class=\"ps\">' + teamTag(p.team) + (stat !== 'pts' ? ' · ' + ord(pr) + ' em PTS' : '') + (p.gp ? ' · ' + plural(+p.gp, 'jogo', 'jogos') + ' esta época' : ' ": "game",
@@ -2902,7 +2900,8 @@
    "openSheet('<h3>' + esc(x.name) + '</h3><div class=\"small muted\">' + esc(hTeam(x.team)) + ' · ' + x.rp + ' RP · ' + (x.n ? 'média ' + f1(x.avg) + ' pts em ' + pl": true,
    "openSheet('<div class=\"h-sheet-top\">' + hFace(x, 'lg') + '<h3>' + esc(x.name) + '</h3></div>' + (hRip(x) ? '<div class=\"note info\">🕊️ Descansa em paz (' + hRip": true,
    "'<span class=\"ps\">' + teamTag((S.players.get(String(x.id)) || {}).team) + ' · sem o ' + esc(lastName(x.a)) + ' (' + plural(x.n, 'jogo', 'jogos') + '): ' + f1(t.": true,
-   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim</div>' + (nextTxt ? '<div class=\"ps\">' + nextTxt + '</div>'": true
+   "'<div class=\"ps\">' + teamTag(p.team) + ' · ' + plural(f.left.length, 'jogo', 'jogos') + ' até ao fim</div>' + (nextTxt ? '<div class=\"ps\">' + nextTxt + '</div>'": true,
+   "players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.max(1, ck.q || stt.period), clk: ck.clk, vals };": false
   }
  },
  "jogos": {
@@ -3417,5 +3416,6 @@
  "<div class=\"small muted h-port\">Equipa n.º <b>": "<div class=\"small muted h-port\">Team no. <b>",
  " do grupo · alguém nos prémios: <b>": " in the group · someone in the prizes: <b>",
  "</b> (todos com a mesma: ": "</b> (all on the same one: ",
- " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Atualizar as estatísticas ao vivo\" title=\"Atualizar\"": " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Refresh live stats\" title=\"Refresh\""
+ " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Atualizar as estatísticas ao vivo\" title=\"Atualizar\"": " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Refresh live stats\" title=\"Refresh\"",
+ "Prol.": "OT"
 }

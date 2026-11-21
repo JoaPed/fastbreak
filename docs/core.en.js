@@ -572,7 +572,7 @@
           });
           // as covariâncias entre objetivos acompanham o que falta jogar
           if (state === 'fim') v[pi].fill(0, K); else if (state === 'jogo') { const r = QREM[e.q] != null ? QREM[e.q] : 0.5; for (let q = K; q < v[pi].length; q++) v[pi][q] *= r; }
-          info[pi] = dists.map((x, k) => Object.assign({}, x, { liveState: state, known: state === 'jogo?' ? 0 : knownK[k], q: e.q || null, muLeft: mu[pi][k] }));
+          info[pi] = dists.map((x, k) => Object.assign({}, x, { liveState: state, known: state === 'jogo?' ? 0 : knownK[k], q: e.q || null, clk: e.clk || null, muLeft: mu[pi][k] }));
           elig.push(pi); liveLocks.push(pi);
           return;
         }

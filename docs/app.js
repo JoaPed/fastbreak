@@ -1871,7 +1871,7 @@ function liveTrack(x, mx) {
 function liveRow(r, md, nd, id, scale, extra) {
   const pi = r.model.pIndex.get(id), p = r.model.players[pi], xs = md.objs.map((o, k) => liveLine(md, pi, k)), x0 = xs[0] || {};
   const st = x0.st, info = md.info[pi][0] || {};
-  const chip = st === 'fim' ? '<span class="lv-chip end">Terminado</span>' : st === 'jogo' ? '<span class="lv-chip on"><i></i>' + (info.q ? 'Q' + info.q : 'Em jogo') + '</span>' : st === 'jogo?' ? '<span class="lv-chip on"><i></i>Em jogo</span>' : '<span class="lv-chip pre">' + esc(tipOf(nd, id) || '–') + '</span>';
+  const chip = st === 'fim' ? '<span class="lv-chip end">Terminado</span>' : st === 'jogo' ? '<span class="lv-chip on"><i></i>' + (info.q ? (info.q > 4 ? 'Prol.' + (info.q > 5 ? ' ' + (info.q - 4) : '') : 'Q' + info.q) + (info.clk && info.clk !== '0.0' ? ' ' + esc(info.clk) : '') : 'Em jogo') + '</span>' : st === 'jogo?' ? '<span class="lv-chip on"><i></i>Em jogo</span>' : '<span class="lv-chip pre">' + esc(tipOf(nd, id) || '–') + '</span>';
   const many = md.objs.length > 1;
   // para onde vai (só a jogar): verde se acima do que se esperava, vermelho se abaixo
   const tone = x => (x.end >= x.exp * 1.1 ? ' up' : x.end <= x.exp * 0.9 ? ' down' : '');
@@ -7092,7 +7092,10 @@ function espnBox(json) {
 }
 // estado do jogo no summary da ESPN: 'pre' | 'in' | 'post' (null se não vier)
 function espnState(json) { const c = ((((json || {}).header || {}).competitions) || [])[0] || {}, t = (c.status || {}).type || {}; return t.state || (t.completed ? 'post' : null); }
-const ESPN_SUMMARY = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=' + id;
+// &_=: endereço novo em cada leitura, para a cache da ESPN (CDN) não devolver a ficha de há minutos
+const ESPN_SUMMARY = id => 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=' + id + '&_=' + Date.now();
+// período e relógio da própria ficha (mostra até onde vão as estatísticas que se leram)
+function espnClock(json) { const st = (((((json || {}).header || {}).competitions) || [])[0] || {}).status || {}; return { q: +st.period || 0, clk: st.displayClock || '' }; }
 // linhas por equipa numa ficha de jogo (para saber se a ficha veio completa)
 const boxCount = box => { const n = {}; Object.values(box).forEach(x => { n[x.t] = (n[x.t] || 0) + 1; }); return n; };
 const pTeam = id => { const e = ((S.mine || {}).roster || {})[id] || {}, c = S.players.get(String(id)) || {}; return e.team || c.team || ''; };
@@ -7118,7 +7121,7 @@ async function liveFetch(quiet) {
   // placar da ESPN do dia: estado de cada jogo e o id do jogo de cada equipa (pela equipa vai-se sempre à ficha certa)
   const status = {}, evOfTeam = {};
   try {
-    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + nd.date.replace(/-/g, ''), { cache: 'no-store' });
+    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + nd.date.replace(/-/g, '') + '&_=' + Date.now(), { cache: 'no-store' });
     if (res.ok) ((await res.json()).events || []).forEach(ev => { const c = (ev.competitions || [])[0] || {}, st = ev.status || c.status || {}; status['espn:' + ev.id] = { state: (st.type || {}).state, period: +st.period || 1 };
       (c.competitors || []).forEach(x => { const t = espnAbbr((x.team || {}).abbreviation); if (t) evOfTeam[t] = 'espn:' + ev.id; }); });
   } catch (e) { /* sem placar: usa os ids do calendário */ }
@@ -7132,11 +7135,11 @@ async function liveFetch(quiet) {
         if (stt.state === 'pre') return;
         const res = await fetch(ESPN_SUMMARY(String(gid).slice(5)), { cache: 'no-store' });
         if (!res.ok) return;
-        const js = await res.json(), box = espnBox(js), fin = (espnState(js) || stt.state) === 'post'; ok++;
+        const js = await res.json(), box = espnBox(js), fin = (espnState(js) || stt.state) === 'post', ck = espnClock(js); ok++;
         Object.entries(box).forEach(([nm, x]) => {
           const id = byName.get(nm); if (!id) return;
           const vals = liveVals(nd, x.v, id);
-          players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.min(4, Math.max(1, stt.period)), vals };
+          players[id] = fin ? { state: 'fim', vals } : { state: 'jogo', q: Math.max(1, ck.q || stt.period), clk: ck.clk, vals };
         });
         // jogo acabado e o jogador não aparece na ficha (a equipa dele aparece completa): não jogou, conta zero
         if (fin) { const n = boxCount(box); sub.forEach(id => { if (!players[id] && gidOf[id] === gid && (n[pTeam(id)] || 0) >= 5) players[id] = { state: 'fim', vals: liveVals(nd, {}, id), dnp: true }; }); }
