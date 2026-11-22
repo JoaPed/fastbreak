@@ -196,6 +196,15 @@ with sync_playwright() as pw:
     tvs_ = [r.locator('.nm').inner_text() for r in pg.locator('.hero .list .row').all() if r.locator('.tv-tag').count()]
     tvt_ = pg.locator('.hero .list .row .tv-tag').first.inner_text() if tvs_ else ''
     print('B etiqueta Sport TV:', tvs_, tvt_, '· ok' if sorted(tvs_) == ['Domantas Sabonis', 'Rudy Gobert'] and tvt_ == 'SPORT TV 2' else '· ERRO')  # SAC @ MIN
+    # partilhar o lineup: imagem como o cartão (cabeçalho com o previsto e o anel da vitória)
+    if pg.locator('#tab-hoje button[data-action="lu-share"]').count():
+        pg.click('#tab-hoje button[data-action="lu-share"]'); pg.wait_for_timeout(4000)
+        src_ = pg.locator('.share-img').get_attribute('src') if pg.locator('.share-img').count() else ''
+        b64_ = pg.evaluate('''async (u) => { if (!u) return ''; const b = await (await fetch(u)).blob(); return await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(b); }); }''', src_)
+        if b64_: (shots / 'partilha-lineup.png').write_bytes(base64.b64decode(b64_))
+        wh_ = pg.evaluate('() => { const i = document.querySelector(".share-img"); return i ? [i.naturalWidth, i.naturalHeight] : null; }')
+        print('B imagem para partilhar:', wh_, '· ok' if wh_ and wh_[0] == 1080 and wh_[1] > 1100 else '· ERRO')
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.screenshot(path=str(shots / 'hoje.png'))
     # ajuda ao toque: o (?) do lineup abre a explicação numa folha
     pg.locator('#tab-hoje button[data-action="help"][data-k="lineup"]').click(); pg.wait_for_timeout(200)

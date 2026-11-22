@@ -2020,28 +2020,67 @@ async function shareLineup(date) {
   const day = md.day, objLine = (day.objectives || []).filter(x => x && x.stat).map(x => x.target + ' ' + statShort(x.stat)).join(' + ');
   const text = 'Fast Break · Dia ' + (day.idx + 1) + ' (' + dWeek(date) + ' ' + dShort(date) + ')\n' + objLine;
   toast('A preparar a imagem…');
-  const W = 1080, PAD = 48, RH = 168, H = PAD * 2 + RH * d.lineup.length, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'), font = (w, px) => w + ' ' + px + 'px "IBM Plex Sans", system-ui, sans-serif';
-  g.fillStyle = '#1B2638'; g.fillRect(0, 0, W, H);
+  // como o cartão do lineup: quadro escuro com a meia quadra, objetivo e totais previstos, o anel da vitória com a bola,
+  // e os 5 com a cara, o jogo e o previsto de cada um
+  const W = 1080, PAD = 56, HEAD = 300, RH = 172, FOOT = 70, H = HEAD + RH * d.lineup.length + FOOT;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), font = (w, px) => w + ' ' + px + 'px "IBM Plex Sans", system-ui, sans-serif', dfont = (w, px) => w + ' ' + px + 'px "Big Shoulders Display", "Arial Narrow", sans-serif';
+  try { await Promise.all([document.fonts.load(dfont(800, 60)), document.fonts.load(font(600, 40)), document.fonts.load(font(400, 30))]); } catch (e) {}
+  const C = { bg: '#141C2A', bg2: '#1B2638', ink: '#F5F7FB', mut: '#9EABBE', line: 'rgba(255,255,255,.10)', gold: '#F5C451', good: '#5AD69B', warn: '#F5C451', bad: '#FF8F84', fill: '#86A6FF', ball: '#FF8A45' };
+  const tc = { good: C.good, warn: C.warn, bad: C.bad, mute: C.mut }[dTone(d.P)] || C.warn;
+  // fundo: degradê e meia quadra a traço fino, como no site
+  const bgG = g.createLinearGradient(0, 0, 0, H); bgG.addColorStop(0, C.bg2); bgG.addColorStop(1, C.bg); g.fillStyle = bgG; g.fillRect(0, 0, W, H);
+  g.save(); g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 4; const cy0 = H - FOOT + 10;
+  g.beginPath(); g.moveTo(54, H); g.lineTo(54, cy0 - 120); g.arc(W / 2, cy0 - 120, W / 2 - 54, Math.PI, 0); g.lineTo(W - 54, H); g.stroke();
+  g.strokeRect(W / 2 - 160, cy0 - 300, 320, 400); g.beginPath(); g.arc(W / 2, cy0 - 300, 160, Math.PI, 0); g.stroke(); g.restore();
+  // cabeçalho: dia e objetivo, totais previstos (com a hipótese de cada um) e a hora do 1.º jogo
+  const tips = (day.games || []).map(x => x[2]).filter(Boolean).sort();
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillStyle = C.gold; g.font = dfont(800, 64); g.fillText('Dia ' + (day.idx + 1) + (objLine ? ' · ' + objLine : ''), PAD, 104);
+  g.font = font(500, 34); g.fillStyle = C.mut; g.fillText('Previsto ', PAD, 168); let x0 = PAD + g.measureText('Previsto ').width;
+  d.totals.forEach((t, k) => {
+    const parts = [[(k ? '   ' : '') + statShort(t.stat) + ' ', C.mut, 500], [f1(t.mu), C.ink, 700], ['/' + t.target + ' · ', C.mut, 500], [pct(FB.probAtLeast(t.mu, t.sd * t.sd, t.target)), C.ink, 700]];
+    parts.forEach(([txt, col, w]) => { g.font = font(w, 34); g.fillStyle = col; g.fillText(txt, x0, 168); x0 += g.measureText(txt).width; });
+  });
+  g.font = font(400, 30); g.fillStyle = C.mut; g.fillText(dWeek(date) + ' ' + dShort(date) + (tips.length ? ' · 1.º jogo ' + hm(tips[0]) : ''), PAD, 222);
+  // anel da vitória com a percentagem e a bola na ponta
+  const rcx = W - PAD - 110, rcy = 140, RR = 96, P = Math.max(0, Math.min(1, d.P || 0));
+  g.fillStyle = '#0b0f16'; g.beginPath(); g.arc(rcx, rcy, RR + 14, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(255,138,69,.45)'; g.lineWidth = 3; g.stroke();
+  g.lineWidth = 14; g.strokeStyle = 'rgba(255,255,255,.10)'; g.beginPath(); g.arc(rcx, rcy, RR, 0, Math.PI * 2); g.stroke();
+  g.save(); g.shadowColor = tc; g.shadowBlur = 16; g.strokeStyle = tc; g.lineCap = 'round'; g.beginPath(); g.arc(rcx, rcy, RR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(P, 0.004)); g.stroke(); g.restore();
+  g.textAlign = 'center'; g.fillStyle = tc; let fs = 78; g.font = dfont(800, fs); while (g.measureText(pct(d.P)).width > (RR - 24) * 2 && fs > 40) { fs -= 4; g.font = dfont(800, fs); } g.fillText(pct(d.P), rcx, rcy + fs * 0.25);
+  g.fillStyle = C.mut; g.font = font(600, 22); g.fillText('VITÓRIA', rcx, rcy + 54);
+  const ba = -Math.PI / 2 + Math.PI * 2 * P, bx = rcx + RR * Math.cos(ba), by = rcy + RR * Math.sin(ba), br = 22;
+  g.save(); g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 8; g.fillStyle = '#E8742F'; g.beginPath(); g.arc(bx, by, br, 0, Math.PI * 2); g.fill(); g.restore();
+  g.strokeStyle = '#1a1208'; g.lineWidth = 2.5; g.beginPath(); g.arc(bx, by, br, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.moveTo(bx - br, by); g.lineTo(bx + br, by); g.moveTo(bx, by - br); g.lineTo(bx, by + br); g.stroke();
+  g.beginPath(); g.arc(bx - br * 1.15, by, br * .75, -0.9, 0.9); g.stroke(); g.beginPath(); g.arc(bx + br * 1.15, by, br * .75, Math.PI - 0.9, Math.PI + 0.9); g.stroke();
   // fotos: primeiro a cópia guardada no próprio site (heads/, tarefa das médias), senão a da ESPN (se a ESPN deixar)
   const load = (src, cors) => new Promise(ok => { const im = new Image(); if (cors) im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; setTimeout(() => ok(null), 6000); });
   const photo = async id => { const e = espnIdOf(id); if (!e) return null; return (await load(siteBase() + 'heads/' + encodeURIComponent(e) + '.png')) || load('https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/' + encodeURIComponent(e) + '.png&w=260&h=190', true); };
   const imgs = await Promise.all(d.lineup.map(photo));
   const locks = new Set(((curPlan().locks || {})[date]) || []);
+  // a linha de cada jogador, como no lineup
+  g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(PAD - 20, HEAD - 24, W - (PAD - 20) * 2, RH * d.lineup.length + 24);
   d.lineup.forEach((id, i) => {
-    const pi = r.model.pIndex.get(id), p = r.model.players[pi], y = PAD + i * RH, cx = PAD + 62, cy = y + RH / 2, R = 62;
-    if (i) { g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(PAD, y, W - PAD * 2, 2); }
+    const pi = r.model.pIndex.get(id), p = r.model.players[pi], y = HEAD + i * RH, cx = PAD + 66, cy = y + RH / 2 - 6, R = 64;
+    if (i) { g.fillStyle = C.line; g.fillRect(PAD, y - 6, W - PAD * 2, 2); }
     g.save(); g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.closePath(); g.fillStyle = TEAM_COLOR[p.team] || '#334'; g.fill(); g.clip();
     if (imgs[i]) { const im = imgs[i], sc = (R * 2.4) / im.width; g.drawImage(im, cx - im.width * sc / 2, cy - R * 0.95, im.width * sc, im.height * sc); }
-    else { g.fillStyle = '#fff'; g.font = font(700, 40); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(initials(p.name), cx, cy); }
-    g.restore(); g.lineWidth = 4; g.strokeStyle = '#0b0f16'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
-    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#F5F7FB'; g.font = font(600, 44);
-    g.fillText((locks.has(id) ? '🔒 ' : '') + p.name, cx + R + 32, cy - 6);
-    g.fillStyle = '#9EABBE'; g.font = font(400, 32); g.fillText(p.team + ' ' + opp(p.team, day), cx + R + 32, cy + 40);
+    else { g.fillStyle = '#fff'; g.font = font(700, 40); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(initials(p.name), cx, cy); g.textBaseline = 'alphabetic'; }
+    g.restore(); g.lineWidth = 5; g.strokeStyle = '#0b0f16'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+    const tx = cx + R + 34, maxW = W - PAD - 220 - tx;
+    g.textAlign = 'left'; g.fillStyle = C.ink; g.font = font(600, 44);
+    let nm = (locks.has(id) ? '🔒 ' : '') + p.name; while (g.measureText(nm).width > maxW && nm.length > 4) nm = nm.slice(0, -2) + '…';
+    g.fillText(nm, tx, cy - 4);
+    g.fillStyle = C.mut; g.font = font(400, 32); g.fillText(p.team + ' ' + opp(p.team, day), tx, cy + 44);
     const vals = objVals(md, pi, false), fv = x => (Math.abs(x.v) >= 10 ? f0(x.v) : f1(x.v));
-    g.textAlign = 'right'; const lines = vals.length, top = cy - (lines - 1) * 26;
-    vals.forEach((x, k) => { const yy = top + k * 52 + 14; g.font = font(600, 26); g.fillStyle = '#9EABBE'; const lab = statShort(x.o.stat); g.fillText(lab, W - PAD, yy); const lw = g.measureText(lab).width; g.font = font(800, 46); g.fillStyle = '#F5F7FB'; g.fillText(fv(x), W - PAD - lw - 12, yy); });
+    g.textAlign = 'right'; const n = vals.length, big = n > 1 ? 56 : 78, step = n > 1 ? 64 : 0, top = cy + (n > 1 ? -step / 2 + 20 : 26);
+    vals.forEach((x, k) => { const yy = top + k * step; g.font = font(600, 26); g.fillStyle = C.mut; const lab = statShort(x.o.stat); g.fillText(lab, W - PAD, yy); const lw = g.measureText(lab).width + 12; g.font = dfont(800, big); g.fillStyle = C.ink; g.fillText(fv(x), W - PAD - lw, yy); });
   });
+  // rodapé
+  g.textAlign = 'left'; g.fillStyle = 'rgba(158,171,190,.7)'; g.font = font(500, 26); g.fillText('Fast Break · previsto pelo plano do grupo', PAD, H - 30);
   const blob = await new Promise(ok => { try { cv.toBlob(ok, 'image/png'); } catch (e) { ok(null); } });
   if (!blob) { try { await navigator.clipboard.writeText(text); } catch (e) {} toast('Não deu para fazer a imagem. O texto ficou copiado.'); return; }
   // a partilha precisa de um toque "fresco" (o iPhone recusa depois de esperar pelas fotos): mostra a imagem e o botão
