@@ -1886,7 +1886,8 @@ function liveRow(r, md, nd, id, scale, extra) {
   const sub = st === 'jogo' ? '≈ ' + md.objs.map((o, k) => '<span class="' + tone(xs[k]).trim() + '">' + lvNum(xs[k].end) + (many ? ' ' + esc(statShort(o.stat)) : '') + '</span>').join(' · ')
     : st === 'fim' ? 'previsto ' + md.objs.map((o, k) => lvNum(xs[k].exp) + (many ? ' ' + esc(statShort(o.stat)) : '')).join(' · ')
     : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd).replace(/ · \d\d:\d\d$/, '')); // a hora já está no selo
-  const subTv = sub + (st === 'fim' ? '' : tvTag(p.team, nd)); // o canal só interessa antes e durante o jogo
+  const sb = ((((curPlan().live || {})[nd.date] || {}).players || {})[id] || {}).subBy;
+  const subTv = (sb ? 'não jogou · conta o <b>' + esc(lastName(sb)) + '</b> (suplente)' + (st === 'jogo' ? ' · ' + sub : '') : sub) + (st === 'fim' ? '' : tvTag(sb ? pTeam(sb) : p.team, nd)); // o canal só interessa antes e durante o jogo
   const tracks = md.objs.map((o, k) => '<div class="lv-tk' + (many ? ' many' : '') + '">' + (many ? '<span class="lb">' + esc(statShort(o.stat)) + '</span>' : '') + liveTrack(xs[k], scale[k]) + (many ? '<b class="num' + (xs[k].started ? '' : ' dim') + '">' + (xs[k].started ? lvNum(xs[k].known) : lvNum(xs[k].end)) + '</b>' : '') + '</div>').join('');
   const right = many ? '' : '<div class="pv"><div class="v num' + (x0.started ? '' : ' dim') + '">' + (x0.started ? lvNum(x0.known) : lvNum(x0.end)) + '</div><div class="u">' + (x0.started ? esc(statShort(md.objs[0].stat)) : 'previsto') + '</div></div>';
   const gid = x0.started ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
@@ -3036,6 +3037,15 @@ function renderJornada(el) {
 }
 // Ao vivo: liga-se sozinho quando o 1.º jogo do dia começa, com o lineup submetido (lido da blockchain, se já lá
 // estiver; senão o do plano). Prende quem já jogou, lê os pontos da ESPN de 2 em 2 minutos e refaz o resto da run.
+// o suplente de uma conta para o lineup dado (o escolhido à mão, ou o que a app sugere); null se não há
+function liveBench(k, date, lineup) {
+  const want = (planOf(k).bench || {})[date]; if (want && !lineup.includes(want)) return want;
+  try {
+    if (S.multi) { const a = benchAll(date, { [k]: lineup }); return a && a[k] ? a[k].x.id : null; }
+    const md = S.result && S.result.model.days.find(x => x.day.date === date), b = md && benchOf(md, md.day, lineup);
+    return b ? b.id : null;
+  } catch (e) { return null; }
+}
 function ensureLive() {
   // todas as contas ao mesmo tempo (não só a que estás a ver): cada uma com o lineup que tinha quando o 1.º jogo começou
   const nd = S.result ? nextDay() : null; if (!nd) return false;
@@ -3048,7 +3058,9 @@ function ensureLive() {
     if (!d0 || d0.date !== nd.date) return;
     const lineup = cur && cur.lineup && cur.lineup.length ? cur.lineup : chainLineupToday(nd.date, k) || d0.lineup.slice();
     if (!lineup.length) return;
-    pa.live = Object.assign({}, pa.live || {}, { [nd.date]: Object.assign({}, cur || {}, { active: true, lineup, players: (cur && cur.players) || {} }) });
+    // o suplente fica guardado já (depois do 1.º jogo começar deixa de se poder calcular): entra se um titular não jogar
+    const bench = (cur && cur.bench) || liveBench(k, nd.date, lineup);
+    pa.live = Object.assign({}, pa.live || {}, { [nd.date]: Object.assign({}, cur || {}, { active: true, lineup, bench: bench || null, players: (cur && cur.players) || {} }) });
     started = true;
   });
   if (!started) return false;
@@ -7124,7 +7136,9 @@ async function liveFetch(quiet) {
   const nd = nextDay(); if (!nd) return;
   // os lineups ao vivo de todas as contas (uma leitura serve a todas)
   const liveAccs = (S.multi ? accounts().map(a => a.id) : ['main']).filter(k => { const l = (planOf(k).live || {})[nd.date]; return l && l.active && (l.lineup || []).length; });
-  const sub = [...new Set(liveAccs.flatMap(k => planOf(k).live[nd.date].lineup))];
+  // (com os suplentes: se um titular não jogar, contam os números do suplente)
+  liveAccs.forEach(k => { const l = planOf(k).live[nd.date]; if (l.bench === undefined) l.bench = liveBench(k, nd.date, l.lineup) || null; });
+  const sub = [...new Set(liveAccs.flatMap(k => { const l = planOf(k).live[nd.date]; return l.lineup.concat(l.bench ? [l.bench] : []); }))];
   const players = {}; let ok = 0;
   const byName = new Map(sub.map(id => [norm(nameOf(id)), id]));
   // placar da ESPN do dia: estado de cada jogo e o id do jogo de cada equipa (pela equipa vai-se sempre à ficha certa)
@@ -7172,6 +7186,9 @@ async function liveFetch(quiet) {
   if (!ok) { if (!quiet) toast('Ainda sem estatísticas ao vivo. Tenta daqui a pouco ou põe os valores à mão.'); return; }
   if (Object.keys(players).length) {
     liveAccs.forEach(k => { const l = planOf(k).live[nd.date], mine = {}; l.lineup.forEach(id => { if (players[id]) mine[id] = players[id]; });
+      // titular que não jogou (jogo acabado e não aparece na ficha): entra o suplente, como no Top Shot (só um)
+      const out = l.lineup.find(id => mine[id] && mine[id].dnp), B = l.bench && players[l.bench];
+      if (out && B) mine[out] = Object.assign({}, B, { subBy: l.bench });
       if (Object.keys(mine).length) l.players = Object.assign({}, l.players || {}, mine); });
     saveMine(); schedule();
   }
@@ -7251,6 +7268,7 @@ function boxFor(date, id) {
 function valsFor(acc, date, id, objs) {
   const pa = planOf(acc), e = (((((pa.live || {})[date]) || {}).players) || {})[id], avg = pAvg(id);
   const of = v => objs.map(o => rnd(FB.statValue(v, o.stat, avg)));
+  if (e && e.subBy) return null; // não jogou: os números são do suplente (o dia fechado conta-os no lugar dele)
   if (e && e.state === 'fim' && e.vals && objs.every(o => e.vals[o.stat] != null)) return of(e.vals);
   const b = boxFor(date, id);
   if (b === null) return null;
@@ -7309,11 +7327,15 @@ function dayCalc(acc, day, ids0) {
   if (!objs.length || objs.some(o => /pip/.test(o.stat))) return null; // pontos na área: só estimados, não fecham sozinhos
   const tip = firstTipOf(day); if (tip == null || Date.now() < tip) return null;
   const ids = ids0 || lineupFor(acc, day.date); if (!ids || !ids.length) return null;
-  const vals = ids.map(id => valsFor(acc, day.date, id, objs));
+  let vals = ids.map(id => valsFor(acc, day.date, id, objs));
+  // titular que não jogou (null) e há suplente guardado: entra o suplente (conta o que ele fez e o uso é dele)
+  const B = (((planOf(acc).live || {})[day.date]) || {}).bench, out = vals.indexOf(null);
+  let ids2 = ids;
+  if (out >= 0 && B && !ids.includes(B)) { const vb = valsFor(acc, day.date, B, objs); if (vb === undefined) return null; if (vb) { vals = vals.slice(); vals[out] = vb; ids2 = ids.slice(); ids2[out] = B; } }
   if (vals.some(v => v === undefined)) return null;
   const tot = objs.map((o, k) => rnd(vals.reduce((s, v) => s + (v ? +v[k] || 0 : 0), 0)));
   const win = objs.every((o, k) => (o.each ? vals.every(v => v && +v[k] >= +o.target) : tot[k] >= +o.target));
-  return { res: win ? 'win' : 'loss', tot, ids, objs };
+  return { res: win ? 'win' : 'loss', tot, ids: ids2, objs };
 }
 // total feito num dia fechado (um por objetivo), se se souber; ✓/✕ quando não se sabe
 const doneTot = (pl, day) => { if (!pl || !pl.done) return null; const n = ((day || {}).objectives || []).filter(o => o && o.stat).length; return Array.isArray(pl.tot) && pl.tot.length ? pl.tot : pl.points != null && typeof pl.points !== 'object' && isFinite(+pl.points) && n === 1 ? [+pl.points] : null; };

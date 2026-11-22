@@ -1310,6 +1310,27 @@ with sync_playwright() as pw:
     tops = [x.replace('\n', ' ') for x in pg.locator('#tab-hoje .top-lu .top-tile').all_inner_texts()]
     print('N2 lineup sem previsão:', vs, '· melhores do dia:', tops, '· ok' if len(vs) == 5 and '24,0' in vs and len(tops) == 3 else '· ERRO')
     pg.close()
+    # N3: titular que não jogou (jogo acabado e não está na ficha) → contam os números do suplente guardado no ao vivo
+    N_ST = {k_: ('post', 4, 'Final') for k_ in range(12)}; N_ST[[i_ for i_, g_ in enumerate(n_games.values()) if 'NYK' in g_[:2]][0]] = ('in', 3, '3rd 5:12')  # um jogo ainda a decorrer: o dia continua ao vivo
+    dbn3 = seeded(); T = dbn3['tables']
+    T['runs'][0]['fictitious'] = False
+    for d_ in T['run_days']: d_['games'] = [gm[:3] + ['espn:4019%05d' % (j + 1)] for j, gm in enumerate(d_['games'])] if d_['date'] == N_D1 else d_['games']
+    T['members'].append({'user_id': 'u-eu', 'role': 'member'})
+    T['profiles'].append({'user_id': 'u-eu', 'display_name': 'João', 'topshot_username': 'gandapanasco'})
+    T['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {'live': {N_D1: {'active': True, 'lineup': ['sga', 'brunson', 'cade', 'maxey'], 'bench': 'kat'}}}, 'updated_at': '2026-10-20T10:00:00Z'}]
+    T['chain_results'] = []; T['injuries'] = []
+    pg = new_page(b, dbn3)
+    pg.route('https://site.api.espn.com/**', n_h)
+    pg.clock.set_fixed_time('2026-10-21T02:30:00Z')
+    pg.set_viewport_size({'width': 390, 'height': 1300})
+    pg.goto('https://site.test/'); pg.wait_for_timeout(500)
+    pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(6000)
+    if pg.locator('.hero button.live-rf').count(): pg.click('.hero button.live-rf'); pg.wait_for_timeout(3000)
+    lvp_ = json.loads(store(pg, '__FAKE_DB.tables.user_runs[0].plan.live["%s"].players' % N_D1) or '{}')
+    sga_ = lvp_.get('sga') or {}
+    row_ = pg.locator('.hero .lv-li').filter(has_text='Shai').first.inner_text().replace(chr(10), ' ') if pg.locator('.hero .lv-li').filter(has_text='Shai').count() else ''
+    print('N3 suplente entra:', sga_, '|', row_, '· ok' if sga_.get('subBy') == 'kat' and (sga_.get('vals') or {}).get('pts') == 12 and 'conta o Towns' in row_ else '· ERRO')
+    pg.close()
     # T: o script do Top Shot manda os Moments (API falsa): confirma o dono, manda, espera que chegue e volta ao site
     A_, B_ = 'e7fb03955ade55fa', '1111aaaa2222bbbb'
     tjob = {'do': ['tr'], 'back': 'https://site.test/', 'accs': [{'a': A_, 'uid': 'u-eu', 'acc': 'main'}],

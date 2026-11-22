@@ -3418,5 +3418,7 @@
  "</b> (todos com a mesma: ": "</b> (all on the same one: ",
  " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Atualizar as estatísticas ao vivo\" title=\"Atualizar\"": " <button class=\"live-rf\" type=\"button\" data-action=\"live-refresh\" aria-label=\"Refresh live stats\" title=\"Refresh\"",
  "Prol.": "OT",
- " <span class=\"tv-tag\" title=\"Dá na ": " <span class=\"tv-tag\" title=\"On "
+ " <span class=\"tv-tag\" title=\"Dá na ": " <span class=\"tv-tag\" title=\"On ",
+ "não jogou · conta o <b>": "didn't play · counting <b>",
+ "</b> (suplente)": "</b> (bench)"
 }

@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-22
+- **João** — Ao vivo: se um titular não joga (o jogo acaba e ele não está na ficha), passam a contar os números do suplente, como no Top Shot; a linha diz «não jogou · conta o Drummond (suplente)». O dia fechado pelas estatísticas também conta o suplente. O suplente fica guardado quando começa o 1.º jogo.
+
 ## 2026-11-21
 - **João** — Jornada: etiqueta amarela com o canal (ex.: «▶ SPORT TV 2») no jogador cujo jogo dá na Sport TV, antes e durante o jogo. Vem do guia da Sport TV, lido com a tarefa do calendário (3 vezes por dia).
 - **João** — Ao vivo: cada leitura pede a ficha nova à ESPN (antes a cache podia devolver a de há uns minutos) e o jogador mostra o relógio do jogo (ex.: «Q2 5:12»), para se ver até onde vão as estatísticas.

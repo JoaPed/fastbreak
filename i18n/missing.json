@@ -1,7 +1,12 @@
 [
  {
   "file": "docs/app.js",
-  "text": " <span class=\"tv-tag\" title=\"Dá na ",
-  "line": "return ch ? ' <span class=\"tv-tag\" title=\"Dá na ' + esc(ch) + '\"><svg viewBox=\"0 0 10 10\" aria-hidden=\"true\"><path d=\"M2 1l7 4-7 4z\" fill=\"currentColor\"/></svg>"
+  "text": "não jogou · conta o <b>",
+  "line": "const subTv = (sb ? 'não jogou · conta o <b>' + esc(lastName(sb)) + '</b> (suplente)' + (st === 'jogo' ? ' · ' + sub : '') : sub) + (st === 'fim' ? '' : tvTag(s"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "</b> (suplente)",
+  "line": "const subTv = (sb ? 'não jogou · conta o <b>' + esc(lastName(sb)) + '</b> (suplente)' + (st === 'jogo' ? ' · ' + sub : '') : sub) + (st === 'fim' ? '' : tvTag(s"
  }
 ]
