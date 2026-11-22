@@ -27,6 +27,11 @@ def seeded():
     for r_ in odds_rows:
         if r_['date'] == '2026-10-21': r_['players'] = dict(r_['players'], _tv={'SAC@MIN': 'SPORT TV 2'})
     if not any(r_['date'] == '2026-10-21' for r_ in odds_rows): odds_rows.append({'date': '2026-10-21', 'players': {'_tv': {'SAC@MIN': 'SPORT TV 2'}}, 'updated_at': '2026-10-21T06:13:00Z'})
+    # dia 1: o 1.º jogo dá na SPORT TV 1 (para o cartão «Jogos de hoje»)
+    g1_ = [d_ for d_ in run['days'] if d_['date'] == '2026-10-20'][0]['games'][0]
+    for r_ in odds_rows:
+        if r_['date'] == '2026-10-20': r_['players'] = dict(r_['players'], _tv={g1_[0] + '@' + g1_[1]: 'SPORT TV 1'})
+    if not any(r_['date'] == '2026-10-20' for r_ in odds_rows): odds_rows.append({'date': '2026-10-20', 'players': {'_tv': {g1_[0] + '@' + g1_[1]: 'SPORT TV 1'}}, 'updated_at': '2026-10-20T06:13:00Z'})
     friend_days = {run['days'][0]['date']: 'win', run['days'][1]['date']: 'win'}
     return {
         'users': [{'id': 'u-amigo', 'email': 'amigo@x.pt', 'password': 'segredo1'}, {'id': 'u-eu', 'email': 'eu@x.pt', 'password': 'segredo1', 'user_metadata': {'name': 'João'}}],
@@ -702,6 +707,8 @@ with sync_playwright() as pw:
     gc = pg.locator('#tab-hoje .card').filter(has=pg.locator('.gcard'))
     if gc.count(): gc.first.screenshot(path=str(shots / 'jogos-de-hoje.png'))  # só quem joga hoje: já não há lista para abrir
     print('E jogos de hoje:', gc.first.inner_text().replace('\n', ' | ')[:240] if gc.count() else 'ERRO sem cartão', '· caras:', gc.first.locator('.face').count() if gc.count() else 0)
+    gt_ = [x.inner_text().replace('\n', ' ') for x in pg.locator('#tab-hoje .gcard').all() if x.locator('.tv-tag').count()]
+    print('E jogos de hoje com o canal da Sport TV:', gt_, '· ok' if len(gt_) == 1 and 'SPORT TV 1' in gt_[0] else '· ERRO')
     rk = lineup_card(pg).locator('.row').filter(has=pg.locator('.pill.risk'))
     print('E dia a dia no lineup:', rk.inner_text().replace('\n', ' ')[:160] if rk.count() else 'ERRO sem ⚠', '· ok' if rk.count() and 'se não jogar' in rk.inner_text() else '· ERRO')
     # suplente: por baixo dos 5; entra pelo SGA (dia a dia); escolher outro na folha

@@ -3114,7 +3114,8 @@ function gameRows(day, r, ids, B, lp, objs) {
     const chips = lu.map(id => '<span class="g-chip">' + face(id, 'xs') + esc(lastName(id)) + val(id) + '</span>').join('') +
       oth.map(id => '<span class="g-chip g-oth">' + face(id, 'xs') + esc(lastName(id)) + ' <small>' + esc(otherLu.get(id).join(', ')) + '</small></span>').join('');
     const rest = [];
-    const top = '<span class="g-teams">' + teams + '</span>' + (started && gid ? '<button type="button" class="g-time num g-boxbtn" data-action="game-box" data-gid="' + esc(gid) + '" aria-label="Live stats">' + right + ' <span aria-hidden="true">›</span></button>' : '<span class="g-time num">' + right + '</span>') + (mine.length ? '<span class="g-mine">' + chips + '</span>' : '');
+    const tvG = st === 'Final' ? '' : tvTag(g[0], day).trim(); // canal da Sport TV (na linha de baixo, até o jogo acabar)
+    const top = '<span class="g-teams">' + teams + '</span>' + (started && gid ? '<button type="button" class="g-time num g-boxbtn" data-action="game-box" data-gid="' + esc(gid) + '" aria-label="Live stats">' + right + ' <span aria-hidden="true">›</span></button>' : '<span class="g-time num">' + right + '</span>') + (mine.length || tvG ? '<span class="g-mine">' + tvG + chips + '</span>' : '');
     const all = rest.length ? '<div class="g-all">' + rest.map(id => esc(lastName(id)) + val(id)).join(' · ') + '</div>' : '';
     return '<li class="gcard' + (bg && bg.state === 'in' ? ' on' : '') + '">' + (all ? '<details><summary class="g-top">' + top + '</summary>' + all + '</details>' : '<div class="g-top">' + top + '</div>') + '</li>';
   }).join('');

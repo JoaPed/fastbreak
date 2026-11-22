@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-22
+- **João** — Jogos de hoje: o canal da Sport TV aparece em todos os jogos que dão lá (antes só aparecia no jogador do lineup).
 - **João** — Ao vivo: quando o lineup já bateu o objetivo do dia (ex.: 49/48 REB) a vitória mostra 100% em vez de 99% (o que já se fez não volta para trás).
 - **João** — Ao vivo: se um titular não joga (o jogo acaba e ele não está na ficha), passam a contar os números do suplente, como no Top Shot; a linha diz «não jogou · conta o Drummond (suplente)». O dia fechado pelas estatísticas também conta o suplente. O suplente fica guardado quando começa o 1.º jogo.
 
