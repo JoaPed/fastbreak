@@ -1,12 +1,1 @@
-[
- {
-  "file": "docs/app.js",
-  "text": "não jogou · conta o <b>",
-  "line": "const subTv = (sb ? 'não jogou · conta o <b>' + esc(lastName(sb)) + '</b> (suplente)' + (st === 'jogo' ? ' · ' + sub : '') : sub) + (st === 'fim' ? '' : tvTag(s"
- },
- {
-  "file": "docs/app.js",
-  "text": "</b> (suplente)",
-  "line": "const subTv = (sb ? 'não jogou · conta o <b>' + esc(lastName(sb)) + '</b> (suplente)' + (st === 'jogo' ? ' · ' + sub : '') : sub) + (st === 'fim' ? '' : tvTag(s"
- }
-]
+[]

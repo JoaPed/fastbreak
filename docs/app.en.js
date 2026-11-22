@@ -285,7 +285,7 @@ const clone = o => JSON.parse(JSON.stringify(o == null ? {} : o));
 const f1 = n => (Math.round(n * 10) / 10).toLocaleString('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const f0 = n => Math.round(n).toLocaleString('en-GB');
 const f2 = n => (+n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const pct = p => p < 0.005 ? '<1%' : p > 0.995 ? '>99%' : Math.round(p * 100) + '%';
+const pct = p => p >= 1 - 1e-9 ? '100%' : p < 0.005 ? '<1%' : p > 0.995 ? '>99%' : Math.round(p * 100) + '%';
 const tone = p => p >= 0.65 ? 'good' : p >= 0.4 ? 'warn' : 'bad';
 const dt = s => new Date(s + 'T12:00:00Z');
 const dShort = s => { const d = dt(s); return d.getUTCDate() + ' ' + MO[d.getUTCMonth()]; };

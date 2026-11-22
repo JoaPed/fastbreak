@@ -662,9 +662,12 @@
   function winProb(md, S, V) {
     const K = md.objs.length;
     if (!K) return 0;
-    if (K === 1) return probAtLeast(S[0], V[0], md.T[0]);
+    // ao vivo: o que já se fez não volta para trás; objetivo do total já cumprido = garantido (não é 99%)
+    const done = k => md.offset && !md.objs[k].each && md.offset[k] >= md.T[k] - 1e-9;
+    if (K === 1) return done(0) ? 1 : probAtLeast(S[0], V[0], md.T[0]);
     const h = [], ks = [];
     for (let k = 0; k < K; k++) {
+      if (done(k)) continue;
       if (V[k] <= 1e-9) { if (S[k] < md.T[k] - 0.5) return 0; continue; } // objetivo já decidido
       h.push((md.T[k] - 0.5 - S[k]) / Math.sqrt(V[k])); ks.push(k);
     }

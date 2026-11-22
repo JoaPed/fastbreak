@@ -580,5 +580,13 @@ ok('compras: o ganho da 2.ª peneira anda perto do da run refeita', Math.abs(rk[
   const sent = g2.transfers.filter(t => t.id === star && t.from === 'main');
   ok('trancados: com um Rare trancado e um Common livre, só sai o Common', sent.every(t => (t.uses || 1) === 1), sent);
 }
+{ // ao vivo: objetivo já cumprido (49/48 REB) é garantido, não 99%
+  const md1 = { objs: [{ stat: 'reb' }], T: [48], offset: [49], mu: [[4]], v: [[9]] };
+  const md2 = { objs: [{ stat: 'reb' }, { stat: 'ast' }], T: [48, 30], offset: [49, 20], mu: [[4, 12]], v: [[9, 9, 0]], pairs: [[0, 1]], pairIx: null, nv: 2 };
+  const md3 = { objs: [{ stat: 'reb', each: true }], T: [10], offset: [12], mu: [[1]], v: [[4]] };
+  ok('ao vivo: alvo já batido = 100%', FB.lineupProb(md1, [0]) === 1 && FB.lineupProb(Object.assign({}, md1, { offset: [40] }), [0]) < 0.5, [FB.lineupProb(md1, [0])]);
+  ok('ao vivo: com dois objetivos só conta o que falta', Math.abs(FB.lineupProb(md2, [0]) - FB.lineupProb({ objs: [{ stat: 'ast' }], T: [30], offset: [20], mu: [[12]], v: [[9]] }, [0])) < 1e-9);
+  ok('ao vivo: «cada jogador» não fica garantido pelo total', FB.lineupProb(md3, [0]) < 1);
+}
 console.log(fails ? fails + ' falha(s)' : 'motor: tudo certo');
 process.exit(fails ? 1 : 0);
