@@ -3440,5 +3440,7 @@
  "#1a1208": null,
  "rgba(255,255,255,.04)": null,
  "rgba(158,171,190,.7)": null,
- "Fast Break · previsto pelo plano do grupo": "Fast Break · projected by the group's plan"
+ "Fast Break · previsto pelo plano do grupo": "Fast Break · projected by the group's plan",
+ "\nPrevisto ": "\nProjected ",
+ " de vitória\n": " to win\n"
 }

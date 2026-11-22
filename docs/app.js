@@ -2018,7 +2018,10 @@ function dayStrip(sel) {
 async function shareLineup(date) {
   const r = S.result, v = view(), { md, d } = dayInfo(date); if (!r || !md || !d || !d.lineup.length) return;
   const day = md.day, objLine = (day.objectives || []).filter(x => x && x.stat).map(x => x.target + ' ' + statShort(x.stat)).join(' + ');
-  const text = 'Fast Break · Dia ' + (day.idx + 1) + ' (' + dWeek(date) + ' ' + dShort(date) + ')\n' + objLine;
+  // texto que vai com a imagem (e fica copiado): dia e objetivo, o previsto com a vitória e os 5
+  const prevTxt = d.totals.length === 1 ? f1(d.totals[0].mu) : d.totals.map(t => statShort(t.stat) + ' ' + f1(t.mu)).join(' · ');
+  const text = 'Fast Break · Dia ' + (day.idx + 1) + ' (' + dWeek(date) + ' ' + dShort(date) + ')' + (objLine ? ' · ' + objLine : '') +
+    '\nPrevisto ' + prevTxt + ' · ' + pct(d.P) + ' de vitória\n' + d.lineup.map(id => lastName(id)).join(', ');
   toast('A preparar a imagem…');
   // como o cartão do lineup: quadro escuro com a meia quadra, objetivo e totais previstos, o anel da vitória com a bola,
   // e os 5 com a cara, o jogo e o previsto de cada um
