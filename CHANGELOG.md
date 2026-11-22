@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-22
+- **João** — Comprar: os preços pelos usos que o leitor lê passam mesmo para o site (ficavam de fora), por isso aparece o escalão «All-Star · 3 usos» depois de leres os preços.
 - **João** — Historic → Comprar: só as 8 cartas de lendas que mais rendem por dólar (uma por lenda), com filtro de preço (até $25/$50/$100/$250). O botão «Lendas» (e os outros) já mudam mesmo com o teclado aberto no iPhone.
 - **João** — O canal da Sport TV sai do plantel (lineup) e fica só nos «Jogos de hoje».
 - **João** — Partilhar o lineup: imagem nova no estilo do cartão (objetivo e total previsto, anel da vitória com a bola, letra do site) e o texto passa a dizer o previsto, a vitória e os 5.

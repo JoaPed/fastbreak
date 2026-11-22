@@ -954,8 +954,12 @@ function pxTake(px) {
   Object.keys(px.p).forEach(id => { t[id] = px.at; });
   // guarda os de antes (de outros jogadores) com a hora de cada um; os que já têm mais de 3 dias saem
   const p = Object.assign({}, old.p, px.p);
-  Object.keys(p).forEach(id => { const at = t[id] || old.at; if (!at || Date.now() - Date.parse(at) > 3 * 864e5) { delete p[id]; delete t[id]; } else t[id] = at; });
-  S.pxMine = { at: px.at, p, t, miss: (px.miss || []).slice(0, 400) }; S.pxNew = Object.keys(px.p).length; S.pxMissN = (px.miss || []).length; S.pxIdx = null;
+  // e os preços pelos usos (leitor v39: a mais barata com 1, 2, 3 e 4 usos) — ficavam de fora e o escalão de 3 usos
+  // (All-Star) nunca aparecia
+  const u = Object.assign({}, old.u || {}); Object.keys(px.p).forEach(id => { delete u[id]; }); Object.assign(u, px.u || {});
+  Object.keys(p).forEach(id => { const at = t[id] || old.at; if (!at || Date.now() - Date.parse(at) > 3 * 864e5) { delete p[id]; delete t[id]; delete u[id]; } else t[id] = at; });
+  Object.keys(u).forEach(id => { if (!p[id]) delete u[id]; });
+  S.pxMine = { at: px.at, p, t, u, miss: (px.miss || []).slice(0, 400) }; S.pxNew = Object.keys(px.p).length; S.pxMissN = (px.miss || []).length; S.pxIdx = null;
   try { localStorage.setItem('fb-px', JSON.stringify(S.pxMine)); } catch (e) {}
 }
 // jogador → {c: [3 preços], at}: o mais recente entre o meu e os que o grupo publicou
