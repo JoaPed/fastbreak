@@ -1,12 +1,1 @@
-[
- {
-  "file": "docs/app.js",
-  "text": "\nPrevisto ",
-  "line": "'\\nPrevisto ' + prevTxt + ' · ' + pct(d.P) + ' de vitória\\n' + d.lineup.map(id => lastName(id)).join(', ');"
- },
- {
-  "file": "docs/app.js",
-  "text": " de vitória\n",
-  "line": "'\\nPrevisto ' + prevTxt + ' · ' + pct(d.P) + ' de vitória\\n' + d.lineup.map(id => lastName(id)).join(', ');"
- }
-]
+[]

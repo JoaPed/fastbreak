@@ -194,8 +194,7 @@ with sync_playwright() as pw:
     print('B lineup:', pg.locator('#tab-hoje .list .row').count(), 'jogadores · largura', width(pg))
     pg.wait_for_timeout(800)
     tvs_ = [r.locator('.nm').inner_text() for r in pg.locator('.hero .list .row').all() if r.locator('.tv-tag').count()]
-    tvt_ = pg.locator('.hero .list .row .tv-tag').first.inner_text() if tvs_ else ''
-    print('B etiqueta Sport TV:', tvs_, tvt_, '· ok' if sorted(tvs_) == ['Domantas Sabonis', 'Rudy Gobert'] and tvt_ == 'SPORT TV 2' else '· ERRO')  # SAC @ MIN
+    print('B sem canal no plantel:', tvs_, '· ok' if not tvs_ else '· ERRO')
     # partilhar o lineup: imagem como o cartão (cabeçalho com o previsto e o anel da vitória)
     if pg.locator('#tab-hoje button[data-action="lu-share"]').count():
         pg.click('#tab-hoje button[data-action="lu-share"]'); pg.wait_for_timeout(4000)
@@ -241,7 +240,7 @@ with sync_playwright() as pw:
     rf_ = pg.locator('.hero button.live-rf')
     if rf_.count(): rf_.first.click(); pg.wait_for_timeout(1500)
     chips_ = ' | '.join(pg.locator('.hero .lv-chip.on').all_inner_texts())
-    print('B ao vivo com a Sport TV:', pg.locator('.hero .lv-li .tv-tag').count(), '· ok' if pg.locator('.hero .lv-li .tv-tag').count() >= 1 else '· ERRO')
+    print('B ao vivo sem canal no plantel:', pg.locator('.hero .lv-li .tv-tag').count(), '· ok' if pg.locator('.hero .lv-li .tv-tag').count() == 0 else '· ERRO')
     print('B botão atualizar ao vivo:', rf_.count(), chips_, '· ok' if rf_.count() == 1 and pg.locator('.hero button.live-rf[aria-busy="true"]').count() == 0 and 'Q2 5:12' in chips_ else '· ERRO')
     pg.locator('.hero').first.screenshot(path=str(shots / 'ao-vivo-atualizar.png'))
 

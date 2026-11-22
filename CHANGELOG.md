@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-22
+- **João** — O canal da Sport TV sai do plantel (lineup) e fica só nos «Jogos de hoje».
 - **João** — Partilhar o lineup: imagem nova no estilo do cartão (objetivo e total previsto, anel da vitória com a bola, letra do site) e o texto passa a dizer o previsto, a vitória e os 5.
 - **João** — Jogos de hoje: o canal da Sport TV aparece em todos os jogos que dão lá (antes só aparecia no jogador do lineup).
 - **João** — Ao vivo: quando o lineup já bateu o objetivo do dia (ex.: 49/48 REB) a vitória mostra 100% em vez de 99% (o que já se fez não volta para trás).

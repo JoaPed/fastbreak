@@ -1887,7 +1887,7 @@ function liveRow(r, md, nd, id, scale, extra) {
     : st === 'fim' ? 'previsto ' + md.objs.map((o, k) => lvNum(xs[k].exp) + (many ? ' ' + esc(statShort(o.stat)) : '')).join(' · ')
     : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd).replace(/ · \d\d:\d\d$/, '')); // a hora já está no selo
   const sb = ((((curPlan().live || {})[nd.date] || {}).players || {})[id] || {}).subBy;
-  const subTv = (sb ? 'não jogou · conta o <b>' + esc(lastName(sb)) + '</b> (suplente)' + (st === 'jogo' ? ' · ' + sub : '') : sub) + (st === 'fim' ? '' : tvTag(sb ? pTeam(sb) : p.team, nd)); // o canal só interessa antes e durante o jogo
+  const subTv = sb ? 'não jogou · conta o <b>' + esc(lastName(sb)) + '</b> (suplente)' + (st === 'jogo' ? ' · ' + sub : '') : sub; // (o canal da TV fica só nos «Jogos de hoje»)
   const tracks = md.objs.map((o, k) => '<div class="lv-tk' + (many ? ' many' : '') + '">' + (many ? '<span class="lb">' + esc(statShort(o.stat)) + '</span>' : '') + liveTrack(xs[k], scale[k]) + (many ? '<b class="num' + (xs[k].started ? '' : ' dim') + '">' + (xs[k].started ? lvNum(xs[k].known) : lvNum(xs[k].end)) + '</b>' : '') + '</div>').join('');
   const right = many ? '' : '<div class="pv"><div class="v num' + (x0.started ? '' : ' dim') + '">' + (x0.started ? lvNum(x0.known) : lvNum(x0.end)) + '</div><div class="u">' + (x0.started ? esc(statShort(md.objs[0].stat)) : 'previsto') + '</div></div>';
   const gid = x0.started ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
@@ -3038,7 +3038,7 @@ function renderJornada(el) {
       else if (st === 'jogo') ps = '<span class="pill jogo">' + (info.q ? QLABEL[info.q] : 'Em jogo') + '</span> ' + teamMini(p.team) + md.objs.map((ob, k) => f0(md.info[pi][k].known) + (md.objs.length > 1 ? ' ' + esc(statShort(ob.stat)) : '')).join(' · ') + ' até agora';
       else if (st === 'jogo?') ps = '<span class="pill jogo">Em jogo</span> ' + teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd));
       else ps = (sb2 ? '' : '<span class="pill prov">Novo</span> ') + teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd));
-    } else ps = teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd)) + (info.b2b ? ' · 2.º seguido' : '') + tvTag(p.team, nd); // a fonte do valor fica em Porquê e na ficha; a lesão é a pílula do nome
+    } else ps = teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, nd)) + (info.b2b ? ' · 2.º seguido' : ''); // a fonte do valor fica em Porquê e na ficha; a lesão é a pílula do nome
     // Moment que ainda está noutra conta: tem de ser mandado antes deste jogo
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Mandar de ' + esc(accLabel(tr.from)) + '</span> ' + ps;
