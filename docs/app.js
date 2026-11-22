@@ -447,6 +447,7 @@ const HELP = {
     '<li><b>Avaliar um jogador</b>: faz o mesmo só para esse jogador, no escalão escolhido.</li></ul>'],
   especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
   forma: ['Forma da run', 'Escolhe um dos próximos dias. Quentes: os teus que jogam nesse dia com a média dos últimos 5 jogos acima da época (≥ 8%) nas estatísticas do objetivo. Frios: os do plano desse dia abaixo da época. Minutos: quem joga mais ou menos 3 minutos do que a média da época. Pode jogar menos: jogos em que o favorito ganha em 85% ou mais (odds da ESPN, só perto do jogo) — se ficar decidido cedo, as estrelas descansam ou são poupadas. As barras são os últimos jogos (o mais recente à direita); a linha é a média da época.'],
+  hbuy: ['Comprar cartas de lendas', 'Pelos dias jogados (os desta run com a tua pontuação, da conta principal, e os de runs anteriores com o que a equipa sugerida fez): para cada lenda, quantos pontos a mais faria a melhor equipa do dia com o desconto da carta (Common −5%, Rare −10%, Legendary −15%, Ultimate −20%), em quantos dias isso te punha no top 40 e o prémio a mais. Mostra, de cada lenda, a carta que mais rende por dólar até ao preço máximo, e só as 8 melhores. É uma estimativa: usa as médias das lendas, não o que vais escolher.'],
   historic: ['Historic', 'Jogos simulados entre lendas (médias de carreira, 36 minutos). Escolhes 5 dentro de 350 Roster Points; ganha quem soma mais Fast Break Points (PTS 1, REB 1, AST 2, STL 3, BLK 3, perda −1, triplo +0,5, duplo-duplo +5, triplo-duplo +10). Os pontos esperados de cada lenda vêm dos jogos simulados até agora (de todas as runs), puxados para o que o custo prevê, e do adversário. A sugestão é a equipa com mais pontos esperados que cabe no teu orçamento. Cada conta do grupo joga uma equipa diferente (troca pelo menos 2 lendas) e a ordem roda todos os dias: assim, quando a sorte calha, calha a alguém do grupo. A hipótese de prémio compara a equipa com os pontos que deram prémio em dias parecidos (3000 simulações do dia). + fixa uma lenda, × tira-a do dia, tocar no nome guarda a tua carta (o desconto baixa o custo).'],
   prio: ['Prioridade entre contas', 'O plano junta as tuas contas e procura o máximo de prémio somando as duas. Como os prémios vão para quem chega mais longe, compensa juntar os melhores Moments numa conta, e sem prioridade pode calhar a qualquer uma. Com prioridade, cada vitória esperada da conta escolhida vale 20% mais e os melhores Moments vão primeiro para ela; a outra joga com o resto. <b>Automática</b> = a mais bem classificada na Geral (dos lugares lidos no Top Shot). <b>Iguais</b> = sem prioridade.'],
   lesoes: ['Lesões', 'Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA, por equipa, aparecem os importantes (20+ minutos ou 12+ pontos); procura um nome ou equipa para ver todos. Toca num jogador para ver a nota completa da ESPN.'],
@@ -2726,6 +2727,7 @@ function histPastHtml(H, day) {
 // mais (pelos 40 primeiros do dia) e o prémio a mais; e o preço da carta (leitor v34). É uma estimativa
 const H_TIER_DISC = [['Common', 5], ['Rare', 10], ['Legendary', 15], ['Ultimate', 20]];
 try { S.htab = localStorage.getItem('fb-htab') || 'equipa'; } catch (e) { S.htab = 'equipa'; }
+try { S.hmax = +localStorage.getItem('fb-hmax') || 0; } catch (e) { S.hmax = 0; }
 // os dias desta run (com a tua pontuação) e os das runs anteriores do arquivo (sem pontuação tua: conta a que a
 // equipa sugerida pela app fez nesse dia)
 function histBuyCalc(H0) {
@@ -2771,7 +2773,7 @@ function histBuySheet() {
 // as contas guardam-se por leitura do Historic (não se refazem a cada desenho da página)
 function histBuyHtml(H) {
   const nArch = S.histArch && S.histArch.runs ? S.histArch.runs.reduce((t, r) => t + (r.days || []).length, 0) : 0;
-  const key = H.at + '|' + (H.pxAt || '') + '|' + JSON.stringify(S.hdisc || {}) + '|' + [...S.cardMin].join() + '|' + nArch;
+  const key = H.at + '|' + (H.pxAt || '') + '|' + JSON.stringify(S.hdisc || {}) + '|' + [...S.cardMin].join() + '|' + nArch + '|' + (S.hmax || 0);
   if (S.hbuyMemo && S.hbuyMemo.k === key) return S.hbuyMemo.h;
   const h = (() => {
     const X = histBuyCalc(H), px = H.px || {}, by = new Map();
@@ -2781,9 +2783,20 @@ function histBuyHtml(H) {
     const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class="note info h-buy-why">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(X.nIn, 'dia', 'dias') + ' de ' + X.nDays + ' já estavas no top 40' : '') + (X.near ? (X.nIn ? '; ' : ': ') + 'o dia mais perto de entrar ficou a ' + f1(X.near.s) + ' pts do 40.º e o desconto dava +' + f1(X.near.g) : '') + '.</div>' : '';
     const opt = (id, a) => { const pr0 = (px[id] || [])[a.k], pr = Array.isArray(pr0) ? pr0[0] : pr0, [tn, pc] = H_TIER_DISC[a.k]; // leitor v35–37: [preço, oferta]
       return '<li class="row hb-opt"><span class="pill">' + tn + ' · −' + pc + '%</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias') + (a.top ? ' · <b class="c-good">top 40 em ' + plural(a.top, 'dia', 'dias') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + (pr ? usdC(pr) : '—') + '</span></li>'; };
-    const card = (x, i) => cardMin('<div class="card"><div class="list-head"><h2>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</h2><span class="small muted">' + (X.dsc[x.id] ? 'já tens −' + X.dsc[x.id] + '%' : 'não tens') + '</span></div><ul class="list">' + x.L.map(a => opt(x.id, a)).join('') + '</ul></div>', 'hb-' + x.id, i >= 3);
-    return '<div class="small muted h-buy-intro">Pelos ' + plural(X.nDays, 'dia jogado', 'dias jogados') + (X.nDays > X.nMine ? ': ' + X.nMine + ' desta run, com a tua pontuação (conta principal), e ' + (X.nDays - X.nMine) + ' de runs anteriores, com o que a equipa sugerida fez' : ' com a tua pontuação (conta principal)') + '. Para cada lenda: quantos pontos a mais fazia a melhor equipa do dia com o desconto da carta, em quantos dias isso te punha no top 40 e o prémio a mais. À direita, o preço da carta mais barata' + (H.pxAt ? ' (' + esc(ago(H.pxAt)) + ')' : '') + '. É uma estimativa: usa as médias das lendas, não o que vais escolher.</div>' + why +
-      (!X.nDays ? '<div class="note">Ainda não há dias jogados. O admin lê o Historic em Ajustes → Admin → Ler no Top Shot.</div>' : list.length ? list.map(card).join('') : '<div class="note info">Nenhuma carta mudava a melhor equipa nos dias jogados: o desconto não chega para trocar ninguém.</div>') +
+    // as melhores compras (pedido: menos coisas): por lenda, a carta que mais rende por dólar dentro do preço máximo;
+    // só as que mudam alguma coisa, as 8 primeiras
+    const maxP = +S.hmax || 0, cents = v => (Array.isArray(v) ? v[0] : v);
+    const picks = [...by.entries()].map(([id, L]) => {
+      const opts = L.map(a => ({ a, pr: cents((px[id] || [])[a.k]) })).filter(o => o.pr > 0 && (!maxP || o.pr <= maxP * 100) && (o.a.prize > 0 || o.a.top > 0 || o.a.g > 0));
+      if (!opts.length) return null;
+      const sc = o => (o.a.prize * 100 + o.a.top * 50 + o.a.g / Math.max(1, o.a.n)) / o.pr;
+      const o = opts.sort((p, q) => sc(q) - sc(p))[0]; return { id, o, sc: sc(o) };
+    }).filter(Boolean).sort((p, q) => (q.o.a.prize - p.o.a.prize) || (q.sc - p.sc)).slice(0, 8);
+    const chips = '<div class="chips h-buy-max" role="group" aria-label="Preço máximo">' + [[0, 'Qualquer preço'], [25, 'Até $25'], [50, 'Até $50'], [100, 'Até $100'], [250, 'Até $250']].map(([v, t]) => '<button type="button" data-action="h-max" data-v="' + v + '" aria-pressed="' + (maxP === v) + '">' + t + '</button>').join('') + '</div>';
+    const row = x => { const a = x.o.a, [tn, pc] = H_TIER_DISC[a.k];
+      return '<li class="row hb-opt"><span class="hb-who"><b>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</b><span class="pill">' + tn + ' · −' + pc + '%</span>' + (X.dsc[x.id] ? '<small class="muted"> já tens −' + X.dsc[x.id] + '%</small>' : '') + '</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias') + (a.top ? ' · <b class="c-good">top 40 em ' + plural(a.top, 'dia', 'dias') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + usdC(x.o.pr) + '</span></li>'; };
+    return '<div class="small muted h-buy-intro">As cartas de lendas que mais te davam nos ' + plural(X.nDays, 'dia jogado', 'dias jogados') + ' (o desconto da carta baixa o custo e cabe uma lenda melhor). ' + helpBtn('hbuy') + '</div>' + why + chips +
+      (!X.nDays ? '<div class="note">Ainda não há dias jogados. O admin lê o Historic em Ajustes → Admin → Ler no Top Shot.</div>' : picks.length ? '<div class="card"><ul class="list hb-list">' + picks.map(row).join('') + '</ul></div>' : '<div class="note info">Nenhuma carta ' + (maxP ? 'até $' + maxP + ' ' : '') + 'mudava a melhor equipa nos dias jogados.</div>') +
       (H.px ? '' : '<div class="note">Ainda sem preços das cartas das lendas: o admin carrega em Preços (Ajustes → Admin).</div>');
   })();
   S.hbuyMemo = { k: key, h }; return h;
@@ -7507,6 +7520,7 @@ document.addEventListener('scroll', e => { const w = e.target; if (w && w.classL
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-action], [data-tab]');
   if (!b || b.disabled) return;
+  { const ae = document.activeElement; if (ae && ae !== b && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName) && b.tagName === 'BUTTON') { ae.blur(); S.typingSkip = false; } }
   if (b.matches('.tab')) { if (b.dataset.tab === 'hoje' && S.tab === 'hoje' && S.hd) { S.hd = null; S.hdCenter = true; } setTab(b.dataset.tab); return; }
   const a = b.dataset.action, id = b.dataset.id, date = b.dataset.date, nd = nextDay();
   switch (a) {
@@ -7532,6 +7546,7 @@ document.addEventListener('click', async e => {
     case 'pro-slot': if (!$('proLuKv') && !(b.closest && b.closest('#sheetPanel'))) S.proLuOpen = null; proSlotSheet(date, id); break;
     case 'pro-lu': proLuSheet(date); break;
     case 'h-buy': histBuySheet(); break;
+    case 'h-max': S.hmax = +b.dataset.v || 0; try { localStorage.setItem('fb-hmax', String(S.hmax)); } catch (e) {} renderHoje(); break;
     case 'h-tab': S.htab = b.dataset.v; try { localStorage.setItem('fb-htab', S.htab); } catch (e) {} renderHoje(); break;
     case 'card-min': { const k = (b.dataset.d ? '!' : '') + b.dataset.k; S.cardMin.has(k) ? S.cardMin.delete(k) : S.cardMin.add(k); try { localStorage.setItem('fb-cmin', JSON.stringify([...S.cardMin])); } catch (e) {} const c = b.closest('.card'); if (c) { const on = b.dataset.d ? !S.cardMin.has(k) : S.cardMin.has(k); c.classList.toggle('min', on); b.setAttribute('aria-expanded', !on); b.setAttribute('aria-label', on ? 'Mostrar' : 'Minimizar'); b.title = on ? 'Mostrar' : 'Minimizar'; } break; }
     case 'pro-opts': S.proLuOpen = null; proOptsSheet(date); break;

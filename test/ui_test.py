@@ -2046,18 +2046,20 @@ with sync_playwright() as pw:
     pg.click('#tab-hoje .h-tabs button[data-v="comprar"]'); pg.wait_for_timeout(4000)
     nb16 = pg.locator('#tab-hoje .h-buy-intro').count()
     hb16 = ' '.join(pg.locator('#tab-hoje').inner_text().split())
-    nm16 = pg.locator('#tab-hoje .card .card-min').count()
     pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-comprar.png'))
-    # as 3 primeiras lendas abertas, as outras minimizadas; minimizar a primeira: fica só o título; outra vez abre; fica guardado
-    min0 = pg.locator('#tab-hoje .card.min').count()
-    if nm16: pg.locator('#tab-hoje .card .card-min').first.click(); pg.wait_for_timeout(300)
-    min16 = pg.locator('#tab-hoje .card.min').count()
-    pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-minimizado.png'))
-    sv16 = pg.evaluate("localStorage.getItem('fb-cmin') || ''")
-    if nm16: pg.locator('#tab-hoje .card .card-min').first.click(); pg.wait_for_timeout(300)
-    min16b = pg.locator('#tab-hoje .card.min').count()
-    ok16 = nt16 == 3 and all(x <= hero16 + 0.5 for x in alt16) and lend16 >= 1 and nb16 == 1 and 'dias jogados' in hb16 and ' de runs anteriores' in hb16 and ('pts em' in hb16 or 'Nenhuma carta mudava' in hb16) and min0 == max(0, nm16 - 3) and min16 == min0 + 1 and 'hb-' in sv16 and min16b == min0
-    hb16 = str([nt16, hero16, alt16, lend16, nm16, min0, min16, min16b]) + ' ' + hb16[hb16.find('Pelos'):][:300]
+    # lista curta (no máximo 8) e o filtro de preço
+    rows16 = pg.locator('#tab-hoje .hb-list .hb-opt').count(); ch16 = pg.locator('#tab-hoje .h-buy-max button').count()
+    if ch16: pg.click('#tab-hoje .h-buy-max button[data-v="25"]'); pg.wait_for_timeout(500)
+    pr25 = [float(x.replace('$', '').replace(',', '.')) for x in pg.locator('#tab-hoje .hb-list .hb-p').all_inner_texts()]
+    ok25 = all(x <= 25 for x in pr25) and (pr25 or pg.locator('#tab-hoje .note.info').count())
+    if ch16: pg.click('#tab-hoje .h-buy-max button[data-v="0"]'); pg.wait_for_timeout(500)
+    # no iPhone o botão não fica com o foco: com o campo de procura focado, «Lendas»/«Comprar» têm de mudar na mesma
+    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(500)
+    pg.evaluate("() => { const f = document.getElementById('hSearch'); if (f) f.focus(); const b = document.querySelector('#tab-hoje .h-tabs button[data-v=\\'comprar\\']'); if (b) b.click(); }"); pg.wait_for_timeout(800)
+    foc16 = pg.locator('#tab-hoje .h-buy-intro').count() == 1
+    pg.click('#tab-hoje .h-tabs button[data-v="comprar"]'); pg.wait_for_timeout(500)
+    ok16 = nt16 == 3 and all(x <= hero16 + 0.5 for x in alt16) and lend16 >= 1 and nb16 == 1 and 'dias jogados' in hb16 and ('pts em' in hb16 or 'Nenhuma carta mudava' in hb16) and rows16 <= 8 and ch16 == 5 and ok25 and foc16
+    hb16 = str([nt16, hero16, alt16, lend16, rows16, ch16, pr25, foc16]) + ' ' + hb16[hb16.find('As cartas'):][:300]
     print('O16 Historic vale a pena comprar:', nb16, hb16[:400], '· ok' if ok16 else '· ERRO')
     print('O16 preços sem NaN:', '· ok' if 'NaN' not in pg.locator('#tab-hoje').inner_text() and '$1,50' in pg.locator('#tab-hoje').inner_text() else '· ERRO')
     pg.close()

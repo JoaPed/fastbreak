@@ -2848,7 +2848,8 @@
    "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "days",
    "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "days",
    "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true,
-   "S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x": true
+   "S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x": true,
+   "return '<li class=\"row hb-opt\"><span class=\"hb-who\"><b>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</b><span class=\"pill\">' + tn + ' · −' + pc + '%</": "days"
   }
  },
  "dia": {
@@ -2868,7 +2869,8 @@
    "return '<li class=\"row hb-opt\"><span class=\"pill\">' + tn + ' · −' + pc + '%</span><span class=\"hb-t\">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias'": "day",
    "const why = X.nDays && !X.rows.some(a => a.top || a.prize) ? '<div class=\"note info h-buy-why\">Nenhum desconto mudava o teu prémio' + (X.nIn ? ': em ' + plural(": "day",
    "if (info.back) steps.push('<b>Regresso</b>: não jogou o último jogo da equipa (parado há ' + plural(info.back.gap, 'dia', 'dias') + ' a contar desse jogo). Quem": true,
-   "S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x": true
+   "S.ranksMine = d; try { localStorage.setItem('fb-ranks', JSON.stringify(d)); } catch (e) {} setTimeout(() => toast('Lugares atualizados: ' + d.accs.filter(x => x": true,
+   "return '<li class=\"row hb-opt\"><span class=\"hb-who\"><b>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</b><span class=\"pill\">' + tn + ' · −' + pc + '%</": "day"
   }
  },
  "jogo": {
@@ -3442,5 +3444,20 @@
  "rgba(158,171,190,.7)": null,
  "Fast Break · previsto pelo plano do grupo": "Fast Break · projected by the group's plan",
  "\nPrevisto ": "\nProjected ",
- " de vitória\n": " to win\n"
+ " de vitória\n": " to win\n",
+ "Comprar cartas de lendas": "Buying legend cards",
+ "Pelos dias jogados (os desta run com a tua pontuação, da conta principal, e os de runs anteriores com o que a equipa sugerida fez): para cada lenda, quantos pontos a mais faria a melhor equipa do dia com o desconto da carta (Common −5%, Rare −10%, Legendary −15%, Ultimate −20%), em quantos dias isso te punha no top 40 e o prémio a mais. Mostra, de cada lenda, a carta que mais rende por dólar até ao preço máximo, e só as 8 melhores. É uma estimativa: usa as médias das lendas, não o que vais escolher.": "Over the days played (this run's with your score, main account, and earlier runs' with what the suggested team scored): for each legend, how many more points the day's best team would score with the card's discount (Common −5%, Rare −10%, Legendary −15%, Ultimate −20%), on how many days that would put you in the top 40, and the extra prize. For each legend it shows the card that returns the most per dollar up to the maximum price, and only the best 8. It is an estimate: it uses the legends' averages, not what you will pick.",
+ "<div class=\"chips h-buy-max\" role=\"group\" aria-label=\"Preço máximo\">": "<div class=\"chips h-buy-max\" role=\"group\" aria-label=\"Maximum price\">",
+ "Qualquer preço": "Any price",
+ "Até $25": "Up to $25",
+ "Até $50": "Up to $50",
+ "Até $100": "Up to $100",
+ "Até $250": "Up to $250",
+ "<small class=\"muted\"> já tens −": "<small class=\"muted\"> you have −",
+ "<div class=\"small muted h-buy-intro\">As cartas de lendas que mais te davam nos ": "<div class=\"small muted h-buy-intro\">The legend cards that would have helped you most over the ",
+ " (o desconto da carta baixa o custo e cabe uma lenda melhor). ": " (the card's discount lowers the cost so a better legend fits). ",
+ "hbuy": null,
+ "<div class=\"note info\">Nenhuma carta ": "<div class=\"note info\">No card ",
+ "até $": "up to $",
+ "mudava a melhor equipa nos dias jogados.</div>": "changed the best team on the days played.</div>"
 }
