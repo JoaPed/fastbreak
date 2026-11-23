@@ -203,7 +203,7 @@ with sync_playwright() as pw:
         if b64_: (shots / 'partilha-lineup.png').write_bytes(base64.b64decode(b64_))
         wh_ = pg.evaluate('() => { const i = document.querySelector(".share-img"); return i ? [i.naturalWidth, i.naturalHeight] : null; }')
         tx_ = pg.locator('.sheet .small.muted').first.inner_text() if pg.locator('.sheet .small.muted').count() else ''
-        print('B texto da partilha:', tx_.replace(chr(10), ' / '), '· ok' if 'Previsto' in tx_ and 'de vitória' in tx_ else '· ERRO')
+        print('B texto da partilha:', tx_.replace(chr(10), ' / '), '· ok' if 'Previsto' in tx_ and 'de vitória' in tx_ and 'Suplente:' in tx_ and 'previsto pelo plano' not in tx_ else '· ERRO')
         print('B imagem para partilhar:', wh_, '· ok' if wh_ and wh_[0] == 1080 and wh_[1] > 1100 else '· ERRO')
         pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.screenshot(path=str(shots / 'hoje.png'))

@@ -1,1 +1,17 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": "\nSuplente: ",
+  "line": "'\\nPrevisto ' + prevTxt + ' · ' + pct(d.P) + ' de vitória\\n' + d.lineup.map(id => lastName(id)).join(', ') + (bnId ? '\\nSuplente: ' + lastName(bnId) : '');"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "SUPLENTE",
+  "line": "if (isB) { g.fillStyle = C.gold; g.font = font(700, 30); g.fillText('SUPLENTE', tx, cy + 44); const bw = g.measureText('SUPLENTE ').width; g.fillStyle = C.mut; "
+ },
+ {
+  "file": "docs/app.js",
+  "text": "SUPLENTE  ",
+  "line": "if (isB) { g.fillStyle = C.gold; g.font = font(700, 30); g.fillText('SUPLENTE', tx, cy + 44); const bw = g.measureText('SUPLENTE ').width; g.fillStyle = C.mut; "
+ }
+]
