@@ -3469,5 +3469,9 @@
  "jogou ": "played ",
  "<span class=\"up\">▲ sem o ": "<span class=\"up\">▲ without ",
  "<span class=\"lu-warn\">⚠ sem usos nesta conta</span>": "<span class=\"lu-warn\">⚠ no uses left on this account</span>",
- "<span class=\"lu-warn\">⚠ joga na ": "<span class=\"lu-warn\">⚠ plays on "
+ "<span class=\"lu-warn\">⚠ joga na ": "<span class=\"lu-warn\">⚠ plays on ",
+ " class=\"bench-more\" hidden": null,
+ "<div class=\"lu-search\"><input class=\"field\" id=\"benchSearch\" type=\"search\" placeholder=\"Procurar jogador ou equipa…\" autocomplete=\"off\" aria-label=\"Procurar jogador\"></div>": "<div class=\"lu-search\"><input class=\"field\" id=\"benchSearch\" type=\"search\" placeholder=\"Search player or team…\" autocomplete=\"off\" aria-label=\"Search player\"></div>",
+ "<li class=\"row small muted bench-none\" hidden>Ninguém com esse nome pode ir para suplente neste dia.</li></ul>": "<li class=\"row small muted bench-none\" hidden>Nobody with that name can go on the bench this day.</li></ul>",
+ "<button class=\"btn quiet\" type=\"button\" id=\"benchAllBtn\" data-action=\"bench-all\" style=\"margin:4px 0 10px\">Ver todos (": "<button class=\"btn quiet\" type=\"button\" id=\"benchAllBtn\" data-action=\"bench-all\" style=\"margin:4px 0 10px\">See all ("
 }

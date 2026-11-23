@@ -1777,6 +1777,14 @@ function benchRow(md, nd, lineup) {
   const p = r.model.players[r.model.pIndex.get(B.id)], who = benchFor(md, lineup);
   return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">' + benchPill(B.id, nd.date) + 'Bench' + (who ? ' · in for ' + esc(lastName(who.id)) : '') + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
 }
+// procura no suplente: com texto mostra quem tem o nome (ou a equipa); sem texto só os 8 primeiros (ou todos)
+function benchFilter(all) {
+  const ul = $('benchList'); if (!ul) return;
+  const inp = $('benchSearch'), qn = norm(inp ? inp.value : ''); let n = 0;
+  ul.querySelectorAll('li[data-n]').forEach(li => { const ok = qn ? li.dataset.n.includes(qn) : (all || !li.classList.contains('bench-more')); li.hidden = !ok; if (ok) n++; });
+  const none = ul.querySelector('.bench-none'); if (none) none.hidden = !(qn && !n);
+  const b = $('benchAllBtn'); if (b) b.hidden = !!qn || !!all;
+}
 function benchSheet(date) {
   const r = S.result, v = view(); if (!r || !v) return;
   const d = v.days.find(x => x.date === date), md = r.model.days.find(x => x.day.date === date); if (!d || !md) return;
@@ -1784,15 +1792,18 @@ function benchSheet(date) {
   const who = benchFor(md, d.lineup), dx = who ? benchDirect(md, list, who.id) : null;
   // uma só lista: o substituto direto primeiro (barra verde, "Direto"), o escolhido com ✓
   const ord = dx ? [dx.x].concat(list.filter(x => x.id !== dx.x.id)) : list;
-  const row = x => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id;
+  const row = (x, k) => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id, p0 = r.model.players[r.model.pIndex.get(x.id)] || {};
     // o jogo dele; o custo só quando tira um uso a outro dia
     const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'spare use', 'spare uses') + (x.later.length ? ' (plan: day ' + x.later.map(y => y.idx + 1).join(', ') + ')' : '') : '') : ' · uses a day ' + x.later.map(y => y.idx + 1).join(', ');
-    return '<li><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
+    return '<li data-n="' + esc(norm(p0.name || '') + ' ' + String(p0.team || '').toLowerCase()) + '"' + (k >= 8 ? ' class="bench-more" hidden' : '') + '><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direct</span>' : '') + '</div>' +
       '<div class="ps">' + benchPill(x.id, date) + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
       pvHtml(benchVals(md, x.id, who && who.id)) + '<span class="chk' + (on ? '' : ' off') + '" aria-hidden="true">' + (on ? '✓' : '') + '</span></button></li>'; };
   openSheet('<h2>Bench</h2><p class="small muted">' + (who ? 'Comes in if <b>' + esc(lastName(who.id)) + '</b> sits (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Subs in for the first starter who doesn\'t play') + ' · only uses a use if he plays.</p>' +
-    '<ul class="list">' + ord.slice(0, 8).map(row).join('') + '</ul>' +
+    // todos os que podem ir (antes eram só os 8 primeiros): procura e «Ver todos»
+    (ord.length > 8 ? '<div class="lu-search"><input class="field" id="benchSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player"></div>' : '') +
+    '<ul class="list" id="benchList">' + ord.map(row).join('') + '<li class="row small muted bench-none" hidden>Nobody with that name can go on the bench this day.</li></ul>' +
+    (ord.length > 8 ? '<button class="btn quiet" type="button" id="benchAllBtn" data-action="bench-all" style="margin:4px 0 10px">See all (' + ord.length + ')</button>' : '') +
     (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Let the plan choose</button>' : ''));
 }
 // ---------- render ----------
@@ -7539,6 +7550,7 @@ document.addEventListener('click', async e => {
     case 'sheet-back': { const fn = S.sheetBack; fn ? fn() : closeSheet(); break; }
     case 'player': playerSheet(id, date); break;
     case 'bench': benchSheet(date); break;
+    case 'bench-all': benchFilter(true); break;
     case 'bench-pick': { const p = curPlan(); p.bench = Object.assign({}, p.bench || {}, { [date]: id || null }); saveMine(); closeSheet(); render(); toast(id ? 'Bench: ' + nameOf(id) + '.' : 'The plan picks the bench.'); break; }
     case 'day': S.hd = date; S.hdCenter = true; closeSheet(); setSub('hoje', 'lineup'); setTab('hoje'); break;
     case 'help': helpSheet(b.dataset.k, b); break;
@@ -7841,6 +7853,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'colSearch') { S.colView.q = e.target.value; renderColList(); }
   if (e.target.id === 'sellSearch') { S.sellQ = e.target.value; sellFilter(); }
   if (e.target.id === 'hSearch') { S.hq = e.target.value; hFilter(); }
+  if (e.target.id === 'benchSearch') benchFilter(false);
   if (e.target.id === 'injSearch') { S.injQ = e.target.value; injFilter(); }
   if (e.target.id === 'luSearch') { if (S.lu && $('luCount')) S.lu.q = e.target.value; if (S.luEdit && $('pastLu')) S.luEdit.q = e.target.value; luFilter(); }
 });

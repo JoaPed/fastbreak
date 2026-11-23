@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-23
+- **João** — Suplente: aparecem todos os que podem ir (antes só os 8 primeiros), com procura por nome ou equipa e «Ver todos».
 - **João** — Pôr no lineup: linha curta em cada jogador — usos · dias em que já jogou · dias em que o plano o usa · ⚠ joga na JPolas / sem usos nesta conta.
 
 ## 2026-11-22

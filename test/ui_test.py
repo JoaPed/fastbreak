@@ -594,6 +594,16 @@ with sync_playwright() as pw:
     bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
     td = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
     print('C4 suplente noutra conta:', bt[:140], '| para fazer:', bn in td, '· ok' if (('Mandar de' in bt and bn in td) or 'Já joga em' in bt) else '· ERRO')
+    # o suplente: todos os que podem ir (não só 8), com procura e «Ver todos»
+    pg.locator('#tab-hoje .bench-row button').first.click(); pg.wait_for_timeout(800)
+    nall_ = pg.locator('#benchList li[data-n]').count(); nvis_ = pg.locator('#benchList li[data-n]:not([hidden])').count()
+    if pg.locator('#benchAllBtn').count(): pg.click('#benchAllBtn'); pg.wait_for_timeout(200)
+    nvis2_ = pg.locator('#benchList li[data-n]:not([hidden])').count()
+    last_ = pg.locator('#benchList li[data-n] .nm').last.inner_text() if nall_ else ''
+    if pg.locator('#benchSearch').count(): pg.fill('#benchSearch', last_.split()[-1]); pg.wait_for_timeout(200)
+    nq_ = pg.locator('#benchList li[data-n]:not([hidden])').count()
+    print('C4 suplente: todos com procura:', nall_, nvis_, nvis2_, last_, nq_, '· ok' if nall_ > 8 and nvis_ == 8 and nvis2_ == nall_ and 1 <= nq_ < nall_ else '· ERRO')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # a mesma carta (uma só, no smurf_um) não pode ser suplente em duas contas; e o para fazer mostra o de cada conta
     seen_ = {}
     for acc_ in ['main', 's2']:
