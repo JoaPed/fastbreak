@@ -2982,7 +2982,8 @@
    "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "uses",
    "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "uses",
-   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge nth\">'": "uses"
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge nth\">'": "uses",
+   "const parts = ['<b>' + (noUses ? esc(usesTxt(tb.top)) : !u0 ? 'sem usos' : u0 >= UNL ? 'usos ilimitados' : plural(u0, 'uso', 'usos')) + '</b>'];": "uses"
   }
  },
  "uso": {
@@ -3022,7 +3023,8 @@
    "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge\">' + (": true,
    "if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId)) { $('buyOut').innerHTML = '<div class=\"note info\">Já tens ' + esc(nameOf(onl": "use",
    "$('buyOut').innerHTML = '<div class=\"note info\">' + (S.multi ? 'Já tens ' + plural(nc, 'Moment', 'Moments') + ' de ' + esc(nameOf(onlyId)) + ', tantos como as c": "use",
-   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge nth\">'": "use"
+   "const tn = tierName(t.U), pu = perUsdTxt(t), badge = '<span class=\"tpill t-' + (TIER_CLS[tn] || 'r') + '\">' + tn + '</span>' + (own ? '<span class=\"badge nth\">'": "use",
+   "const parts = ['<b>' + (noUses ? esc(usesTxt(tb.top)) : !u0 ? 'sem usos' : u0 >= UNL ? 'usos ilimitados' : plural(u0, 'uso', 'usos')) + '</b>'];": "use"
   }
  },
  "derrota": {
@@ -3057,7 +3059,8 @@
    "(miss.length ? '<li class=\"row\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">Não jogaram</span></div><div class=\"ps\">' + plural(miss.length, 'vez',": "time",
    "const useTxt = u => !u || !u.total ? 'não usado nesta run' : 'usado ' + plural(u.total, 'vez', 'vezes') + ' nesta run' + (u.accs > 1 ? ' (até ' + u.max + ' por ": true,
    "(down ? '<div class=\"note info\">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' ch": true,
-   "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +": true
+   "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +": true,
+   "if (playedDays.length) parts.push(days('jogou', playedDays)); else if (used) parts.push('jogou ' + plural(used, 'vez', 'vezes'));": "time"
   }
  },
  "vezes": {
@@ -3066,7 +3069,8 @@
    "(miss.length ? '<li class=\"row\"><div style=\"min-width:0\"><div class=\"pn\"><span class=\"nm\">Não jogaram</span></div><div class=\"ps\">' + plural(miss.length, 'vez',": "times",
    "const useTxt = u => !u || !u.total ? 'não usado nesta run' : 'usado ' + plural(u.total, 'vez', 'vezes') + ' nesta run' + (u.accs > 1 ? ' (até ' + u.max + ' por ": true,
    "(down ? '<div class=\"note info\">O plano usa-o no máximo ' + plural(x.need, 'vez', 'vezes') + ' por conta nesta run: uma carta de ' + esc(usesTxt(x.need)) + ' ch": true,
-   "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +": true
+   "const why = [used ? 'já jogou ' + plural(used, 'vez', 'vezes') + ' nesta conta' : '', ds.length ? 'o plano usa-o ' + (ds.length > 1 ? 'nos dias ' : 'no dia ') +": true,
+   "if (playedDays.length) parts.push(days('jogou', playedDays)); else if (used) parts.push('jogou ' + plural(used, 'vez', 'vezes'));": "times"
   }
  },
  "m": {
@@ -3110,7 +3114,8 @@
   "at": {
    "const nextTxt = !nd ? '' : f.sh == null ? '<span class=\"muted\">não joga no ' + nxt + '</span>' : nxt + ': ' + (f.mdNext.objs.length ? f.mdNext.objs.map((o, k) =": "plays",
    ": (twoSame ? 'Duas contas podem jogá-lo no mesmo dia. ' : more ? (usesGain(id, R.U) ? 'Com mais ' + usesTxt(usesGain(id, R.U)) + (multi ? ' em cada conta' : '')": "he plays",
-   ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, R.U) ? 'Com mais ' + usesT": "he plays"
+   ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, R.U) ? 'Com mais ' + usesT": "he plays",
+   "parts.push(ds.length ? days('joga', ds) : 'fora do plano');": "plays"
   }
  },
  "amigo": {
@@ -3459,5 +3464,10 @@
  "hbuy": null,
  "<div class=\"note info\">Nenhuma carta ": "<div class=\"note info\">No card ",
  "até $": "up to $",
- "mudava a melhor equipa nos dias jogados.</div>": "changed the best team on the days played.</div>"
+ "mudava a melhor equipa nos dias jogados.</div>": "changed the best team on the days played.</div>",
+ "jogou": "played",
+ "jogou ": "played ",
+ "<span class=\"up\">▲ sem o ": "<span class=\"up\">▲ without ",
+ "<span class=\"lu-warn\">⚠ sem usos nesta conta</span>": "<span class=\"lu-warn\">⚠ no uses left on this account</span>",
+ "<span class=\"lu-warn\">⚠ joga na ": "<span class=\"lu-warn\">⚠ plays on "
 }

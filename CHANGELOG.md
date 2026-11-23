@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-23
+- **João** — Pôr no lineup: linha curta em cada jogador — usos · dias em que já jogou · dias em que o plano o usa · ⚠ joga na JPolas / sem usos nesta conta.
+
 ## 2026-11-22
 - **João** — Comprar: os preços pelos usos que o leitor lê passam mesmo para o site (ficavam de fora), por isso aparece o escalão «All-Star · 3 usos» depois de leres os preços.
 - **João** — Historic → Comprar: só as 8 cartas de lendas que mais rendem por dólar (uma por lenda), com filtro de preço (até $25/$50/$100/$250). O botão «Lendas» (e os outros) já mudam mesmo com o teclado aberto no iPhone.

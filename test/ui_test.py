@@ -2104,7 +2104,7 @@ with sync_playwright() as pw:
     lu_idle17 = "() => { const b = document.getElementById('luBody'); return b && !b.classList.contains('busy') && !document.getElementById('luProg'); }"
     pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle17, timeout=90000); pg.wait_for_timeout(500)
     inLu17 = pg.locator('#luBody .lu-row button[data-action="lu-ban"]').evaluate_all('bs => bs.map(b => b.dataset.id)')
-    rowX = pg.locator('#luBody .lu-row').filter(has_text='se o puseres aqui')
+    rowX = pg.locator('#luBody .lu-row').filter(has_text='⚠ joga na')
     nX = rowX.count()
     who17 = rowX.first.locator('button[data-action="lu-add"]').get_attribute('data-id') if nX else None
     dis17 = rowX.first.locator('button[data-action="lu-add"]').is_disabled() if nX else None
@@ -2149,7 +2149,7 @@ with sync_playwright() as pw:
     pg.click('#tab-hoje button[data-action="lu-edit"]'); pg.wait_for_function(lu_idle17, timeout=90000); pg.wait_for_timeout(500)
     inLu17 = pg.locator('#luBody .lu-row button[data-action="lu-ban"]').evaluate_all('bs => bs.map(b => b.dataset.id)')
     t17b = ' '.join(pg.locator('#luBody .lu-row').filter(has_text='LeBron').all_inner_texts()).replace('\n', ' ')
-    ok17b = 'já jogou 2 vezes nesta conta' in t17b and 'se o puseres aqui' not in t17b
+    ok17b = 'sem usos nesta conta' in t17b and ('jogou nos dias' in t17b or 'jogou 2 vezes' in t17b) and '⚠ joga na' not in t17b  # linha curta: usos · jogou nos dias · joga no dia · aviso
     print('O17b sem usos, a mensagem diz porquê:', t17b[:220], '· ok' if ok17b else '· ERRO')
     # tirar dois deste dia (×) e repô-los de uma vez no fim da lista
     for _ in range(2):

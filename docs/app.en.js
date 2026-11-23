@@ -6872,20 +6872,21 @@ function tierBlocked(id, acc, date) {
 }
 // 2.ª linha de quem pode entrar: os usos que tem e os dias em que o plano o usa; aviso a amarelo se hoje não dá
 function candLine(r, pi, tb, ds, tir, date) {
-  const nd = nextDay(), dn = S.days.findIndex(x => x.date === date) + 1;
-  // esta conta já gastou o que as cartas dão (mesmo que outra conta também o ponha nessa noite): diz quantas vezes
-  // já jogou e em que dias o plano o usa, para se perceber de onde vêm os usos
-  const id = r.model.players[pi].id, used = usedCount(S.acc, id), u0 = r.model.uses[pi] || 0;
-  if (tb && (!tb.others.length || !(u0 > 0) || tb.need > (tb.top || 0))) {
-    const why = [used ? 'already played ' + plural(used, 'time', 'times') + ' on this account' : '', ds.length ? 'the plan uses him on ' + (ds.length > 1 ? 'on days ' : 'on day ') + ds.join(', ') : ''].filter(Boolean).join(' and ');
-    return '<span class="lu-l2 lu-warn">⚠ No uses left on this account: the best card gives ' + esc(usesTxt(tb.top)) + (why ? ' and ' + why : ', already used on other days') + '</span>';
-  }
-  if (tb) return '<span class="lu-l2 lu-warn">⚠ The Moment needed plays on ' + esc(tb.others.map(accLabel).join(' and on ')) + (nd && nd.date === date ? '' : ' on day ' + dn) + ': if you put him here, ' + (tb.others.length > 1 ? 'those accounts play' : 'that account plays') + ' someone else</span>';
-  const u = u0;
-  if (!u) return '<span class="lu-l2">no uses left</span>';
+  // uma linha curta: usos que tem · dias em que já jogou · dias em que o plano o usa · aviso (se não dá aqui hoje)
+  const id = r.model.players[pi].id, u0 = r.model.uses[pi] || 0, dnOf = dt => S.days.findIndex(x => x.date === dt) + 1;
+  const playedDays = Object.entries(curPlan().played || {}).filter(([, pl]) => pl && pl.done && (pl.lineup || []).includes(id)).map(([dt]) => dnOf(dt)).filter(n => n > 0).sort((a, b) => a - b);
+  const days = (w, xs) => w + (xs.length > 1 ? ' on days ' : ' on day ') + xs.join(', ');
+  const noUses = tb && (!tb.others.length || !(u0 > 0) || tb.need > (tb.top || 0));
+  // (sem usos nesta conta: mostra os que a melhor carta dá, e o aviso diz que já se gastaram)
+  const parts = ['<b>' + (noUses ? esc(usesTxt(tb.top)) : !u0 ? 'no uses' : u0 >= UNL ? 'unlimited uses' : plural(u0, 'use', 'uses')) + '</b>'];
+  const used = usedCount(S.acc, id);
+  if (playedDays.length) parts.push(days('played', playedDays)); else if (used) parts.push('played ' + plural(used, 'time', 'times'));
+  parts.push(ds.length ? days('plays', ds) : 'not in the plan');
   // sobe com uma baixa de hoje (ver baixaTips)
-  const bx = baixaOf(r, date, id), bxT = bx ? ' · <span class="up">▲ without ' + esc(lastName(bx.a)) + ': +' + f1(bx.top.g) + ' ' + esc(statShort(bx.top.o.stat)) + '</span>' : '';
-  return '<span class="lu-l2"><b>' + (u >= UNL ? 'unlimited uses' : plural(u, 'use', 'uses')) + '</b> · ' + (ds.length ? 'plays ' + (ds.length > 1 ? 'on days ' : 'on day ') + ds.join(', ') : 'not in the plan') + bxT + '</span>';
+  const bx = !tb && baixaOf(r, date, id); if (bx) parts.push('<span class="up">▲ without ' + esc(lastName(bx.a)) + ': +' + f1(bx.top.g) + ' ' + esc(statShort(bx.top.o.stat)) + '</span>');
+  if (noUses) parts.push('<span class="lu-warn">⚠ no uses left on this account</span>');
+  else if (tb) parts.push('<span class="lu-warn">⚠ plays on ' + esc(tb.others.map(accLabel).join(' and on ')) + '</span>');
+  return '<span class="lu-l2">' + parts.join(' · ') + '</span>';
 }
 function luRender() {
   const L = S.lu, r = S.result, v = view(); if (!L || !r || !v) return;
