@@ -1683,11 +1683,13 @@ function benchOptions(md, nd, lineup) {
   const without = lineup.map((id, i) => lineupP(scen[i], lineup.filter(x => x !== id)));
   const sem = base - outs.reduce((t, o, i) => t + o * (base - without[i]), 0), list = [];
   md.elig.forEach(pi => { const pid = r.model.players[pi].id, left = r.model.uses[pi];
-    if (lineup.includes(pid) || riskOf(md, pid) || !(left > 0) || tierBlocked(pid, S.acc, nd.date)) return;
+    if (lineup.includes(pid) || riskOf(md, pid) || !(left > 0)) return;
+    // a carta joga noutra conta nessa noite: fica na lista (no fim, com aviso), mas o plano não o escolhe sozinho
+    const tb = tierBlocked(pid, S.acc, nd.date), blk = tb && tb.others.length ? tb.others : null; if (tb && !blk) return;
     const com = sem + lineup.reduce((t, id, i) => t + outs[i] * (lineupP(scen[i], lineup.filter(x => x !== id).concat([pid])) - without[i]), 0);
     const later = benchLater(pid, nd.date), free = !isFinite(left) || left > later.length;
-    list.push({ id: pid, com, sem, free, later, spare: isFinite(left) ? left - later.length : null }); });
-  list.sort((a, b) => (b.free - a.free) || (b.com - a.com));
+    list.push({ id: pid, com, sem, free, later, spare: isFinite(left) ? left - later.length : null, blk }); });
+  list.sort((a, b) => (!!a.blk - !!b.blk) || (b.free - a.free) || (b.com - a.com));
   S.benchMemo.m[key] = list; return list;
 }
 // o dia sem o titular `outId`: os colegas de equipa dele sobem pelo que fizeram nos jogos sem ele (FB.mateBoost)
@@ -1704,7 +1706,7 @@ function benchScen(md, outId) {
 function benchOf(md, nd, lineup) {
   if (S.multi) { const all = benchAll(nd.date, { [S.acc]: lineup }), x = all && all[S.acc]; if (all) return x ? x.x : null; }
   const list = benchOptions(md, nd, lineup), want = (curPlan().bench || {})[nd.date];
-  return list.find(x => x.id === want) || list[0] || null;
+  return list.find(x => x.id === want) || list.find(x => !x.blk) || null;
 }
 // com smurfs: o suplente de cada conta num dia, pela ordem das contas. Uma carta só serve de suplente numa conta (a
 // 21 nov o Drummond, que só está na Main, era suplente na Terose e na JPolas): se já está pedida, passa à seguinte.
@@ -1724,7 +1726,7 @@ function benchAll(date, over) {
       if (!md || !lu.length) return;
       S.acc = a.id; S.result = R;
       const list = benchOptions(md, md.day, lu), want = (planOf(a.id).bench || {})[date];
-      for (const x of list.filter(y => y.id === want).concat(list.filter(y => y.id !== want))) {
+      for (const x of list.filter(y => y.id === want).concat(list.filter(y => y.id !== want && !y.blk))) {
         const f = benchFrom(x.id, date), src = f && f.from ? f.from : f && f.busy ? null : a.id;
         if (src) { const k = x.id + '@' + src, n = src === a.id ? Infinity : copies(x.id, src); if ((used[k] || 0) >= n) continue; used[k] = (used[k] || 0) + 1; }
         out[a.id] = { x, f }; break;
@@ -1797,11 +1799,11 @@ function benchSheet(date) {
     const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'spare use', 'spare uses') + (x.later.length ? ' (plan: day ' + x.later.map(y => y.idx + 1).join(', ') + ')' : '') : '') : ' · uses a day ' + x.later.map(y => y.idx + 1).join(', ');
     return '<li data-n="' + esc(norm(p0.name || '') + ' ' + String(p0.team || '').toLowerCase()) + '"' + (k >= 8 ? ' class="bench-more" hidden' : '') + '><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direct</span>' : '') + '</div>' +
-      '<div class="ps">' + benchPill(x.id, date) + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
+      '<div class="ps">' + (x.blk ? '<span class="lu-warn">⚠ plays on ' + esc(x.blk.map(accLabel).join(' and on ')) + '</span> · ' : benchPill(x.id, date)) + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
       pvHtml(benchVals(md, x.id, who && who.id)) + '<span class="chk' + (on ? '' : ' off') + '" aria-hidden="true">' + (on ? '✓' : '') + '</span></button></li>'; };
   openSheet('<h2>Bench</h2><p class="small muted">' + (who ? 'Comes in if <b>' + esc(lastName(who.id)) + '</b> sits (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Subs in for the first starter who doesn\'t play') + ' · only uses a use if he plays.</p>' +
     // todos os que podem ir (antes eram só os 8 primeiros): procura e «Ver todos»
-    (ord.length > 8 ? '<div class="lu-search"><input class="field" id="benchSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player"></div>' : '') +
+    (ord.length > 3 ? '<div class="lu-search"><input class="field" id="benchSearch" type="search" placeholder="Search player or team…" autocomplete="off" aria-label="Search player"></div>' : '') +
     '<ul class="list" id="benchList">' + ord.map(row).join('') + '<li class="row small muted bench-none" hidden>Nobody with that name can go on the bench this day.</li></ul>' +
     (ord.length > 8 ? '<button class="btn quiet" type="button" id="benchAllBtn" data-action="bench-all" style="margin:4px 0 10px">See all (' + ord.length + ')</button>' : '') +
     (want ? '<button class="btn link small" type="button" data-action="bench-pick" data-id="" data-date="' + date + '">Let the plan choose</button>' : ''));
