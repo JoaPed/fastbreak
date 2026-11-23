@@ -593,7 +593,7 @@ with sync_playwright() as pw:
     bt = bz.first.inner_text().replace('\n', ' ') if bz.count() else ''
     bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
     td = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
-    print('C4 suplente noutra conta:', bt[:140], '| para fazer:', bn in td, '· ok' if (('Mandar de' in bt and bn in td) or 'Já joga em' in bt) else '· ERRO')
+    print('C4 suplente noutra conta:', bt[:140], '| para fazer:', bn in td, '· ok' if (('Mandar de' in bt and bn in td) or '⚠ joga na' in bt) else '· ERRO')
     # o suplente: todos os que podem ir (não só 8), com procura e «Ver todos»
     pg.locator('#tab-hoje .bench-row button').first.click(); pg.wait_for_timeout(800)
     nall_ = pg.locator('#benchList li[data-n]').count(); nvis_ = pg.locator('#benchList li[data-n]:not([hidden])').count()
@@ -644,7 +644,7 @@ with sync_playwright() as pw:
     bt = bz.first.inner_text().replace('\n', ' ') if bz.count() else ''
     bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
     td = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
-    print('C4 suplente precisa do Rare:', bt[:120], '| para fazer:', bn in td, '· ok' if (('Mandar o Rare de' in bt and bn in td) or 'Já joga em' in bt) else '· ERRO')
+    print('C4 suplente precisa do Rare:', bt[:120], '| para fazer:', bn in td, '· ok' if (('Mandar o Rare de' in bt and bn in td) or '⚠ joga na' in bt) else '· ERRO')
     T['user_runs'][0]['plan'] = {}
     pg.close()
 

@@ -1684,7 +1684,8 @@ function benchOptions(md, nd, lineup) {
   md.elig.forEach(pi => { const pid = r.model.players[pi].id, left = r.model.uses[pi];
     if (lineup.includes(pid) || riskOf(md, pid) || !(left > 0)) return;
     // a carta joga noutra conta nessa noite: fica na lista (no fim, com aviso), mas o plano não o escolhe sozinho
-    const tb = tierBlocked(pid, S.acc, nd.date), blk = tb && tb.others.length ? tb.others : null; if (tb && !blk) return;
+    const tb = tierBlocked(pid, S.acc, nd.date), fb = benchFrom(pid, nd.date); if (tb && !tb.others.length) return;
+    const blk = tb && tb.others.length ? tb.others : fb && fb.busy ? fb.busy : null; // (uma só mensagem para os dois casos)
     const com = sem + lineup.reduce((t, id, i) => t + outs[i] * (lineupP(scen[i], lineup.filter(x => x !== id).concat([pid])) - without[i]), 0);
     const later = benchLater(pid, nd.date), free = !isFinite(left) || left > later.length;
     list.push({ id: pid, com, sem, free, later, spare: isFinite(left) ? left - later.length : null, blk }); });
@@ -1758,7 +1759,7 @@ function benchDirect(md, list, whoId) {
 // com smurfs: o suplente tem de estar na conta que joga; se o Moment está noutra, de onde mandar (de preferência
 // de uma conta que não o joga nessa noite). { from } ou { busy: [contas] } quando todas as que o têm o jogam
 const benchPill = (id, date) => { const f = benchFrom(id, date); if (!f) return '';
-  return f.from ? '<span class="pill prov">Mandar ' + (f.uses >= 2 ? (f.uses >= 4 ? 'a Legendary' : 'o Rare') + ' ' : '') + 'de ' + esc(accLabel(f.from)) + '</span> ' : '<span class="pill duv">Já joga em ' + esc(f.busy.map(accLabel).join(', ')) + '</span> '; };
+  return f.from ? '<span class="pill prov">Mandar ' + (f.uses >= 2 ? (f.uses >= 4 ? 'a Legendary' : 'o Rare') + ' ' : '') + 'de ' + esc(accLabel(f.from)) + '</span> ' : '<span class="lu-warn">⚠ joga na ' + esc(f.busy.map(accLabel).join(' e na ')) + '</span> · '; };
 // a k-ésima jogada de uma conta precisa de uma carta com ≥ k usos nessa conta: se já o jogou uma vez e aqui só há um
 // Common, o Rare tem de vir de outra (regra 5 das notas)
 function benchFrom(id, date) {
