@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-23
+- **João** — Partilhar o lineup: o suplente passa para baixo de um separador «BANCO» (tracejado dourado), numa linha mais pequena.
 - **João** — Partilhar o lineup: o suplente aparece na imagem (no fim, mais apagado, com «SUPLENTE») e no texto; sai a linha «previsto pelo plano do grupo».
 - **João** — Suplente: aparecem todos os que podem ir (antes só os 8 primeiros), com procura por nome ou equipa e «Ver todos»; quem tem a carta a jogar noutra conta nessa noite também aparece, no fim, com «⚠ joga na …» (o plano não o escolhe sozinho).
 - **João** — Pôr no lineup: linha curta em cada jogador — usos · dias em que já jogou · dias em que o plano o usa · ⚠ joga na JPolas / sem usos nesta conta.

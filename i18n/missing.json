@@ -1,17 +1,32 @@
 [
  {
   "file": "docs/app.js",
-  "text": "\nSuplente: ",
-  "line": "'\\nPrevisto ' + prevTxt + ' · ' + pct(d.P) + ' de vitória\\n' + d.lineup.map(id => lastName(id)).join(', ') + (bnId ? '\\nSuplente: ' + lastName(bnId) : '');"
+  "text": "BANCO",
+  "line": "const sy = HEAD + RH * nL + SEP / 2 + 4, lab = 'BANCO'; g.font = font(700, 26); g.letterSpacing = '5px'; const lw = g.measureText(lab).width; g.letterSpacing = "
  },
  {
   "file": "docs/app.js",
-  "text": "SUPLENTE",
-  "line": "if (isB) { g.fillStyle = C.gold; g.font = font(700, 30); g.fillText('SUPLENTE', tx, cy + 44); const bw = g.measureText('SUPLENTE ').width; g.fillStyle = C.mut; "
+  "text": "5px",
+  "line": "const sy = HEAD + RH * nL + SEP / 2 + 4, lab = 'BANCO'; g.font = font(700, 26); g.letterSpacing = '5px'; const lw = g.measureText(lab).width; g.letterSpacing = "
  },
  {
   "file": "docs/app.js",
-  "text": "SUPLENTE  ",
-  "line": "if (isB) { g.fillStyle = C.gold; g.font = font(700, 30); g.fillText('SUPLENTE', tx, cy + 44); const bw = g.measureText('SUPLENTE ').width; g.fillStyle = C.mut; "
+  "text": "0px",
+  "line": "const sy = HEAD + RH * nL + SEP / 2 + 4, lab = 'BANCO'; g.font = font(700, 26); g.letterSpacing = '5px'; const lw = g.measureText(lab).width; g.letterSpacing = "
+ },
+ {
+  "file": "docs/app.js",
+  "text": "rgba(245,196,81,.45)",
+  "line": "g.save(); g.strokeStyle = 'rgba(245,196,81,.45)'; g.lineWidth = 3; g.setLineDash([10, 8]); g.beginPath();"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "5px",
+  "line": "g.fillStyle = C.gold; g.textAlign = 'center'; g.textBaseline = 'middle'; g.letterSpacing = '5px'; g.fillText(lab, W / 2, sy); g.letterSpacing = '0px'; g.textBas"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "0px",
+  "line": "g.fillStyle = C.gold; g.textAlign = 'center'; g.textBaseline = 'middle'; g.letterSpacing = '5px'; g.fillText(lab, W / 2, sy); g.letterSpacing = '0px'; g.textBas"
  }
 ]

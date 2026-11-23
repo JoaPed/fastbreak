@@ -3476,5 +3476,9 @@
  "<button class=\"btn quiet\" type=\"button\" id=\"benchAllBtn\" data-action=\"bench-all\" style=\"margin:4px 0 10px\">Ver todos (": "<button class=\"btn quiet\" type=\"button\" id=\"benchAllBtn\" data-action=\"bench-all\" style=\"margin:4px 0 10px\">See all (",
  "\nSuplente: ": "\nBench: ",
  "SUPLENTE": "BENCH",
- "SUPLENTE  ": "BENCH  "
+ "SUPLENTE  ": "BENCH  ",
+ "BANCO": "BENCH",
+ "5px": null,
+ "0px": null,
+ "rgba(245,196,81,.45)": null
 }

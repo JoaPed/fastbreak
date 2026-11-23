@@ -2047,7 +2047,8 @@ async function shareLineup(date) {
   toast('Preparing the image…');
   // como o cartão do lineup: quadro escuro com a meia quadra, objetivo e totais previstos, o anel da vitória com a bola,
   // e os 5 com a cara, o jogo e o previsto de cada um
-  const W = 1080, PAD = 56, HEAD = 300, RH = 172, FOOT = 36, H = HEAD + RH * rowsIds.length + FOOT;
+  // o suplente vai por baixo de um separador "BANCO", numa linha mais baixa
+  const W = 1080, PAD = 56, HEAD = 300, RH = 172, SEP = 64, RBH = 132, FOOT = 36, nL = d.lineup.length, H = HEAD + RH * nL + (bnId ? SEP + RBH : 0) + FOOT;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'), font = (w, px) => w + ' ' + px + 'px "IBM Plex Sans", system-ui, sans-serif', dfont = (w, px) => w + ' ' + px + 'px "Big Shoulders Display", "Arial Narrow", sans-serif';
   try { await Promise.all([document.fonts.load(dfont(800, 60)), document.fonts.load(font(600, 40)), document.fonts.load(font(400, 30))]); } catch (e) {}
@@ -2087,24 +2088,30 @@ async function shareLineup(date) {
   const imgs = await Promise.all(rowsIds.map(photo));
   const locks = new Set(((curPlan().locks || {})[date]) || []);
   // a linha de cada jogador, como no lineup
-  g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(PAD - 20, HEAD - 24, W - (PAD - 20) * 2, RH * rowsIds.length + 24);
+  g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(PAD - 20, HEAD - 24, W - (PAD - 20) * 2, RH * nL + 24);
+  if (bnId) {
+    const sy = HEAD + RH * nL + SEP / 2 + 4, lab = 'BENCH'; g.font = font(700, 26); g.letterSpacing = '5px'; const lw = g.measureText(lab).width; g.letterSpacing = '0px';
+    g.save(); g.strokeStyle = 'rgba(245,196,81,.45)'; g.lineWidth = 3; g.setLineDash([10, 8]); g.beginPath();
+    g.moveTo(PAD, sy); g.lineTo(W / 2 - lw / 2 - 20, sy); g.moveTo(W / 2 + lw / 2 + 20, sy); g.lineTo(W - PAD, sy); g.stroke(); g.restore();
+    g.fillStyle = C.gold; g.textAlign = 'center'; g.textBaseline = 'middle'; g.letterSpacing = '5px'; g.fillText(lab, W / 2, sy); g.letterSpacing = '0px'; g.textBaseline = 'alphabetic';
+  }
   rowsIds.forEach((id, i) => {
-    const isB = i >= d.lineup.length; g.globalAlpha = isB ? 0.72 : 1;
-    const pi = r.model.pIndex.get(id), p = r.model.players[pi], y = HEAD + i * RH, cx = PAD + 66, cy = y + RH / 2 - 6, R = 64;
-    if (i) { g.fillStyle = C.line; g.fillRect(PAD, y - 6, W - PAD * 2, 2); }
+    const isB = i >= nL; g.globalAlpha = isB ? 0.8 : 1;
+    // o suplente: mais pequeno (cara, nome e previsto), sem linha por cima
+    const k1 = isB ? 0.74 : 1, pi = r.model.pIndex.get(id), p = r.model.players[pi], y = isB ? HEAD + RH * nL + SEP : HEAD + i * RH, cx = PAD + 66, cy = y + (isB ? RBH : RH) / 2 - 6, R = Math.round(64 * k1);
+    if (i && !isB) { g.fillStyle = C.line; g.fillRect(PAD, y - 6, W - PAD * 2, 2); }
     g.save(); g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.closePath(); g.fillStyle = TEAM_COLOR[p.team] || '#334'; g.fill(); g.clip();
     if (imgs[i]) { const im = imgs[i], sc = (R * 2.4) / im.width; g.drawImage(im, cx - im.width * sc / 2, cy - R * 0.95, im.width * sc, im.height * sc); }
     else { g.fillStyle = '#fff'; g.font = font(700, 40); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(initials(p.name), cx, cy); g.textBaseline = 'alphabetic'; }
     g.restore(); g.lineWidth = 5; g.strokeStyle = '#0b0f16'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
-    const tx = cx + R + 34, maxW = W - PAD - 220 - tx;
-    g.textAlign = 'left'; g.fillStyle = C.ink; g.font = font(600, 44);
+    const tx = PAD + 66 + 64 + 34, maxW = W - PAD - 220 - tx;
+    g.textAlign = 'left'; g.fillStyle = C.ink; g.font = font(600, Math.round(44 * k1 + (isB ? 4 : 0)));
     let nm = (locks.has(id) ? '🔒 ' : '') + p.name; while (g.measureText(nm).width > maxW && nm.length > 4) nm = nm.slice(0, -2) + '…';
-    g.fillText(nm, tx, cy - 4);
-    g.fillStyle = C.mut; g.font = font(400, 32);
-    if (isB) { g.fillStyle = C.gold; g.font = font(700, 30); g.fillText('BENCH', tx, cy + 44); const bw = g.measureText('BENCH  ').width; g.fillStyle = C.mut; g.font = font(400, 32); g.fillText(p.team + ' ' + opp(p.team, day), tx + bw, cy + 44); }
-    else g.fillText(p.team + ' ' + opp(p.team, day), tx, cy + 44);
+    g.fillText(nm, tx, cy - (isB ? 2 : 4));
+    g.fillStyle = C.mut; g.font = font(400, isB ? 28 : 32);
+    g.fillText(p.team + ' ' + opp(p.team, day), tx, cy + (isB ? 36 : 44));
     const vals = objVals(md, pi, false), fv = x => (Math.abs(x.v) >= 10 ? f0(x.v) : f1(x.v));
-    g.textAlign = 'right'; const n = vals.length, big = n > 1 ? 56 : 78, step = n > 1 ? 64 : 0, top = cy + (n > 1 ? -step / 2 + 20 : 26);
+    g.textAlign = 'right'; const n = vals.length, big = Math.round((n > 1 ? 56 : 78) * (isB ? 0.78 : 1)), step = n > 1 ? Math.round(64 * k1) : 0, top = cy + (n > 1 ? -step / 2 + 20 : 26 * k1);
     vals.forEach((x, k) => { const yy = top + k * step; g.font = font(600, 26); g.fillStyle = C.mut; const lab = statShort(x.o.stat); g.fillText(lab, W - PAD, yy); const lw = g.measureText(lab).width + 12; g.font = dfont(800, big); g.fillStyle = C.ink; g.fillText(fv(x), W - PAD - lw, yy); });
   });
   g.globalAlpha = 1;
