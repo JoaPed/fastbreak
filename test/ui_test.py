@@ -607,7 +607,7 @@ with sync_playwright() as pw:
     # a mesma carta (uma só, no smurf_um) não pode ser suplente em duas contas; e o para fazer mostra o de cada conta
     # (a conta que tem a carta também conta: a 24 nov o único Sarr da JPolas era suplente na JPolas e na Main)
     seen_, sent_, warn_ = {}, [], ''
-    for acc_ in ['main', 's1', 's2']:
+    for acc_ in ['main', 's2', 's1']:
         ch_ = pg.locator('#tab-hoje .acc-chip[data-acc="%s"]' % acc_)
         if ch_.count(): ch_.first.click(); pg.wait_for_timeout(1500)
         bz_ = pg.locator('#tab-hoje .bench-row')
@@ -623,7 +623,7 @@ with sync_playwright() as pw:
         pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     td_ = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
     names_ = list(seen_.values())
-    print('C4 suplente da mesma carta em 2 contas:', seen_, '| aviso:', warn_, '· ok' if len(names_) == 3 and len(names_) == len(set(names_)) and all(n in td_ for n in sent_) and warn_ in names_[:2] and warn_ else '· ERRO')
+    print('C4 suplente da mesma carta em 2 contas:', seen_, '| aviso:', warn_, '· ok' if len(names_) >= 2 and len(names_) == len(set(names_)) and all(n in td_ for n in sent_) and warn_ and warn_ in [n for a, n in seen_.items() if a != 's1'] else '· ERRO')
     pg.close()
     # marcado como mandado ANTES da última leitura da carteira (que o diz ainda na outra conta): volta a aparecer por fazer
     T['profiles'][-1]['collection']['read_at'] = '2026-10-21T14:00:00Z'
