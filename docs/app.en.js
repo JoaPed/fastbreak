@@ -1778,7 +1778,8 @@ function benchRow(md, nd, lineup) {
   if (!lineup.length) return '';
   const B = benchOf(md, nd, lineup), r = S.result; if (!B) return '';
   const p = r.model.players[r.model.pIndex.get(B.id)], who = benchFor(md, lineup);
-  return '<li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">' + benchPill(B.id, nd.date) + 'Bench' + (who ? ' · in for ' + esc(lastName(who.id)) : '') + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
+  // separador «BANCO» tracejado (como na imagem de partilha) e o suplente por baixo
+  return '<li class="bench-sep" aria-hidden="true">Bench</li><li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="vh">Bench: </span><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">' + benchPill(B.id, nd.date) + (who ? 'in for ' + esc(lastName(who.id)) : 'in if anyone sits out') + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
 }
 // procura no suplente: com texto mostra quem tem o nome (ou a equipa); sem texto só os 8 primeiros (ou todos)
 function benchFilter(all) {

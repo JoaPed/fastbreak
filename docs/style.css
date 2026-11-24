@@ -1369,14 +1369,17 @@ body { padding-top: env(safe-area-inset-top, 0px); }
   .gc-wrap.scrolled .gc-run td.who2::before, .gc-wrap.scrolled .gc-run th.who2::before { right: -12px; box-shadow: 8px 0 10px -6px rgb(0 0 0 / 35%); clip-path: inset(-4px -24px -4px 0); }
 }
 /* suplente: um 6.º esbatido por baixo dos 5 */
-.bench-row { border-top: 1px dashed var(--line); }
+.bench-row { border-top: 0; }
+/* separador «BANCO» por cima do suplente */
+.bench-sep { display: flex; align-items: center; gap: 10px; padding: 10px 12px 0; color: var(--warn); font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; list-style: none; }
+.bench-sep::before, .bench-sep::after { content: ""; flex: 1; border-top: 1.5px dashed color-mix(in srgb, currentColor 45%, transparent); }
 .pn .bnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .bench-row .who { flex: 1 1 auto; min-width: 0; }
 .pill.bench { background: transparent; border: 1px dashed currentColor; color: var(--muted); }
 .bench-p { font-weight: 700; white-space: nowrap; color: var(--good); display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
 .bench-p small { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .jc-list .bench-p small { color: var(--board-muted); }
-.bv-c .row { opacity: .72; padding-block: 6px; }
+.bv-c .row { opacity: .85; padding-block: 6px; }
 .bench-opt { display: flex; align-items: center; flex-wrap: nowrap; } .bench-opt .who { flex: 1 1 auto; min-width: 0; }
 .bench-opt.dir { box-shadow: inset 3px 0 0 var(--good); }
 .tag-d { font-size: 11px; font-weight: 700; color: var(--good); border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; flex: none; }
@@ -1388,6 +1391,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .bench-add.on { background: var(--good); border-color: var(--good); color: #fff; font-size: 16px; }
 .jc-list .bench-row, .jc-list .bench-row .row { background: transparent; }
 .jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }
+.jc-list .bench-sep { color: var(--board-warn); }
 .jc-list .bench-row .bnm { color: var(--board-ink); }
 .jc-list .bench-p { color: var(--board-good); }
 

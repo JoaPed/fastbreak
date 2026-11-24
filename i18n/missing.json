@@ -1,12 +1,22 @@
 [
  {
   "file": "docs/app.js",
-  "text": " bench-more\" hidden",
-  "line": "return '<li data-n=\"' + esc(norm(p0.name || '') + ' ' + String(p0.team || '').toLowerCase()) + '\"' + ' class=\"bench-li' + (k >= 8 ? ' bench-more\" hidden' : '\"')"
+  "text": "<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"",
+  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
  },
  {
   "file": "docs/app.js",
-  "text": "Pôr de suplente: ",
-  "line": "'<button class=\"bench-add' + (on ? ' on' : '') + '\" type=\"button\" data-action=\"bench-pick\" data-id=\"' + esc(x.id) + '\" data-date=\"' + date + '\" aria-pressed=\"' "
+  "text": "<div style=\"min-width:0\"><div class=\"pn\"><span class=\"vh\">Suplente: </span><span class=\"bnm\">",
+  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "entra por ",
+  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "entra se alguém faltar",
+  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
  }
 ]
