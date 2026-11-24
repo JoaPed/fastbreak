@@ -1372,7 +1372,10 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .bench-row { border-top: 0; }
 /* separador «BANCO» por cima do suplente */
 .bench-sep { display: flex; align-items: center; gap: 10px; padding: 10px 12px 0; color: var(--warn); font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; list-style: none; }
-.bench-sep::before, .bench-sep::after { content: ""; flex: 1; border-top: 1.5px dashed color-mix(in srgb, currentColor 45%, transparent); }
+.bench-sep::after { content: ""; flex: 1; border-top: 1.5px dashed color-mix(in srgb, currentColor 45%, transparent); }
+/* sem os traços normais da lista à volta do separador */
+.list > li.bench-sep::before, .list > .bench-sep + li::before { display: none; }
+.jc-list > li.bench-sep, .jc-list > .bench-sep + li { border-top: 0; }
 .pn .bnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .bench-row .who { flex: 1 1 auto; min-width: 0; }
 .pill.bench { background: transparent; border: 1px dashed currentColor; color: var(--muted); }
