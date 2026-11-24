@@ -1579,14 +1579,11 @@ with sync_playwright() as pw:
     t1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(400)
     t2 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(); pg.click('#tab-hoje button[data-action="h-acc"] >> nth=0'); pg.wait_for_timeout(400)
     print('O equipas diferentes:', len(set(t2) - set(t1)), 'lendas mudam', '· ok' if t2 and set(t2) != set(t1) else '· ERRO')
-    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(500)
     first = pg.locator('#tab-hoje .h-hero .nm').first.inner_text()
     pg.locator('#tab-hoje .h-hero button[data-action="h-card"]').first.click(); pg.wait_for_timeout(300)
     pg.click('#sheetPanel button[data-action="h-ban"]'); pg.wait_for_timeout(600)
-    print('O tirar', first + ':', first not in pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(), '· fora do dia:', pg.locator('#hList .h-ban .nm').all_inner_texts())
-    pg.fill('#hSearch', 'drex'); pg.wait_for_timeout(300)
-    print('O procurar drex:', pg.locator('#hList li[data-n]:visible .nm').all_inner_texts())
-    pg.fill('#hSearch', ''); pg.click('#t-run'); pg.wait_for_timeout(400); pg.click('#t-hoje'); pg.wait_for_timeout(800)
+    print('O tirar', first + ':', first not in pg.locator('#tab-hoje .h-hero .nm').all_inner_texts(), '· separadores:', pg.locator('#tab-hoje .h-tabs button').all_inner_texts(), '· ok' if first not in pg.locator('#tab-hoje .h-hero .nm').all_inner_texts() and pg.locator('#tab-hoje .h-tabs button').count() == 2 else '· ERRO')
+    pg.click('#t-run'); pg.wait_for_timeout(400); pg.click('#t-hoje'); pg.wait_for_timeout(800)
     print('O modo fica guardado:', pg.locator('#jmode').input_value(), store(pg, 'localStorage.getItem("fb-jmode")'), '· tirado continua:', first not in pg.locator('#tab-hoje .h-hero .nm').all_inner_texts())
     pg.click('#tab-hoje button[data-action="h-reset"]'); pg.wait_for_timeout(500)
     pg.locator('#tab-hoje button[data-action="h-day"][data-id$="-d11"]').click(); pg.wait_for_timeout(800)
@@ -1611,11 +1608,12 @@ with sync_playwright() as pw:
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
-    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(500)
-    dx0 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text()
+    # (sem o separador «Lendas»: o desconto vê-se na equipa sugerida de cada conta)
+    dxl = lambda: pg.locator('#tab-hoje .h-hero li').filter(has_text='Drexler')
+    dx0 = dxl().first.locator('.ps').first.inner_text() if dxl().count() else ''
     pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(600)
-    dx1 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text(); tm1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()
-    print('O3 desconto por conta:', dx0, '|', dx1, '|', tm1, '· ok' if '87 RP' in dx0 and '−' not in dx0 and '70 RP −20%' in dx1 else '· ERRO')
+    dx1 = dxl().first.locator('.ps').first.inner_text() if dxl().count() else ''; tm1 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()
+    print('O3 desconto por conta:', dx0, '|', dx1, '|', tm1, '· ok' if (not dx0 or ('87 RP' in dx0 and '−' not in dx0)) and '70 RP −20%' in dx1 else '· ERRO')
     pg.close()
     # C2: compras contam com o dia de hoje (antes dos jogos o lineup de hoje guardado não prende quem se compra agora)
     dbc = seeded(); Tc = dbc['tables']; Tc['runs'][0]['fictitious'] = False
@@ -2066,9 +2064,7 @@ with sync_playwright() as pw:
     alt16 = [float(t.split()[0].replace(',', '.')) for t in pg.locator('#tab-hoje .h-alt .pn b').all_inner_texts()]
     pg.locator('#tab-hoje .h-tabs button[data-v="equipa"]').screenshot(path=str(shots / 'historic-tabs.png')) if nt16 else None
     pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-equipa.png'))
-    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(800)
-    lend16 = pg.locator('#tab-hoje .card .card-min').count()
-    pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-lendas.png'))
+    lend16 = 1  # (já não há o separador «Lendas»)
     pg.click('#tab-hoje .h-tabs button[data-v="comprar"]'); pg.wait_for_timeout(4000)
     nb16 = pg.locator('#tab-hoje .h-buy-intro').count()
     hb16 = ' '.join(pg.locator('#tab-hoje').inner_text().split())
@@ -2080,11 +2076,11 @@ with sync_playwright() as pw:
     ok25 = all(x <= 25 for x in pr25) and (pr25 or pg.locator('#tab-hoje .note.info').count())
     if ch16: pg.click('#tab-hoje .h-buy-max button[data-v="0"]'); pg.wait_for_timeout(500)
     # no iPhone o botão não fica com o foco: com o campo de procura focado, «Lendas»/«Comprar» têm de mudar na mesma
-    pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(500)
+    pg.click('#tab-hoje .h-tabs button[data-v="equipa"]'); pg.wait_for_timeout(500)
     pg.evaluate("() => { const f = document.getElementById('hSearch'); if (f) f.focus(); const b = document.querySelector('#tab-hoje .h-tabs button[data-v=\\'comprar\\']'); if (b) b.click(); }"); pg.wait_for_timeout(800)
     foc16 = pg.locator('#tab-hoje .h-buy-intro').count() == 1
     pg.click('#tab-hoje .h-tabs button[data-v="comprar"]'); pg.wait_for_timeout(500)
-    ok16 = nt16 == 3 and all(x <= hero16 + 0.5 for x in alt16) and lend16 >= 1 and nb16 == 1 and 'dias jogados' in hb16 and ('pts em' in hb16 or 'Nenhuma carta mudava' in hb16) and rows16 <= 8 and ch16 == 5 and ok25 and foc16
+    ok16 = nt16 == 2 and all(x <= hero16 + 0.5 for x in alt16) and lend16 >= 1 and nb16 == 1 and 'dias jogados' in hb16 and ('pts em' in hb16 or 'Nenhuma carta mudava' in hb16) and rows16 <= 8 and ch16 == 5 and ok25 and foc16
     hb16 = str([nt16, hero16, alt16, lend16, rows16, ch16, pr25, foc16]) + ' ' + hb16[hb16.find('As cartas'):][:300]
     print('O16 Historic vale a pena comprar:', nb16, hb16[:400], '· ok' if ok16 else '· ERRO')
     print('O16 preços sem NaN:', '· ok' if 'NaN' not in pg.locator('#tab-hoje').inner_text() and '$1,50' in pg.locator('#tab-hoje').inner_text() else '· ERRO')

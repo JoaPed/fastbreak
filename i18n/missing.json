@@ -1,7 +1,1 @@
-[
- {
-  "file": "docs/app.js",
-  "text": "<span class=\"lu-warn\">⚠ suplente na ",
-  "line": "'<div class=\"ps\">' + (x.blk ? '<span class=\"lu-warn\">⚠ joga na ' + esc(x.blk.map(accLabel).join(' e na ')) + '</span> · ' : clm.get(x.id) ? '<span class=\"lu-war"
- }
-]
+[]
