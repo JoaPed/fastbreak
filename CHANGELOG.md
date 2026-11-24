@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-24
+- **João** — Suplente com smurfs: um Moment só pode ser suplente numa conta, também a que o tem (o único Sarr era sugerido na JPolas e na Main). Nas outras contas aparece no fim da lista com «⚠ suplente na …».
 - **João** — Lineup: o suplente aparece por baixo de um separador «BANCO» tracejado (como na imagem de partilha), menos apagado e com «entra por …».
 - **João** — Suplente: tocar num jogador da lista abre a ficha dele (com ← para voltar); para o escolher, usa o «+» à direita (✓ = o escolhido).
 

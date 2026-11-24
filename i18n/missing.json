@@ -1,22 +1,7 @@
 [
  {
   "file": "docs/app.js",
-  "text": "<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"",
-  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
- },
- {
-  "file": "docs/app.js",
-  "text": "<div style=\"min-width:0\"><div class=\"pn\"><span class=\"vh\">Suplente: </span><span class=\"bnm\">",
-  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
- },
- {
-  "file": "docs/app.js",
-  "text": "entra por ",
-  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
- },
- {
-  "file": "docs/app.js",
-  "text": "entra se alguém faltar",
-  "line": "return '<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"' + nd.da"
+  "text": "<span class=\"lu-warn\">⚠ suplente na ",
+  "line": "'<div class=\"ps\">' + (x.blk ? '<span class=\"lu-warn\">⚠ joga na ' + esc(x.blk.map(accLabel).join(' e na ')) + '</span> · ' : clm.get(x.id) ? '<span class=\"lu-war"
  }
 ]

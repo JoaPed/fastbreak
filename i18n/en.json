@@ -3486,5 +3486,6 @@
  "<li class=\"bench-sep\" aria-hidden=\"true\">Banco</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"": "<li class=\"bench-sep\" aria-hidden=\"true\">Bench</li><li class=\"bench-row bv-c\"><button class=\"row\" type=\"button\" data-action=\"bench\" data-date=\"",
  "<div style=\"min-width:0\"><div class=\"pn\"><span class=\"vh\">Suplente: </span><span class=\"bnm\">": "<div style=\"min-width:0\"><div class=\"pn\"><span class=\"vh\">Bench: </span><span class=\"bnm\">",
  "entra por ": "in for ",
- "entra se alguém faltar": "in if anyone sits out"
+ "entra se alguém faltar": "in if anyone sits out",
+ "<span class=\"lu-warn\">⚠ suplente na ": "<span class=\"lu-warn\">⚠ bench on "
 }

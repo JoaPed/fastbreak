@@ -1729,13 +1729,22 @@ function benchAll(date, over) {
       const list = benchOptions(md, md.day, lu), want = (planOf(a.id).bench || {})[date];
       for (const x of list.filter(y => y.id === want).concat(list.filter(y => y.id !== want && !y.blk))) {
         const f = benchFrom(x.id, date), src = f && f.from ? f.from : f && f.busy ? null : a.id;
-        if (src) { const k = x.id + '@' + src, n = src === a.id ? Infinity : copies(x.id, src); if ((used[k] || 0) >= n) continue; used[k] = (used[k] || 0) + 1; }
+        // a conta que tem a carta também conta as cópias (a 24 nov o único Sarr da JPolas era suplente na JPolas e na Main)
+        if (src) { const k = x.id + '@' + src, n = copies(x.id, src); if ((used[k] || 0) >= n) continue; used[k] = (used[k] || 0) + 1; }
         out[a.id] = { x, f }; break;
       }
     });
   } finally { S.acc = acc0; S.result = r0; }
   S.benchAllMemo = { m: S.multi, col: (S.profile || {}).collection, key, out };
   return out;
+}
+// outras contas que já têm esta carta de suplente neste dia, quando não sobra nenhuma cópia (→ aviso na lista)
+function benchClaim(id, date) {
+  if (!S.multi || !(S.profile || {}).collection) return null;
+  const h = collectionInfo(id).hold; if (!h) return null;
+  const n = Object.values(h).reduce((t, v) => t + (Array.isArray(v) ? v.length : (+v || 0)), 0), all = benchAll(date) || {};
+  const by = Object.keys(all).filter(a => a !== S.acc && all[a] && all[a].x.id === id);
+  return by.length && by.length >= n ? by : null;
 }
 // quem é mais provável que falte (para dizer por quem entra)
 function benchFor(md, lineup) { let best = null; lineup.forEach(id => { if (riskOf(md, id)) { const o = benchOut(md, id); if (!best || o > best.o) best = { id, o }; } }); return best; }
@@ -1795,13 +1804,15 @@ function benchSheet(date) {
   const list = benchOptions(md, md.day, d.lineup), cur = benchOf(md, md.day, d.lineup), want = (curPlan().bench || {})[date];
   const who = benchFor(md, d.lineup), dx = who ? benchDirect(md, list, who.id) : null;
   // uma só lista: o substituto direto primeiro (barra verde, "Direto"), o escolhido com ✓
-  const ord = dx ? [dx.x].concat(list.filter(x => x.id !== dx.x.id)) : list;
+  // já é suplente noutra conta (e não há outra cópia): fica no fim, com aviso; o escolhido fica onde está
+  const clm = new Map(list.map(x => [x.id, cur && x.id === cur.id ? null : benchClaim(x.id, date)]));
+  const ord0 = dx ? [dx.x].concat(list.filter(x => x.id !== dx.x.id)) : list, ord = ord0.filter(x => !clm.get(x.id)).concat(ord0.filter(x => clm.get(x.id)));
   const row = (x, k) => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id, p0 = r.model.players[r.model.pIndex.get(x.id)] || {};
     // o jogo dele; o custo só quando tira um uso a outro dia
     const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'spare use', 'spare uses') + (x.later.length ? ' (plan: day ' + x.later.map(y => y.idx + 1).join(', ') + ')' : '') : '') : ' · uses a day ' + x.later.map(y => y.idx + 1).join(', ');
     return '<li data-n="' + esc(norm(p0.name || '') + ' ' + String(p0.team || '').toLowerCase()) + '"' + ' class="bench-li' + (k >= 8 ? ' bench-more" hidden' : '"') + '><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-player" data-id="' + esc(x.id) + '" data-date="' + date + '"><span class="who">' + face(x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direct</span>' : '') + '</div>' +
-      '<div class="ps">' + (x.blk ? '<span class="lu-warn">⚠ plays on ' + esc(x.blk.map(accLabel).join(' and on ')) + '</span> · ' : benchPill(x.id, date)) + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
+      '<div class="ps">' + (x.blk ? '<span class="lu-warn">⚠ plays on ' + esc(x.blk.map(accLabel).join(' and on ')) + '</span> · ' : clm.get(x.id) ? '<span class="lu-warn">⚠ bench on ' + esc(clm.get(x.id).map(accLabel).join(' and on ')) + '</span> · ' : benchPill(x.id, date)) + (dir ? 'with him: ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
       pvHtml(benchVals(md, x.id, who && who.id)) + '</button>' +
       // tocar no jogador abre a ficha dele; o «+» é que o põe de suplente (✓ = o escolhido)
       '<button class="bench-add' + (on ? ' on' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '" aria-label="' + esc((on ? 'Bench: ' : 'Set as bench: ') + nameOf(x.id)) + '">' + (on ? '✓' : '+') + '</button></li>'; };

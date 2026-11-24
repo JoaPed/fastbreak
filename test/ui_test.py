@@ -605,15 +605,25 @@ with sync_playwright() as pw:
     print('C4 suplente: todos com procura:', nall_, nvis_, nvis2_, last_, nq_, '· ok' if nall_ > 8 and nvis_ == 8 and nvis2_ == nall_ and 1 <= nq_ < nall_ else '· ERRO')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     # a mesma carta (uma só, no smurf_um) não pode ser suplente em duas contas; e o para fazer mostra o de cada conta
-    seen_ = {}
-    for acc_ in ['main', 's2']:
+    # (a conta que tem a carta também conta: a 24 nov o único Sarr da JPolas era suplente na JPolas e na Main)
+    seen_, sent_, warn_ = {}, [], ''
+    for acc_ in ['main', 's1', 's2']:
         ch_ = pg.locator('#tab-hoje .acc-chip[data-acc="%s"]' % acc_)
         if ch_.count(): ch_.first.click(); pg.wait_for_timeout(1500)
         bz_ = pg.locator('#tab-hoje .bench-row')
-        if bz_.count() and 'Mandar de' in bz_.first.inner_text(): seen_[acc_] = bz_.first.locator('.bnm').inner_text()
+        if bz_.count():
+            seen_[acc_] = bz_.first.locator('.bnm').inner_text()
+            if 'Mandar de' in bz_.first.inner_text(): sent_.append(seen_[acc_])
+    # na última conta, os suplentes das outras aparecem na lista com aviso (dá para escolher na mesma)
+    if pg.locator('#tab-hoje .bench-row button').count():
+        pg.locator('#tab-hoje .bench-row button').first.click(); pg.wait_for_timeout(800)
+        if pg.locator('#benchAllBtn').count(): pg.click('#benchAllBtn'); pg.wait_for_timeout(200)
+        w_ = pg.locator('#benchList li[data-n]').filter(has_text='suplente na')
+        warn_ = w_.first.locator('.nm').inner_text() if w_.count() else ''
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     td_ = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
     names_ = list(seen_.values())
-    print('C4 suplente da mesma carta em 2 contas:', seen_, '· ok' if len(names_) == len(set(names_)) and all(n in td_ for n in names_) else '· ERRO')
+    print('C4 suplente da mesma carta em 2 contas:', seen_, '| aviso:', warn_, '· ok' if len(names_) == 3 and len(names_) == len(set(names_)) and all(n in td_ for n in sent_) and warn_ in names_[:2] and warn_ else '· ERRO')
     pg.close()
     # marcado como mandado ANTES da última leitura da carteira (que o diz ainda na outra conta): volta a aparecer por fazer
     T['profiles'][-1]['collection']['read_at'] = '2026-10-21T14:00:00Z'
