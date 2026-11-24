@@ -1,32 +1,12 @@
 [
  {
   "file": "docs/app.js",
-  "text": "BANCO",
-  "line": "const sy = HEAD + RH * nL + SEP / 2 + 4, lab = 'BANCO'; g.font = font(700, 26); g.letterSpacing = '5px'; const lw = g.measureText(lab).width; g.letterSpacing = "
+  "text": " bench-more\" hidden",
+  "line": "return '<li data-n=\"' + esc(norm(p0.name || '') + ' ' + String(p0.team || '').toLowerCase()) + '\"' + ' class=\"bench-li' + (k >= 8 ? ' bench-more\" hidden' : '\"')"
  },
  {
   "file": "docs/app.js",
-  "text": "5px",
-  "line": "const sy = HEAD + RH * nL + SEP / 2 + 4, lab = 'BANCO'; g.font = font(700, 26); g.letterSpacing = '5px'; const lw = g.measureText(lab).width; g.letterSpacing = "
- },
- {
-  "file": "docs/app.js",
-  "text": "0px",
-  "line": "const sy = HEAD + RH * nL + SEP / 2 + 4, lab = 'BANCO'; g.font = font(700, 26); g.letterSpacing = '5px'; const lw = g.measureText(lab).width; g.letterSpacing = "
- },
- {
-  "file": "docs/app.js",
-  "text": "rgba(245,196,81,.45)",
-  "line": "g.save(); g.strokeStyle = 'rgba(245,196,81,.45)'; g.lineWidth = 3; g.setLineDash([10, 8]); g.beginPath();"
- },
- {
-  "file": "docs/app.js",
-  "text": "5px",
-  "line": "g.fillStyle = C.gold; g.textAlign = 'center'; g.textBaseline = 'middle'; g.letterSpacing = '5px'; g.fillText(lab, W / 2, sy); g.letterSpacing = '0px'; g.textBas"
- },
- {
-  "file": "docs/app.js",
-  "text": "0px",
-  "line": "g.fillStyle = C.gold; g.textAlign = 'center'; g.textBaseline = 'middle'; g.letterSpacing = '5px'; g.fillText(lab, W / 2, sy); g.letterSpacing = '0px'; g.textBas"
+  "text": "Pôr de suplente: ",
+  "line": "'<button class=\"bench-add' + (on ? ' on' : '') + '\" type=\"button\" data-action=\"bench-pick\" data-id=\"' + esc(x.id) + '\" data-date=\"' + date + '\" aria-pressed=\"' "
  }
 ]

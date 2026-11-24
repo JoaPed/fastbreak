@@ -1797,10 +1797,12 @@ function benchSheet(date) {
   const row = (x, k) => { const dir = dx && x.id === dx.x.id, on = cur && x.id === cur.id, p0 = r.model.players[r.model.pIndex.get(x.id)] || {};
     // o jogo dele; o custo só quando tira um uso a outro dia
     const p = r.model.players[r.model.pIndex.get(x.id)], uses = x.free ? (x.spare != null ? ' · ' + plural(x.spare, 'uso a mais', 'usos a mais') + (x.later.length ? ' (plano: dia ' + x.later.map(y => y.idx + 1).join(', ') + ')' : '') : '') : ' · uso do dia ' + x.later.map(y => y.idx + 1).join(', ');
-    return '<li data-n="' + esc(norm(p0.name || '') + ' ' + String(p0.team || '').toLowerCase()) + '"' + (k >= 8 ? ' class="bench-more" hidden' : '') + '><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '"><span class="who">' + face(x.id) +
+    return '<li data-n="' + esc(norm(p0.name || '') + ' ' + String(p0.team || '').toLowerCase()) + '"' + ' class="bench-li' + (k >= 8 ? ' bench-more" hidden' : '"') + '><button class="row bench-opt' + (dir ? ' dir' : '') + '" type="button" data-action="bench-player" data-id="' + esc(x.id) + '" data-date="' + date + '"><span class="who">' + face(x.id) +
       '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(nameOf(x.id)) + '</span>' + (dir ? ' <span class="tag-d">Direto</span>' : '') + '</div>' +
       '<div class="ps">' + (x.blk ? '<span class="lu-warn">⚠ joga na ' + esc(x.blk.map(accLabel).join(' e na ')) + '</span> · ' : benchPill(x.id, date)) + (dir ? 'com ele faz ' + benchValsWith(md, x.id, who.id).map(y => f0(y.v)).join(' · ') : teamMini(p.team) + esc(p.team) + ' ' + esc(opp(p.team, md.day))) + uses + '</div></div></span>' +
-      pvHtml(benchVals(md, x.id, who && who.id)) + '<span class="chk' + (on ? '' : ' off') + '" aria-hidden="true">' + (on ? '✓' : '') + '</span></button></li>'; };
+      pvHtml(benchVals(md, x.id, who && who.id)) + '</button>' +
+      // tocar no jogador abre a ficha dele; o «+» é que o põe de suplente (✓ = o escolhido)
+      '<button class="bench-add' + (on ? ' on' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '" aria-label="' + esc((on ? 'Suplente: ' : 'Pôr de suplente: ') + nameOf(x.id)) + '">' + (on ? '✓' : '+') + '</button></li>'; };
   openSheet('<h2>Suplente</h2><p class="small muted">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Entra pelo 1.º titular que não jogar') + ' · só gasta um uso se entrar.</p>' +
     // todos os que podem ir (antes eram só os 8 primeiros): procura e «Ver todos»
     (ord.length > 3 ? '<div class="lu-search"><input class="field" id="benchSearch" type="search" placeholder="Procurar jogador ou equipa…" autocomplete="off" aria-label="Procurar jogador"></div>' : '') +
@@ -7564,6 +7566,7 @@ document.addEventListener('click', async e => {
     case 'player': playerSheet(id, date); break;
     case 'bench': benchSheet(date); break;
     case 'bench-all': benchFilter(true); break;
+    case 'bench-player': playerSheet(id, date, () => benchSheet(date)); break;
     case 'bench-pick': { const p = curPlan(); p.bench = Object.assign({}, p.bench || {}, { [date]: id || null }); saveMine(); closeSheet(); render(); toast(id ? 'Suplente: ' + nameOf(id) + '.' : 'O plano escolhe o suplente.'); break; }
     case 'day': S.hd = date; S.hdCenter = true; closeSheet(); setSub('hoje', 'lineup'); setTab('hoje'); break;
     case 'help': helpSheet(b.dataset.k, b); break;

@@ -1380,8 +1380,12 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .bench-opt { display: flex; align-items: center; flex-wrap: nowrap; } .bench-opt .who { flex: 1 1 auto; min-width: 0; }
 .bench-opt.dir { box-shadow: inset 3px 0 0 var(--good); }
 .tag-d { font-size: 11px; font-weight: 700; color: var(--good); border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; flex: none; }
-.bench-opt .chk { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--good); color: #fff; font-size: 13px; font-weight: 700; margin-left: 10px; flex: none; }
-.bench-opt .chk.off { background: transparent; border: 1.5px solid var(--line); }
+/* folha do suplente: a linha abre a ficha do jogador, o «+» escolhe-o */
+.bench-li { display: flex; align-items: center; gap: 6px; } .bench-li .bench-opt { flex: 1 1 auto; min-width: 0; }
+.bench-add { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; margin-right: 4px; background: transparent; border: 1.5px solid var(--line); color: var(--ink); font-size: 20px; font-weight: 600; line-height: 1; cursor: pointer; touch-action: manipulation; }
+.bench-add:hover { border-color: var(--good); color: var(--good); }
+.bench-add:focus-visible { outline: 2px solid var(--good); outline-offset: 2px; }
+.bench-add.on { background: var(--good); border-color: var(--good); color: #fff; font-size: 16px; }
 .jc-list .bench-row, .jc-list .bench-row .row { background: transparent; }
 .jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }
 .jc-list .bench-row .bnm { color: var(--board-ink); }

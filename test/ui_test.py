@@ -741,8 +741,14 @@ with sync_playwright() as pw:
         opts = pg.locator('#sheetPanel button[data-action="bench-pick"][data-id]:not([data-id=""])')
         pg.locator('#sheetPanel').screenshot(path=str(shots / 'suplente-folha.png'))
         dxl = pg.locator('#sheetPanel .bench-opt.dir'); dxt = dxl.inner_text().replace('\n', ' ') if dxl.count() else ''
-        print('E substituto direto:', dxt[:160], '· ok' if 'Holmgren' in dxt and 'Direto' in dxt and 'com ele faz' in dxt and pg.locator('#sheetPanel .bench-opt[aria-pressed="true"] .chk:not(.off)').count() == 1 else '· ERRO')
-        n2 = opts.nth(1).locator('.nm').inner_text() if opts.count() > 1 else ''
+        print('E substituto direto:', dxt[:160], '· ok' if 'Holmgren' in dxt and 'Direto' in dxt and 'com ele faz' in dxt and pg.locator('#sheetPanel .bench-add.on[aria-pressed="true"]').count() == 1 else '· ERRO')
+        # tocar na linha abre a ficha do jogador; o «←» volta à lista do suplente
+        n1 = pg.locator('#sheetPanel .bench-opt').nth(1).locator('.nm').inner_text()
+        pg.locator('#sheetPanel .bench-opt').nth(1).click(); pg.wait_for_timeout(400)
+        h3_ = pg.locator('#sheetPanel h3').first.inner_text() if pg.locator('#sheetPanel h3').count() else ''
+        pg.click('#sheetPanel button[data-action="sheet-back"]'); pg.wait_for_timeout(400)
+        print('E suplente → ficha do jogador:', h3_, '· ok' if n1 and (n1 in h3_ or h3_ in n1) and pg.locator('#benchList').count() and pg.locator('#sheetPanel .bench-add').count() else '· ERRO')
+        n2 = opts.nth(1).locator('xpath=..').locator('.nm').inner_text() if opts.count() > 1 else ''
         if n2: opts.nth(1).click(); pg.wait_for_timeout(500)
         print('E suplente escolhido:', n2, '· ok' if n2 and n2 == lineup_card(pg).locator('.bench-row .bnm').inner_text() else '· ERRO')
     pg.click('#tab-hoje button[data-action="opcoes"]'); wait_opcoes(pg, 120000)
