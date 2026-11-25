@@ -3507,5 +3507,6 @@
  "Para a <b>": "For <b>",
  "</b> (muda nos botões das contas). ": "</b> (switch with the account buttons). ",
  "<div class=\"small muted h-buy-intro\">": null,
- "As cartas de lendas que mais te davam nos ": "The legend cards that would have helped you most over the "
+ "As cartas de lendas que mais te davam nos ": "The legend cards that would have helped you most over the ",
+ "<div class=\"note\">Não deu para mostrar as lendas (": "<div class=\"note\">Couldn't show the legends ("
 }

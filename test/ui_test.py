@@ -2108,7 +2108,8 @@ with sync_playwright() as pw:
            'days': [dict({k: v for k, v in d_.items() if k != 'mine'}, id=d_['id'].replace('run-', 'old-')) for d_ in H16['days'] if d_.get('lines') and d_.get('top')]}
     pg.route('**/data/historic/index.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps({'v': 1, 'runs': [{'id': 'old', 'file': 'old.json'}]})))
     pg.route('**/data/historic/old.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(R16)))
-    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(json.dumps(H16)) + "); localStorage.setItem('fb-jmode', 'historic'); } catch (e) {}")
+    # (o cartão das lendas fechado de antes neste aparelho: o separador «Lendas» tem de mostrar a lista na mesma)
+    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(json.dumps(H16)) + "); localStorage.setItem('fb-jmode', 'historic'); localStorage.setItem('fb-cmin', '[\"h-lendas\"]'); } catch (e) {}")
     pg.clock.set_fixed_time('2026-10-29T14:00:00Z')
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
@@ -2124,7 +2125,7 @@ with sync_playwright() as pw:
     # o separador «Lendas» tem de abrir na mesma
     pg.evaluate("""() => { const s = document.createElement('select'); s.id = 'fakeSel'; s.innerHTML = '<option>a</option>'; document.querySelector('#tab-hoje').appendChild(s); s.focus();
       document.querySelector('#tab-hoje .h-tabs button[data-v="lendas"]').click(); }"""); pg.wait_for_timeout(800)
-    lend16 = pg.locator('#tab-hoje #hList li[data-n]').count() and pg.locator('#tab-hoje .card .card-min').count()
+    lend16 = pg.locator('#tab-hoje #hList li[data-n]:visible').count()
     pg.locator('#tab-hoje').screenshot(path=str(shots / 'historic-lendas.png'))
     pg.click('#tab-hoje .h-tabs button[data-v="comprar"]'); pg.wait_for_timeout(4000)
     nb16 = pg.locator('#tab-hoje .h-buy-intro').count()

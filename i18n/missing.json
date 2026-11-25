@@ -1,1 +1,7 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": "<div class=\"note\">Não deu para mostrar as lendas (",
+  "line": "const legends = () => { try { return histLegendsCard(C, day); } catch (e) { console.error(e); return '<div class=\"note\">Não deu para mostrar as lendas (' + esc("
+ }
+]

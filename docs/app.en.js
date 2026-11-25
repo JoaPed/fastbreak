@@ -2925,7 +2925,10 @@ function renderHistoric(el) {
   const H0 = groupHist(), src = '<div class="small muted h-src">Top Shot data from ' + esc(ago(H0.at)) + ' · learns from ' + plural(M.dayIds.length, 'day played', 'days played') + (nRuns > 1 ? ' of ' + nRuns + ' runs' : '') + '. ' + esc(cutTxt) + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">read again</button>' : '') + '</div>';
   const tab = ['equipa', 'lendas', 'comprar'].includes(S.htab) ? S.htab : 'equipa';
   const seg = '<div class="seg h-tabs" role="tablist" aria-label="Historic">' + [['equipa', 'Team'], ['legends', 'Legends'], ['comprar', 'Buy']].map(([k, t]) => '<button type="button" role="tab" data-action="h-tab" data-v="' + k + '" aria-selected="' + (k === tab) + '" aria-pressed="' + (k === tab) + '">' + t + '</button>').join('') + '</div>';
-  const body = tab === 'lendas' ? cardMin(histLegendsCard(C, day), 'h-lendas')
+  // «Lendas» sem minimizar: com o cartão fechado (guardado de antes neste aparelho) o separador parecia não fazer nada;
+  // e se falhar mostra o erro em vez de ficar parado
+  const legends = () => { try { return histLegendsCard(C, day); } catch (e) { console.error(e); return '<div class="note">Couldn\'t show the legends (' + esc(e && e.message || 'error') + ').</div>'; } };
+  const body = tab === 'lendas' ? legends()
     : tab === 'comprar' ? histBuyHtml(H)
     : alts ? cardMin('<div class="card"><div class="list-head"><h2>Other teams</h2><span class="small muted">' + (one ? 'with fewer expected points' : 'for the same account') + '</span></div><ul class="list">' + alts + '</ul></div>', 'h-outras')
     : '<div class="note info">No other team worth showing: the suggested one has the most expected points.</div>';

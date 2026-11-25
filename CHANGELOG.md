@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-25
+- **João** — Historic: o separador «Lendas» abria com o cartão fechado (minimizado de antes) e parecia não fazer nada; agora mostra sempre a lista.
 - **João** — Historic: as equipas das tuas contas passam a mudar pelo menos 3 lendas entre si (eram 2); as do resto do grupo continuam com 2.
 - **João** — Historic → Comprar: as cartas que já tens (lidas da carteira) deixam logo de ser sugeridas; há uma caixa «Até $» para escreveres o preço máximo; e as sugestões são por conta (a dos botões das contas), com «Main tem Common» quando outra conta já tem essa lenda.
 - **João** — Historic: volta o separador «Lendas» (todas as lendas do dia, com o desconto das tuas cartas, «−X%», lidas da carteira). Tocar nele já não fica parado no iPhone.
