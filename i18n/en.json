@@ -3115,7 +3115,8 @@
    "const nextTxt = !nd ? '' : f.sh == null ? '<span class=\"muted\">não joga no ' + nxt + '</span>' : nxt + ': ' + (f.mdNext.objs.length ? f.mdNext.objs.map((o, k) =": "plays",
    ": (twoSame ? 'Duas contas podem jogá-lo no mesmo dia. ' : more ? (usesGain(id, R.U) ? 'Com mais ' + usesTxt(usesGain(id, R.U)) + (multi ? ' em cada conta' : '')": "he plays",
    ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, R.U) ? 'Com mais ' + usesT": "he plays",
-   "parts.push(ds.length ? days('joga', ds) : 'fora do plano');": "plays"
+   "parts.push(ds.length ? days('joga', ds) : 'fora do plano');": "plays",
+   ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, U) ? 'Com mais ' + usesTxt": "he plays"
   }
  },
  "amigo": {
@@ -3489,5 +3490,8 @@
  "entra se alguém faltar": "in if anyone sits out",
  "<span class=\"lu-warn\">⚠ suplente na ": "<span class=\"lu-warn\">⚠ bench on ",
  "Jogos simulados entre lendas (médias de carreira, 36 minutos). Escolhes 5 dentro de 350 Roster Points; ganha quem soma mais Fast Break Points (PTS 1, REB 1, AST 2, STL 3, BLK 3, perda −1, triplo +0,5, duplo-duplo +5, triplo-duplo +10). Os pontos esperados de cada lenda vêm dos jogos simulados até agora (de todas as runs), puxados para o que o custo prevê, e do adversário. A sugestão é a equipa com mais pontos esperados que cabe no teu orçamento. Cada conta do grupo joga uma equipa diferente (troca pelo menos 2 lendas) e a ordem roda todos os dias: assim, quando a sorte calha, calha a alguém do grupo. A hipótese de prémio compara a equipa com os pontos que deram prémio em dias parecidos (3000 simulações do dia). Tocar numa lenda da equipa abre a ficha: dá para a tirar do dia ou marcar a tua carta (o desconto baixa o custo).": "Simulated games between legends (career averages, 36 minutes). You pick 5 within 350 Roster Points; whoever scores the most Fast Break Points wins (PTS 1, REB 1, AST 2, STL 3, BLK 3, turnover −1, three +0.5, double-double +5, triple-double +10). Each legend's expected points come from the simulated games so far (from every run), pulled towards what the cost predicts, and from the opponent. The suggestion is the team with the most expected points that fits your budget. Each account in the group plays a different team (at least 2 legends swapped) and the order rotates every day: that way, when luck strikes, it strikes someone in the group. The prize chance compares the team with the scores that won prizes on similar days (3000 simulations of the day). Tap a legend in the team to open his card: you can take him out of the day or mark your card (the discount lowers the cost).",
- "Texto partilhado; a imagem ficou descarregada.": "Text shared; the image was downloaded."
+ "Texto partilhado; a imagem ficou descarregada.": "Text shared; the image was downloaded.",
+ "<div class=\"small muted buy-intro\">Testei ": "<div class=\"small muted buy-intro\">Tested ",
+ "do que mais rende por dólar para o que menos rende": "from the most per dollar to the least",
+ "do que mais sobe a run para o que menos sobe": "from the biggest gain to the smallest"
 }

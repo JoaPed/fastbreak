@@ -4622,14 +4622,25 @@ async function buyRun(onlyId) {
   // avaliar um jogador: no escalão escolhido (com "Qualquer", o Rare)
   const U = onlyId ? (B.uses || 2) : B.uses, UT = U || 2;
   // já tem tudo o que esse escalão dá: diz logo, sem refazer a run
-  if (onlyId && S.mine.roster[onlyId] && !usesGain(onlyId, UT) && !copyHelps(onlyId, UT)) {
+  if (onlyId && S.mine.roster[onlyId] && (B.uses ? !usesGain(onlyId, UT) && !copyHelps(onlyId, UT) : ![1, 2, 3, 4].some(u => usesGain(onlyId, u) > 0 || copyHelps(onlyId, u)))) {
     B.busy = false;
     const nc = collectionInfo(onlyId).copies;
     // com smurfs: diz em quantas contas já está (é isso que decide se mais um Moment serve)
     $('buyOut').innerHTML = '<div class="note info">' + (S.multi ? 'You already have ' + plural(nc, 'Moment', 'Moments') + ' of ' + esc(nameOf(onlyId)) + ', as many as your accounts: each account has ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run and they can all play him on the same night. One more of the same tier changes nothing: pick a tier higher.' : 'You already have ' + esc(nameOf(onlyId)) + ' with ' + plural(perRunUses(onlyId), 'use', 'uses') + ' per run: pick a tier higher.') + '</div>'; return; }
   const prog = t => { B.prog = t; const el = $('buyProg'); if (el) el.textContent = t; };
   try {
-    res = await computeBuy({ onlyId, mode, U, sort: B.sort, maxPrice, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog });
+    // avaliar um jogador com «Qualquer»: refaz a run com cada escalão que serve (mais um igual, ou um acima: All-Star
+    // 3 usos, Legendary 4…), em vez de só o Rare (o Jokic com um Rare só dizia que um 2.º Rare não compensava)
+    const tiersOne = onlyId && !B.uses ? (pxUses() ? [1, 2, 3, 4] : [1, 2, 4]).filter(u => (!S.mine.roster[onlyId] || usesGain(onlyId, u) > 0 || copyHelps(onlyId, u)) && (!pxReady() || buyable(onlyId, u))) : null;
+    if (tiersOne && tiersOne.length > 1) {
+      for (const u of tiersOne) {
+        const r1 = await computeBuy({ onlyId, mode, U: u, sort: B.sort, maxPrice, topN: 1, alive: () => !!$('buyOut'), prog: t => prog(tierName(u) + ' · ' + t) });
+        if (!r1 || !$('buyOut')) return;
+        if (r1.noPool) continue;
+        if (!res) res = r1; else res.list = res.list.concat(r1.list);
+      }
+      if (res) { res.tiersTested = tiersOne; res = buySort(res); }
+    } else res = await computeBuy({ onlyId, mode, U: tiersOne && tiersOne.length ? tiersOne[0] : U, sort: B.sort, maxPrice, topN: S.multi ? 5 : 8, alive: () => !!$('buyOut'), prog });
     if (res && budget && maxPrice === budget) res.byBudget = true;
     if (res && !res.noPool && budget) res.cart = await buyCart(res, budget, () => !!$('buyOut'), prog);
   }
@@ -4858,9 +4869,10 @@ function buyResultsHtml(R) {
   const andList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
   const pp = x => Math.round(x * 100);
   const useful = R.list.filter(x => buyUseful(R, x)); // as que não mudam nada não aparecem
+  const tiersNote = R.single && R.tiersTested && R.tiersTested.length > 1 && !R.detail ? '<div class="small muted buy-intro">Tested ' + R.tiersTested.map(tierName).join(', ') + ': ' + (R.sort === 'value' ? 'from the most per dollar to the least' : 'from the biggest gain to the smallest') + '.</div>' : '';
   if (!R.single) return intro + buyCartHtml(R) + (useful.length ? '<div class="card"><ul class="list">' + useful.map((x, n) => buyRow(R, buySummary(R, x), n, 'res')).join('') + '</ul></div>' : '<div class="note info">None of these purchases changes your run.</div>') + moreBtn;
-  return R.list.map((x, n) => {
-    const id = String(x.id), c = S.players.get(id) || {}, more = R.mode === 'more' || !!S.mine.roster[id];
+  return tiersNote + R.list.map((x, n) => {
+    const id = String(x.id), U = x.U || U, c = S.players.get(id) || {}, more = R.mode === 'more' || !!S.mine.roster[id];
     // dias em que passa a jogar (que antes não jogava), com a vitória desse dia antes → depois, por conta
     const byDay = new Map();
     keys.forEach(k => {
@@ -4878,28 +4890,28 @@ function buyResultsHtml(R) {
       : byPrize ? '<div class="buy-gain">' + best.p.wins + ' wins' + (multi ? ' (' + esc(accLabel(best.k)) + ')' : '') + ': ' + pct(best.from) + ' → <span class="up">' + pct(best.to) + '</span> <small>+' + (pp(best.to) - pp(best.from)) + '%</small></div>'
       : '<div class="buy-gain">Expected wins: ' + f1(e0) + ' → <span class="up">' + f1(e1) + '</span></div>';
     // enquanto houver contas sem ele, mais um Moment deixa mais uma conta jogá-lo na mesma noite; depois, o ganho são os usos
-    const twoSame = multi && more && copyHelps(id, R.U) && days.some(z => z.acc.length > 1), one = collectionInfo(id).copies === 1;
+    const twoSame = multi && more && copyHelps(id, U) && days.some(z => z.acc.length > 1), one = collectionInfo(id).copies === 1;
     const why = !days.length ? 'Doesn’t play new days: frees up other players.'
-      : (twoSame ? (one ? 'Two accounts can play him on the same day. ' : 'One more account can play him on the same day. ') : more ? (usesGain(id, R.U) ? 'With ' + usesTxt(usesGain(id, R.U)) + (multi ? ' in each account' : '') + ', ' : (one ? 'With a 2nd Moment (both accounts on the same night), ' : 'With one more Moment (one more account on the same night), ')) : '') + (more && !twoSame ? 'he plays' : 'Plays') + (days.length > 1 ? ' on days ' : ' on day ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (on top of the ones he already played)' : '') + ':';
+      : (twoSame ? (one ? 'Two accounts can play him on the same day. ' : 'One more account can play him on the same day. ') : more ? (usesGain(id, U) ? 'With ' + usesTxt(usesGain(id, U)) + (multi ? ' in each account' : '') + ', ' : (one ? 'With a 2nd Moment (both accounts on the same night), ' : 'With one more Moment (one more account on the same night), ')) : '') + (more && !twoSame ? 'he plays' : 'Plays') + (days.length > 1 ? ' on days ' : ' on day ') + andList(days.map(z => String(z.d.idx + 1))) + (keys.some(k => resOf(R.base, k).days.some(d => d.lineup.includes(id))) ? ' (on top of the ones he already played)' : '') + ':';
     const dayLines = days.map(z => { const day = S.days.find(q => q.date === z.d.date) || {};
       return '<li><b>Day ' + (z.d.idx + 1) + '</b> · ' + dWeek(z.d.date) + ' ' + dShort(z.d.date) + ' · ' + esc(objsText(day)) + ' — ' + z.acc.map(a => (multi ? esc(accLabel(a.k)) + ' ' : 'win ') + (a.P0 != null ? pct(a.P0) + ' → ' : '') + '<b>' + pct(a.P1) + '</b>').join(' · ') + '</li>'; }).join('');
     const tiers = [...new Set(moved.map(m => m.p.wins))];
     const prizeLine = tiers.length ? 'Prizes that change: ' + tiers.map(w => w + 'V ' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → ' + pct(m.a)).join(', ')).join(' · ') + '. ' : '';
-    const tierLab = more ? 'Moment ' + tierName(R.U) + (usesGain(id, R.U) ? ', +' + usesTxt(usesGain(id, R.U)) : ', ' + momentNth(id, R.U)) : 'Moment ' + tierTxt(R.U);
+    const tierLab = more ? 'Moment ' + tierName(U) + (usesGain(id, U) ? ', +' + usesTxt(usesGain(id, U)) : ', ' + momentNth(id, U)) : 'Moment ' + tierTxt(U);
     if (R.detail) {
       // folha: cabeçalho, três caixas (prémio, vitórias esperadas, preço), dias novos e prémios que mudam
-      const mk = mktOf(id, R.U);
+      const mk = mktOf(id, U);
       const tile = (lab, v, sub) => '<div class="bd-tile"><span class="label">' + lab + '</span><b>' + v + '</b><span class="small muted">' + sub + '</span></div>';
       const tiles = '<div class="bd-tiles">' +
         (byPrize ? tile('Prize', pct(best.from) + ' → <span class="up">' + pct(best.to) + '</span>', best.p.wins + ' wins' + (multi ? ' · ' + esc(accLabel(best.k)) : '')) : '') +
         tile('Expected wins', f1(e0) + ' → <span class="' + (e1 - e0 >= 0.15 ? 'up' : '') + '">' + f1(e1) + '</span>', multi ? 'all accounts' : 'in the run') +
-        tile('Price', mk && mk.ask != null ? '<span class="up">' + usd(mk.ask) + '</span>' : '—', mk && mk.ask != null ? (mk.offer != null ? tierName(R.U) + ' · highest offer ' + usd(mk.offer) : tierName(R.U) + ', cheapest') : mk && mk.ts ? 'no ' + tierName(R.U) + ' for sale' : 'not read yet') + '</div>';
+        tile('Price', mk && mk.ask != null ? '<span class="up">' + usd(mk.ask) + '</span>' : '—', mk && mk.ask != null ? (mk.offer != null ? tierName(U) + ' · highest offer ' + usd(mk.offer) : tierName(U) + ', cheapest') : mk && mk.ts ? 'no ' + tierName(U) + ' for sale' : 'not read yet') + '</div>';
       const prizeRows = tiers.length ? '<div class="label" style="margin-top:4px">Prizes that change</div><div class="bd-prizes">' + tiers.map(w => '<b>' + w + 'W</b><span>' + moved.filter(m => m.p.wins === w).map(m => (multi ? esc(accLabel(m.k)) + ' ' : '') + pct(m.b) + ' → <b class="' + (m.a > m.b ? 'up' : '') + '">' + pct(m.a) + '</b>').join(' · ') + '</span>').join('') + '</div>' : '';
       return '<div class="buy-detail stack"><div class="bd-head">' + face(id, 'lg') + '<div style="min-width:0"><h3>' + esc(nameOf(id)) + '</h3><div class="small muted">' + teamTag(c.team) + ' · ' + tierLab + '</div></div></div>' + (worth ? '' : '<div class="note">Not worth it: the run barely changes.</div>') + tiles +
         '<div><div class="label">' + (days.length ? 'New days he plays' : 'Days') + '</div><div class="small" style="margin:4px 0">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') + '</div>' + prizeRows + '</div>';
     }
     return '<div class="card panel buy-card"><div class="list-head" style="padding:0"><span class="who">' + face(id) + '<h2>' + esc(nameOf(id)) + '</h2></span><span class="small muted">' + esc(c.team || '') + ' · ' + tierLab + '</span></div>' +
-      head + '<div class="small">' + mktSpan(id, R.U) + '</div>' + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
+      head + '<div class="small">' + mktSpan(id, U) + '</div>' + '<div class="small">' + why + '</div>' + (dayLines ? '<ul class="small buy-days">' + dayLines + '</ul>' : '') +
       '<div class="small muted">' + prizeLine + 'Expected wins' + (multi ? ' (all accounts)' : '') + ': ' + f1(e0) + ' → ' + f1(e1) + '.</div></div>';
   }).join('');
 }
