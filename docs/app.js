@@ -2782,15 +2782,16 @@ try { S.htab = localStorage.getItem('fb-htab') || 'equipa'; } catch (e) { S.htab
 try { S.hmax = +localStorage.getItem('fb-hmax') || 0; } catch (e) { S.hmax = 0; }
 // os dias desta run (com a tua pontuação) e os das runs anteriores do arquivo (sem pontuação tua: conta a que a
 // equipa sugerida pela app fez nesse dia)
-function histBuyCalc(H0) {
+// por conta (pedido: sugerir combinações por conta): os descontos e a pontuação dessa conta
+function histBuyCalc(H0, acc = 'main') {
   const H = histData(H0), days = (H.days || []).filter(d => d.lines && d.lines.length && d.rp && d.rp.length && d.top && d.top.length);
-  const ak = addrKey(accAddr(S.session.user.id, 'main')), sum = new Map(), names = new Map();
+  const ak = addrKey(accAddr(S.session.user.id, acc)), sum = new Map(), names = new Map();
   days.forEach(d => d.lines.forEach(l => { const id = String(l[0]), x = sum.get(id) || [0, 0]; x[0] += hFbp(H, l); x[1]++; sum.set(id, x); names.set(id, l[1]); }));
   const mu = id => { const x = sum.get(id); return x ? x[0] / x[1] : null; };
-  const dsc = hDiscs('main', [...names].map(([id, name]) => ({ id, name }))), budget = +((H.budget || {}).limit) || 350, res = new Map();
+  const dsc = hDiscs(acc, [...names].map(([id, name]) => ({ id, name }))), budget = +((H.budget || {}).limit) || 350, res = new Map();
   let nDays = 0, nMine = 0, nIn = 0, near = null;
   days.forEach(d => {
-    const me0 = (d.mine || {})[ak] || (S.role === 'admin' ? (d.mine || {})._me : null), mine = !!(me0 && me0.score != null);
+    const me0 = (d.mine || {})[ak] || (S.role === 'admin' && acc === 'main' ? (d.mine || {})._me : null), mine = !!(me0 && me0.score != null);
     const rows = d.rp.map(r => ({ id: String(r[0]), rp: +r[1], mu: mu(String(r[0])) })).filter(x => x.mu != null).map(x => Object.assign(x, { cost: x.rp * (1 - (+dsc[x.id] || 0) / 100) })).sort((a, b) => b.mu - a.mu);
     if (rows.length < 5) return;
     const top1 = rs => (FB.histBest({ rows: rs, budget }, 1) || [])[0] || null, best = rs => (top1(rs) || {}).ev || 0, b0 = top1(rows), base = b0 ? b0.ev : 0, paid = hLastPaid(d);
@@ -2823,13 +2824,17 @@ function histBuySheet() {
   setTimeout(() => { const b = $('hbBody'); if (b) b.outerHTML = histBuyHtml(H); }, 30);
 }
 // as contas guardam-se por leitura do Historic (não se refazem a cada desenho da página)
+// a conta escolhida nos botões das contas (a mesma da Equipa)
+const hBuyAcc = () => { const a = accounts(); return (a[Math.min(S.hacc || 0, a.length - 1)] || {}).id || 'main'; };
 function histBuyHtml(H) {
   const nArch = S.histArch && S.histArch.runs ? S.histArch.runs.reduce((t, r) => t + (r.days || []).length, 0) : 0;
   // (com as cartas da carteira: depois de ler o Top Shot, as que já tens deixam de ser sugeridas)
-  const key = H.at + '|' + (H.pxAt || '') + '|' + JSON.stringify(S.hdisc || {}) + '|' + JSON.stringify(hWalletDisc('main')) + '|' + [...S.cardMin].join() + '|' + nArch + '|' + (S.hmax || 0);
+  const key = H.at + '|' + (H.pxAt || '') + '|' + JSON.stringify(S.hdisc || {}) + '|' + JSON.stringify(accounts().map(a => hWalletDisc(a.id))) + '|' + hBuyAcc() + '|' + [...S.cardMin].join() + '|' + nArch + '|' + (S.hmax || 0);
   if (S.hbuyMemo && S.hbuyMemo.k === key) return S.hbuyMemo.h;
   const h = (() => {
-    const X = histBuyCalc(H), px = H.px || {}, by = new Map();
+    const acc = hBuyAcc(), X = histBuyCalc(H, acc), px = H.px || {}, by = new Map(), accs = accounts();
+    // as outras contas que já têm a carta desta lenda (para não comprares outra igual sem saber)
+    const others = id => { const n = norm(X.names.get(id) || nameOfLegend(H, id)); return accs.filter(a => a.id !== acc).map(a => [a, (hWalletDisc(a.id)[n] || {}).tier]).filter(z => z[1]); };
     X.rows.forEach(a => { const L = by.get(a.id) || []; L.push(a); by.set(a.id, L); });
     const money = gcMoney, list = [...by.entries()].map(([id, L]) => ({ id, L: L.sort((p, q) => p.k - q.k), prize: Math.max(...L.map(a => a.prize)), g: Math.max(...L.map(a => a.g)) })).sort((p, q) => (q.prize - p.prize) || (q.g - p.g)).slice(0, 20);
     // sem nenhum verde: diz porquê (já estavas no top 40, ou faltava mais do que o desconto dá)
@@ -2849,8 +2854,8 @@ function histBuyHtml(H) {
       // ou um valor teu (Enter / OK para aplicar)
       '<label class="h-max-in small muted">Até $ <input class="field" id="hMaxIn" type="number" inputmode="decimal" min="0" step="1" placeholder="ex.: 15" autocomplete="off" value="' + (maxP && ![25, 50, 100, 250].includes(maxP) ? maxP : '') + '"></label>';
     const row = x => { const a = x.o.a, [tn, pc] = H_TIER_DISC[a.k];
-      return '<li class="row hb-opt"><span class="hb-who"><b>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</b><span class="pill">' + tn + ' · −' + pc + '%</span>' + (X.dsc[x.id] ? '<small class="muted"> já tens −' + X.dsc[x.id] + '%</small>' : '') + '</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias') + (a.top ? ' · <b class="c-good">top 40 em ' + plural(a.top, 'dia', 'dias') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + usdC(x.o.pr) + '</span></li>'; };
-    return '<div class="small muted h-buy-intro">As cartas de lendas que mais te davam nos ' + plural(X.nDays, 'dia jogado', 'dias jogados') + ' (o desconto da carta baixa o custo e cabe uma lenda melhor). ' + helpBtn('hbuy') + '</div>' + why + chips +
+      return '<li class="row hb-opt"><span class="hb-who"><b>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</b><span class="pill">' + tn + ' · −' + pc + '%</span>' + (X.dsc[x.id] ? '<small class="muted"> já tens −' + X.dsc[x.id] + '%</small>' : '') + (accs.length > 1 && others(x.id).length ? '<small class="muted"> · ' + others(x.id).map(z => esc(accLabel(z[0].id)) + ' tem ' + esc(z[1])).join(', ') + '</small>' : '') + '</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias') + (a.top ? ' · <b class="c-good">top 40 em ' + plural(a.top, 'dia', 'dias') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + usdC(x.o.pr) + '</span></li>'; };
+    return '<div class="small muted h-buy-intro">' + (accs.length > 1 ? 'Para a <b>' + esc(accLabel(acc)) + '</b> (muda nos botões das contas). ' : '') + 'As cartas de lendas que mais te davam nos ' + plural(X.nDays, 'dia jogado', 'dias jogados') + ' (o desconto da carta baixa o custo e cabe uma lenda melhor). ' + helpBtn('hbuy') + '</div>' + why + chips +
       (!X.nDays ? '<div class="note">Ainda não há dias jogados. O admin lê o Historic em Ajustes → Admin → Ler no Top Shot.</div>' : picks.length ? '<div class="card"><ul class="list hb-list">' + picks.map(row).join('') + '</ul></div>' : '<div class="note info">Nenhuma carta ' + (maxP ? 'até $' + maxP + ' ' : '') + 'mudava a melhor equipa nos dias jogados.</div>') +
       (H.px ? '' : '<div class="note">Ainda sem preços das cartas das lendas: o admin carrega em Preços (Ajustes → Admin).</div>');
   })();

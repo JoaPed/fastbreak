@@ -2162,6 +2162,7 @@ with sync_playwright() as pw:
     import unicodedata
     nk16 = lambda s: ''.join(c for c in unicodedata.normalize('NFD', s.lower()) if unicodedata.category(c) != 'Mn').strip()
     T16['profiles'][-1]['collection'] = {'sets': {'Base': {'tier': 'Common'}}, 'lg': {nk16(n): {'c': {'main': ['Base']}} for n in nm16.values()}}
+    T16['profiles'][-1]['smurfs'] = [{'id': 's1', 'topshot_username': 'terose'}]
     pg = new_page(b, d16)
     pg.route('**/data/historic/index.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps({'v': 1, 'runs': [{'id': 'old', 'file': 'old.json'}]})))
     pg.route('**/data/historic/old.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(R16)))
@@ -2175,6 +2176,12 @@ with sync_playwright() as pw:
     pg.fill('#hMaxIn', '10'); pg.press('#hMaxIn', 'Enter'); pg.wait_for_timeout(800)
     pr10 = [float(x.replace('$', '').replace(',', '.')) for x in pg.locator('#tab-hoje .hb-list .hb-p').all_inner_texts()]
     print('O16c com as Common na carteira:', pills16[:4], '· até $10:', pr10[:4], '· ok' if pills16 and not any('Common' in p for p in pills16) and pr10 and all(x <= 10 for x in pr10) else '· ERRO')
+    # por conta: na terose (sem cartas) volta a haver Common, com a nota de que a principal já a tem
+    pg.fill('#hMaxIn', ''); pg.press('#hMaxIn', 'Enter'); pg.wait_for_timeout(500)
+    pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(3000)
+    pills16s = pg.locator('#tab-hoje .hb-list .pill').all_inner_texts(); hbs16 = pg.locator('#tab-hoje .hb-list').inner_text() if pg.locator('#tab-hoje .hb-list').count() else ''
+    intro16 = pg.locator('#tab-hoje .h-buy-intro').inner_text()
+    print('O16c por conta (terose):', pills16s[:3], intro16[:40], '· ok' if any('Common' in p for p in pills16s) and 'tem Common' in hbs16 and 'terose' in intro16.lower() else '· ERRO')
     pg.close()
     # O17: com smurf, pôr na principal quem a carta já põe a jogar na terose nessa noite: dá (aviso amarelo), a terose
     # larga-o e o plano põe-lhe outro; e quem não jogou esta época (sem lesão nem odds) fica fora do plano

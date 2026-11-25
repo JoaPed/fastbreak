@@ -3502,5 +3502,10 @@
  "Este browser não partilha imagens: carrega na imagem sem largar para a guardar.": "This browser can't share images: press and hold the image to save it.",
  "Imagem descarregada: cola-a no WhatsApp.": "Image downloaded: paste it into WhatsApp.",
  "<h3>Partilhar o lineup</h3><img class=\"share-img\" src=\"": "<h3>Share the lineup</h3><img class=\"share-img\" src=\"",
- "<label class=\"h-max-in small muted\">Até $ <input class=\"field\" id=\"hMaxIn\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"ex.: 15\" autocomplete=\"off\" value=\"": "<label class=\"h-max-in small muted\">Up to $ <input class=\"field\" id=\"hMaxIn\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"e.g. 15\" autocomplete=\"off\" value=\""
+ "<label class=\"h-max-in small muted\">Até $ <input class=\"field\" id=\"hMaxIn\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"ex.: 15\" autocomplete=\"off\" value=\"": "<label class=\"h-max-in small muted\">Up to $ <input class=\"field\" id=\"hMaxIn\" type=\"number\" inputmode=\"decimal\" min=\"0\" step=\"1\" placeholder=\"e.g. 15\" autocomplete=\"off\" value=\"",
+ " tem ": " has ",
+ "Para a <b>": "For <b>",
+ "</b> (muda nos botões das contas). ": "</b> (switch with the account buttons). ",
+ "<div class=\"small muted h-buy-intro\">": null,
+ "As cartas de lendas que mais te davam nos ": "The legend cards that would have helped you most over the "
 }
