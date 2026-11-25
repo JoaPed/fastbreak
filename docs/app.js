@@ -2142,19 +2142,22 @@ async function shareLineup(date) {
 }
 async function shareGo() {
   const D = S.shareDoc; if (!D) return;
-  // o WhatsApp às vezes larga o texto quando vai com uma imagem: fica também copiado, para colar como legenda.
-  // Sem «await» antes da partilha: no Android (Chrome) esperar pela cópia gastava o toque e a partilha caía no descarregar.
-  try { navigator.clipboard.writeText(D.text).catch(() => {}); } catch (e) {}
-  const tries = [{ files: [D.file], text: D.text }, { files: [D.file] }];
-  if (navigator.share) for (const t of tries) {
-    if (navigator.canShare && !navigator.canShare(t)) continue;
-    try { await navigator.share(t); toast('Se o texto não aparecer no WhatsApp, cola-o: ficou copiado.'); return; }
-    catch (e) { if (e && e.name === 'AbortError') return; }
+  const copy = () => { try { navigator.clipboard.writeText(D.text).catch(() => {}); } catch (e) {} };
+  // telemóvel: só a partilha, sem descarregar. O texto só é copiado depois: no Android copiar abre o aviso da
+  // área de transferência por cima, a página perde o foco e a partilha da imagem falhava (caía no descarregar)
+  if (navigator.share) {
+    const t = D.retry ? { files: [D.file] } : { files: [D.file], text: D.text };
+    if (!navigator.canShare || navigator.canShare(t)) {
+      try { await navigator.share(t); D.retry = false; copy(); toast('Se o texto não aparecer no WhatsApp, cola-o: ficou copiado.'); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; D.retry = true; toast('Não deu para partilhar a imagem (' + ((e && e.name) || 'erro') + '). Toca outra vez em Partilhar.'); return; }
+    }
+    // este browser não partilha imagens: vai o texto; a imagem guarda-se a carregar nela sem largar
+    try { await navigator.share({ text: D.text }); toast('Este browser não partilha imagens: carrega na imagem sem largar para a guardar.'); } catch (e) {}
+    return;
   }
-  // sem partilha de imagens: partilha só o texto (vai direto para o WhatsApp) e descarrega a imagem
+  // computador (sem partilha): descarrega a imagem e copia o texto
   const a = document.createElement('a'); a.href = D.url; a.download = D.file.name; document.body.appendChild(a); a.click(); a.remove();
-  if (navigator.share) { try { await navigator.share({ text: D.text }); toast('Texto partilhado; a imagem ficou descarregada.'); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
-  toast('Imagem descarregada e texto copiado: cola no WhatsApp.');
+  copy(); toast('Imagem descarregada e texto copiado: cola no WhatsApp.');
 }
 function jornadaNav(date, sub) {
   const accs = groupMode() ? accounts().map(a => {
