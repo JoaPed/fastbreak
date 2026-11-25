@@ -3097,7 +3097,8 @@ function renderJornada(el) {
     if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);
       stp += '<span class="pill duv risk" title="' + esc((INJ_LABEL[info.injury.rec.status] || '') + ': conta como se jogasse; se ficar de fora, troca-o antes do jogo') + '">⚠ ' + esc(INJ_LABEL[info.injury.rec.status] || 'Dúvida') + '</span>';
       const bz = benchOf(md, nd, d.lineup);
-      rl = '<div class="risk-sub">se não jogar: ' + (bz ? 'suplente <b>' + esc(lastName(bz.id)) + '</b>' : sb ? '<b>' + esc(lastName(sb.id)) + '</b> (hoje ' + pct(sb.P) + ')' : 'não há troca depois do jogo dele') + '</div>'; }
+      // com suplente não diz nada (entra por qualquer titular que falte); sem suplente, diz que troca fazer
+      rl = bz ? '' : '<div class="risk-sub">se não jogar: ' + (sb ? '<b>' + esc(lastName(sb.id)) + '</b> (hoje ' + pct(sb.P) + ')' : 'não há troca depois do jogo dele') + '</div>'; }
     // ao vivo, com o jogo já começado: tocar abre as estatísticas do jogo
     const gid = live && /^(jogo\??|fim)$/.test(info.liveState || '') ? ((FB.gameOf(nd, p.team) || [])[3] || '') : '';
     return '<li><button class="row" type="button" ' + (/^espn:/.test(gid) ? 'data-action="game-box" data-gid="' + esc(gid) + '"' : 'data-action="player"') + ' data-id="' + esc(id) + '" data-date="' + nd.date + '"><span class="who">' + face(id) + '<div style="min-width:0"><div class="pn">' + (locks.has(id) ? icoLock : '') + '<span class="nm">' + esc(p.name) + '</span>' + stp + '</div><div class="ps">' + ps + '</div>' + rl + (live ? '' : fxHtml(id, nd, [...new Set(md.objs.map(x => x.stat))])) + '</div></span>' + pvHtml(objVals(md, pi, live), live ? '' : formMark(p, o)) + '</button></li>';
