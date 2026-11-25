@@ -2692,11 +2692,13 @@ function histCalc(H, dayId) {
   const evOf = new Map(ev.map(e => [kk(e), e]));
   const sel0 = sel.fix.length || sel.ban.length, okSel = e => sel.fix.every(id => e.ids.includes(id)) && !sel.ban.some(id => e.ids.includes(id));
   const diff = (a, b) => a.ids.filter(id => !b.ids.includes(id)).length;
-  // a minha conta k: a de mais pontos que cabe nela e troca pelo menos 2 lendas face às equipas das outras contas do grupo
+  // a minha conta k: a de mais pontos que cabe nela e troca pelo menos 2 lendas face às equipas das outras contas do
+  // grupo e 3 face às das minhas outras contas (pedido do João a 25 nov: nos 31 dias jogados, com 3 contas, ficou nos
+  // mesmos 9 dias com prémio e com mais prémio, por ~2 pts a menos por equipa)
   const mine = [];
   accs.forEach((a, k) => {
-    const others = spread.filter((t, i) => i !== slots.mine[k]).concat(mine), ok = e => fits(e, k) && (!sel0 || okSel(e));
-    const t = ev.find(e => ok(e) && others.every(o => diff(o, e) >= 2)) || ev.find(e => ok(e) && mine.every(o => diff(o, e) >= 2)) || ev.find(ok);
+    const others = spread.filter((t, i) => i !== slots.mine[k]), ok = e => fits(e, k) && (!sel0 || okSel(e));
+    const t = ev.find(e => ok(e) && others.every(o => diff(o, e) >= 2) && mine.every(o => diff(o, e) >= 3)) || ev.find(e => ok(e) && mine.every(o => diff(o, e) >= 3)) || ev.find(e => ok(e) && mine.every(o => diff(o, e) >= 2)) || ev.find(ok);
     if (t) mine.push(Object.assign({}, t, { cost: costIn(t.ids, k) }));
   });
   // o grupo junto: pelo menos uma equipa nos 40 primeiros (e se todos jogassem a mesma)
