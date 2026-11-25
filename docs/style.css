@@ -1393,6 +1393,8 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .bench-add:focus-visible { outline: 2px solid var(--good); outline-offset: 2px; }
 .bench-add.on { background: var(--good); border-color: var(--good); color: #fff; font-size: 16px; }
 .jc-list .bench-row, .jc-list .bench-row .row { background: transparent; }
+/* o suplente também fica sombreado ao passar o rato, como os titulares */
+@media (hover: hover) and (pointer: fine) { .jc-list .bench-row .row:hover { background: rgba(255, 255, 255, .05); } }
 .jc-list .bench-row { border-top-color: color-mix(in srgb, var(--board-muted) 40%, transparent); }
 .jc-list .bench-sep { color: var(--board-warn); }
 .jc-list .bench-row .bnm { color: var(--board-ink); }
