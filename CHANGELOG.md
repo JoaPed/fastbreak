@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-25
+- **João** — Partilhar no Android: abre o menu de partilha (WhatsApp) com a imagem e o texto em vez de pedir para descarregar a imagem.
+
 ## 2026-11-24
 - **João** — Historic: sai o separador «Lendas» (no iPhone não abria). Fica Equipa e Comprar; para tirar uma lenda do dia ou marcar a tua carta, toca nela na equipa.
 - **João** — Suplente com smurfs: um Moment só pode ser suplente numa conta, também a que o tem (o único Sarr era sugerido na JPolas e na Main). Nas outras contas aparece no fim da lista com «⚠ suplente na …».

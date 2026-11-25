@@ -205,6 +205,13 @@ with sync_playwright() as pw:
         tx_ = pg.locator('.sheet .small.muted').first.inner_text() if pg.locator('.sheet .small.muted').count() else ''
         print('B texto da partilha:', tx_.replace(chr(10), ' / '), '· ok' if 'Previsto' in tx_ and 'de vitória' in tx_ and 'Suplente:' in tx_ and 'previsto pelo plano' not in tx_ else '· ERRO')
         print('B imagem para partilhar:', wh_, '· ok' if wh_ and wh_[0] == 1080 and wh_[1] > 1100 else '· ERRO')
+        # Android: a partilha é chamada logo no toque (a cópia do texto não fica à espera) e, se recusar imagem+texto,
+        # tenta só a imagem antes de descarregar
+        pg.evaluate('''() => { window._sh = []; navigator.clipboard.writeText = () => new Promise(() => {});
+          navigator.canShare = () => true; navigator.share = d => { window._sh.push(Object.keys(d).sort().join('+')); return window._sh.length === 1 ? Promise.reject(Object.assign(new Error('x'), { name: 'NotAllowedError' })) : Promise.resolve(); }; }''')
+        pg.click('#sheetPanel button[data-action="share-go"]'); pg.wait_for_timeout(600)
+        sh_ = pg.evaluate('() => window._sh')
+        print('B partilha no Android:', sh_, '· ok' if sh_ == ['files+text', 'files'] else '· ERRO')
         pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.screenshot(path=str(shots / 'hoje.png'))
     # ajuda ao toque: o (?) do lineup abre a explicação numa folha

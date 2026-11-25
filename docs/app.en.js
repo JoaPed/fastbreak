@@ -2139,13 +2139,18 @@ async function shareLineup(date) {
 }
 async function shareGo() {
   const D = S.shareDoc; if (!D) return;
-  // o WhatsApp às vezes larga o texto quando vai com uma imagem: fica também copiado, para colar como legenda
-  try { await navigator.clipboard.writeText(D.text); } catch (e) {}
-  try { if (navigator.canShare && navigator.canShare({ files: [D.file] })) { await navigator.share({ files: [D.file], text: D.text, title: D.text.split('\n')[0] }); toast('If the text doesn’t show up in WhatsApp, paste it: it was copied.'); return; } }
-  catch (e) { if (e && e.name === 'AbortError') return; }
-  // sem partilha de ficheiros (computador): descarrega a imagem e copia o texto
+  // o WhatsApp às vezes larga o texto quando vai com uma imagem: fica também copiado, para colar como legenda.
+  // Sem «await» antes da partilha: no Android (Chrome) esperar pela cópia gastava o toque e a partilha caía no descarregar.
+  try { navigator.clipboard.writeText(D.text).catch(() => {}); } catch (e) {}
+  const tries = [{ files: [D.file], text: D.text }, { files: [D.file] }];
+  if (navigator.share) for (const t of tries) {
+    if (navigator.canShare && !navigator.canShare(t)) continue;
+    try { await navigator.share(t); toast('If the text doesn’t show up in WhatsApp, paste it: it was copied.'); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  // sem partilha de imagens: partilha só o texto (vai direto para o WhatsApp) e descarrega a imagem
   const a = document.createElement('a'); a.href = D.url; a.download = D.file.name; document.body.appendChild(a); a.click(); a.remove();
-  try { await navigator.clipboard.writeText(D.text); } catch (e) {}
+  if (navigator.share) { try { await navigator.share({ text: D.text }); toast('Text shared; the image was downloaded.'); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
   toast('Image downloaded and text copied: paste it into WhatsApp.');
 }
 function jornadaNav(date, sub) {
