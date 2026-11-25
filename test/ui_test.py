@@ -1656,7 +1656,7 @@ with sync_playwright() as pw:
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)
     if pg.locator('#sheet').is_visible(): pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
-    # (sem o separador «Lendas»: o desconto vê-se na equipa sugerida de cada conta)
+    # o desconto vê-se na equipa sugerida de cada conta (e no separador «Lendas», mais abaixo)
     dxl = lambda: pg.locator('#tab-hoje .h-hero li').filter(has_text='Drexler')
     dx0 = dxl().first.locator('.ps').first.inner_text() if dxl().count() else ''; tm0 = pg.locator('#tab-hoje .h-hero .nm').all_inner_texts()
     pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(600)
@@ -1664,6 +1664,7 @@ with sync_playwright() as pw:
     print('O3 desconto por conta:', dx0, '|', dx1, '|', tm1, '· ok' if (not dx0 or ('87 RP' in dx0 and '−' not in dx0)) and '70 RP −20%' in dx1 else '· ERRO')
     # entre as minhas contas, as equipas mudam pelo menos 3 lendas (25 nov)
     print('O3 as minhas contas mudam ≥3 lendas:', len(set(tm1) - set(tm0)), '· ok' if len(tm0) == 5 and len(tm1) == 5 and len(set(tm1) - set(tm0)) >= 3 else '· ERRO')
+    pg.click('#tab-hoje button[data-action="h-acc"] >> nth=0'); pg.wait_for_timeout(600)  # volta à principal
     pg.click('#tab-hoje .h-tabs button[data-v="lendas"]'); pg.wait_for_timeout(500)
     dx0 = pg.locator('#hList li[data-n^="clyde drexler"] .ps').first.inner_text()
     pg.click('#tab-hoje button[data-action="h-acc"] >> nth=1'); pg.wait_for_timeout(600)
