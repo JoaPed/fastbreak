@@ -448,7 +448,7 @@ const HELP = {
   especialistas: ['Especialistas', 'Os melhores da NBA em cada estatística (época atual misturada com a passada). As estatísticas estão pela ordem de quantas vezes saem nos dias de Fast Break; ● = sai no resto desta run. <b>Especialista</b>: no topo desta estatística mas fora dos 75 melhores marcadores. <b>Regular/irregular</b>: quanto varia de jogo para jogo.'],
   forma: ['Forma da run', 'Escolhe um dos próximos dias. Quentes: os teus que jogam nesse dia com a média dos últimos 5 jogos acima da época (≥ 8%) nas estatísticas do objetivo. Frios: os do plano desse dia abaixo da época. Minutos: quem joga mais ou menos 3 minutos do que a média da época. Pode jogar menos: jogos em que o favorito ganha em 85% ou mais (odds da ESPN, só perto do jogo) — se ficar decidido cedo, as estrelas descansam ou são poupadas. As barras são os últimos jogos (o mais recente à direita); a linha é a média da época.'],
   hbuy: ['Comprar cartas de lendas', 'Pelos dias jogados (os desta run com a tua pontuação, da conta principal, e os de runs anteriores com o que a equipa sugerida fez): para cada lenda, quantos pontos a mais faria a melhor equipa do dia com o desconto da carta (Common −5%, Rare −10%, Legendary −15%, Ultimate −20%), em quantos dias isso te punha no top 40 e o prémio a mais. Mostra, de cada lenda, a carta que mais rende por dólar até ao preço máximo, e só as 8 melhores. É uma estimativa: usa as médias das lendas, não o que vais escolher.'],
-  historic: ['Historic', 'Jogos simulados entre lendas (médias de carreira, 36 minutos). Escolhes 5 dentro de 350 Roster Points; ganha quem soma mais Fast Break Points (PTS 1, REB 1, AST 2, STL 3, BLK 3, perda −1, triplo +0,5, duplo-duplo +5, triplo-duplo +10). Os pontos esperados de cada lenda vêm dos jogos simulados até agora (de todas as runs), puxados para o que o custo prevê, e do adversário. A sugestão é a equipa com mais pontos esperados que cabe no teu orçamento. Cada conta do grupo joga uma equipa diferente (troca pelo menos 2 lendas) e a ordem roda todos os dias: assim, quando a sorte calha, calha a alguém do grupo. A hipótese de prémio compara a equipa com os pontos que deram prémio em dias parecidos (3000 simulações do dia). Tocar numa lenda da equipa abre a ficha: dá para a tirar do dia ou marcar a tua carta (o desconto baixa o custo).'],
+  historic: ['Historic', 'Jogos simulados entre lendas (médias de carreira, 36 minutos). Escolhes 5 dentro de 350 Roster Points; ganha quem soma mais Fast Break Points (PTS 1, REB 1, AST 2, STL 3, BLK 3, perda −1, triplo +0,5, duplo-duplo +5, triplo-duplo +10). Os pontos esperados de cada lenda vêm dos jogos simulados até agora (de todas as runs), puxados para o que o custo prevê, e do adversário. A sugestão é a equipa com mais pontos esperados que cabe no teu orçamento. Cada conta do grupo joga uma equipa diferente (troca pelo menos 2 lendas) e a ordem roda todos os dias: assim, quando a sorte calha, calha a alguém do grupo. A hipótese de prémio compara a equipa com os pontos que deram prémio em dias parecidos (3000 simulações do dia). + fixa uma lenda, × tira-a do dia, tocar no nome guarda a tua carta (o desconto baixa o custo).'],
   prio: ['Prioridade entre contas', 'O plano junta as tuas contas e procura o máximo de prémio somando as duas. Como os prémios vão para quem chega mais longe, compensa juntar os melhores Moments numa conta, e sem prioridade pode calhar a qualquer uma. Com prioridade, cada vitória esperada da conta escolhida vale 20% mais e os melhores Moments vão primeiro para ela; a outra joga com o resto. <b>Automática</b> = a mais bem classificada na Geral (dos lugares lidos no Top Shot). <b>Iguais</b> = sem prioridade.'],
   lesoes: ['Lesões', 'Relatório da ESPN. No plano: fora → não joga; pouco provável → 25%; dúvida ou dia a dia → 50%; provável → 90% (no próximo jogo dele, e menos nos seguintes). Na ficha do jogador podes ignorar o relatório. No resto da NBA, por equipa, aparecem os importantes (20+ minutos ou 12+ pontos); procura um nome ou equipa para ver todos. Toca num jogador para ver a nota completa da ESPN.'],
   classif: ['Classificação', 'Vitórias e derrotas de cada conta, smurfs incluídas: mal os jogos acabam, os dias fecham com as estatísticas dos jogos e o lineup que cada um partilhou. Os aros são a probabilidade de cada um chegar aos prémios. O admin convida amigos em Ajustes → Admin.'],
@@ -2825,7 +2825,8 @@ function histBuySheet() {
 // as contas guardam-se por leitura do Historic (não se refazem a cada desenho da página)
 function histBuyHtml(H) {
   const nArch = S.histArch && S.histArch.runs ? S.histArch.runs.reduce((t, r) => t + (r.days || []).length, 0) : 0;
-  const key = H.at + '|' + (H.pxAt || '') + '|' + JSON.stringify(S.hdisc || {}) + '|' + [...S.cardMin].join() + '|' + nArch + '|' + (S.hmax || 0);
+  // (com as cartas da carteira: depois de ler o Top Shot, as que já tens deixam de ser sugeridas)
+  const key = H.at + '|' + (H.pxAt || '') + '|' + JSON.stringify(S.hdisc || {}) + '|' + JSON.stringify(hWalletDisc('main')) + '|' + [...S.cardMin].join() + '|' + nArch + '|' + (S.hmax || 0);
   if (S.hbuyMemo && S.hbuyMemo.k === key) return S.hbuyMemo.h;
   const h = (() => {
     const X = histBuyCalc(H), px = H.px || {}, by = new Map();
@@ -2844,7 +2845,9 @@ function histBuyHtml(H) {
       const sc = o => (o.a.prize * 100 + o.a.top * 50 + o.a.g / Math.max(1, o.a.n)) / o.pr;
       const o = opts.sort((p, q) => sc(q) - sc(p))[0]; return { id, o, sc: sc(o) };
     }).filter(Boolean).sort((p, q) => (q.o.a.prize - p.o.a.prize) || (q.sc - p.sc)).slice(0, 8);
-    const chips = '<div class="chips h-buy-max" role="group" aria-label="Preço máximo">' + [[0, 'Qualquer preço'], [25, 'Até $25'], [50, 'Até $50'], [100, 'Até $100'], [250, 'Até $250']].map(([v, t]) => '<button type="button" data-action="h-max" data-v="' + v + '" aria-pressed="' + (maxP === v) + '">' + t + '</button>').join('') + '</div>';
+    const chips = '<div class="chips h-buy-max" role="group" aria-label="Preço máximo">' + [[0, 'Qualquer preço'], [25, 'Até $25'], [50, 'Até $50'], [100, 'Até $100'], [250, 'Até $250']].map(([v, t]) => '<button type="button" data-action="h-max" data-v="' + v + '" aria-pressed="' + (maxP === v) + '">' + t + '</button>').join('') + '</div>' +
+      // ou um valor teu (Enter / OK para aplicar)
+      '<label class="h-max-in small muted">Até $ <input class="field" id="hMaxIn" type="number" inputmode="decimal" min="0" step="1" placeholder="ex.: 15" autocomplete="off" value="' + (maxP && ![25, 50, 100, 250].includes(maxP) ? maxP : '') + '"></label>';
     const row = x => { const a = x.o.a, [tn, pc] = H_TIER_DISC[a.k];
       return '<li class="row hb-opt"><span class="hb-who"><b>' + esc(X.names.get(x.id) || nameOfLegend(H, x.id)) + '</b><span class="pill">' + tn + ' · −' + pc + '%</span>' + (X.dsc[x.id] ? '<small class="muted"> já tens −' + X.dsc[x.id] + '%</small>' : '') + '</span><span class="hb-t">+' + f1(a.g / a.n) + ' pts em ' + plural(a.n, 'dia', 'dias') + (a.top ? ' · <b class="c-good">top 40 em ' + plural(a.top, 'dia', 'dias') + '</b>' : '') + (a.prize ? ' · <b class="c-good">+' + money(a.prize) + '</b>' : '') + '</span><span class="hb-p num">' + usdC(x.o.pr) + '</span></li>'; };
     return '<div class="small muted h-buy-intro">As cartas de lendas que mais te davam nos ' + plural(X.nDays, 'dia jogado', 'dias jogados') + ' (o desconto da carta baixa o custo e cabe uma lenda melhor). ' + helpBtn('hbuy') + '</div>' + why + chips +
@@ -2862,7 +2865,9 @@ function cardMin(html, key, fechada) {
 }
 const nameOfLegend = (H, id) => { for (const d of H.days) { const l = (d.lines || []).find(z => String(z[0]) === String(id)) || (d.players || []).find(z => String(z[0]) === String(id)); if (l) return l[1]; } return String(id); };
 function renderHistoric(el) {
-  if (typingField('tab-hoje')) return; // a escrever na procura das lendas: não redesenha
+  // a escrever na procura das lendas: não redesenha (menos ao trocar de separador: no iPhone um campo ficava
+  // com o foco e o toque em «Lendas» não fazia nada)
+  if (!S.hForce && typingField('tab-hoje')) return; S.hForce = false;
   if (!S.histArch) loadHistArch();
   const H = groupHist(), now = Date.now();
   const open = H ? H.days.filter(d => d.players && d.players.length && Date.parse(d.locks) > now) : [];
@@ -2910,14 +2915,30 @@ function renderHistoric(el) {
   const one = accounts().length === 1;
   const taken = C.mine.concat(C.spread || []), alts = C.ev.filter(r => !taken.some(p => p.ids.slice().sort().join() === r.ids.slice().sort().join()) && (!C.fits || C.fits(r, ai)) && (!one || r.mean <= best.mean + 1e-9)).slice(0, 3).map(r => Object.assign({}, r, { cost: C.costIn ? C.costIn(r.ids, ai) : r.cost })).map(r => '<li class="row h-alt"><div style="min-width:0"><div class="pn"><b class="num">' + f0(r.mean) + ' pts</b><span class="small muted"> · top 40 ' + pct(r.p40) + ' · top 10 ' + pct(r.p10) + ' · ' + f0(r.cost) + ' RP</span></div><div class="ps">' + r.ids.map(id => esc(byId.get(id).name)).join(', ') + '</div></div></li>').join('');
   const H0 = groupHist(), src = '<div class="small muted h-src">Dados do Top Shot de ' + esc(ago(H0.at)) + ' · aprende com ' + plural(M.dayIds.length, 'dia jogado', 'dias jogados') + (nRuns > 1 ? ' de ' + nRuns + ' runs' : '') + '. ' + esc(cutTxt) + (S.role === 'admin' ? ' · <button class="btn link small" type="button" data-action="ranks-go" data-do="hist">ler outra vez</button>' : '') + '</div>';
-  // (sem o separador «Lendas»: no iPhone não abria e o João pediu para tirar)
-  const tab = S.htab === 'comprar' ? 'comprar' : 'equipa';
-  const seg = '<div class="seg h-tabs" role="tablist" aria-label="Historic">' + [['equipa', 'Equipa'], ['comprar', 'Comprar']].map(([k, t]) => '<button type="button" role="tab" data-action="h-tab" data-v="' + k + '" aria-selected="' + (k === tab) + '" aria-pressed="' + (k === tab) + '">' + t + '</button>').join('') + '</div>';
-  const body = tab === 'comprar' ? histBuyHtml(H)
+  const tab = ['equipa', 'lendas', 'comprar'].includes(S.htab) ? S.htab : 'equipa';
+  const seg = '<div class="seg h-tabs" role="tablist" aria-label="Historic">' + [['equipa', 'Equipa'], ['lendas', 'Lendas'], ['comprar', 'Comprar']].map(([k, t]) => '<button type="button" role="tab" data-action="h-tab" data-v="' + k + '" aria-selected="' + (k === tab) + '" aria-pressed="' + (k === tab) + '">' + t + '</button>').join('') + '</div>';
+  const body = tab === 'lendas' ? cardMin(histLegendsCard(C, day), 'h-lendas')
+    : tab === 'comprar' ? histBuyHtml(H)
     : alts ? cardMin('<div class="card"><div class="list-head"><h2>Outras equipas</h2><span class="small muted">' + (one ? 'com menos pontos esperados' : 'pela mesma conta') + '</span></div><ul class="list">' + alts + '</ul></div>', 'h-outras')
     : '<div class="note info">Não há outra equipa que valha a pena mostrar: a sugerida é a que tem mais pontos esperados.</div>';
   el.innerHTML = head + strip + accBar + hero + seg + body + src;
   hFilter();
+}
+// todas as lendas do dia: pontos esperados, custo, quem escolhe; + fixa, × tira, tocar no nome = a tua carta (desconto)
+function histLegendsCard(C, day) {
+  if (!C) return '';
+  const ai = C.mine && C.mine.length ? Math.min(S.hacc || 0, C.mine.length - 1) : 0, team = C.mine && C.mine.length ? C.mine[ai] : C.ev[0];
+  const sel = C.sel, inBest = new Set(team ? team.ids : []), M = (C.Ms && C.Ms[ai]) || C.M;
+  const rows = M.rows.map(x => { const ban = sel.ban.includes(x.id), fx = sel.fix.includes(x.id);
+    return '<li class="lu-row' + (ban ? ' h-ban' : '') + '" data-n="' + esc(norm(x.name) + ' ' + hTeam(x.team).toLowerCase()) + '"><button class="lu-main" type="button" data-action="h-card" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '">' + hFace(x, 'sm') + '<span class="lu-t"><span class="pn">' + (fx ? icoLock : '') + '<span class="nm">' + esc(x.name) + '</span>' + hRipTag(x) + '</span>' +
+      '<span class="ps">' + (inBest.has(x.id) ? '<b class="c-good">na equipa</b> · ' : '') + esc(hTeam(x.team)) + ' · ' + f0(x.cost) + ' RP' + (x.cost < x.rp - 1e-9 ? ' <span class="h-disc">−' + Math.round((1 - x.cost / x.rp) * 100) + '%</span>' : '') + (x.n ? ' · média ' + f0(x.avg) : '') + (x.own != null ? ' · ' + pct(x.own / 100) : '') + '</span></span></button>' +
+      '<div class="pv"><div class="v num">' + f0(x.exp) + '</div><div class="u">pts</div></div>' +
+      (ban ? '<button class="btn small" type="button" data-action="h-ban" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '">Repor</button>'
+        : '<button class="lu-ic add" type="button" data-action="h-fix" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '" aria-pressed="' + fx + '" aria-label="Fixar ' + esc(x.name) + '" title="Fixar na equipa">' + (fx ? icoLockBtn : icoPlus) + '</button>' +
+          '<button class="lu-ic" type="button" data-action="h-ban" data-id="' + esc(x.id) + '" data-day="' + esc(day.id) + '" aria-label="Tirar ' + esc(x.name) + ' deste dia" title="Tirar deste dia">' + icoX + '</button>') + '</li>'; }).join('');
+  return '<div class="card"><div class="list-head"><h2>Lendas do dia ' + histDayNo(day.id) + ' ' + helpBtn('historic') + '</h2><span class="small muted">' + plural(M.rows.length, 'lenda', 'lendas') + '</span></div>' +
+    '<div class="lu-search"><input class="field" id="hSearch" type="search" placeholder="Procurar lenda ou equipa…" autocomplete="off" aria-label="Procurar lenda ou equipa" value="' + esc(S.hq || '') + '"></div>' +
+    '<ul class="list" id="hList">' + rows + '<li class="row small muted lu-none" hidden>Nenhuma lenda com esse nome ou equipa.</li></ul></div>';
 }
 function hFilter() {
   const ul = $('hList'); if (!ul) return;
@@ -7598,7 +7619,7 @@ document.addEventListener('click', async e => {
     case 'pro-lu': proLuSheet(date); break;
     case 'h-buy': histBuySheet(); break;
     case 'h-max': S.hmax = +b.dataset.v || 0; try { localStorage.setItem('fb-hmax', String(S.hmax)); } catch (e) {} renderHoje(); break;
-    case 'h-tab': S.htab = b.dataset.v; try { localStorage.setItem('fb-htab', S.htab); } catch (e) {} renderHoje(); break;
+    case 'h-tab': S.htab = b.dataset.v; try { localStorage.setItem('fb-htab', S.htab); } catch (e) {} S.hForce = true; S.typingSkip = false; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); renderHoje(); break;
     case 'card-min': { const k = (b.dataset.d ? '!' : '') + b.dataset.k; S.cardMin.has(k) ? S.cardMin.delete(k) : S.cardMin.add(k); try { localStorage.setItem('fb-cmin', JSON.stringify([...S.cardMin])); } catch (e) {} const c = b.closest('.card'); if (c) { const on = b.dataset.d ? !S.cardMin.has(k) : S.cardMin.has(k); c.classList.toggle('min', on); b.setAttribute('aria-expanded', !on); b.setAttribute('aria-label', on ? 'Mostrar' : 'Minimizar'); b.title = on ? 'Mostrar' : 'Minimizar'; } break; }
     case 'pro-opts': S.proLuOpen = null; proOptsSheet(date); break;
     case 'pro-opt': S.proOptK = b.dataset.k; proOptsSheet(date); break;
@@ -7865,6 +7886,7 @@ document.addEventListener('change', async e => {
   const t = e.target, a = t.dataset.action;
   if (t.dataset && t.dataset.moTier) { await momentTierChange(t.dataset.moTier, t.value); return; }
   if (t.id === 'jmode') { S.jmode = t.value; try { localStorage.setItem('fb-jmode', t.value); } catch (e2) {} t.blur(); S.hdCenter = true; renderHeader(); renderHoje(); return; }
+  if (t.id === 'hMaxIn') { S.hmax = Math.max(0, +t.value || 0); try { localStorage.setItem('fb-hmax', String(S.hmax)); } catch (e2) {} t.blur(); S.hForce = true; renderHoje(); return; }
   if (t.id === 'gcRunSel') { S.gcRun = t.value; renderGrupo(); return; }
   if (t.dataset && t.dataset.sellf) { const F = sellF(); F[t.dataset.sellf] = !!t.checked; try { localStorage.setItem('fb-sellf', JSON.stringify(F)); } catch (e) {} render(); sellFilter(); return; }
   if (t.id === 'runPick') { S.loading = true; render(); await loadRun(t.value); S.loading = false; t.blur(); compute(); render(); renderAjustes(); return; }
