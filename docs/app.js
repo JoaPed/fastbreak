@@ -2137,27 +2137,24 @@ async function shareLineup(date) {
   // a partilha precisa de um toque "fresco" (o iPhone recusa depois de esperar pelas fotos): mostra a imagem e o botão
   const file = new File([blob], 'lineup-dia-' + (day.idx + 1) + '.png', { type: 'image/png' }), url = URL.createObjectURL(blob);
   S.shareDoc = { file, text, url };
-  openSheet('<h3>Partilhar o lineup</h3><div class="small muted" style="white-space:pre-line">' + esc(text) + '</div><img class="share-img" src="' + url + '" alt="Lineup do dia ' + (day.idx + 1) + '">' +
+  openSheet('<h3>Partilhar o lineup</h3><img class="share-img" src="' + url + '" alt="Lineup do dia ' + (day.idx + 1) + '">' +
     '<button class="btn primary" type="button" data-action="share-go">' + icoShare + ' Partilhar</button>');
 }
 async function shareGo() {
   const D = S.shareDoc; if (!D) return;
-  const copy = () => { try { navigator.clipboard.writeText(D.text).catch(() => {}); } catch (e) {} };
-  // telemóvel: só a partilha, sem descarregar. O texto só é copiado depois: no Android copiar abre o aviso da
-  // área de transferência por cima, a página perde o foco e a partilha da imagem falhava (caía no descarregar)
+  // telemóvel: partilha só a imagem (sem texto nem cópia: no Android copiar o texto abria o aviso por cima e a
+  // partilha da imagem falhava, caindo no descarregar). Nunca descarrega no telemóvel.
   if (navigator.share) {
-    const t = D.retry ? { files: [D.file] } : { files: [D.file], text: D.text };
+    const t = { files: [D.file] };
     if (!navigator.canShare || navigator.canShare(t)) {
-      try { await navigator.share(t); D.retry = false; copy(); toast('Se o texto não aparecer no WhatsApp, cola-o: ficou copiado.'); return; }
-      catch (e) { if (e && e.name === 'AbortError') return; D.retry = true; toast('Não deu para partilhar a imagem (' + ((e && e.name) || 'erro') + '). Toca outra vez em Partilhar.'); return; }
+      try { await navigator.share(t); } catch (e) { if (e && e.name !== 'AbortError') toast('Não deu para partilhar a imagem (' + (e.name || 'erro') + '). Toca outra vez em Partilhar.'); }
+      return;
     }
-    // este browser não partilha imagens: vai o texto; a imagem guarda-se a carregar nela sem largar
-    try { await navigator.share({ text: D.text }); toast('Este browser não partilha imagens: carrega na imagem sem largar para a guardar.'); } catch (e) {}
-    return;
+    toast('Este browser não partilha imagens: carrega na imagem sem largar para a guardar.'); return;
   }
-  // computador (sem partilha): descarrega a imagem e copia o texto
+  // computador (sem partilha): descarrega a imagem
   const a = document.createElement('a'); a.href = D.url; a.download = D.file.name; document.body.appendChild(a); a.click(); a.remove();
-  copy(); toast('Imagem descarregada e texto copiado: cola no WhatsApp.');
+  toast('Imagem descarregada: cola-a no WhatsApp.');
 }
 function jornadaNav(date, sub) {
   const accs = groupMode() ? accounts().map(a => {

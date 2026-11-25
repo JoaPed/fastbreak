@@ -202,20 +202,19 @@ with sync_playwright() as pw:
         b64_ = pg.evaluate('''async (u) => { if (!u) return ''; const b = await (await fetch(u)).blob(); return await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(b); }); }''', src_)
         if b64_: (shots / 'partilha-lineup.png').write_bytes(base64.b64decode(b64_))
         wh_ = pg.evaluate('() => { const i = document.querySelector(".share-img"); return i ? [i.naturalWidth, i.naturalHeight] : null; }')
-        tx_ = pg.locator('.sheet .small.muted').first.inner_text() if pg.locator('.sheet .small.muted').count() else ''
-        print('B texto da partilha:', tx_.replace(chr(10), ' / '), '· ok' if 'Previsto' in tx_ and 'de vitória' in tx_ and 'Suplente:' in tx_ and 'previsto pelo plano' not in tx_ else '· ERRO')
+        # só a imagem: a folha já não mostra o texto
+        tx_ = pg.locator('#sheetPanel').inner_text()
+        print('B partilha sem texto:', '· ok' if 'Previsto' not in tx_ and 'de vitória' not in tx_ else '· ERRO')
         print('B imagem para partilhar:', wh_, '· ok' if wh_ and wh_[0] == 1080 and wh_[1] > 1100 else '· ERRO')
         # Android: a partilha é chamada logo no toque (a cópia do texto não fica à espera) e, se recusar imagem+texto,
         # tenta só a imagem antes de descarregar
-        # Android: a partilha vem antes de copiar o texto (o aviso de «copiado» tirava o foco) e nunca descarrega;
-        # se recusar, o toque seguinte tenta só a imagem
+        # Android: só a imagem (sem texto nem cópia, que fazia falhar a partilha) e nunca descarrega
         pg.evaluate('''() => { window._sh = []; window._dl = 0; navigator.clipboard.writeText = () => { window._sh.push('copiar'); return Promise.resolve(); };
           HTMLAnchorElement.prototype.click = function () { if (this.download) window._dl++; };
-          navigator.canShare = () => true; navigator.share = d => { window._sh.push(Object.keys(d).sort().join('+')); return window._sh.length === 1 ? Promise.reject(Object.assign(new Error('x'), { name: 'NotAllowedError' })) : Promise.resolve(); }; }''')
-        pg.click('#sheetPanel button[data-action="share-go"]'); pg.wait_for_timeout(600)
+          navigator.canShare = () => true; navigator.share = d => { window._sh.push(Object.keys(d).sort().join('+')); return Promise.reject(Object.assign(new Error('x'), { name: 'NotAllowedError' })); }; }''')
         pg.click('#sheetPanel button[data-action="share-go"]'); pg.wait_for_timeout(600)
         sh_ = pg.evaluate('() => [window._sh, window._dl]')
-        print('B partilha no Android:', sh_, '· ok' if sh_ == [['files+text', 'files', 'copiar'], 0] else '· ERRO')
+        print('B partilha no Android:', sh_, '· ok' if sh_ == [['files'], 0] else '· ERRO')
         pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     pg.screenshot(path=str(shots / 'hoje.png'))
     # ajuda ao toque: o (?) do lineup abre a explicação numa folha

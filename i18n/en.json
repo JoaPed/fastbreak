@@ -3499,5 +3499,7 @@
  "Não deu para partilhar a imagem (": "Couldn't share the image (",
  "erro": "error",
  "). Toca outra vez em Partilhar.": "). Tap Share again.",
- "Este browser não partilha imagens: carrega na imagem sem largar para a guardar.": "This browser can't share images: press and hold the image to save it."
+ "Este browser não partilha imagens: carrega na imagem sem largar para a guardar.": "This browser can't share images: press and hold the image to save it.",
+ "Imagem descarregada: cola-a no WhatsApp.": "Image downloaded: paste it into WhatsApp.",
+ "<h3>Partilhar o lineup</h3><img class=\"share-img\" src=\"": "<h3>Share the lineup</h3><img class=\"share-img\" src=\""
 }
