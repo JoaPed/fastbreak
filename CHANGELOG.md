@@ -5,7 +5,6 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 
 ## 2026-11-25
 - **João** — Historic: as equipas das tuas contas passam a mudar pelo menos 3 lendas entre si (eram 2); as do resto do grupo continuam com 2.
-- **João** — Lineup: com suplente, os titulares em dúvida já não dizem «se não jogar: suplente …».
 - **João** — Historic → Comprar: as cartas que já tens (lidas da carteira) deixam logo de ser sugeridas; há uma caixa «Até $» para escreveres o preço máximo; e as sugestões são por conta (a dos botões das contas), com «Main tem Common» quando outra conta já tem essa lenda.
 - **João** — Historic: volta o separador «Lendas» (todas as lendas do dia, com o desconto das tuas cartas, «−X%», lidas da carteira). Tocar nele já não fica parado no iPhone.
 - **João** — Lineup: com suplente, os titulares em dúvida já não dizem «se não jogar: suplente …».
