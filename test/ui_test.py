@@ -767,7 +767,7 @@ with sync_playwright() as pw:
     print('E dia a dia no lineup:', rk.inner_text().replace('\n', ' ')[:160] if rk.count() else 'ERRO sem ⚠', '· ok' if rk.count() and 'se não jogar' in rk.inner_text() else '· ERRO')
     # suplente: por baixo dos 5; entra pelo SGA (dia a dia); escolher outro na folha
     bz = lineup_card(pg).locator('.bench-row')
-    print('E suplente:', bz.inner_text().replace('\n', ' ')[:160] if bz.count() else 'ERRO sem suplente', '· ok' if bz.count() and 'Gilgeous' not in bz.locator('.bnm').inner_text() and lineup_card(pg).locator('.bench-sep').count() == 1 and 'entra se um titular' in bz.inner_text() and 'entra por' not in bz.inner_text() and 'suplente ' + bz.locator('.bnm').inner_text().split()[-1] in rk.inner_text() else '· ERRO')
+    print('E suplente:', bz.inner_text().replace('\n', ' ')[:160] if bz.count() else 'ERRO sem suplente', '· ok' if bz.count() and 'Gilgeous' not in bz.locator('.bnm').inner_text() and lineup_card(pg).locator('.bench-sep').count() == 1 and 'entra' not in bz.inner_text() and 'suplente ' + bz.locator('.bnm').inner_text().split()[-1] in rk.inner_text() else '· ERRO')
     lineup_card(pg).screenshot(path=str(shots / 'suplente-claro.png'))
     pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(200); lineup_card(pg).screenshot(path=str(shots / 'suplente-escuro.png')); pg.emulate_media(color_scheme='light')
     if bz.count():
