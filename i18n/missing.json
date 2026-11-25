@@ -1,7 +1,1 @@
-[
- {
-  "file": "docs/app.js",
-  "text": "Texto partilhado; a imagem ficou descarregada.",
-  "line": "if (navigator.share) { try { await navigator.share({ text: D.text }); toast('Texto partilhado; a imagem ficou descarregada.'); return; } catch (e) { if (e && e."
- }
-]
+[]

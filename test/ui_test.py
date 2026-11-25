@@ -767,7 +767,7 @@ with sync_playwright() as pw:
     print('E dia a dia no lineup:', rk.inner_text().replace('\n', ' ')[:160] if rk.count() else 'ERRO sem ⚠', '· ok' if rk.count() and 'se não jogar' in rk.inner_text() else '· ERRO')
     # suplente: por baixo dos 5; entra pelo SGA (dia a dia); escolher outro na folha
     bz = lineup_card(pg).locator('.bench-row')
-    print('E suplente:', bz.inner_text().replace('\n', ' ')[:160] if bz.count() else 'ERRO sem suplente', '· ok' if bz.count() and 'Gilgeous' not in bz.locator('.bnm').inner_text() and lineup_card(pg).locator('.bench-sep').count() == 1 and 'entra por' in bz.inner_text() and 'suplente ' + bz.locator('.bnm').inner_text().split()[-1] in rk.inner_text() else '· ERRO')
+    print('E suplente:', bz.inner_text().replace('\n', ' ')[:160] if bz.count() else 'ERRO sem suplente', '· ok' if bz.count() and 'Gilgeous' not in bz.locator('.bnm').inner_text() and lineup_card(pg).locator('.bench-sep').count() == 1 and 'entra se um titular' in bz.inner_text() and 'entra por' not in bz.inner_text() and 'suplente ' + bz.locator('.bnm').inner_text().split()[-1] in rk.inner_text() else '· ERRO')
     lineup_card(pg).screenshot(path=str(shots / 'suplente-claro.png'))
     pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(200); lineup_card(pg).screenshot(path=str(shots / 'suplente-escuro.png')); pg.emulate_media(color_scheme='light')
     if bz.count():
@@ -804,6 +804,24 @@ with sync_playwright() as pw:
     pg.screenshot(path=str(shots / 'jornada-dia4.png'), full_page=True)
     pg.click('#t-hoje'); pg.wait_for_timeout(300)
     print('E tocar em Jornada volta ao próximo dia:', pg.locator('.hero .eyebrow').inner_text(), '·', pg.locator('#tab-hoje .ds[aria-pressed="true"]').inner_text().replace('\n', ' '))
+    # suplente do último dia com suplente: ninguém que os lineups dos dias antes já gastam todo (aqui todos têm 2 usos)
+    nds_ = pg.locator('#tab-hoje .day-strip .ds').count(); per_ = []; bo_ = []
+    for i_ in range(nds_):
+        pg.locator('#tab-hoje .day-strip .ds').nth(i_).click(); pg.wait_for_timeout(250)
+        per_.append((lineup_card(pg).locator('.row .nm').all_inner_texts(), lineup_card(pg).locator('.bench-row button').count() > 0))
+    last_ = max([i_ for i_, x in enumerate(per_) if x[1]] or [0])
+    cnt_ = {}
+    for ns_, _ in per_[:last_]:
+        for n_ in ns_: cnt_[n_] = cnt_.get(n_, 0) + 1
+    pg.locator('#tab-hoje .day-strip .ds').nth(last_).click(); pg.wait_for_timeout(250)
+    if lineup_card(pg).locator('.bench-row button').count():
+        lineup_card(pg).locator('.bench-row button').first.click(); pg.wait_for_timeout(500)
+        if pg.locator('#benchAllBtn').count(): pg.click('#benchAllBtn'); pg.wait_for_timeout(200)
+        bo_ = pg.locator('#benchList .bench-opt .nm').all_inner_texts()
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    gone_ = [n_ for n_ in bo_ if cnt_.get(n_, 0) >= 2]
+    print('E suplente do dia', last_ + 1, 'com usos:', len(bo_), 'opções · sem usos:', gone_, '· ok' if last_ > 3 and bo_ and not gone_ else '· ERRO')
+    pg.click('#t-hoje'); pg.wait_for_timeout(300)
     for _ in range(60):
         if pg.locator('#tab-hoje .card').filter(has_text='Melhores compras').count(): break
         pg.wait_for_timeout(500)

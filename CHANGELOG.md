@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-25
+- **João** — Suplente: deixa de dizer por quem entra (entra por qualquer titular que não jogue). E só sugere quem ainda tem usos nesse dia, contando os lineups do plano nos dias antes (no último dia sugeria quem até lá já os gastava).
 - **João** — Comprar → avaliar um jogador (com «Qualquer» escalão): testa cada escalão que serve (mais um igual, All-Star 3 usos, Legendary 4 usos) e mostra-os do melhor para o pior, em vez de só o Rare.
 - **João** — Partilhar no Android: abre o menu de partilha (WhatsApp) com a imagem e o texto em vez de pedir para descarregar a imagem.
 

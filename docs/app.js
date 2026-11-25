@@ -1670,6 +1670,7 @@ function lineupP(md, ids) {
 const BENCH_SCRATCH = 0.03; // quem não está em dúvida também pode ficar de fora à última hora
 function benchOut(md, id) { const pi = S.result.model.pIndex.get(id), inf = pi != null && md.info[pi] && md.info[pi][0]; return riskOf(md, id) ? 1 - pPlayOf(inf) : BENCH_SCRATCH; }
 // dias seguintes em que o plano já o põe (o uso que gastar hoje pode faltar lá)
+function benchBefore(pid, date) { const v = view(); return v ? v.days.filter(x => x.date < date && x.lineup.includes(pid)) : []; }
 function benchLater(pid, date) { const v = view(); return v ? v.days.filter(x => x.date > date && x.lineup.includes(pid)) : []; }
 // todos os suplentes possíveis, do melhor para o pior: primeiro os que não tiram usos ao resto da run
 function benchOptions(md, nd, lineup) {
@@ -1687,8 +1688,11 @@ function benchOptions(md, nd, lineup) {
     const tb = tierBlocked(pid, S.acc, nd.date), fb = benchFrom(pid, nd.date); if (tb && !tb.others.length) return;
     const blk = tb && tb.others.length ? tb.others : fb && fb.busy ? fb.busy : null; // (uma só mensagem para os dois casos)
     const com = sem + lineup.reduce((t, id, i) => t + outs[i] * (lineupP(scen[i], lineup.filter(x => x !== id).concat([pid])) - without[i]), 0);
-    const later = benchLater(pid, nd.date), free = !isFinite(left) || left > later.length;
-    list.push({ id: pid, com, sem, free, later, spare: isFinite(left) ? left - later.length : null, blk }); });
+    // os usos que lhe sobram nesse dia: menos os dias antes em que o plano já o põe a jogar (a 25 nov sugeria para o
+    // último dia quem os lineups até lá já gastavam todo); se não sobra nenhum, não serve de suplente
+    const avail = isFinite(left) ? left - benchBefore(pid, nd.date).length : left; if (!(avail > 0)) return;
+    const later = benchLater(pid, nd.date), free = !isFinite(avail) || avail > later.length;
+    list.push({ id: pid, com, sem, free, later, spare: isFinite(avail) ? avail - later.length : null, blk }); });
   list.sort((a, b) => (!!a.blk - !!b.blk) || (b.free - a.free) || (b.com - a.com));
   S.benchMemo.m[key] = list; return list;
 }
@@ -1787,7 +1791,7 @@ function benchRow(md, nd, lineup) {
   const B = benchOf(md, nd, lineup), r = S.result; if (!B) return '';
   const p = r.model.players[r.model.pIndex.get(B.id)], who = benchFor(md, lineup);
   // separador «BANCO» tracejado (como na imagem de partilha) e o suplente por baixo
-  return '<li class="bench-sep" aria-hidden="true">Banco</li><li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="vh">Suplente: </span><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">' + benchPill(B.id, nd.date) + (who ? 'entra por ' + esc(lastName(who.id)) : 'entra se alguém faltar') + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
+  return '<li class="bench-sep" aria-hidden="true">Banco</li><li class="bench-row bv-c"><button class="row" type="button" data-action="bench" data-date="' + nd.date + '"><span class="who">' + face(B.id) + '<div style="min-width:0"><div class="pn"><span class="vh">Suplente: </span><span class="bnm">' + esc(p.name) + '</span></div><div class="ps">' + benchPill(B.id, nd.date) + 'entra se um titular não jogar' + '</div></div></span>' + pvHtml(benchVals(md, B.id, who && who.id)) + '</button></li>';
 }
 // procura no suplente: com texto mostra quem tem o nome (ou a equipa); sem texto só os 8 primeiros (ou todos)
 function benchFilter(all) {
@@ -1815,7 +1819,7 @@ function benchSheet(date) {
       pvHtml(benchVals(md, x.id, who && who.id)) + '</button>' +
       // tocar no jogador abre a ficha dele; o «+» é que o põe de suplente (✓ = o escolhido)
       '<button class="bench-add' + (on ? ' on' : '') + '" type="button" data-action="bench-pick" data-id="' + esc(x.id) + '" data-date="' + date + '" aria-pressed="' + !!on + '" aria-label="' + esc((on ? 'Suplente: ' : 'Pôr de suplente: ') + nameOf(x.id)) + '">' + (on ? '✓' : '+') + '</button></li>'; };
-  openSheet('<h2>Suplente</h2><p class="small muted">' + (who ? 'Entra se o <b>' + esc(lastName(who.id)) + '</b> faltar (' + pct(1 - pPlayOf(md.info[r.model.pIndex.get(who.id)][0])) + ')' : 'Entra pelo 1.º titular que não jogar') + ' · só gasta um uso se entrar.</p>' +
+  openSheet('<h2>Suplente</h2><p class="small muted">' + 'Entra pelo 1.º titular que não jogar · só gasta um uso se entrar.</p>' +
     // todos os que podem ir (antes eram só os 8 primeiros): procura e «Ver todos»
     (ord.length > 3 ? '<div class="lu-search"><input class="field" id="benchSearch" type="search" placeholder="Procurar jogador ou equipa…" autocomplete="off" aria-label="Procurar jogador"></div>' : '') +
     '<ul class="list" id="benchList">' + ord.map(row).join('') + '<li class="row small muted bench-none" hidden>Ninguém com esse nome pode ir para suplente neste dia.</li></ul>' +
