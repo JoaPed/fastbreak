@@ -1422,3 +1422,7 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .hb-list .hb-who { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .hb-list .hb-t { grid-column: 1; font-size: 13px; color: var(--muted); }
 .hb-list .hb-p { grid-column: 2; grid-row: 1 / span 2; font-weight: 700; }
+
+/* Historic → Comprar: preço máximo escrito à mão */
+.h-max-in { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.h-max-in .field { width: 110px; }
