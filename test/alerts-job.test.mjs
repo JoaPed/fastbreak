@@ -33,7 +33,7 @@ let db = read();
 ok('relatório guardado e quem saiu do relatório apagado', db.tables.injuries.length === 2 && !db.tables.injuries.some(r => r.id === 'jogador-antigo'), db.tables.injuries.map(r => r.id));
 ok('um aviso para quem tem o telemóvel ligado (só uma mensagem por pessoa)', db.sent.length === 1 && db.sent[0].topic === 'fastbreak-teste123', db.sent);
 const m = db.sent[0] || {};
-ok('aviso: lineup submetido na conta principal e lineup do plano na smurf', /Stephen Curry \(GSW\): Fora · Ankle/.test(m.message) && /submetido no Top Shot/.test(m.message) && /smurfy:/.test(m.message) && /Keshon Gilbert \(ATL\): Dia a dia/.test(m.message) && /plano do site/.test(m.message), m.message);
+ok('aviso: lineup submetido na conta principal e lineup do plano na smurf', /Stephen Curry \(GSW\): Fora · Ankle/.test(m.message) && /submetido no Top Shot/.test(m.message) && /smurfy:/.test(m.message) && /Keshon Gilbert \(ATL\): Dúvida/.test(m.message) && /plano do site/.test(m.message), m.message);
 ok('aviso: prioridade alta e link para o site', m.priority === 4 && m.click === 'https://exemplo.github.io/fastbreak/' && /Fast Break/.test(m.title), m);
 ok('runs de teste (jogos inventados) não dão avisos', !db.sent.some(x => x.topic === 'fastbreak-amigo456'), db.sent);
 ok('o que foi avisado fica guardado', Object.keys((db.tables.job_state.find(r => r.key === 'alerts') || {}).value || {}).length === 2, db.tables.job_state, log1);
@@ -44,7 +44,7 @@ run(Date.parse('2026-10-21T22:00:00Z')); // 23h em Lisboa, uma hora antes do pri
 db = read();
 const lu = db.sent[1] || {}, st = db.sent[2] || {};
 ok('lembrete do lineup uma hora antes do primeiro jogo (com a sugestão da conta que ainda não submeteu)', /Já fizeste o lineup/.test(lu.title) && /Conta principal: ✓ já submetido/.test(lu.message) && /smurfy: sugestão do site: Keshon Gilbert, LeBron James/.test(lu.message), lu);
-ok('ponto da situação às 23h de quem continua em dúvida (quem está fora não)', /Ponto da situação/.test(st.title) && /Gilbert \(ATL\) continua dia a dia/.test(st.message) && !/Curry/.test(st.message), st);
+ok('ponto da situação às 23h de quem continua em dúvida (quem está fora não)', /Ponto da situação/.test(st.title) && /Gilbert \(ATL\) continua dúvida/.test(st.message) && !/Curry/.test(st.message), st);
 run(Date.parse('2026-10-21T22:15:00Z'));
 db = read();
 ok('sem repetir o lembrete nem o ponto da situação', db.sent.length === 3, db.sent.length);
@@ -81,13 +81,13 @@ let g = readTg();
 const hello = g.sent[0] || {}, g0 = g.sent[1] || {};
 ok('Telegram: cumprimenta o grupo da primeira vez', /Hi! I’m the Fast Break bot/.test(hello.message || ''), hello);
 ok('Telegram: o grupo é descoberto e guardado', (g.tables.job_state.find(r => r.key === 'telegram') || {}).value?.chat === '-1001', g.tables.job_state, lg);
-ok('Telegram: especialista do dia em dúvida também entra (mesmo sem estar em nenhum lineup)', /<b>Trae Young<\/b> \(ATL\) · <b>Day-to-day<\/b>[^]*?⭐ 3PM specialist \(#2\)/.test(g0.message || ''), g0.message);
-ok('Telegram: uma mensagem com as lesões dos lineups de toda a gente e de quem é cada um', g.sent.length === 2 && g0.via === 'tg' && g0.chat === '-1001' && /<b>Stephen Curry<\/b> \(GSW\) · <b>Out<\/b>/.test(g0.message) && /👥 In the lineup of <b>João<\/b>\n/.test(g0.message) && /<b>Keshon Gilbert<\/b> \(ATL\) · <b>Day-to-day<\/b>[^]*?👥 In the lineup of <b>João and Marquês<\/b>/.test(g0.message) && /\n\n/.test(g0.message), g.sent);
+ok('Telegram: especialista do dia em dúvida também entra (mesmo sem estar em nenhum lineup)', /<b>Trae Young<\/b> \(ATL\) · <b>Questionable<\/b>[^]*?⭐ 3PM specialist \(#2\)/.test(g0.message || ''), g0.message);
+ok('Telegram: uma mensagem com as lesões dos lineups de toda a gente e de quem é cada um', g.sent.length === 2 && g0.via === 'tg' && g0.chat === '-1001' && /<b>Stephen Curry<\/b> \(GSW\) · <b>Out<\/b>/.test(g0.message) && /👥 In the lineup of <b>João<\/b>\n/.test(g0.message) && /<b>Keshon Gilbert<\/b> \(ATL\) · <b>Questionable<\/b>[^]*?👥 In the lineup of <b>João and Marquês<\/b>/.test(g0.message) && /\n\n/.test(g0.message), g.sent);
 runTg(Date.parse('2026-10-21T22:00:00Z'));
 g = readTg();
 const gl = g.sent.find(x => /Lineups done/.test(x.message)) || {}, gs = g.sent.find(x => /Status update/.test(x.message)) || {};
 ok('Telegram: lembrete do lineup só com o aviso, sem nomes', /^🏀 <b>Lineups done\?<\/b>\nToday’s games start at <b>\d\d:\d\d<\/b>\.$/.test(gl.message || '') && !/João|Marquês/.test(gl.message || ''), g.sent.map(x => x.message));
-ok('Telegram: ponto da situação às 23h de quem está em dúvida', /<b>Keshon Gilbert<\/b> \(ATL\) · still <b>day-to-day<\/b>/.test(gs.message || ''), g.sent.map(x => x.message));
+ok('Telegram: ponto da situação às 23h de quem está em dúvida', /<b>Keshon Gilbert<\/b> \(ATL\) · still <b>questionable<\/b>/.test(gs.message || ''), g.sent.map(x => x.message));
 const nTg = g.sent.length;
 runTg(Date.parse('2026-10-21T22:15:00Z'));
 ok('Telegram: não repete', readTg().sent.length === nTg, readTg().sent.length);
@@ -97,10 +97,10 @@ ok('Telegram: não repete', readTg().sent.length === nTg, readTg().sent.length);
   const now = Date.parse('2026-10-25T18:00:00Z'), tip = Date.parse('2026-10-25T23:30:00Z');
   const m = groupAlertText([{ kind: 'change', status: 'dtd', prev: 'out', id: 'lebron', name: 'LeBron James', team: 'PHI', tip, inj: { detail: 'Back', comment: 'Ruled out for Saturday.', reported_at: '2026-10-24T12:00:00Z' } },
     { kind: 'change', status: 'out', prev: 'questionable', id: 'jo', name: 'Joel Embiid', team: 'PHI', tip, inj: { detail: 'Knee', comment: 'Will not play tonight.', reported_at: '2026-10-25T16:00:00Z' } }], {}, { tz: 'Europe/Lisbon', now });
-  ok('Telegram: lesão que melhora diz "upgraded" e o que quer dizer, sem a notícia antiga', /⬆️ <b>LeBron James<\/b> \(PHI\) · <b>upgraded to Day-to-day<\/b> · 50% to play \(was: out, 0%\)/.test(m) && /🩹 Injury: back/.test(m) && !/Saturday/.test(m), m);
+  ok('Telegram: lesão que melhora diz "upgraded" e o que quer dizer, sem a notícia antiga', /⬆️ <b>LeBron James<\/b> \(PHI\) · <b>upgraded to Questionable<\/b> · 50% to play \(was: out, 0%\)/.test(m) && /🩹 Injury: back/.test(m) && !/Saturday/.test(m), m);
   ok('Telegram: lesão que piora diz "downgraded" e mostra a notícia de hoje com a data', /🚫 <b>Joel Embiid<\/b> \(PHI\) · <b>downgraded to Out<\/b> · 0% to play/.test(m) && /📰 News from Oct 25: <i>Will not play tonight.<\/i>/.test(m), m);
   const m2 = groupAlertText([{ kind: 'change', status: 'questionable', prev: 'dtd', id: 'ky', name: 'Kyrie Irving', team: 'DAL', tip, inj: { detail: 'Knee (left)' } }], {}, { tz: 'Europe/Lisbon', now });
-  ok('Telegram: com a percentagem e sem travessões; de Dia a dia para Questionable diz só o estado novo', /⚠️ <b>Kyrie Irving<\/b> \(DAL\) · now <b>Questionable<\/b> · 50% to play \(was: day-to-day\)/.test(m2) && !/—/.test(m2), m2);
+  ok('Telegram: com a percentagem e sem travessões; de Dia a dia para Questionable diz só o estado novo', /⚠️ <b>Kyrie Irving<\/b> \(DAL\) · now <b>Questionable<\/b> · 50% to play/.test(m2) && !/—|was:|day-to-day/i.test(m2), m2);
 }
 // relatório oficial da NBA junto ao da ESPN (o PDF de exemplo, servido no nome das 5 da tarde de Nova Iorque)
 {

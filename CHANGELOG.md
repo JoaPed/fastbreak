@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-27
+- **João** — Lesões: deixa de aparecer «Dia a dia» (Day-to-day): mostra-se como «Dúvida» / Questionable, o mesmo 50%; e passar de um para o outro já não manda aviso.
 - **João** — Lesões: a ficha do jogador diz de onde vem o estado («relatório da NBA» ou ESPN) e as etiquetas no lineup mostram a probabilidade de jogar (ex.: «⚠ Questionable 50%»).
 - **João** — Avisos de lesões no Telegram: mostram a probabilidade de jogar (ex.: «Questionable · 50% to play»), sem travessões; de Day-to-day para Questionable (a mesma coisa) diz só «now Questionable».
 - **João** — Lineup: quem está «Pouco provável» (Doubtful no relatório da NBA, ~25%) aparece com ⚠ a vermelho; a «Dúvida» continua a amarelo.

@@ -142,7 +142,8 @@
   };
   // ---------- lesões (relatório da ESPN, tabela injuries) ----------
   // estados do relatório: out, ofs (fora da época), doubtful, questionable, dtd (dia a dia), probable
-  const INJ_LABEL = { out: 'Fora', ofs: 'Fora da época', doubtful: 'Pouco provável', questionable: 'Dúvida', dtd: 'Dia a dia', probable: 'Provável' };
+  // (o Day-To-Day da ESPN mostra-se como Dúvida: é o mesmo 50%)
+  const INJ_LABEL = { out: 'Fora', ofs: 'Fora da época', doubtful: 'Pouco provável', questionable: 'Dúvida', dtd: 'Dúvida', probable: 'Provável' };
   const dayDiff = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400e3);
   // Estado no plano para o k-ésimo jogo que falta ao jogador (k = 0: o próximo jogo dele). O relatório fala do
   // próximo jogo; nos seguintes conta a data prevista de regresso (Fora) ou volta ao normal aos poucos.

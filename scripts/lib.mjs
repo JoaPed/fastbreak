@@ -583,7 +583,8 @@ export async function upsertChunks(sb, table, rows, onConflict, size = 500) {
 
 // ---------- lesões (relatório da ESPN) e avisos ----------
 // Estados: out (fora), ofs (fora da época), doubtful (pouco provável), questionable (dúvida), dtd (dia a dia), probable (provável)
-export const INJ_LABEL = { out: 'Fora', ofs: 'Fora da época', doubtful: 'Pouco provável', questionable: 'Dúvida', dtd: 'Dia a dia', probable: 'Provável' };
+// (o Day-To-Day da ESPN mostra-se como Dúvida: é o mesmo 50% e o João não quer ver «dia a dia»)
+export const INJ_LABEL = { out: 'Fora', ofs: 'Fora da época', doubtful: 'Pouco provável', questionable: 'Dúvida', dtd: 'Dúvida', probable: 'Provável' };
 const SEASON_OUT = /(?:miss|out for|sidelined for)\s+(?:the\s+)?(?:(?:rest|remainder)\s+of\s+the\s+)?(?:entire\s+)?(?:\d{4}(?:-\d{2,4})?\s+)?(?:regular\s+)?season\b(?!\s*(?:opener|debut|start))|season-ending/i;
 export function injuryStatus(e) {
   e = e || {};
@@ -641,7 +642,9 @@ export function buildAlerts({ now, lineups, injuries, state, lastCallMin = 0, ho
     const t0 = L.firstTip || p.tip, close = lastCallMin > 0 && now < t0 && t0 - now <= lastCallMin * 60e3, sDue = now >= sAtOf(p.tip, L.date);
     let kind = null;
     if (ALERT_BAD.has(s)) {
-      if (!prev || prev.s !== s) kind = prev && ALERT_BAD.has(prev.s) ? 'change' : 'new';
+      // (Day-to-day e Questionable são a mesma coisa, 50%: passar de um para o outro não é aviso)
+      const same50 = prev && /^(dtd|questionable)$/.test(prev.s) && /^(dtd|questionable)$/.test(s);
+      if (!prev || (prev.s !== s && !same50)) kind = prev && ALERT_BAD.has(prev.s) ? 'change' : 'new';
       else if (close && !prev.last) kind = 'last';
       else if (sDue && !prev.st && !prev.last && s !== 'out' && s !== 'ofs') kind = 'status'; // fora é fora: só a dúvida tem ponto da situação
     } else if (prev && ALERT_BAD.has(prev.s)) kind = 'clear';
@@ -698,7 +701,7 @@ function alertLine(i, hm, plural) {
 // Grupo do Telegram (HTML, em inglês): um bloco por jogador, separados por uma linha em branco
 // owners: id → nomes de quem o tem no lineup; spec: id → "3PM specialist (#1)"
 const tgEsc = x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const INJ_LABEL_EN = { out: 'Out', ofs: 'Out for the season', doubtful: 'Doubtful', questionable: 'Questionable', dtd: 'Day-to-day', probable: 'Probable' };
+const INJ_LABEL_EN = { out: 'Out', ofs: 'Out for the season', doubtful: 'Doubtful', questionable: 'Questionable', dtd: 'Questionable', probable: 'Probable' };
 const andJoinEn = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
 const hmEn = tz => t => new Intl.DateTimeFormat('en-GB', { timeZone: tz || 'Europe/Lisbon', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(t));
 // o que cada estado quer dizer, em poucas palavras
@@ -721,7 +724,7 @@ function groupBlock(i, hm, owners, spec, now) {
     const icon = i.kind === 'last' ? '⏰' : i.kind === 'status' ? '📋' : up ? '⬆️' : i.status === 'out' || i.status === 'ofs' ? '🚫' : '⚠️';
     const pre = i.kind === 'last' ? 'Last call · ' : '';
     const st = i.kind === 'status' || i.kind === 'last' ? 'still <b>' + tgEsc(L(i.status).toLowerCase()) + '</b>' + tgEsc(mean(i.status))
-      : (up ? '<b>upgraded to ' + tgEsc(L(i.status)) + '</b>' : down ? '<b>downgraded to ' + tgEsc(L(i.status)) + '</b>' : same ? 'now <b>' + tgEsc(L(i.status)) + '</b>' : '<b>' + tgEsc(L(i.status)) + '</b>') + tgEsc(mean(i.status)) + (i.prev && i.kind === 'change' ? ' (was: ' + tgEsc(L(i.prev).toLowerCase()) + (INJ_PLAY[i.prev] != null && !same ? ', ' + INJ_PLAY[i.prev] + '%' : '') + ')' : '');
+      : (up ? '<b>upgraded to ' + tgEsc(L(i.status)) + '</b>' : down ? '<b>downgraded to ' + tgEsc(L(i.status)) + '</b>' : same ? 'now <b>' + tgEsc(L(i.status)) + '</b>' : '<b>' + tgEsc(L(i.status)) + '</b>') + tgEsc(mean(i.status)) + (i.prev && i.kind === 'change' && !same ? ' (was: ' + tgEsc(L(i.prev).toLowerCase()) + (INJ_PLAY[i.prev] != null && !same ? ', ' + INJ_PLAY[i.prev] + '%' : '') + ')' : '');
     out.push(icon + ' ' + pre + who + ' · ' + st, (inj.detail ? '🩹 Injury: ' + tgEsc(String(inj.detail).toLowerCase()) + ' · ' : '') + 'tip-off <b>' + hm(i.tip) + '</b>');
     // a notícia só se for das últimas 24 h (as antigas confundem: p. ex. "ruled out for Saturday" depois de ter subido)
     const at = Date.parse(inj.reported_at || '');
