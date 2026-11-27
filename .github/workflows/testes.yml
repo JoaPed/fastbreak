@@ -14,3 +14,5 @@ jobs:
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm test
+      # o relatório de lesões da NBA a sério (só para ver nos registos se o PDF se lê bem; não falha os testes)
+      - run: 'node scripts/nba-injury.mjs || echo "::warning::relatório da NBA não se leu"'

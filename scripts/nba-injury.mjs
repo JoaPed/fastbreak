@@ -107,3 +107,11 @@ export function mergeNbaInjuries(espn, nba, { today, at } = {}) {
   }
   return [...by.values()];
 }
+// node scripts/nba-injury.mjs → lê o relatório mais recente e mostra o que percebeu (para ver se o PDF a sério se lê bem)
+if (import.meta.url === 'file://' + process.argv[1]) {
+  const R = await fetchNbaReport(Date.now());
+  if (!R) { console.log('Relatório da NBA: nenhum nas últimas 3 h.'); process.exit(0); }
+  const n = {}; R.rows.forEach(r => { n[r.status] = (n[r.status] || 0) + 1; });
+  console.log('Relatório da NBA:', R.url.split('/').pop(), '·', R.rows.length, 'jogadores ·', JSON.stringify(n), '· sem equipa:', R.rows.filter(r => !r.team).length);
+  R.rows.slice(0, 8).forEach(r => console.log('  ', r.date, r.team, r.name, '—', r.status, '—', r.reason));
+}
