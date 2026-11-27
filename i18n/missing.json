@@ -1,1 +1,17 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": "relatório da NBA",
+  "line": "return '<div class=\"note' + (rec.status === 'probable' ? ' info' : '') + ' stack\" style=\"gap:6px\"><div><b>Relatório de lesões:</b> ' + injLine(rec) + '. <span c"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "ESPN",
+  "line": "return '<div class=\"note' + (rec.status === 'probable' ? ' info' : '') + ' stack\" style=\"gap:6px\"><div><b>Relatório de lesões:</b> ' + injLine(rec) + '. <span c"
+ },
+ {
+  "file": "docs/app.js",
+  "text": " (ESPN e NBA, ",
+  "line": "return '<b>Disponibilidade</b>: 100% — não está no relatório de lesões' + (S.injOk && S.injAt ? ' (ESPN e NBA, ' + esc(ago(S.injAt)) + ')' : S.injOk === false ?"
+ }
+]

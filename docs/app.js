@@ -351,7 +351,7 @@ function injuryBlock(id, j, date) {
   const ign = !!((S.mine.roster[id] || {}).injIgnore);
   let how = '';
   if (j && !ign && j.k != null) how = (j.k === 0 ? 'Este é o próximo jogo dele' : 'Este é o ' + (j.k + 1) + '.º jogo dele a contar de agora') + ': ' + (j.status ? 'o plano conta com ' + Math.round(STATUS[j.status].play * 100) + '% de ele jogar.' : 'o plano já conta com ele normal.');
-  return '<div class="note' + (rec.status === 'probable' ? ' info' : '') + ' stack" style="gap:6px"><div><b>Relatório de lesões:</b> ' + injLine(rec) + '. <span class="small">(ESPN, ' + esc(ago(rec.updated_at)) + ')</span></div>' +
+  return '<div class="note' + (rec.status === 'probable' ? ' info' : '') + ' stack" style="gap:6px"><div><b>Relatório de lesões:</b> ' + injLine(rec) + '. <span class="small">(' + (/\(NBA\)/.test(rec.label || '') ? 'relatório da NBA' : 'ESPN') + ', ' + esc(ago(rec.updated_at)) + ')</span></div>' +
     (rec.comment ? '<div class="small">' + esc(rec.comment) + '</div>' : '') + (how ? '<div class="small">' + how + '</div>' : '') +
     (ign ? '<div class="small"><b>Relatório ignorado</b>: o plano conta com ele.</div>' : '') +
     ((S.mine.roster || {})[id] ? '<button class="btn small" type="button" data-action="inj-ignore" data-id="' + esc(id) + '"' + (date ? ' data-date="' + date + '"' : '') + ' data-on="' + (ign ? '0' : '1') + '">' + (ign ? 'Voltar a usar o relatório' : 'Vai jogar (ignorar o relatório)') + '</button>' : '') + '</div>';
@@ -385,7 +385,7 @@ function playBasis(info) {
   if (info.status !== 'ok') return '<b>Disponibilidade</b>: ' + pct(pp) + ' de jogar (estado "' + esc(STATUS[info.status].label) + '" posto por ti no plantel).';
   if (j && j.ignored) return '<b>Disponibilidade</b>: 100% — estás a ignorar o relatório de lesões para ele.';
   if (j) return '<b>Disponibilidade</b>: 100% — está no relatório (' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + '), mas ' + (j.k == null ? 'este jogo já começou ou já passou.' : 'neste jogo já conta normal.');
-  return '<b>Disponibilidade</b>: 100% — não está no relatório de lesões' + (S.injOk && S.injAt ? ' (ESPN, ' + esc(ago(S.injAt)) + ')' : S.injOk === false ? ' (o relatório ainda não está ligado)' : '') + '.';
+  return '<b>Disponibilidade</b>: 100% — não está no relatório de lesões' + (S.injOk && S.injAt ? ' (ESPN e NBA, ' + esc(ago(S.injAt)) + ')' : S.injOk === false ? ' (o relatório ainda não está ligado)' : '') + '.';
 }
 function basisHtml(p, info, o, md, id, many) {
   const g = FB.gameOf(md.day, p.team), opp = g ? (g[0] === p.team ? g[1] : g[0]) : null;
@@ -3150,10 +3150,12 @@ function renderJornada(el) {
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Mandar de ' + esc(accLabel(tr.from)) + '</span> ' + ps;
     if (!live && !S.gOdds[nd.date]) loadGameOdds(nd.date);
-    let stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + (info.status === 'dout' ? '⚠ ' : '') + esc(STATUS[info.status].label) + '</span>' : '';
+    // com a probabilidade de jogar que o plano usa (Provável 90%, Pouco provável 25%…)
+    const ppct = k => (STATUS[k] && STATUS[k].play > 0 && STATUS[k].play < 1 ? ' ' + Math.round(STATUS[k].play * 100) + '%' : '');
+    let stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + (info.status === 'dout' ? '⚠ ' : '') + esc(STATUS[info.status].label) + ppct(info.status) + '</span>' : '';
     let rl = '';
     if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);
-      stp += '<span class="pill duv risk" title="' + esc((INJ_LABEL[info.injury.rec.status] || '') + ': conta como se jogasse; se ficar de fora, troca-o antes do jogo') + '">⚠ ' + esc(INJ_LABEL[info.injury.rec.status] || 'Dúvida') + '</span>';
+      stp += '<span class="pill duv risk" title="' + esc((INJ_LABEL[info.injury.rec.status] || '') + ': conta como se jogasse; se ficar de fora, troca-o antes do jogo') + '">⚠ ' + esc(INJ_LABEL[info.injury.rec.status] || 'Dúvida') + ppct(INJ_PILL[info.injury.rec.status] || 'duv') + '</span>';
       const bz = benchOf(md, nd, d.lineup);
       // com suplente não diz nada (entra por qualquer titular que falte); sem suplente, diz que troca fazer
       rl = bz ? '' : '<div class="risk-sub">se não jogar: ' + (sb ? '<b>' + esc(lastName(sb.id)) + '</b> (hoje ' + pct(sb.P) + ')' : 'não há troca depois do jogo dele') + '</div>'; }
