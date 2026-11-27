@@ -841,6 +841,10 @@ with sync_playwright() as pw:
         print('E abrir melhor compra:', pg.locator('#plSubBar button[aria-selected="true"]').inner_text(), '·', pg.locator('#plSub .card').first.inner_text().replace('\n', ' | ')[:200])
         pg.click('#t-hoje'); pg.wait_for_timeout(400)
     print('E linhas com lesão:', ' / '.join(x.replace('\n', ' ') for x in pg.locator('#tab-hoje .row').filter(has=pg.locator('.pill.duv, .pill.fora, .pill.dout')).all_inner_texts())[:300])
+    # «Pouco provável» (Doubtful) a vermelho, «Dúvida» a amarelo
+    cl_ = pg.evaluate('''() => { const mk = c => { const s = document.createElement('span'); s.className = 'pill ' + c; document.body.appendChild(s); const v = getComputedStyle(s).color; s.remove(); return v; };
+      const t = document.createElement('span'); t.style.color = 'var(--bad)'; document.body.appendChild(t); const bad = getComputedStyle(t).color; t.style.color = 'var(--warn)'; const warn = getComputedStyle(t).color; t.remove(); return [mk('dout'), mk('duv'), bad, warn]; }''')
+    print('E Pouco provável a vermelho:', cl_, '· ok' if cl_[0] == cl_[2] and cl_[0] != cl_[1] else '· ERRO')
     pg.click('#tab-hoje button[data-action="sub"][data-sub="porque"]'); pg.wait_for_timeout(300); 
     print('E em que se baseia:', pg.locator('#tab-hoje .basis-day').inner_text().replace('\n', ' | ')[:900])
     pg.screenshot(path=str(shots / 'hoje-baseia.png'), full_page=True)

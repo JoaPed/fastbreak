@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-27
+- **João** — Lineup: quem está «Pouco provável» (Doubtful no relatório da NBA, ~25%) aparece com ⚠ a vermelho; a «Dúvida» continua a amarelo.
 - **João** — Lesões: além da ESPN, o site lê o relatório oficial da NBA (de 15 em 15 min). Passa a distinguir Provável (90%), Dúvida (50%) e Pouco provável (25%) em vez de pôr quase todos a 50%, e sabe mais cedo quem fica de fora ou é liberado.
 - **João** — Historic: o desconto das cartas era contado duas vezes (o Top Shot já dá ao leitor os RP com desconto: Mourning 70 → 66, e o site punha 63). Agora usa os RP sem desconto e as equipas voltam a caber nos 350.
 
