@@ -100,5 +100,15 @@ ok('Telegram: não repete', readTg().sent.length === nTg, readTg().sent.length);
   ok('Telegram: lesão que melhora diz "upgraded" e o que quer dizer, sem a notícia antiga', /⬆️ <b>LeBron James<\/b> \(PHI\) · <b>upgraded to Day-to-day<\/b> — may play \(was: out\)/.test(m) && /🩹 Injury: back/.test(m) && !/Saturday/.test(m), m);
   ok('Telegram: lesão que piora diz "downgraded" e mostra a notícia de hoje com a data', /🚫 <b>Joel Embiid<\/b> \(PHI\) · <b>downgraded to Out<\/b> — won’t play/.test(m) && /📰 News from Oct 25: <i>Will not play tonight.<\/i>/.test(m), m);
 }
+// relatório oficial da NBA junto ao da ESPN (o PDF de exemplo, servido no nome das 5 da tarde de Nova Iorque)
+{
+  const f2 = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fb-nba-')), 'db.json');
+  fs.writeFileSync(f2, JSON.stringify({ espn: { injuries: [{ displayName: 'Cleveland Cavaliers', injuries: [{ status: 'Day-To-Day', date: '2026-11-27T12:00Z', athlete: { displayName: 'Donovan Mitchell', team: { abbreviation: 'CLE' } }, type: { name: 'INJURY_STATUS_DAYTODAY' } }] }] },
+    nbaPdf: path.join(root, 'test/fixtures/nba-injury.pdf'), nbaPdfAt: 'Injury-Report_2026-11-27_04_45PM.pdf',
+    tables: { alerts: [], members: [], injuries: [], job_state: [], runs: [], run_days: [], user_runs: [], nba_players: [], chain_results: [] } }));
+  const log = execFileSync(process.execPath, ['--import', path.join(root, 'test/helpers/job-preload.mjs'), path.join(root, 'scripts/sync-injuries.mjs')], { env: Object.assign({}, process.env, { FB_TEST_DB: f2, FB_TEST_NOW: String(Date.parse('2026-11-27T22:13:00Z')), TELEGRAM_BOT_TOKEN: '', GITHUB_ACTIONS: '' }) }).toString();
+  const inj = JSON.parse(fs.readFileSync(f2, 'utf8')).tables.injuries, by = Object.fromEntries(inj.map(r => [r.name, r]));
+  ok('lesões: junta o relatório da NBA (o mais recente que já saiu)', /Relatório da NBA: Injury-Report_2026-11-27_04_45PM\.pdf/.test(log) && by['Donovan Mitchell'] && by['Donovan Mitchell'].status === 'questionable' && by['Jarrett Allen'] && by['Jarrett Allen'].status === 'out', { log: log.slice(0, 300), inj });
+}
 console.log(fails ? fails + ' falha(s)' : 'avisos: tudo certo');
 process.exit(fails ? 1 : 0);

@@ -38,6 +38,8 @@ class Q {
 globalThis.__FB_TEST_SB = { from: t => new Q(t), auth: { admin: { getUserById: async id => ({ data: { user: { email: id + '@exemplo.pt' } }, error: null }) } } };
 globalThis.fetch = async (url, opts = {}) => {
   url = String(url);
+  // relatório oficial da NBA (PDF): db.nbaPdf = caminho do ficheiro, servido no nome db.nbaPdfAt (ou em qualquer um)
+  if (/ak-static\.cms\.nba\.com\/referee\/injury\//.test(url)) return db.nbaPdf && (!db.nbaPdfAt || url.endsWith(db.nbaPdfAt)) ? new Response(fs.readFileSync(db.nbaPdf), { status: 200 }) : new Response('nada', { status: 403 });
   if (/site\.api\.espn\.com.*\/injuries/.test(url)) return new Response(JSON.stringify(db.espn || { injuries: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
   if (/^https:\/\/api\.telegram\.org\/bot[^/]+\/getUpdates/.test(url)) return new Response(JSON.stringify({ ok: true, result: (db.telegram || {}).updates || [] }), { status: 200 });
   if (/^https:\/\/api\.telegram\.org\/bot[^/]+\/sendMessage/.test(url)) { const b = JSON.parse(opts.body); db.sent.push({ via: 'tg', chat: String(b.chat_id), message: b.text }); return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 }); }

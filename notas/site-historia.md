@@ -248,3 +248,16 @@ O guia (sporttv.pt/guia) é Nuxt: `/guia/_payload.json` traz os programas de vá
 A hora do guia anda uns minutos ao lado do jogo (00:29 para um jogo às 00:30) e há repetições: liga-se ao jogo da
 ESPN pelas equipas e início a ≤ 90 min. `scripts/tv.mjs` (puro) + `scripts/sync-tv.mjs` (tarefa do calendário) →
 `odds_days.players._tv` = {'FORA@CASA': 'SPORT TV 2'} por data ET; o site mostra «▶ SPORT TV 2» no jogador.
+
+## Relatório oficial de lesões da NBA (27 nov 2026)
+- Pedido do João: a ESPN dá quase todos como "Day-To-Day" (50%); o relatório da liga distingue Probable / Questionable /
+  Doubtful / Out / Available (a 25 nov tinha KAT, Giannis e Embiid a 50% no site; no da NBA só o Embiid estava mal, e foi o
+  único que não jogou).
+- PDF de 15 em 15 min: `https://ak-static.cms.nba.com/referee/injury/Injury-Report_AAAA-MM-DD_HH_MMAM.pdf` (hora de Nova
+  Iorque). `scripts/nba-injury.mjs`: tenta os últimos 12 nomes (3 h), lê o texto com o pdf.js (`pdfjs-dist` 4.10.38, com
+  polyfill do `Promise.withResolvers` para o Node 20), colunas pela posição do cabeçalho (repete em cada página); data, jogo e
+  equipa passam às linhas seguintes; "Apelido, Nome" → "Nome Apelido"; ignora "NOT YET SUBMITTED"; separa células que o
+  PDF junte.
+- Junta-se à ESPN na tarefa Lesões (`mergeNbaInjuries`): o estado da NBA manda no próximo jogo (label "… (NBA)"), fica a data
+  de regresso da ESPN, Fora da época não muda, Available tira-o do relatório, jogos passados não contam.
+- No motor: Probable 90%, Questionable/Dia a dia 50%, Doubtful 25%, Out 0 (já existia; agora há dados para os usar).

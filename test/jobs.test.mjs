@@ -342,5 +342,30 @@ ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d ===
   ok('sport tv: liga ao jogo certo pelo início (a repetição das 05:00 fica de fora)', JSON.stringify(tv) === JSON.stringify({ '2026-11-21': { 'POR@NYK': 'SPORT TV 2' } }), tv);
   ok('sport tv: nome do canal', stvChannel('SPORTTV1') === 'SPORT TV 1' && stvChannel({ nome: 'Sport TV 2' }) === 'SPORT TV 2' && stvChannel('SPORT TV+') === null);
 }
+// relatório oficial de lesões da NBA (PDF de exemplo no formato do da liga: test/fixtures/nba-injury.pdf)
+{
+  const NB = await import('../scripts/nba-injury.mjs'), fsx = await import('node:fs');
+  const u = NB.nbaReportUrls(Date.parse('2026-11-27T22:13:00Z'), 2);
+  ok('lesões NBA: nome do relatório na hora de Nova Iorque, de 15 em 15 min', u[0].endsWith('Injury-Report_2026-11-27_05_00PM.pdf') && u[1].endsWith('_04_45PM.pdf'), u);
+  const u2 = NB.nbaReportUrls(Date.parse('2026-11-28T05:10:00Z'), 1);
+  ok('lesões NBA: depois da meia-noite em Nova Iorque', u2[0].endsWith('Injury-Report_2026-11-28_12_00AM.pdf'), u2);
+  const rows = NB.parseNbaReport(await NB.pdfItems(fsx.readFileSync(new URL('./fixtures/nba-injury.pdf', import.meta.url))));
+  const by = Object.fromEntries(rows.map(r => [r.name, r]));
+  ok('lesões NBA: lê o PDF (nome «Apelido, Nome», equipa que passa às linhas seguintes, sem «NOT YET SUBMITTED»)', rows.length === 8 && by['Jarrett Allen'].team === 'CLE' && by['Jarrett Allen'].status === 'out' && by['Jaime Jackson Jr.'].status === 'probable' && by['Luka Dončić'].team === 'LAL' && by['Karl-Anthony Towns'].status === 'available' && by['Joel Embiid'].date === '2026-11-27', rows);
+  // o PDF às vezes junta células vizinhas num só texto
+  const L = (y, a) => a.map(([str, x]) => ({ str, x, y, page: 1 }));
+  const items = [].concat(L(500, [['Game Date', 0], ['Game Time', 70], ['Matchup', 130], ['Team', 200], ['Player Name', 320], ['Current Status', 430], ['Reason', 510]]),
+    L(480, [['11/27/2026 07:00', 0], ['(ET)', 70], ['CLE@NYK Cleveland Cavaliers', 130], ['Mitchell, Donovan', 320], ['Questionable Injury/Illness - Left Ankle; Sprain', 430]]),
+    L(460, [['Allen, Jarrett Out', 320], ['Knee', 510]]));
+  const r2 = NB.parseNbaReport(items);
+  ok('lesões NBA: separa células juntas', r2.length === 2 && r2[0].team === 'CLE' && r2[0].status === 'questionable' && r2[1].status === 'out' && r2[1].name === 'Jarrett Allen' && r2[0].date === '2026-11-27', r2);
+  const espn = [{ id: playerKey('Donovan Mitchell'), name: 'Donovan Mitchell', team: 'CLE', status: 'dtd', label: 'Day-To-Day', detail: 'Ankle', return_date: '2026-11-28', reported_at: 'x' },
+    { id: playerKey('Karl-Anthony Towns'), name: 'Karl-Anthony Towns', team: 'NYK', status: 'dtd', label: 'Day-To-Day' },
+    { id: playerKey('Joel Embiid'), name: 'Joel Embiid', team: 'PHI', status: 'ofs', label: 'Out' },
+    { id: playerKey('Outro Jogador'), name: 'Outro Jogador', team: 'BOS', status: 'out', label: 'Out' }];
+  const m = NB.mergeNbaInjuries(espn, rows.concat([{ name: 'Velho Jogo', team: 'BOS', status: 'out', date: '2026-11-26' }]), { today: '2026-11-27', at: 'agora' }), mb = Object.fromEntries(m.map(r => [r.name, r]));
+  ok('lesões NBA: o estado da NBA substitui o da ESPN (fica a data de regresso)', mb['Donovan Mitchell'].status === 'questionable' && mb['Donovan Mitchell'].return_date === '2026-11-28' && /NBA/.test(mb['Donovan Mitchell'].label), mb['Donovan Mitchell']);
+  ok('lesões NBA: Available tira-o do relatório; Fora da época fica; quem só está na NBA entra; jogos passados não contam', !mb['Karl-Anthony Towns'] && mb['Joel Embiid'].status === 'ofs' && mb['Jarrett Allen'].status === 'out' && mb['Jarrett Allen'].team === 'CLE' && mb['Outro Jogador'] && !mb['Velho Jogo'], m.map(r => r.name + ':' + r.status));
+}
 console.log(fails ? fails + ' falha(s)' : 'tarefas: tudo certo');
 process.exit(fails ? 1 : 0);

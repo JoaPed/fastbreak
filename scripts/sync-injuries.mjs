@@ -11,6 +11,7 @@
 // Segredos: SUPABASE_URL, SUPABASE_SERVICE_KEY; para email SMTP_USER e SMTP_PASS (Gmail com palavra-passe de app);
 // para o Telegram TELEGRAM_BOT_TOKEN (e, se quiseres fixar o grupo, TELEGRAM_CHAT_ID).
 import { createRequire } from 'node:module';
+import { fetchNbaReport, mergeNbaInjuries } from './nba-injury.mjs';
 import { supa, must, getState, setState, etDate, fetchJson, upsertChunks, parseEspnInjuries, buildAlerts, alertText, buildReminders, reminderText, groupAlertText, groupReminderText, localTime, playerKey, INJ_LABEL } from './lib.mjs';
 
 const require = createRequire(import.meta.url);
@@ -26,7 +27,18 @@ const now = Date.now(), stamp = new Date(now).toISOString();
 
 // ---------- 1) relatório de lesões ----------
 const { json } = await fetchJson('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries');
-const rows = json ? parseEspnInjuries(json) : [];
+let rows = json ? parseEspnInjuries(json) : [];
+// + o relatório oficial da NBA (de 15 em 15 min, sai antes da ESPN): manda no estado para o próximo jogo
+if (rows.length) {
+  try {
+    const R = await fetchNbaReport(now);
+    if (R) {
+      const n0 = rows.length, at = new Date(now).toISOString();
+      rows = mergeNbaInjuries(rows, R.rows, { today: etDate(now), at });
+      console.log('Relatório da NBA:', R.url.split('/').pop(), '·', R.rows.length, 'jogadores ·', n0, '→', rows.length, 'no relatório junto');
+    } else console.log('Relatório da NBA: nenhum nas últimas 3 h (fica só a ESPN).');
+  } catch (e) { console.log('Relatório da NBA falhou (' + e.message + '): fica só a ESPN.'); }
+}
 const count = {}; rows.forEach(r => { count[r.status] = (count[r.status] || 0) + 1; });
 console.log('Relatório de lesões (ESPN):', rows.length, 'jogadores ·', Object.entries(count).map(([k, n]) => (INJ_LABEL[k] || k) + ' ' + n).join(', ') || '—');
 if (rows.length) {
