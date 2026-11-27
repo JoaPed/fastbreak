@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-27
+- **João** — Historic: o desconto das cartas era contado duas vezes (o Top Shot já dá ao leitor os RP com desconto: Mourning 70 → 66, e o site punha 63). Agora usa os RP sem desconto e as equipas voltam a caber nos 350.
+
 ## 2026-11-25
 - **João** — Historic: o separador «Lendas» abria com o cartão fechado (minimizado de antes) e parecia não fazer nada; agora mostra sempre a lista.
 - **João** — Historic: as equipas das tuas contas passam a mudar pelo menos 3 lendas entre si (eram 2); as do resto do grupo continuam com 2.

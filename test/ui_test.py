@@ -1651,7 +1651,13 @@ with sync_playwright() as pw:
     To3['user_runs'] = [{'user_id': 'u-eu', 'run_id': 'run-1', 'roster': {pid: {'uses': 2, 'status': 'ok'} for pid in list(roster['players'])[:16]}, 'plan': {}, 'updated_at': '2026-10-15T10:00:00Z'}]
     To3['chain_results'] = []; To3['injuries'] = []
     pg = new_page(b, dbo3)
-    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(HISTJ) + "); localStorage.setItem('fb-jmode', 'historic'); } catch (e) {}")
+    # o leitor (com a carta) já recebe os RP com desconto: Drexler 87 → 70 no dia 10; o site não pode descontar outra vez
+    H3 = json.loads(HISTJ)
+    for d_ in H3['days']:
+        if d_['id'].endswith('-d10'):
+            for p_ in d_['players']:
+                if p_[1] == 'Clyde Drexler': p_[3] = 70; p_[4] = 1
+    pg.add_init_script("try { localStorage.setItem('fb-hist', " + json.dumps(json.dumps(H3)) + "); localStorage.setItem('fb-jmode', 'historic'); } catch (e) {}")
     pg.clock.set_fixed_time('2026-10-29T14:00:00Z')
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(3500)

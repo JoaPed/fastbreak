@@ -2649,7 +2649,34 @@ async function loadHistArch() {
   S.histCache = {}; if (S.tab === 'hoje' && S.jmode === 'historic') renderHoje();
 }
 // os dados para o modelo: os do Top Shot (run atual) mais os dias do arquivo que eles não têm (colunas acertadas)
+// O Top Shot dá ao leitor os RP já com o desconto das cartas de quem lê (Mourning 70 → 66 depois de o João comprar a
+// carta, 27 nov) e o site descontava outra vez (63). Os RP de uma lenda não mudam dentro de uma run: fica o maior que se
+// viu nessa run; se a carta já era tua desde o 1.º dia lido, desfaz-se o desconto da melhor carta das tuas contas.
+function histBaseRp(days) {
+  const run = d => String(d.id || '').replace(/-d\d+$/, ''), mx = new Map(), key = (d, id) => run(d) + '|' + id;
+  days.forEach(d => { (d.players || []).forEach(p => { const k = key(d, p[0]); mx.set(k, Math.max(mx.get(k) || 0, +p[3] || 0)); });
+    (d.rp || []).forEach(r => { const k = key(d, r[0]); mx.set(k, Math.max(mx.get(k) || 0, +r[1] || 0)); }); });
+  const seen = new Map(); days.forEach(d => (d.players || []).concat(d.rp || []).forEach(x => { const k = key(d, x[0]), v = +(x.length > 3 ? x[3] : x[1]) || 0; seen.set(k, (seen.get(k) || new Set()).add(v)); }));
+  let disc = null; const undo = (d, p) => { // só quando nunca se viu outro valor e o leitor tinha a carta
+    if (!(+p[4] > 0) || (seen.get(key(d, p[0])) || new Set()).size > 1) return null;
+    if (!disc) { disc = {}; accounts().forEach(a => Object.entries(hWalletDisc(a.id)).forEach(([n, w]) => { disc[n] = Math.max(disc[n] || 0, +w.pct || 0); })); }
+    const pc = disc[norm(p[1] || '')] || 0, c = +p[3]; if (!pc) return null;
+    for (let b = c; b <= c + 30; b++) if (b - Math.round(b * pc / 100) === c) return b;
+    return null; };
+  const fix = new Map(); days.forEach(d => (d.players || []).forEach(p => { const b = undo(d, p); if (b) fix.set(key(d, p[0]), b); }));
+  const base = (d, id, v) => Math.max(+v || 0, mx.get(key(d, id)) || 0, fix.get(key(d, id)) || 0);
+  let ch = false;
+  const out = days.map(d => {
+    const pl = d.players && d.players.map(p => { const b = base(d, p[0], p[3]); if (b === +p[3]) return p; ch = true; const q = p.slice(); q[3] = b; return q; });
+    const rp = d.rp && d.rp.map(r => { const b = base(d, r[0], r[1]); if (b === +r[1]) return r; ch = true; const q = r.slice(); q[1] = b; return q; });
+    return pl === d.players && rp === d.rp ? d : Object.assign({}, d, { players: pl, rp });
+  });
+  return ch ? out : days;
+}
 function histData(H) {
+  const H1 = Object.assign({}, H, { days: histBaseRp(H.days || []) }); return histDataArch(H1);
+}
+function histDataArch(H) {
   const A = S.histArch; if (!A || !A.runs || !A.runs.length) return H;
   const have = new Set(H.days.map(d => d.id)), keys = H.keys || [], extra = [];
   A.runs.forEach(r => (r.days || []).forEach(d => {
@@ -2657,7 +2684,7 @@ function histData(H) {
     const ix = keys.map(k => (r.keys || []).indexOf(k));
     extra.push(Object.assign({}, d, { lines: d.lines.map(l => l.slice(0, 3).concat(ix.map(j => j >= 0 ? l[3 + j] : 0))) }));
   }));
-  return extra.length ? Object.assign({}, H, { days: extra.concat(H.days) }) : H;
+  return extra.length ? Object.assign({}, H, { days: histBaseRp(extra).concat(H.days) }) : H;
 }
 // as contas do grupo (a principal e os smurfs de cada um), sempre pela mesma ordem; cada uma joga uma equipa diferente
 // e a ordem roda um lugar por dia (a melhor equipa não fica sempre para o mesmo). mine[k] = a equipa da minha conta k
