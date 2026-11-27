@@ -3116,7 +3116,8 @@
    ": (twoSame ? 'Duas contas podem jogá-lo no mesmo dia. ' : more ? (usesGain(id, R.U) ? 'Com mais ' + usesTxt(usesGain(id, R.U)) + (multi ? ' em cada conta' : '')": "he plays",
    ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, R.U) ? 'Com mais ' + usesT": "he plays",
    "parts.push(ds.length ? days('joga', ds) : 'fora do plano');": "plays",
-   ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, U) ? 'Com mais ' + usesTxt": "he plays"
+   ": (twoSame ? (one ? 'Duas contas podem jogá-lo no mesmo dia. ' : 'Mais uma conta pode jogá-lo no mesmo dia. ') : more ? (usesGain(id, U) ? 'Com mais ' + usesTxt": "he plays",
+   "const strip = z => '<span class=\"inj-days\" aria-label=\"' + esc(z.cl.map((c, k) => 'dia ' + dayNo(days[k].day.date) + ': ' + (c.c === 'x' ? 'fora' : c.c === 'n' ": "plays"
   }
  },
  "amigo": {
@@ -3511,5 +3512,16 @@
  "<div class=\"note\">Não deu para mostrar as lendas (": "<div class=\"note\">Couldn't show the legends (",
  "relatório da NBA": "NBA report",
  "ESPN": null,
- " (ESPN e NBA, ": " (ESPN and NBA, "
+ " (ESPN e NBA, ": " (ESPN and NBA, ",
+ "NBA": null,
+ "NBA e ESPN, ": "NBA and ESPN, ",
+ "ESPN, ": null,
+ "<div class=\"row small muted\" style=\"display:block\">Ninguém teu que jogue está no relatório. ✓</div>": "<div class=\"row small muted\" style=\"display:block\">None of yours who play is on the report. ✓</div>",
+ "x": null,
+ "v": null,
+ "q": null,
+ "No teu plantel · resto da run": "Your roster · rest of the run",
+ "<div class=\"small muted inj-gone\">Fora da run toda: ": "<div class=\"small muted inj-gone\">Out for the whole run: ",
+ "Especialistas de ": "",
+ " que não jogam": " specialists who won’t play"
 }

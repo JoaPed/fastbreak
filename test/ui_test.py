@@ -879,9 +879,17 @@ with sync_playwright() as pw:
     pg.fill('#rosterFilter', ''); pg.wait_for_timeout(300)
     print('E sub-separadores do plantel:', pg.locator('#plSubBar').inner_text().replace('\n', ' | '))
     pg.click('#tab-plantel button[data-action="sub"][data-sub="lesoes"]'); pg.wait_for_timeout(300); 
-    print('E lesões:', pg.locator('#plSub').inner_text().replace('\n', ' | ')[:400])
+    lz_ = pg.locator('#plSub').inner_text()
+    print('E lesões:', lz_.replace('\n', ' | ')[:400])
+    # (27 nov) hoje com a %, o plantel no resto da run com a faixa dos dias e a procura que filtra tudo
+    nd_ = pg.locator('#plSub .inj-run .inj-d').count() + pg.locator('#plSub .inj-gone button').count()
+    pg.fill('#injSearch', 'shai'); pg.wait_for_timeout(200)
+    vis_ = [x for x in pg.locator('#plSub .inj-f > li[data-n]:visible .nm').all_inner_texts()]
+    pg.fill('#injSearch', ''); pg.wait_for_timeout(200)
+    print('E lesões por secções:', nd_, vis_, '· ok' if ('hoje' in lz_.lower() or 'próximo dia' in lz_.lower()) and 'resto da run' in lz_.lower() and 'Dúvida 50%' in lz_ and nd_ and vis_ and all('Gilgeous' in x for x in vis_) and 'Dia a dia' not in lz_ else '· ERRO')
     pg.screenshot(path=str(shots / 'jogadores-lesoes.png'), full_page=True)
-    pg.locator('#plSub .card').filter(has_text='No teu plantel').locator('button[data-action="pl-sheet"]').filter(has_text='Maxey').click(); pg.wait_for_timeout(300)
+    pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(200); pg.screenshot(path=str(shots / 'jogadores-lesoes-escuro.png'), full_page=True); pg.emulate_media(color_scheme='light')
+    pg.locator('#plSub .card').filter(has_text='No teu plantel').locator('button[data-action="pl-sheet"]').filter(has_text='Maxey').first.click(); pg.wait_for_timeout(300)
     print('E ficha Maxey:', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ')[:300])
     pg.click('#sheetPanel button[data-action="inj-ignore"]'); pg.wait_for_timeout(1200)
     print('E ignorar relatório:', store(pg, '__FAKE_DB.tables.user_runs[0].roster.maxey'), '·', pg.locator('#sheetPanel .note').first.inner_text().replace('\n', ' | ')[:160])

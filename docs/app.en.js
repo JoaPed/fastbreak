@@ -4364,8 +4364,9 @@ const TEAM_NICK = { ATL: 'Hawks', BOS: 'Celtics', BKN: 'Nets', CHA: 'Hornets', C
 // uma linha por jogador: nome e estado em cima; lesão e regresso em baixo; a nota da ESPN curta (o resto na ficha)
 function injRow(rec, action, opt) {
   const c = S.players.get(rec.id) || {}, o = opt || {}, t = c.team || rec.team || '';
-  const sub = [o.team ? teamTag(t) : '', rec.detail ? esc(rec.detail) : '', rec.return_date ? 'back ~' + dShort(rec.return_date) : ''].filter(Boolean).join(' · ');
-  return '<li data-n="' + esc(norm((c.name || rec.name || '') + ' ' + t + ' ' + (TEAM_NICK[t] || ''))) + '"' + (o.minor ? ' data-minor="1" hidden' : '') + '><button class="row" type="button" data-action="' + action + '" data-id="' + esc(rec.id) + '"><span class="who">' + face(rec.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || rec.name) + '</span><span class="pill ' + INJ_PILL[rec.status] + '">' + esc(INJ_LABEL[rec.status]) + '</span></div>' +
+  const sub = [o.team ? teamTag(t) : '', o.note ? esc(o.note) : '', rec.detail ? esc(rec.detail) : '', rec.return_date ? 'back ~' + dShort(rec.return_date) : '', /\(NBA\)/.test(rec.label || '') ? 'NBA' : ''].filter(Boolean).join(' · ');
+  const pc = o.pct != null && o.pct > 0 && o.pct < 1 ? ' ' + Math.round(o.pct * 100) + '%' : '';
+  return '<li data-n="' + esc(norm((c.name || rec.name || '') + ' ' + t + ' ' + (TEAM_NICK[t] || ''))) + '"' + (o.minor ? ' data-minor="1" hidden' : '') + '><button class="row" type="button" data-action="' + action + '" data-id="' + esc(rec.id) + '"><span class="who">' + face(rec.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || rec.name) + '</span><span class="pill ' + INJ_PILL[rec.status] + '">' + (rec.status === 'doubtful' ? '⚠ ' : '') + esc(INJ_LABEL[rec.status]) + pc + '</span>' + (o.badge || '') + '</div>' +
     (sub ? '<div class="ps">' + sub + '</div>' : '') + (rec.comment ? '<div class="ps inj-note">' + esc(rec.comment) + '</div>' : '') + '</div></span></button></li>';
 }
 function lesoesHtml() {
@@ -4379,17 +4380,53 @@ function lesoesHtml() {
   const nImp = all.filter(x => !ros[x.id] && imp(x)).length;
   const grp = t => { const xs = by[t], n = xs.filter(imp).length;
     return '<li class="inj-team" data-t="' + esc(t) + '"' + (n ? '' : ' hidden') + '><div class="inj-th">' + teamTag(t) + ' <span class="muted">' + esc(TEAM_NICK[t] || '') + '</span></div><ul class="list">' + xs.map(x => injRow(x, 'pform', { minor: !imp(x) })).join('') + '</ul></li>'; };
-  return '<div class="card inj-list"><div class="list-head"><h2>Injuries ' + helpBtn('lesoes') + '</h2><span class="small muted">ESPN, ' + esc(ago(S.injAt)) + '</span></div>' +
-    '<div class="lu-search"><input class="field" id="injSearch" type="search" placeholder="Player or team…" autocomplete="off" aria-label="Search player or team" value="' + esc(S.injQ || '') + '"></div>' +
-    '<div class="inj-sec"><h3>In your roster</h3>' + (mine.length ? '<ul class="list" id="injMine">' + mine.map(x => injRow(x, 'pl-sheet', { team: true })).join('') + '</ul>' : '<div class="row small muted" style="display:block">Nobody injured. ✓</div>') + '</div>' +
-    '<div class="inj-sec"><h3>Rest of the NBA <span class="small muted" id="injCount">' + nImp + ' important · search to see everyone</span></h3>' +
+  // (pedido do João a 27 nov: hoje, o plantel na run toda dia a dia, os especialistas do dia que não jogam e a procura)
+  const r = S.result, days = r ? r.model.days.slice(0, 5) : [], md0 = days[0], nd0 = md0 && md0.day;
+  const inLu = new Set(((view() || { days: [] }).days.find(x => nd0 && x.date === nd0.date) || { lineup: [] }).lineup);
+  const pPct = (md, id) => { const pi = r.model.pIndex.get(id), inf = pi != null && md.info[pi] && md.info[pi][0]; return inf ? (inf.injury && inf.injury.status === 'fora' ? 0 : pPlayOf(inf)) : null; };
+  const teamIn = (md, id) => { const pi = r.model.pIndex.get(id); return pi != null && md.teams.has(r.model.players[pi].team); };
+  const nba = all.some(x => /\(NBA\)/.test(x.label || ''));
+  const sec = (t, body) => '<div class="inj-sec"><h3>' + t + '</h3>' + body + '</div>';
+  // hoje: os teus do relatório que jogam no próximo dia (os do lineup primeiro), com a % de jogar
+  const today = md0 ? mine.filter(x => r.model.pIndex.has(x.id) && teamIn(md0, x.id)).sort((a, b) => (inLu.has(b.id) - inLu.has(a.id)) || (INJ_ORDER[a.status] - INJ_ORDER[b.status])) : [];
+  const objs = nd0 ? (nd0.objectives || []).filter(o => o && o.stat) : [];
+  const hojeT = nd0 ? (nd0.date === todayET() ? 'Today' : 'Next day') + ' · day ' + dayNo(nd0.date) + (objs.length ? ' · ' + esc(objs.map(o => statShort(o.stat)).join(' + ')) : '') : 'Today';
+  let html = '<div class="card inj-list"><div class="list-head"><h2>Injuries ' + helpBtn('lesoes') + '</h2><span class="small muted">' + (nba ? 'NBA and ESPN, ' : 'ESPN, ') + esc(ago(S.injAt)) + '</span></div>' +
+    '<div class="lu-search"><input class="field" id="injSearch" type="search" placeholder="Player or team…" autocomplete="off" aria-label="Search player or team" value="' + esc(S.injQ || '') + '"></div>';
+  html += sec(hojeT, today.length ? '<ul class="list inj-f" id="injMine">' + today.map(x => injRow(x, 'pl-sheet', { team: true, pct: pPct(md0, x.id), badge: inLu.has(x.id) ? '<span class="badge">in lineup</span>' : '' })).join('') + '</ul>' : '<div class="row small muted" style="display:block">None of yours who play is on the report. ✓</div>');
+  // o teu plantel no resto da run: uma faixa com os próximos dias (✕ fora, % em dúvida, ✓ joga, – sem jogo)
+  if (r && days.length) {
+    const cells = x => days.map(md => { if (!teamIn(md, x.id)) return { c: 'n', t: '–' }; const p = pPct(md, x.id); return p == null ? { c: 'n', t: '–' } : p <= 0.001 ? { c: 'x', t: '✕' } : p >= 0.995 ? { c: 'v', t: '✓' } : { c: p >= 0.75 ? 'v' : 'q', t: String(Math.round(p * 100)) }; });
+    const lastDate = S.days.length ? S.days[S.days.length - 1].date : '';
+    const rows = mine.filter(x => r.model.pIndex.has(x.id)).map(x => ({ x, cl: cells(x) }));
+    const gone = rows.filter(z => z.cl.every(c => c.c === 'x' || c.c === 'n') && (!z.x.return_date || z.x.return_date > lastDate || z.x.status === 'ofs'));
+    const run = rows.filter(z => !gone.includes(z));
+    const strip = z => '<span class="inj-days" aria-label="' + esc(z.cl.map((c, k) => 'day ' + dayNo(days[k].day.date) + ': ' + (c.c === 'x' ? 'fora' : c.c === 'n' ? 'no game' : c.t === '✓' ? 'plays' : c.t + '%')).join(', ')) + '">' + z.cl.map(c => '<i class="inj-d ' + c.c + '">' + c.t + '</i>').join('') + '</span>';
+    const head = '<div class="inj-dh" aria-hidden="true">' + days.map(md => '<i>' + dayNo(md.day.date) + '</i>').join('') + '</div>';
+    const rowR = z => { const c = S.players.get(z.x.id) || {}, t = c.team || z.x.team || '';
+      return '<li data-n="' + esc(norm((c.name || z.x.name || '') + ' ' + t + ' ' + (TEAM_NICK[t] || ''))) + '"><button class="row" type="button" data-action="pl-sheet" data-id="' + esc(z.x.id) + '"><span class="who">' + face(z.x.id, 'sm') + '<div style="min-width:0"><div class="pn"><span class="nm">' + esc(c.name || z.x.name) + '</span></div><div class="ps">' + [z.x.return_date ? 'back ~' + dShort(z.x.return_date) : '', z.x.detail ? esc(z.x.detail) : ''].filter(Boolean).join(' · ') + '</div></div></span>' + strip(z) + '</button></li>'; };
+    if (run.length || gone.length) html += sec('Your roster · rest of the run', (run.length ? head + '<ul class="list inj-f inj-run">' + run.map(rowR).join('') + '</ul>' : '') +
+      (gone.length ? '<div class="small muted inj-gone">Out for the whole run: ' + gone.map(z => '<button class="btn link small" type="button" data-action="pl-sheet" data-id="' + esc(z.x.id) + '">' + esc(nameOf(z.x.id)) + (z.x.return_date ? ' (~' + dShort(z.x.return_date) + ')' : '') + '</button>').join(', ') + '</div>' : ''));
+  }
+  // especialistas do objetivo do dia que não jogam (fora ou pouco prováveis): mexe com os adversários e as compras
+  const sts = [...new Set(objs.flatMap(o => FB.statTerms(o.stat).filter(t => t.sign > 0).map(t => t.s)))].filter(st => SPEC_STATS.includes(st));
+  if (sts.length) {
+    const pool = [...S.players.values()].filter(p => p.team && p.avg && (+p.avg.min || 0) >= 12);
+    const val = (p, st) => { const a = FB.avgOf({ avg: p.avg }, st); return a ? a.v : null; };
+    const hits = new Map();
+    sts.forEach(st => pool.map(p => ({ p, v: val(p, st) })).filter(z => z.v > 0).sort((a, b) => b.v - a.v).slice(0, 20).forEach((z, k) => {
+      const ir = injRec(z.p.id); if (!ir || !/^(out|ofs|doubtful)$/.test(ir.status) || hits.has(z.p.id) || ros[z.p.id]) return; /* (os teus já estão em cima) */ hits.set(z.p.id, { ir, k: k + 1, st }); }));
+    const sp = [...hits.values()].sort((a, b) => a.k - b.k).slice(0, 6);
+    if (sp.length) html += sec('' + esc(sts.map(statShort).join(' / ')) + ' specialists who won’t play', '<ul class="list inj-f">' + sp.map(z => injRow(z.ir, 'pform', { team: true, note: '#' + z.k + ' in ' + statShort(z.st) })).join('') + '</ul>');
+  }
+  return html + '<div class="inj-sec"><h3>Rest of the NBA <span class="small muted" id="injCount">' + nImp + ' important · search to see everyone</span></h3>' +
     (teams.length ? '<ul class="inj-teams" id="injTeams">' + teams.map(grp).join('') + '</ul>' : '') +
     (nImp ? '' : '<div class="row small muted inj-zero" style="display:block">No important player in the report.</div>') + '<div class="row small muted inj-none" hidden>No injured player with that name or team.</div></div></div>';
 }
 // procurar: sem texto mostra os importantes; com texto, todos os do relatório que batem
 function injFilter() {
   const q = norm(($('injSearch') || {}).value || ''); let n = 0;
-  document.querySelectorAll('#injMine > li').forEach(li => { li.hidden = !!q && !li.dataset.n.includes(q); if (!li.hidden) n++; });
+  document.querySelectorAll('#plSub .inj-f > li[data-n]').forEach(li => { li.hidden = !!q && !li.dataset.n.includes(q); if (!li.hidden) n++; });
   document.querySelectorAll('#injTeams > .inj-team').forEach(g => {
     let k = 0; const tq = q && norm(g.dataset.t + ' ' + (TEAM_NICK[g.dataset.t] || '')).includes(q);
     g.querySelectorAll('li[data-n]').forEach(li => { const ok = q ? (tq || li.dataset.n.includes(q)) : !li.dataset.minor; li.hidden = !ok; if (ok) k++; });
