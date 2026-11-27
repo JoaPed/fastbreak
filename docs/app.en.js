@@ -3151,7 +3151,7 @@ function renderJornada(el) {
     const tr = S.multi && (S.profile || {}).collection ? S.multi.transfers.find(x => x.id === id && x.to === S.acc && x.before <= nd.date) : null;
     if (tr) ps = '<span class="pill prov">Send from ' + esc(accLabel(tr.from)) + '</span> ' + ps;
     if (!live && !S.gOdds[nd.date]) loadGameOdds(nd.date);
-    let stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + esc(STATUS[info.status].label) + '</span>' : '';
+    let stp = info.status !== 'ok' ? '<span class="pill ' + info.status + '">' + (info.status === 'dout' ? '⚠ ' : '') + esc(STATUS[info.status].label) + '</span>' : '';
     let rl = '';
     if (!live && riskOf(md, id)) { const sb = riskSub(md, nd, d.lineup, id);
       stp += '<span class="pill duv risk" title="' + esc((INJ_LABEL[info.injury.rec.status] || '') + ': counted as playing; if he is ruled out, swap him before the game') + '">⚠ ' + esc(INJ_LABEL[info.injury.rec.status] || 'Questionable') + '</span>';
