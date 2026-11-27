@@ -702,22 +702,26 @@ const INJ_LABEL_EN = { out: 'Out', ofs: 'Out for the season', doubtful: 'Doubtfu
 const andJoinEn = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0] || '');
 const hmEn = tz => t => new Intl.DateTimeFormat('en-GB', { timeZone: tz || 'Europe/Lisbon', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(t));
 // o que cada estado quer dizer, em poucas palavras
-const INJ_MEAN_EN = { out: 'won’t play', ofs: 'out for the season', doubtful: 'unlikely', questionable: '50/50', dtd: 'may play', probable: 'likely to play' };
+// a probabilidade de jogar que o plano usa (docs/core.js: Provável 90%, Dúvida/Dia a dia 50%, Pouco provável 25%)
+const INJ_PLAY = { out: 0, ofs: 0, doubtful: 25, questionable: 50, dtd: 50, probable: 90 };
 const newsDay = t => { const ms = Date.parse(t); return isFinite(ms) ? new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Lisbon', month: 'short', day: 'numeric' }).format(new Date(ms)) : null; };
 function groupBlock(i, hm, owners, spec, now) {
   const who = '<b>' + tgEsc(i.name) + '</b>' + (i.team ? ' (' + tgEsc(i.team) + ')' : '');
   const L = st => INJ_LABEL_EN[st] || st || '';
-  const mean = st => (INJ_MEAN_EN[st] ? ' — ' + INJ_MEAN_EN[st] : '');
+  // sem travessões (pedido do João): «Questionable · 50% to play»
+  const mean = st => (INJ_PLAY[st] != null ? ' · ' + INJ_PLAY[st] + '% to play' : '');
   const inj = i.inj || {};
   const out = [];
   if (i.kind === 'clear') { out.push('✅ ' + who + ' · <b>expected to play</b>', 'Off the injury report · tip-off <b>' + hm(i.tip) + '</b>'); }
   else {
     // subiu (pode jogar mais) ou desceu, face ao estado de antes
-    const up = i.kind === 'change' && i.prev && (INJ_RANK[i.status] || 0) < (INJ_RANK[i.prev] || 0), down = i.kind === 'change' && i.prev && !up;
+    // (de Dia a dia para Questionable é a mesma coisa, 50%: diz só o estado novo)
+    const same = i.kind === 'change' && i.prev && INJ_PLAY[i.status] != null && INJ_PLAY[i.status] === INJ_PLAY[i.prev];
+    const up = !same && i.kind === 'change' && i.prev && (INJ_RANK[i.status] || 0) < (INJ_RANK[i.prev] || 0), down = !same && i.kind === 'change' && i.prev && !up;
     const icon = i.kind === 'last' ? '⏰' : i.kind === 'status' ? '📋' : up ? '⬆️' : i.status === 'out' || i.status === 'ofs' ? '🚫' : '⚠️';
     const pre = i.kind === 'last' ? 'Last call · ' : '';
     const st = i.kind === 'status' || i.kind === 'last' ? 'still <b>' + tgEsc(L(i.status).toLowerCase()) + '</b>' + tgEsc(mean(i.status))
-      : (up ? '<b>upgraded to ' + tgEsc(L(i.status)) + '</b>' : down ? '<b>downgraded to ' + tgEsc(L(i.status)) + '</b>' : '<b>' + tgEsc(L(i.status)) + '</b>') + tgEsc(mean(i.status)) + (i.prev && i.kind === 'change' ? ' (was: ' + tgEsc(L(i.prev).toLowerCase()) + ')' : '');
+      : (up ? '<b>upgraded to ' + tgEsc(L(i.status)) + '</b>' : down ? '<b>downgraded to ' + tgEsc(L(i.status)) + '</b>' : same ? 'now <b>' + tgEsc(L(i.status)) + '</b>' : '<b>' + tgEsc(L(i.status)) + '</b>') + tgEsc(mean(i.status)) + (i.prev && i.kind === 'change' ? ' (was: ' + tgEsc(L(i.prev).toLowerCase()) + (INJ_PLAY[i.prev] != null && !same ? ', ' + INJ_PLAY[i.prev] + '%' : '') + ')' : '');
     out.push(icon + ' ' + pre + who + ' · ' + st, (inj.detail ? '🩹 Injury: ' + tgEsc(String(inj.detail).toLowerCase()) + ' · ' : '') + 'tip-off <b>' + hm(i.tip) + '</b>');
     // a notícia só se for das últimas 24 h (as antigas confundem: p. ex. "ruled out for Saturday" depois de ter subido)
     const at = Date.parse(inj.reported_at || '');

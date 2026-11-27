@@ -97,8 +97,10 @@ ok('Telegram: não repete', readTg().sent.length === nTg, readTg().sent.length);
   const now = Date.parse('2026-10-25T18:00:00Z'), tip = Date.parse('2026-10-25T23:30:00Z');
   const m = groupAlertText([{ kind: 'change', status: 'dtd', prev: 'out', id: 'lebron', name: 'LeBron James', team: 'PHI', tip, inj: { detail: 'Back', comment: 'Ruled out for Saturday.', reported_at: '2026-10-24T12:00:00Z' } },
     { kind: 'change', status: 'out', prev: 'questionable', id: 'jo', name: 'Joel Embiid', team: 'PHI', tip, inj: { detail: 'Knee', comment: 'Will not play tonight.', reported_at: '2026-10-25T16:00:00Z' } }], {}, { tz: 'Europe/Lisbon', now });
-  ok('Telegram: lesão que melhora diz "upgraded" e o que quer dizer, sem a notícia antiga', /⬆️ <b>LeBron James<\/b> \(PHI\) · <b>upgraded to Day-to-day<\/b> — may play \(was: out\)/.test(m) && /🩹 Injury: back/.test(m) && !/Saturday/.test(m), m);
-  ok('Telegram: lesão que piora diz "downgraded" e mostra a notícia de hoje com a data', /🚫 <b>Joel Embiid<\/b> \(PHI\) · <b>downgraded to Out<\/b> — won’t play/.test(m) && /📰 News from Oct 25: <i>Will not play tonight.<\/i>/.test(m), m);
+  ok('Telegram: lesão que melhora diz "upgraded" e o que quer dizer, sem a notícia antiga', /⬆️ <b>LeBron James<\/b> \(PHI\) · <b>upgraded to Day-to-day<\/b> · 50% to play \(was: out, 0%\)/.test(m) && /🩹 Injury: back/.test(m) && !/Saturday/.test(m), m);
+  ok('Telegram: lesão que piora diz "downgraded" e mostra a notícia de hoje com a data', /🚫 <b>Joel Embiid<\/b> \(PHI\) · <b>downgraded to Out<\/b> · 0% to play/.test(m) && /📰 News from Oct 25: <i>Will not play tonight.<\/i>/.test(m), m);
+  const m2 = groupAlertText([{ kind: 'change', status: 'questionable', prev: 'dtd', id: 'ky', name: 'Kyrie Irving', team: 'DAL', tip, inj: { detail: 'Knee (left)' } }], {}, { tz: 'Europe/Lisbon', now });
+  ok('Telegram: com a percentagem e sem travessões; de Dia a dia para Questionable diz só o estado novo', /⚠️ <b>Kyrie Irving<\/b> \(DAL\) · now <b>Questionable<\/b> · 50% to play \(was: day-to-day\)/.test(m2) && !/—/.test(m2), m2);
 }
 // relatório oficial da NBA junto ao da ESPN (o PDF de exemplo, servido no nome das 5 da tarde de Nova Iorque)
 {
