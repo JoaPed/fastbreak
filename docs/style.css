@@ -1416,6 +1416,8 @@ body { padding-top: env(safe-area-inset-top, 0px); }
   background: #FFD400; color: #111; font-size: 11px; font-weight: 800; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; }
 .tv-tag svg { width: 8px; height: 8px; flex: none; }
 .gcard .g-mine .tv-tag { margin: 0; }
+.tv-tag.prime { background: #1A98FF; color: #fff; }
+.gcard .g-mine .tv-tag + .tv-tag { margin-left: 4px; }
 
 /* Historic → Comprar: lista curta (lenda, carta, o que dá e o preço) e o filtro de preço */
 .h-buy-max { margin: 8px 0 10px; }

@@ -198,9 +198,24 @@ function espnOdds(c) {
 }
 // jogos na Sport TV (e o canal): vêm do guia da Sport TV pela tarefa do calendário (scripts/sync-tv.mjs), guardados
 // em odds_days.players._tv → S.tv[data] = {'FORA@CASA': 'SPORT TV 2'}
+// Prime Video: em Portugal mostra o pacote de jogos do Prime Video dos EUA (docs/data/prime-video.json, da lista da
+// NBA com cidades; liga-se aos jogos do dia pelas equipas). Faltava: a 27 nov o Heat @ Knicks deu lá e o site não disse.
+const TEAM_CITY = { ATL: 'Atlanta', BOS: 'Boston', BKN: 'Brooklyn', CHA: 'Charlotte', CHI: 'Chicago', CLE: 'Cleveland', DAL: 'Dallas', DEN: 'Denver', DET: 'Detroit', GSW: 'Golden State', HOU: 'Houston', IND: 'Indiana', LAC: 'Los Angeles', LAL: 'Los Angeles', MEM: 'Memphis', MIA: 'Miami', MIL: 'Milwaukee', MIN: 'Minnesota', NOP: 'New Orleans', NYK: 'New York', OKC: 'Oklahoma City', ORL: 'Orlando', PHI: 'Philadelphia', PHX: 'Phoenix', POR: 'Portland', SAC: 'Sacramento', SAS: 'San Antonio', TOR: 'Toronto', UTA: 'Utah', WAS: 'Washington' };
+S.prime = null;
+function loadPrime() {
+  if (S.prime) return; S.prime = { busy: true, by: {} };
+  fetch('data/prime-video.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => {
+    const by = {}; ((j && j.games) || []).forEach(g => (by[g[0]] = by[g[0]] || []).push([String(g[1]), String(g[2])]));
+    S.prime = { by }; if (Object.keys(by).length) render();
+  }).catch(() => { S.prime = { by: {} }; });
+}
+const primeOn = (date, a, b) => { if (!S.prime) loadPrime(); const L = ((S.prime || {}).by || {})[date] || [], ca = TEAM_CITY[a] || '', cb = TEAM_CITY[b] || '';
+  return L.some(([x, y]) => (x.startsWith(ca) && y.startsWith(cb)) || (x.startsWith(cb) && y.startsWith(ca))); };
 function tvTag(team, nd) {
   const g = FB.gameOf(nd, team), ch = g && ((S.tv || {})[nd.date] || {})[teamFix(g[0]) + '@' + teamFix(g[1])];
-  return ch ? ' <span class="tv-tag" title="Dá na ' + esc(ch) + '"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>' + esc(ch) + '</span>' : '';
+  const ico = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>';
+  const pv = g && primeOn(nd.date, teamFix(g[0]), teamFix(g[1]));
+  return (ch ? ' <span class="tv-tag" title="Dá na ' + esc(ch) + '">' + ico + esc(ch) + '</span>' : '') + (pv ? ' <span class="tv-tag prime" title="Dá no Prime Video">' + ico + 'Prime Video</span>' : '');
 }
 async function loadGameOdds(date) {
   const G = S.gOdds[date]; if (G && (G.busy || Date.now() - G.at < 30 * 60e3)) return;

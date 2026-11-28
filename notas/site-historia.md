@@ -261,3 +261,9 @@ ESPN pelas equipas e início a ≤ 90 min. `scripts/tv.mjs` (puro) + `scripts/sy
 - Junta-se à ESPN na tarefa Lesões (`mergeNbaInjuries`): o estado da NBA manda no próximo jogo (label "… (NBA)"), fica a data
   de regresso da ESPN, Fora da época não muda, Available tira-o do relatório, jogos passados não contam.
 - No motor: Probable 90%, Questionable/Dia a dia 50%, Doubtful 25%, Out 0 (já existia; agora há dados para os usar).
+
+## Prime Video (28 nov 2026)
+- Em Portugal o Prime Video dá o mesmo pacote de jogos do Prime dos EUA (2025-26: 67 jogos; a 27 nov o Heat @ Knicks da
+  NBA Cup deu lá). Lista da época em `docs/data/prime-video.json` (de nba.com/news/every-nba-game-on-prime-video-in-2026-27,
+  com cidades "Los Angeles" que o site liga ao jogo do dia pelas equipas). Os playoffs (TBD na lista) têm de ser acrescentados
+  quando saírem. A etiqueta azul aparece ao lado da da Sport TV em "Jogos de hoje".

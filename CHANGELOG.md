@@ -4,6 +4,7 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-28
+- **João** — Jogos de hoje: também diz quando o jogo dá no Prime Video (os ~60 jogos do Prime da época, da lista da NBA), além da Sport TV.
 - **João** — Lesões: em Hoje deixam de aparecer os que estão fora; logo a seguir os especialistas do dia e depois o teu plantel na run.
 
 ## 2026-11-27

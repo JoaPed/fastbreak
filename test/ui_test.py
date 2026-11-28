@@ -754,6 +754,8 @@ with sync_playwright() as pw:
         sent.append(r.request.post_data)
         r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{}')
     pg.route('https://ntfy.sh/**', ntfy)
+    # o Prime Video (lista da NBA, por cidades): BOS @ DET neste dia
+    pg.route('**/data/prime-video.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps({'games': [['2026-10-20', 'Boston', 'Detroit']]})))
     pg.clock.set_fixed_time('2026-10-20T15:00:00Z')  # dia 1, antes dos jogos
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
@@ -765,7 +767,8 @@ with sync_playwright() as pw:
     if gc.count(): gc.first.screenshot(path=str(shots / 'jogos-de-hoje.png'))  # só quem joga hoje: já não há lista para abrir
     print('E jogos de hoje:', gc.first.inner_text().replace('\n', ' | ')[:240] if gc.count() else 'ERRO sem cartão', '· caras:', gc.first.locator('.face').count() if gc.count() else 0)
     gt_ = [x.inner_text().replace('\n', ' ') for x in pg.locator('#tab-hoje .gcard').all() if x.locator('.tv-tag').count()]
-    print('E jogos de hoje com o canal da Sport TV:', gt_, '· ok' if len(gt_) == 1 and 'SPORT TV 1' in gt_[0] else '· ERRO')
+    st_ = [x for x in gt_ if 'SPORT TV' in x]; pv_ = [x for x in gt_ if 'Prime Video' in x]
+    print('E jogos de hoje com o canal da Sport TV e o Prime Video:', gt_, '· ok' if len(st_) == 1 and 'SPORT TV 1' in st_[0] and len(pv_) == 1 and 'DET' in pv_[0] and 'BOS' in pv_[0] else '· ERRO')
     rk = lineup_card(pg).locator('.row').filter(has=pg.locator('.pill.risk'))
     print('E dia a dia no lineup:', rk.inner_text().replace('\n', ' ')[:160] if rk.count() else 'ERRO sem ⚠', '· ok' if rk.count() and 'se não jogar' not in rk.inner_text() and 'Dúvida 50%' in rk.inner_text() and 'Dia a dia' not in rk.inner_text() and lineup_card(pg).locator('.bench-row').count() else '· ERRO')  # com suplente não diz nada; com a %
     lineup_card(pg).screenshot(path=str(shots / 'lineup-lesao-pct.png'))
