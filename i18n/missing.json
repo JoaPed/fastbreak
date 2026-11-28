@@ -1,1 +1,47 @@
-[]
+[
+ {
+  "file": "docs/app.js",
+  "text": " em dúvida ou fora",
+  "line": "html += sec('Especialistas de ' + esc(sts.map(statShort).join(' / ')) + ' em dúvida ou fora', sp.length ? '<ul class=\"list inj-f\">' + sp.map(z => injRow(z.ir, '"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "<div class=\"row small muted\" style=\"display:block\">Os 20 melhores em ",
+  "line": "html += sec('Especialistas de ' + esc(sts.map(statShort).join(' / ')) + ' em dúvida ou fora', sp.length ? '<ul class=\"list inj-f\">' + sp.map(z => injRow(z.ir, '"
+ },
+ {
+  "file": "docs/app.js",
+  "text": " estão todos a jogar. ✓</div>",
+  "line": "html += sec('Especialistas de ' + esc(sts.map(statShort).join(' / ')) + ' em dúvida ou fora', sp.length ? '<ul class=\"list inj-f\">' + sp.map(z => injRow(z.ir, '"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "tu",
+  "line": "if (p.topshot_username) L.push({ ts: p.topshot_username, who: me ? 'tu' : p.display_name || '', me });"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "<div class=\"card\"><div class=\"list-head\"><h2>Nomes no Top Shot</h2><span class=\"small muted\">toca para copiar</span></div><div class=\"ts-names\">",
+  "line": "return '<div class=\"card\"><div class=\"list-head\"><h2>Nomes no Top Shot</h2><span class=\"small muted\">toca para copiar</span></div><div class=\"ts-names\">' +"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "\" aria-label=\"Copiar ",
+  "line": "L.map(x => '<button class=\"ts-name\" type=\"button\" data-action=\"copy-ts\" data-v=\"' + esc(x.ts) + '\" aria-label=\"Copiar ' + esc(x.ts) + '\"><b translate=\"no\">' + e"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Top Shot: <b translate=\"no\">",
+  "line": "openSheet('<h3>' + esc(E.name || 'Sem nome') + '</h3><div class=\"small muted\">' + (sm ? 'Smurf de ' + esc(p.display_name || '?') + ' · ' : '') + (ts ? 'Top Shot"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "\">Copiar</button>",
+  "line": "openSheet('<h3>' + esc(E.name || 'Sem nome') + '</h3><div class=\"small muted\">' + (sm ? 'Smurf de ' + esc(p.display_name || '?') + ' · ' : '') + (ts ? 'Top Shot"
+ },
+ {
+  "file": "docs/app.js",
+  "text": "Copiado: ",
+  "line": "case 'copy-ts': { const v = b.dataset.v || ''; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast('Copiado: ' + v), ()"
+ }
+]

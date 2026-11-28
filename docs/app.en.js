@@ -4422,9 +4422,10 @@ function lesoesHtml() {
     const val = (p, st) => { const a = FB.avgOf({ avg: p.avg }, st); return a ? a.v : null; };
     const hits = new Map();
     sts.forEach(st => pool.map(p => ({ p, v: val(p, st) })).filter(z => z.v > 0).sort((a, b) => b.v - a.v).slice(0, 20).forEach((z, k) => {
-      const ir = injRec(z.p.id); if (!ir || !/^(out|ofs|doubtful)$/.test(ir.status) || hits.has(z.p.id) || ros[z.p.id]) return; /* (os teus já estão em cima) */ hits.set(z.p.id, { ir, k: k + 1, st }); }));
+      const ir = injRec(z.p.id); if (!ir || !/^(out|ofs|doubtful|questionable|dtd)$/.test(ir.status) || hits.has(z.p.id) || ros[z.p.id]) return; /* (os teus já estão em cima) */ hits.set(z.p.id, { ir, k: k + 1, st }); }));
     const sp = [...hits.values()].sort((a, b) => a.k - b.k).slice(0, 6);
-    if (sp.length) html += sec('' + esc(sts.map(statShort).join(' / ')) + ' specialists who won’t play', '<ul class="list inj-f">' + sp.map(z => injRow(z.ir, 'pform', { team: true, note: '#' + z.k + ' in ' + statShort(z.st) })).join('') + '</ul>');
+    // aparece sempre (entre o dia e o plantel), mesmo sem ninguém: assim sabe-se que se viu
+    html += sec('' + esc(sts.map(statShort).join(' / ')) + ' specialists in doubt or out', sp.length ? '<ul class="list inj-f">' + sp.map(z => injRow(z.ir, 'pform', { team: true, note: '#' + z.k + ' in ' + statShort(z.st) })).join('') + '</ul>' : '<div class="row small muted" style="display:block">The top 20 in ' + esc(sts.map(statShort).join(' / ')) + ' are all playing. ✓</div>');
   }
   // o teu plantel no resto da run: uma faixa com os próximos dias (✕ fora, % em dúvida, ✓ joga, – sem jogo)
   if (r && days.length) {
@@ -5415,7 +5416,20 @@ function renderGrupo() {
     // só a linha de corte (vitórias para entrar no top 50 / nos prémios), se for conhecida; a legenda saiu
     bandsLine(R) + (R && R.cut && Object.keys(R.cut).length ? '<div class="small muted gc-leg">Wins to get in: ' + Object.entries(R.cut).map(([k, w]) => 'top ' + k + ' ' + w).join(', ') + '</div>' : '') + '</div>' +
     // lugares e preços: só quem gere o grupo (admin) os vai ler ao Top Shot; os outros veem o que ele leu
-    '<div class="foot" style="padding:0;border:0;grid-template-columns:1fr"><button class="btn" type="button" data-action="group-refresh">Refresh</button></div>';
+    tsNamesCard() + '<div class="foot" style="padding:0;border:0;grid-template-columns:1fr"><button class="btn" type="button" data-action="group-refresh">Refresh</button></div>';
+}
+// os utilizadores do Top Shot do grupo (contas principais e smurfs): tocar copia, para fazer trocas entre nós
+function tsNamesCard() {
+  const mem = new Set(S.group.members.map(m => m.user_id)), L = [];
+  S.group.profiles.filter(p => mem.has(p.user_id)).forEach(p => {
+    const me = S.session && p.user_id === S.session.user.id;
+    if (p.topshot_username) L.push({ ts: p.topshot_username, who: me ? 'you' : p.display_name || '', me });
+    (Array.isArray(p.smurfs) ? p.smurfs : []).forEach(x => { if (x && x.id && x.topshot_username) L.push({ ts: x.topshot_username, who: 'smurf' + (me ? '' : p.display_name ? ' of ' + p.display_name : ''), me }); });
+  });
+  if (!L.length) return '';
+  L.sort((a, b) => (a.me - b.me) || a.ts.localeCompare(b.ts));
+  return '<div class="card"><div class="list-head"><h2>Top Shot names</h2><span class="small muted">tap to copy</span></div><div class="ts-names">' +
+    L.map(x => '<button class="ts-name" type="button" data-action="copy-ts" data-v="' + esc(x.ts) + '" aria-label="Copy ' + esc(x.ts) + '"><b translate="no">' + esc(x.ts) + '</b>' + (x.who ? '<small>' + esc(x.who) + '</small>' : '') + '<span class="ts-cp" aria-hidden="true">⧉</span></button>').join('') + '</div></div>';
 }
 // uma entrada por conta de cada membro (principal e smurfs): resultados da blockchain, depois os do próprio (resumo
 // publicado) e, nos dias que ainda não têm, o resultado pelas fichas da ESPN com o lineup partilhado (prov: por confirmar)
@@ -5477,7 +5491,7 @@ function friendSheet(uid, acc) {
       (r ? '<span class="pchip ' + (r === 'win' ? 'p-good' : 'p-bad') + '">' + (r === 'win' ? 'W' : 'L') + '</span>' : '<span class="pchip p-done">—</span>') + '</li>';
   }).join('');
   const ts = sm ? sm.topshot_username : p.topshot_username;
-  openSheet('<h3>' + esc(E.name || 'No name') + '</h3><div class="small muted">' + (sm ? 'Smurf of ' + esc(p.display_name || '?') + ' · ' : '') + (ts ? 'Top Shot: ' + esc(ts) : 'No Top Shot username in the profile') + '</div>' +
+  openSheet('<h3>' + esc(E.name || 'No name') + '</h3><div class="small muted">' + (sm ? 'Smurf of ' + esc(p.display_name || '?') + ' · ' : '') + (ts ? 'Top Shot: <b translate="no">' + esc(ts) + '</b> <button class="btn quiet small" type="button" data-action="copy-ts" data-v="' + esc(ts) + '">Copy</button>' : 'No Top Shot username in the profile') + '</div>' +
     '<ul class="list card">' + rows + '</ul>');
 }
 
@@ -7895,6 +7909,7 @@ document.addEventListener('click', async e => {
     case 'alerts-ntfy-on': if (await saveAlerts({ ntfy: newTopic() })) { renderAjustes(); toast('Now subscribe to the topic in the ntfy app.'); } break;
     case 'alerts-ntfy-off': if (await saveAlerts({ ntfy: null })) { renderAjustes(); toast('Phone notifications off.'); } break;
     case 'alerts-test': b.disabled = true; await testNtfy(); b.disabled = false; break;
+    case 'copy-ts': { const v = b.dataset.v || ''; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast('Copied: ' + v), () => toast(v)); break; }
     case 'copy-topic': try { await navigator.clipboard.writeText((S.alerts || {}).ntfy || ''); toast('Topic copied.'); } catch (err) { toast('Couldn\'t copy: select the text.'); } break;
     case 'buy-sheet': closeSheet(); setSub('plantel', 'comprar'); setTab('plantel'); break;
     case 'buy-retry': S.autoBuyErr = null; S.autoBuy = null; autoBuyBusy = null; render(); scheduleAutoBuy(); break;

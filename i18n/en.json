@@ -3554,5 +3554,14 @@
  "Utah": null,
  "Washington": null,
  " <span class=\"tv-tag prime\" title=\"Dá no Prime Video\">": " <span class=\"tv-tag prime\" title=\"On Prime Video\">",
- "Prime Video</span>": null
+ "Prime Video</span>": null,
+ " em dúvida ou fora": " specialists in doubt or out",
+ "<div class=\"row small muted\" style=\"display:block\">Os 20 melhores em ": "<div class=\"row small muted\" style=\"display:block\">The top 20 in ",
+ " estão todos a jogar. ✓</div>": " are all playing. ✓</div>",
+ "tu": "you",
+ "<div class=\"card\"><div class=\"list-head\"><h2>Nomes no Top Shot</h2><span class=\"small muted\">toca para copiar</span></div><div class=\"ts-names\">": "<div class=\"card\"><div class=\"list-head\"><h2>Top Shot names</h2><span class=\"small muted\">tap to copy</span></div><div class=\"ts-names\">",
+ "\" aria-label=\"Copiar ": "\" aria-label=\"Copy ",
+ "Top Shot: <b translate=\"no\">": null,
+ "\">Copiar</button>": "\">Copy</button>",
+ "Copiado: ": "Copied: "
 }

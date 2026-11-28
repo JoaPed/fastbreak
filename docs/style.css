@@ -1442,3 +1442,12 @@ body { padding-top: env(safe-area-inset-top, 0px); }
 .inj-d.n { opacity: .45; }
 .inj-gone { padding: 8px 12px 4px; line-height: 1.6; }
 .inj-gone .btn.link { padding: 0; min-height: 0; }
+
+/* nomes do Top Shot do grupo (Grupo → Classificação): tocar copia */
+.ts-names { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 16px 14px; }
+.ts-name { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: inherit; font: inherit; font-size: 14px; cursor: pointer; touch-action: manipulation; transition: border-color .15s, background-color .15s; }
+.ts-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ts-name small { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.ts-name .ts-cp { color: var(--muted); font-size: 13px; }
+.ts-name:hover, .ts-name:focus-visible { border-color: var(--ball); }
+.ts-name:active { background: var(--ball-soft); }

@@ -4,6 +4,8 @@ O que muda no site, do mais recente para o mais antigo. Cada mudança que entra 
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
 ## 2026-11-28
+- **João** — Grupo: novo cartão "Nomes no Top Shot" com o utilizador de cada conta do grupo (e smurfs); toca para copiar, para as trocas. A ficha de cada conta também tem "Copiar".
+- **João** — Lesões: os especialistas do dia aparecem sempre entre o dia e o plantel (também os em dúvida; se ninguém faltar, diz que estão todos a jogar).
 - **João** — A fazer: depois do 1.º jogo do dia (lineup fechado no Top Shot) deixa de mostrar o que mandar entre contas e os avisos de lesão desse dia.
 - **João** — Canais: o Prime Video passa a vir também do placar da ESPN (apanha os jogos que só se sabem tarde, como a fase a eliminar da NBA Cup), 10 dias para a frente; e os canais leem-se de meia em meia hora à noite, além das leituras da manhã.
 - **João** — Jogos de hoje: também diz quando o jogo dá no Prime Video (os ~60 jogos do Prime da época, da lista da NBA), além da Sport TV.

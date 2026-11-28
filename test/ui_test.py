@@ -897,7 +897,7 @@ with sync_playwright() as pw:
     hoje_ = pg.locator('#plSub #injMine').inner_text() if pg.locator('#plSub #injMine').count() else ''
     hs_ = [h.lower() for h in pg.locator('#plSub .inj-sec h3').all_inner_texts()]
     ordem_ = [k for k, h in enumerate(hs_) if 'especialistas' in h] + [k for k, h in enumerate(hs_) if 'resto da run' in h]
-    print('E lesões: hoje sem os que estão fora, depois os especialistas, depois a run:', 'Maxey' not in hoje_, hs_, '· ok' if 'Maxey' not in hoje_ and 'Gilgeous' in hoje_ and ordem_ == sorted(ordem_) else '· ERRO')
+    print('E lesões: hoje sem os que estão fora, depois os especialistas, depois a run:', 'Maxey' not in hoje_, hs_, '· ok' if 'Maxey' not in hoje_ and 'Gilgeous' in hoje_ and ordem_ == sorted(ordem_) and any('especialistas' in h for h in hs_) else '· ERRO')
     print('E lesões por secções:', nd_, vis_, '· ok' if ('hoje' in lz_.lower() or 'próximo dia' in lz_.lower()) and 'resto da run' in lz_.lower() and 'Dúvida 50%' in lz_ and nd_ and vis_ and all('Gilgeous' in x for x in vis_) and 'Dia a dia' not in lz_ else '· ERRO')
     pg.screenshot(path=str(shots / 'jogadores-lesoes.png'), full_page=True)
     pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(200); pg.screenshot(path=str(shots / 'jogadores-lesoes-escuro.png'), full_page=True); pg.emulate_media(color_scheme='light')
@@ -936,6 +936,14 @@ with sync_playwright() as pw:
     pg.click('#t-grupo'); pg.wait_for_timeout(600)
     print('E grupo:', ' // '.join(pg.locator('#tab-grupo .gc tbody tr').all_inner_texts()).replace('\n', ' ')[:300])
     pg.screenshot(path=str(shots / 'grupo-aros.png'), full_page=True)
+    # nomes do Top Shot do grupo: os dos outros primeiro, o meu no fim; tocar copia (e a ficha do amigo também tem Copiar)
+    print('E nomes Top Shot:', ' | '.join(x.replace('\n', ' ') for x in pg.locator('#tab-grupo .ts-names .ts-name').all_inner_texts()))
+    pg.evaluate("() => { window._cp = []; navigator.clipboard.writeText = v => { window._cp.push(v); return Promise.resolve(); }; }")
+    pg.click('#tab-grupo .ts-name[data-v="rui_ts"]'); pg.wait_for_timeout(300)
+    print('E copiar nome:', pg.evaluate('window._cp'), '/', pg.locator('#toast').inner_text() if pg.locator('#toast').count() else '?')
+    pg.locator('#tab-grupo .gc tbody tr[data-acc="main"]').filter(has_text='Rui').first.click(); pg.wait_for_timeout(400)
+    pg.click('#sheetPanel button[data-action="copy-ts"]'); pg.wait_for_timeout(200); print('E copiar na ficha:', pg.evaluate('window._cp'))
+    pg.click('#sheetPanel .sheet-bar [data-action="close-sheet"]'); pg.wait_for_timeout(300)
     print('E largura:', width(pg))
     # folhas: × sempre em cima à direita; ‹ quando há folha anterior; o voltar do telemóvel volta/fecha sem sair da app
     sheet_t = lambda: pg.locator('#sheetPanel h3').first.inner_text() if pg.evaluate('!document.getElementById("sheet").hidden') else '(fechada)'
