@@ -209,7 +209,8 @@ function loadPrime() {
     S.prime = { by }; if (Object.keys(by).length) render();
   }).catch(() => { S.prime = { by: {} }; });
 }
-const primeOn = (date, a, b) => { if (!S.prime) loadPrime(); const L = ((S.prime || {}).by || {})[date] || [], ca = TEAM_CITY[a] || '', cb = TEAM_CITY[b] || '';
+const primeOn = (date, a, b) => { if (((S.primeDay || {})[date] || []).includes(a + '@' + b)) return true;
+  if (!S.prime) loadPrime(); const L = ((S.prime || {}).by || {})[date] || [], ca = TEAM_CITY[a] || '', cb = TEAM_CITY[b] || '';
   return L.some(([x, y]) => (x.startsWith(ca) && y.startsWith(cb)) || (x.startsWith(cb) && y.startsWith(ca))); };
 function tvTag(team, nd) {
   const g = FB.gameOf(nd, team), ch = g && ((S.tv || {})[nd.date] || {})[teamFix(g[0]) + '@' + teamFix(g[1])];
@@ -787,6 +788,8 @@ async function loadOdds() {
   if (runId !== S.runId) return false;
   let changed = false;
   (rows || []).forEach(o => { if (o.players && o.players._dobra) { S.dobra[o.date] = o.players._dobra; o = Object.assign({}, o, { players: Object.assign({}, o.players) }); delete o.players._dobra; }
+    // Prime Video tirado do placar da ESPN (tarefa dos canais): S.primeDay[data] = ['FORA@CASA', …]
+    if (o.players && o.players._prime) { (S.primeDay = S.primeDay || {})[o.date] = o.players._prime; o = Object.assign({}, o, { players: Object.assign({}, o.players) }); delete o.players._prime; }
     if (o.players && o.players._tv) { const tv = o.players._tv; if (JSON.stringify((S.tv || {})[o.date] || {}) !== JSON.stringify(tv)) { (S.tv = S.tv || {})[o.date] = tv; changed = true; } o = Object.assign({}, o, { players: Object.assign({}, o.players) }); delete o.players._tv; }
     if (!o.source && !Object.keys(o.players || {}).length) return; // só o canal da TV: ainda não há odds
     const cur = S.odds[o.date]; if (!cur || cur.updated_at !== o.updated_at) { S.odds[o.date] = S.alias.size ? Object.assign({}, o, { players: canonDeep(o.players || {}, S.alias) }) : o; changed = true; } });

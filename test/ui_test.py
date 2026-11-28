@@ -30,8 +30,8 @@ def seeded():
     # dia 1: o 1.º jogo dá na SPORT TV 1 (para o cartão «Jogos de hoje»)
     g1_ = [d_ for d_ in run['days'] if d_['date'] == '2026-10-20'][0]['games'][0]
     for r_ in odds_rows:
-        if r_['date'] == '2026-10-20': r_['players'] = dict(r_['players'], _tv={g1_[0] + '@' + g1_[1]: 'SPORT TV 1'})
-    if not any(r_['date'] == '2026-10-20' for r_ in odds_rows): odds_rows.append({'date': '2026-10-20', 'players': {'_tv': {g1_[0] + '@' + g1_[1]: 'SPORT TV 1'}}, 'updated_at': '2026-10-20T06:13:00Z'})
+        if r_['date'] == '2026-10-20': r_['players'] = dict(r_['players'], _tv={g1_[0] + '@' + g1_[1]: 'SPORT TV 1'}, _prime=[g1_[0] + '@' + g1_[1]])
+    if not any(r_['date'] == '2026-10-20' for r_ in odds_rows): odds_rows.append({'date': '2026-10-20', 'players': {'_tv': {g1_[0] + '@' + g1_[1]: 'SPORT TV 1'}, '_prime': [g1_[0] + '@' + g1_[1]]}, 'updated_at': '2026-10-20T06:13:00Z'})
     friend_days = {run['days'][0]['date']: 'win', run['days'][1]['date']: 'win'}
     return {
         'users': [{'id': 'u-amigo', 'email': 'amigo@x.pt', 'password': 'segredo1'}, {'id': 'u-eu', 'email': 'eu@x.pt', 'password': 'segredo1', 'user_metadata': {'name': 'João'}}],
@@ -755,7 +755,7 @@ with sync_playwright() as pw:
         r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{}')
     pg.route('https://ntfy.sh/**', ntfy)
     # o Prime Video (lista da NBA, por cidades): BOS @ DET neste dia
-    pg.route('**/data/prime-video.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps({'games': [['2026-10-20', 'Boston', 'Detroit']]})))
+    pg.route('**/data/prime-video.json', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps({'games': []})))  # (vem do placar da ESPN: _prime)
     pg.clock.set_fixed_time('2026-10-20T15:00:00Z')  # dia 1, antes dos jogos
     pg.goto('https://site.test/'); pg.wait_for_timeout(500)
     pg.fill('#auEmail', 'eu@x.pt'); pg.fill('#auPass', 'segredo1'); pg.click('#auSubmit'); pg.wait_for_timeout(2500)
