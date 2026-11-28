@@ -3345,14 +3345,16 @@ function todoCard(r, v, d, md, nd, live, tips) {
       '<button class="row" type="button" ' + attrs + '><div style="min-width:0"><div class="todo-t">' + html + '</div>' + (sub && !on ? '<div class="ps">' + sub + '</div>' : '') + '</div><span class="muted" aria-hidden="true">›</span></button></li>';
     return on ? (done.push(li), '') : li;
   };
+  // depois do 1.º jogo do dia o lineup fica fechado no Top Shot: já não há nada a mandar nem a trocar para hoje
+  const started = nd.date <= todayET() && (live || ((tips || []).length && Date.now() >= Date.parse(tips[0])));
   const today = todayET(), at = (day, team) => { const tt = team ? FB.tipTime(day, team) : null; return tt ? 'by ' + hm(new Date(tt).toISOString()) : 'before his game'; };
   if (S.multi) {
     if (!(S.profile || {}).collection) items.push(btn('data-action="goto" data-tab="plantel" data-sub="colecao"', 'Read the wallets of your accounts', 'To know what to send to each account.', 'wallet|' + today));
     else {
-      const due = S.multi.transfers.filter(t => t.before <= nd.date);
+      const due = started ? [] : S.multi.transfers.filter(t => t.before <= nd.date);
       // o suplente do dia, se o Moment dele tem de vir de outra conta
       // (de todas as contas: cada uma o seu)
-      const BA = benchAll(nd.date, d && d.lineup && d.lineup.length ? { [S.acc]: d.lineup } : null) || {};
+      const BA = started ? {} : benchAll(nd.date, d && d.lineup && d.lineup.length ? { [S.acc]: d.lineup } : null) || {};
       Object.entries(BA).forEach(([a, o]) => { const f = o.f, id = o.x.id;
         if (f && f.from && !due.some(t => t.id === id && t.to === a)) due.push({ id, from: f.from, to: a, before: nd.date, uses: f.uses || 0, bench: true }); });
       // agrupadas pela conta de onde saem (entra-se numa conta de cada vez no Top Shot) e, dentro, uma linha por hora
@@ -3376,7 +3378,7 @@ function todoCard(r, v, d, md, nd, live, tips) {
       // sem textos por baixo (pedido do João): as trocas dos dias seguintes aparecem quando chegar a vez delas
     }
   }
-  d.lineup.forEach(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], j = info.injury;
+  if (!started) d.lineup.forEach(id => { const pi = r.model.pIndex.get(id), info = md.info[pi][0], j = info.injury;
     if (j && !j.ignored && j.status && !info.liveState) items.push(btn('data-action="player" data-id="' + esc(id) + '" data-date="' + nd.date + '"', '<b>' + esc(nameOf(id)) + '</b>' + (j.risk ? ' ⚠' : '') + ': ' + esc((INJ_LABEL[j.rec.status] || '').toLowerCase()) + ', ' + pct(pPlayOf(info)) + ' to play', (() => { const bz = j.risk ? benchOf(md, nd, d.lineup) : null; if (bz) return 'Put <b>' + esc(nameOf(bz.id)) + '</b> on the bench in Top Shot: he comes in if this one doesn\'t play.'; const sb = j.risk ? riskSub(md, nd, d.lineup, id) : null; return 'Check ' + at(nd, r.model.players[pi].team) + '; if he sits, ' + (sb ? 'swap him for <b>' + esc(nameOf(sb.id)) + '</b> in Top Shot (today ' + pct(sb.P) + ').' : 'take him out in Top Shot.'); })(), 'inj|' + id + '|' + nd.date + '|' + j.rec.status)); });
   // run a sério: dia que acabou há mais de 12 h e não fechou sozinho (sem lineup guardado, ou sem estatísticas)
   const run = curRun();

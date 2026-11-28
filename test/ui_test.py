@@ -682,6 +682,11 @@ with sync_playwright() as pw:
     bn = bz.first.locator('.bnm').inner_text() if bz.count() else '?'
     td = pg.locator('#tab-hoje .todo').inner_text() if pg.locator('#tab-hoje .todo').count() else ''
     print('C4 suplente precisa do Rare:', bt[:120], '| para fazer:', bn in td, '· ok' if (('Mandar o Rare de' in bt and bn in td) or '⚠ joga na' in bt) else '· ERRO')
+    # depois do 1.º jogo do dia o lineup fecha: já não há nada a mandar para hoje (28 nov)
+    ti0 = pg.locator('#tab-hoje .todo .todo-pl').count()
+    pg.clock.set_fixed_time('2026-10-22T23:40:00Z'); pg.click('#t-run'); pg.wait_for_timeout(300); pg.click('#t-hoje'); pg.wait_for_timeout(800)
+    ti1 = pg.locator('#tab-hoje .todo .todo-pl').count()
+    print('C4 a fazer depois do 1.º jogo:', ti0, '→', ti1, '· ok' if ti0 and not ti1 else '· ERRO')
     T['user_runs'][0]['plan'] = {}
     pg.close()
 
