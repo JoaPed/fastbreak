@@ -73,3 +73,17 @@ export function matchTv(items, gamesByDate) {
   }
   return out;
 }
+// Prime Video a partir do placar da ESPN (as transmissões nacionais dos EUA: em Portugal o Prime Video dá o mesmo
+// pacote). Apanha também os jogos que só se sabem tarde (a fase a eliminar da NBA Cup). → ['FORA@CASA', …]
+export function espnPrime(json, teamOf) {
+  const out = [];
+  for (const ev of (json && json.events) || []) {
+    const comp = (ev.competitions || [])[0] || {};
+    const names = [].concat(...(comp.broadcasts || []).map(b => b.names || []), (comp.geoBroadcasts || []).map(g => ((g.media || {}).shortName) || ''), (ev.broadcasts || []).map(b => ((b.media || {}).shortName) || b.name || ''));
+    if (!names.some(n => /prime/i.test(String(n)))) continue;
+    const side = h => ((comp.competitors || []).find(c => c.homeAway === h) || {}).team || {};
+    const a = teamOf(side('away').abbreviation), b = teamOf(side('home').abbreviation);
+    if (a && b) out.push(a + '@' + b);
+  }
+  return out;
+}

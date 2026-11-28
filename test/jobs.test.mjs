@@ -340,6 +340,13 @@ ok('regularidade: poucos jogos não contam', histFromGames(gl.slice(0, 3)).d ===
   ok('sport tv: lê os jogos da NBA do guia (e não os magazines)', items.length === 2 && items[0].a === 'NYK' && items[0].b === 'POR' && items[0].ch === 'SPORT TV 2', items);
   const tv = matchTv(items, { '2026-11-21': [['POR', 'NYK', '2026-11-22T00:30:00Z', 'espn:1'], ['SAC', 'MIN', '2026-11-22T01:00:00Z', 'espn:2']] });
   ok('sport tv: liga ao jogo certo pelo início (a repetição das 05:00 fica de fora)', JSON.stringify(tv) === JSON.stringify({ '2026-11-21': { 'POR@NYK': 'SPORT TV 2' } }), tv);
+  const { espnPrime } = await import('../scripts/tv.mjs');
+  const sbd = { events: [
+    { competitions: [{ broadcasts: [{ market: 'national', names: ['Prime Video'] }], competitors: [{ homeAway: 'home', team: { abbreviation: 'NY' } }, { homeAway: 'away', team: { abbreviation: 'MIA' } }] }] },
+    { competitions: [{ geoBroadcasts: [{ media: { shortName: 'Prime Video' } }], competitors: [{ homeAway: 'home', team: { abbreviation: 'SA' } }, { homeAway: 'away', team: { abbreviation: 'LAL' } }] }] },
+    { competitions: [{ broadcasts: [{ market: 'home', names: ['FanDuel SN'] }], competitors: [{ homeAway: 'home', team: { abbreviation: 'DET' } }, { homeAway: 'away', team: { abbreviation: 'MIL' } }] }] }] };
+  const pv = espnPrime(sbd, espnTeam);
+  ok('prime video: tirado das transmissões do placar da ESPN', JSON.stringify(pv) === JSON.stringify(['MIA@NYK', 'LAL@SAS']), pv);
   ok('sport tv: nome do canal', stvChannel('SPORTTV1') === 'SPORT TV 1' && stvChannel({ nome: 'Sport TV 2' }) === 'SPORT TV 2' && stvChannel('SPORT TV+') === null);
 }
 // relatório oficial de lesões da NBA (PDF de exemplo no formato do da liga: test/fixtures/nba-injury.pdf)
