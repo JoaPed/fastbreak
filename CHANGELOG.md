@@ -3,6 +3,9 @@
 O que muda no site, do mais recente para o mais antigo. Cada mudança que entra no `main` acrescenta aqui uma linha
 (regras no `CLAUDE.md`): **quem** — o quê, em palavras de quem usa o site (e o n.º do Pull Request, se houver).
 
+## 2026-11-28
+- **João** — Lesões: em Hoje deixam de aparecer os que estão fora; logo a seguir os especialistas do dia e depois o teu plantel na run.
+
 ## 2026-11-27
 - **João** — Jogadores → Lesões: novo separador com Hoje (os teus do relatório, com a % e «no lineup»), o teu plantel no resto da run (faixa dia a dia: ✕ / % / ✓), «Fora da run toda» numa linha, os especialistas do objetivo do dia que não jogam, e a procura para o resto da NBA.
 - **João** — Lesões: deixa de aparecer «Dia a dia» (Day-to-day): mostra-se como «Dúvida» / Questionable, o mesmo 50%; e passar de um para o outro já não manda aviso.

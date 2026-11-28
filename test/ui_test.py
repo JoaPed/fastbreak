@@ -886,6 +886,10 @@ with sync_playwright() as pw:
     pg.fill('#injSearch', 'shai'); pg.wait_for_timeout(200)
     vis_ = [x for x in pg.locator('#plSub .inj-f > li[data-n]:visible .nm').all_inner_texts()]
     pg.fill('#injSearch', ''); pg.wait_for_timeout(200)
+    hoje_ = pg.locator('#plSub #injMine').inner_text() if pg.locator('#plSub #injMine').count() else ''
+    hs_ = [h.lower() for h in pg.locator('#plSub .inj-sec h3').all_inner_texts()]
+    ordem_ = [k for k, h in enumerate(hs_) if 'especialistas' in h] + [k for k, h in enumerate(hs_) if 'resto da run' in h]
+    print('E lesões: hoje sem os que estão fora, depois os especialistas, depois a run:', 'Maxey' not in hoje_, hs_, '· ok' if 'Maxey' not in hoje_ and 'Gilgeous' in hoje_ and ordem_ == sorted(ordem_) else '· ERRO')
     print('E lesões por secções:', nd_, vis_, '· ok' if ('hoje' in lz_.lower() or 'próximo dia' in lz_.lower()) and 'resto da run' in lz_.lower() and 'Dúvida 50%' in lz_ and nd_ and vis_ and all('Gilgeous' in x for x in vis_) and 'Dia a dia' not in lz_ else '· ERRO')
     pg.screenshot(path=str(shots / 'jogadores-lesoes.png'), full_page=True)
     pg.emulate_media(color_scheme='dark'); pg.wait_for_timeout(200); pg.screenshot(path=str(shots / 'jogadores-lesoes-escuro.png'), full_page=True); pg.emulate_media(color_scheme='light')
